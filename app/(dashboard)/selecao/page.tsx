@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -35,7 +35,7 @@ const STATUS_ICON: Record<GaleriaSelecao["status"], string> = {
   aguardando_revisao: "⚠️",
 };
 
-export default function SelecaoPage() {
+function SelecaoConteudo() {
   const router       = useRouter();
   const searchParams = useSearchParams();
   const [galerias, setGalerias] = useState<GaleriaComCliente[]>([]);
@@ -206,5 +206,13 @@ export default function SelecaoPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function SelecaoPage() {
+  return (
+    <Suspense>
+      <SelecaoConteudo />
+    </Suspense>
   );
 }

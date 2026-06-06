@@ -168,7 +168,9 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 // ─── Página principal ─────────────────────────────────────────────────────────
-export default function NovaSelecaoPage() {
+import { Suspense } from "react";
+
+function NovaSelecaoConteudo() {
   const router        = useRouter();
   const params        = useSearchParams();
   const { fotografo } = useFotografo();
@@ -580,5 +582,13 @@ export default function NovaSelecaoPage() {
         <ModalNovoCliente fotografoId={fotografo.id} onClose={() => setModalCliente(false)} onCriado={handleClienteCriado} />
       )}
     </div>
+  );
+}
+
+export default function NovaSelecaoPage() {
+  return (
+    <Suspense>
+      <NovaSelecaoConteudo />
+    </Suspense>
   );
 }
