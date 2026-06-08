@@ -53,7 +53,7 @@ export default function WebmasterPage() {
       const supabase = createClient();
       const { data: { session } } = await supabase.auth.getSession();
       if (!session || session.user.id !== WEBMASTER_ID) {
-        router.push("/");
+        router.push("/login");
         return;
       }
       setVerificado(true);

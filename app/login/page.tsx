@@ -73,7 +73,7 @@ export default function LoginPage() {
       sessionStorage.removeItem("usefokio_session_only");
     }
 
-    router.push("/");
+    router.push("/dashboard");
     router.refresh();
   };
 

@@ -4,15 +4,13 @@ import { type NextRequest, NextResponse } from "next/server";
 const WEBMASTER_ID = process.env.NEXT_PUBLIC_WEBMASTER_ID ?? "";
 
 // Rotas protegidas (exigem sessão autenticada)
-const PROTECTED = ["/", "/clientes", "/selecao", "/entrega", "/config", "/conta"];
+const PROTECTED = ["/dashboard", "/clientes", "/selecao", "/entrega", "/config", "/conta"];
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Verifica se é rota protegida do dashboard
-  const isProtected = PROTECTED.some((p) =>
-    p === "/" ? pathname === "/" : pathname.startsWith(p)
-  );
+  const isProtected = PROTECTED.some((p) => pathname === p || pathname.startsWith(p + "/"));
 
   if (!isProtected) return NextResponse.next();
 
@@ -50,7 +48,8 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/",
+    "/dashboard",
+    "/dashboard/:path*",
     "/clientes/:path*",
     "/selecao/:path*",
     "/entrega/:path*",

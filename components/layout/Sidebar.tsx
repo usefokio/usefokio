@@ -8,7 +8,7 @@ import { PLANOS, pctUso, corBarra, type PlanoId } from "@/lib/planos";
 
 const NAV_ITEMS = [
   {
-    href: "/",
+    href: "/dashboard",
     label: "Dashboard",
     icon: (
       <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
@@ -73,7 +73,7 @@ export function Sidebar() {
   const { fotografo } = useFotografo();
 
   const isActive = (href: string) =>
-    href === "/" ? pathname === "/" : pathname.startsWith(href);
+    pathname === href || (href !== "/dashboard" && pathname.startsWith(href));
 
   const initials = fotografo
     ? fotografo.nome_completo.split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase()
