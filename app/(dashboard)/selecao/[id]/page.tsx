@@ -188,6 +188,7 @@ export default function GaleriaSelecaoPage() {
         } catch { /* sem EXIF */ }
 
         setP(10);
+        if (!galeria || !fotografo) throw new Error("Galeria ou fotógrafo não carregado");
         // Beta: forçar HD independente da configuração da galeria
         const resolucaoUpload = BETA_RESOLUCAO_MAXIMA ? "hd" : galeria.resolucao_exibicao;
         const processed = await processarImagem(file, resolucaoUpload);
