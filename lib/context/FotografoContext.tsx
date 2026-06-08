@@ -21,14 +21,12 @@ const FotografoContext = createContext<FotografoContextType>({
 
 export function FotografoProvider({ children }: { children: ReactNode }) {
   const [fotografo, setFotografo] = useState<Fotografo | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading]     = useState(true);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const supabase = createClient();
-
-      // Pega sessão do storage local (sem chamada de rede)
       const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
 
       if (sessionError || !sessionData.session?.user?.id) {
@@ -36,16 +34,14 @@ export function FotografoProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      const userId = sessionData.session.user.id;
-
       const { data, error } = await supabase
         .from("fotografos")
         .select("*")
-        .eq("id", userId)
+        .eq("id", sessionData.session.user.id)
         .maybeSingle();
 
       if (error) {
-        console.error("[FotografoContext] Erro ao buscar perfil:", error.message);
+        console.error("[FotografoContext] Erro:", error.message);
         setFotografo(null);
       } else {
         setFotografo(data);

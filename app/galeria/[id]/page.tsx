@@ -21,6 +21,7 @@ type InfoGaleria = {
   capa_url: string | null;
   capa_thumb: string | null;
   tem_senha: boolean;
+  mostrar_rating_cliente: boolean;
 };
 
 type FotoPublica = {
@@ -32,6 +33,7 @@ type FotoPublica = {
   altura: number | null;
   categoria_id: string | null;
   ordem: number;
+  rating: number;
 };
 
 type EscolhaCliente = {
@@ -542,10 +544,16 @@ export default function GaleriaClientePage() {
     setEnviando(false);
     if (data?.ok) {
       setTela("enviada");
+      // Notifica fotógrafo por email (fire-and-forget)
+      fetch("/api/email/selecao-enviada", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ galeriaId: id, totalSelecionadas: escolhas.size }),
+      }).catch(() => {});
     } else {
       setErroEnvio(data?.erro ?? error?.message ?? "Erro ao enviar. Tente novamente.");
     }
-  }, [info, id, senhaValida]);
+  }, [info, id, senhaValida, escolhas.size]);
 
   const minOk      = !info?.limite_minimo || escolhas.size >= info.limite_minimo;
   const podeEnviar = minOk && escolhas.size > 0 && !enviando;
@@ -708,6 +716,15 @@ export default function GaleriaClientePage() {
                         💬
                       </div>
                     )}
+                  </div>
+                )}
+
+                {/* Estrelas (só quando fotógrafo habilitou) */}
+                {info.mostrar_rating_cliente && (foto.rating ?? 0) > 0 && (
+                  <div style={{ position: "absolute", bottom: 6, left: 6, display: "flex", gap: 1, pointerEvents: "none" }}>
+                    {[1,2,3,4,5].map((i) => (
+                      <span key={i} style={{ fontSize: 11, color: i <= foto.rating ? "#F59E0B" : "rgba(255,255,255,0.25)", textShadow: "0 1px 2px rgba(0,0,0,0.7)", lineHeight: 1 }}>★</span>
+                    ))}
                   </div>
                 )}
 

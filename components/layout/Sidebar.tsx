@@ -95,27 +95,7 @@ export function Sidebar() {
     >
       {/* Logo */}
       <div style={{ padding: "16px 16px 12px", borderBottom: "0.5px solid var(--color-border-tertiary)" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <div
-            style={{
-              width: 26,
-              height: 26,
-              borderRadius: 6,
-              background: "var(--color-text-primary)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
-              <circle cx="7" cy="7" r="4" stroke="var(--color-background-primary)" strokeWidth="1.5" />
-              <circle cx="7" cy="7" r="1.5" fill="var(--color-background-primary)" />
-            </svg>
-          </div>
-          <span style={{ fontSize: 14, fontWeight: 700, color: "var(--color-text-primary)", letterSpacing: "-0.02em" }}>
-            UseFokio
-          </span>
-        </div>
+        <img src="/usefokio-logo.svg" alt="UseFokio" style={{ height: 24, width: "auto", display: "block" }} />
       </div>
 
       {/* Nav */}

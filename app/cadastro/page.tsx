@@ -187,12 +187,23 @@ export default function CadastroPage() {
       return;
     }
 
-    // 3. Redireciona — para confirmação de email quando ativa, ou direto para dashboard
+    // 3. Notifica webmaster sobre novo cadastro (fire-and-forget, não bloqueia)
+    fetch("/api/email/novo-fotografo", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        nomeCompleto: form.nomeCompleto,
+        nomeEmpresa:  form.nomeEmpresa,
+        email:        form.email,
+      }),
+    }).catch(() => { /* silencioso — não impede o fluxo */ });
+
+    // 4. Redireciona — para confirmação de email quando ativa, senão para aguardando aprovação
     const emailPendente = authData.user?.identities?.[0]?.identity_data?.email_verified === false;
     if (emailPendente) {
       router.push("/cadastro/confirmar-email?email=" + encodeURIComponent(form.email));
     } else {
-      router.push("/");
+      router.push("/aguardando-aprovacao");
     }
   };
 

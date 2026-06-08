@@ -18,13 +18,21 @@ export default function LandingPage() {
 
   return (
     <div style={{ fontFamily: "system-ui,sans-serif", color: "#111", background: "#fff", minHeight: "100vh" }}>
+      {/* Banner beta */}
+      <div style={{
+        background: "rgba(245,158,11,0.1)", borderBottom: "1px solid rgba(245,158,11,0.3)",
+        padding: "8px 24px", textAlign: "center",
+        fontSize: 13, color: "#92400E", fontWeight: 500,
+        display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+      }}>
+        <span>🧪</span>
+        <span>Sistema em <strong>fase de testes beta</strong> — acesso mediante aprovação. Cadastre-se e aguarde liberação.</span>
+      </div>
+
       {/* Navbar */}
       <nav style={{ position: "sticky", top: 0, zIndex: 50, background: "rgba(255,255,255,0.95)", backdropFilter: "blur(8px)", borderBottom: "1px solid #f0f0f0", padding: "0 32px", display: "flex", alignItems: "center", height: 56 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginRight: 36 }}>
-          <div style={{ width: 26, height: 26, borderRadius: 6, background: "#111", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="4" stroke="#fff" strokeWidth="1.5"/><circle cx="7" cy="7" r="1.5" fill="#fff"/></svg>
-          </div>
-          <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: "-0.02em" }}>UseFokio</span>
+        <div style={{ display: "flex", alignItems: "center", marginRight: 36 }}>
+          <img src="/usefokio-logo.svg" alt="UseFokio" style={{ height: 26, width: "auto", display: "block" }} />
         </div>
         <div style={{ display: "flex", gap: 2, flex: 1 }}>
           {(["home","features","plans","blog"] as const).map((id) => (
@@ -35,7 +43,7 @@ export default function LandingPage() {
         </div>
         <div style={{ display: "flex", gap: 8 }}>
           <Link href="/login" style={{ padding: "7px 14px", borderRadius: 7, border: "none", background: "transparent", color: "#555", fontSize: 13, textDecoration: "none" }}>Entrar</Link>
-          <Link href="/cadastro" style={{ padding: "7px 16px", borderRadius: 7, background: "#111", color: "#fff", fontSize: 13, fontWeight: 500, textDecoration: "none" }}>Começar grátis</Link>
+          <Link href="/cadastro" style={{ padding: "7px 16px", borderRadius: 7, background: "#111", color: "#fff", fontSize: 13, fontWeight: 500, textDecoration: "none" }}>Solicitar acesso beta</Link>
         </div>
       </nav>
 
@@ -55,10 +63,10 @@ export default function LandingPage() {
               Publique, deixe o cliente selecionar online e entregue com qualidade profissional. Sem WhatsApp, sem planilha.
             </p>
             <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
-              <Link href="/cadastro" style={{ padding: "12px 28px", borderRadius: 9, background: "#2563EB", color: "#fff", fontSize: 15, fontWeight: 600, textDecoration: "none" }}>Criar conta grátis</Link>
+              <Link href="/cadastro" style={{ padding: "12px 28px", borderRadius: 9, background: "#2563EB", color: "#fff", fontSize: 15, fontWeight: 600, textDecoration: "none" }}>Solicitar acesso beta</Link>
               <button onClick={() => setNav("features")} style={{ padding: "12px 28px", borderRadius: 9, background: "transparent", color: "#374151", border: "1px solid #d1d5db", fontSize: 15, cursor: "pointer" }}>Ver como funciona</button>
             </div>
-            <p style={{ fontSize: 12, color: "#9CA3AF", marginTop: 14 }}>Grátis para sempre. Sem cartão de crédito.</p>
+            <p style={{ fontSize: 12, color: "#9CA3AF", marginTop: 14 }}>Fase beta — acesso gratuito, liberado manualmente.</p>
           </section>
 
           {/* UI Preview */}

@@ -21,6 +21,7 @@ export type Fotografo = {
   email_confirmado: boolean;
   plano: "gratuito" | "profissional" | "estudio";
   total_fotos_usadas: number;
+  aprovado: boolean;
   created_at: string;
   updated_at: string;
 };
@@ -78,6 +79,7 @@ export type GaleriaSelecao = {
   foto_capa_id: string | null;
   selecao_enviada: boolean;
   selecao_enviada_em: string | null;
+  mostrar_rating_cliente: boolean;
   total_fotos: number;
   created_at: string;
   updated_at: string;
@@ -96,6 +98,7 @@ export type GaleriaSelecaoFoto = {
   tamanho_bytes: number | null;
   resolucao: ResolucaoExibicao | null;
   ordem: number;
+  rating: number;
   created_at: string;
 };
 

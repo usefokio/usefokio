@@ -73,6 +73,24 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  // Redireciona para o dashboard (ou para a rota solicitada)
+  const WEBMASTER_ID = process.env.NEXT_PUBLIC_WEBMASTER_ID ?? "";
+
+  // Webmaster → painel webmaster
+  if (WEBMASTER_ID && user.id === WEBMASTER_ID) {
+    return NextResponse.redirect(new URL("/webmaster", request.url));
+  }
+
+  // Verifica se fotógrafo está aprovado
+  const { data: statusPerfil } = await supabase
+    .from("fotografos")
+    .select("aprovado")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (statusPerfil && !statusPerfil.aprovado) {
+    return NextResponse.redirect(new URL("/aguardando-aprovacao", request.url));
+  }
+
+  // Aprovado → dashboard (ou rota solicitada)
   return NextResponse.redirect(new URL(next, request.url));
 }

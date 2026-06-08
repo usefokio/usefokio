@@ -1,5 +1,11 @@
 export type PlanoId = "gratuito" | "profissional" | "estudio";
 
+/**
+ * Fase beta — limita resolução de upload a HD (1.280px) para economizar armazenamento.
+ * Quando o sistema sair do beta, basta mudar para false.
+ */
+export const BETA_RESOLUCAO_MAXIMA = true;
+
 export type PlanoConfig = {
   id:           PlanoId;
   nome:         string;

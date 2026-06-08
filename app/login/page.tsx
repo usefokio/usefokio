@@ -121,14 +121,8 @@ export default function LoginPage() {
 
         {/* Nav */}
         <nav style={{ padding: "16px 32px", borderBottom: "0.5px solid var(--color-border-tertiary)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <Link href="/landing" style={{ display: "flex", alignItems: "center", gap: 8, textDecoration: "none" }}>
-            <div style={{ width: 26, height: 26, borderRadius: 6, background: "var(--color-text-primary)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
-                <circle cx="7" cy="7" r="4" stroke="#fff" strokeWidth="1.5"/>
-                <circle cx="7" cy="7" r="1.5" fill="#fff"/>
-              </svg>
-            </div>
-            <span style={{ fontSize: 14, fontWeight: 700, color: "var(--color-text-primary)", letterSpacing: "-0.02em" }}>UseFokio</span>
+          <Link href="/landing" style={{ display: "flex", alignItems: "center", textDecoration: "none" }}>
+            <img src="/usefokio-logo.svg" alt="UseFokio" style={{ height: 24, width: "auto", display: "block" }} />
           </Link>
           <span style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>
             Não tem conta?{" "}

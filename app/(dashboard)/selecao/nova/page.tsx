@@ -7,6 +7,7 @@ import { useFotografo } from "@/lib/context/FotografoContext";
 import { gerarSenhaAcesso } from "@/lib/utils";
 import type { Cliente, Categoria, ConfigVendaFotos, ResolucaoExibicao } from "@/lib/supabase/types";
 import { processarImagem, formatBytes } from "@/lib/imageResize";
+import { BETA_RESOLUCAO_MAXIMA } from "@/lib/planos";
 import { Field } from "@/components/ui/Field";
 import { inputStyle } from "@/lib/styles";
 
@@ -185,7 +186,7 @@ function NovaSelecaoConteudo() {
   const [clienteId, setClienteId]   = useState(params.get("cliente") ?? "");
   const [dataEvento, setDataEvento] = useState("");
   const [prazo, setPrazo]           = useState("");
-  const [resolucao, setResolucao]   = useState<ResolucaoExibicao>("fullhd");
+  const [resolucao, setResolucao]   = useState<ResolucaoExibicao>(BETA_RESOLUCAO_MAXIMA ? "hd" : "fullhd");
   const [selecaoLivre, setSelecaoLivre] = useState(true);
   const [limiteMin, setLimiteMin]   = useState("");
   const [limiteMax, setLimiteMax]   = useState("");
@@ -263,7 +264,7 @@ function NovaSelecaoConteudo() {
       titulo: titulo.trim(), selecao_livre: selecaoLivre,
       limite_minimo: selecaoLivre ? null : (parseInt(limiteMin) || null),
       limite_maximo: selecaoLivre ? null : (parseInt(limiteMax) || null),
-      resolucao_exibicao: resolucao, venda_ativa: vendaAtiva,
+      resolucao_exibicao: BETA_RESOLUCAO_MAXIMA ? "hd" : resolucao, venda_ativa: vendaAtiva,
       venda_preco_unitario: vendaAtiva ? (parseFloat(vendaPreco) || null) : null,
       venda_pacote_minimo: vendaAtiva ? (parseInt(vendaPacoteMin) || null) : null,
       data_evento: dataEvento || null,
@@ -293,7 +294,9 @@ function NovaSelecaoConteudo() {
 
       try {
         updateItem({ status: "processando", progresso: 10 });
-        const processed = await processarImagem(item.file, resolucao);
+        // Beta: forçar HD independente da seleção do fotógrafo
+        const resolucaoUpload = BETA_RESOLUCAO_MAXIMA ? "hd" : resolucao;
+        const processed = await processarImagem(item.file, resolucaoUpload);
         updateItem({ status: "enviando", progresso: 40 });
 
         const uuid      = crypto.randomUUID();
@@ -315,7 +318,7 @@ function NovaSelecaoConteudo() {
           galeria_id: data.id, storage_path: mainPath,
           thumbnail_path: thumbUrl.publicUrl, url_publica: mainUrl.publicUrl,
           nome_arquivo: item.file.name, largura: processed.largura, altura: processed.altura,
-          tamanho_bytes: processed.tamanho_bytes, resolucao, ordem: 0,
+          tamanho_bytes: processed.tamanho_bytes, resolucao: resolucaoUpload, ordem: 0,
         });
         if (e3) throw new Error(e3.message);
 
@@ -327,6 +330,15 @@ function NovaSelecaoConteudo() {
       concluidos++;
       setUploadAtual(concluidos);
     }));
+
+    // Notifica cliente por email (fire-and-forget) — só se galeria ativa e tem cliente
+    if (status === "ativa" && clienteId) {
+      fetch("/api/email/galeria-criada", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ galeriaId: data.id }),
+      }).catch(() => {});
+    }
 
     router.push(`/selecao/${data.id}`);
   }
@@ -443,14 +455,48 @@ function NovaSelecaoConteudo() {
 
             <Field label="Resolução de exibição das fotos">
               <div style={{ display: "flex", gap: 8 }}>
-                {(["hd", "fullhd", "4k"] as ResolucaoExibicao[]).map((r) => (
-                  <button key={r} type="button" onClick={() => setResolucao(r)} style={{ flex: 1, padding: "10px 8px", borderRadius: 8, cursor: "pointer", border: `0.5px solid ${resolucao === r ? "#2563EB" : "var(--color-border-tertiary)"}`, background: resolucao === r ? "rgba(37,99,235,0.07)" : "var(--color-background-secondary)", color: resolucao === r ? "#2563EB" : "var(--color-text-secondary)", fontSize: 12, fontWeight: resolucao === r ? 700 : 400, transition: "all 0.15s" }}>
-                    {r === "hd" ? "HD" : r === "fullhd" ? "Full HD" : "4K"}
-                    <div style={{ fontSize: 10, marginTop: 2, opacity: 0.7 }}>{r === "hd" ? "1.280px" : r === "fullhd" ? "1.920px" : "3.840px"}</div>
-                  </button>
-                ))}
+                {(["hd", "fullhd", "4k"] as ResolucaoExibicao[]).map((r) => {
+                  const bloqueado = BETA_RESOLUCAO_MAXIMA && r !== "hd";
+                  const ativo     = resolucao === r && !bloqueado;
+                  return (
+                    <button
+                      key={r}
+                      type="button"
+                      onClick={() => !bloqueado && setResolucao(r)}
+                      title={bloqueado ? "Disponível após o beta" : undefined}
+                      style={{
+                        flex: 1, padding: "10px 8px", borderRadius: 8,
+                        cursor: bloqueado ? "not-allowed" : "pointer",
+                        border: `0.5px solid ${ativo ? "#2563EB" : "var(--color-border-tertiary)"}`,
+                        background: bloqueado ? "var(--color-background-tertiary)" : ativo ? "rgba(37,99,235,0.07)" : "var(--color-background-secondary)",
+                        color: bloqueado ? "var(--color-text-secondary)" : ativo ? "#2563EB" : "var(--color-text-secondary)",
+                        fontSize: 12, fontWeight: ativo ? 700 : 400,
+                        opacity: bloqueado ? 0.45 : 1,
+                        transition: "all 0.15s",
+                        position: "relative",
+                      }}
+                    >
+                      {r === "hd" ? "HD" : r === "fullhd" ? "Full HD" : "4K"}
+                      <div style={{ fontSize: 10, marginTop: 2, opacity: 0.7 }}>
+                        {r === "hd" ? "1.280px" : r === "fullhd" ? "1.920px" : "3.840px"}
+                      </div>
+                      {bloqueado && (
+                        <div style={{ fontSize: 9, marginTop: 3, color: "#F59E0B", fontWeight: 600 }}>
+                          🔒 beta
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
-              <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: "5px 0 0" }}>As fotos são redimensionadas no navegador antes do upload. O sistema nunca aumenta o original.</p>
+              {BETA_RESOLUCAO_MAXIMA && (
+                <p style={{ fontSize: 11, color: "#B45309", margin: "6px 0 0", background: "rgba(245,158,11,0.08)", border: "0.5px solid rgba(245,158,11,0.25)", borderRadius: 6, padding: "6px 10px" }}>
+                  🧪 <strong>Fase beta:</strong> uploads limitados a HD (1.280px) para economizar armazenamento. Full HD e 4K estarão disponíveis em breve.
+                </p>
+              )}
+              {!BETA_RESOLUCAO_MAXIMA && (
+                <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: "5px 0 0" }}>As fotos são redimensionadas no navegador antes do upload. O sistema nunca aumenta o original.</p>
+              )}
             </Field>
           </div>
         </Section>

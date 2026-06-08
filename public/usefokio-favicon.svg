@@ -1,0 +1,14 @@
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Fundo -->
+  <rect width="64" height="64" rx="14" fill="#F1EFE8"/>
+  <!-- U: pilar esquerdo -->
+  <rect x="13" y="14" width="9" height="36" rx="2" fill="#2C2C2A"/>
+  <!-- U: pilar direito -->
+  <rect x="29" y="14" width="9" height="36" rx="2" fill="#2C2C2A"/>
+  <!-- U: base -->
+  <rect x="13" y="42" width="25" height="8" rx="2" fill="#2C2C2A"/>
+  <!-- F: barra superior -->
+  <rect x="35" y="14" width="16" height="8" rx="2" fill="#2C2C2A" opacity="0.45"/>
+  <!-- F: barra do meio -->
+  <rect x="35" y="27" width="12" height="8" rx="2" fill="#2C2C2A" opacity="0.45"/>
+</svg>
