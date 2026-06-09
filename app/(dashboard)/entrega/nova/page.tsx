@@ -4,105 +4,203 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Field } from "@/components/ui/Field";
 import { inputStyle } from "@/lib/styles";
-import { MOCK_CLIENTS, MOCK_SELECAO } from "@/lib/mock-data";
+import { MOCK_CLIENTS } from "@/lib/mock-data";
 
-const MOCK_FILES = ["EDIT_0001_final.jpg","EDIT_0002_final.jpg","EDIT_0003_final.jpg"];
+const PRAZOS_FIXOS = [15, 30, 60, 120];
+
+function addDias(n: number): Date {
+  const d = new Date(); d.setDate(d.getDate() + n); return d;
+}
+
+function formatarData(d: Date): string {
+  return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" });
+}
 
 export default function NovaEntregaPage() {
   const router = useRouter();
-  const [form, setForm] = useState({ titulo: "", cliente: "", selecaoRef: "", expiracao: 60, download: "individual", obs: "" });
-  const [files, setFiles] = useState<string[]>([]);
 
-  const upd = (k: string, v: string | number) => setForm((f) => ({ ...f, [k]: v }));
+  const [titulo,      setTitulo]     = useState("");
+  const [clienteId,   setClienteId]  = useState("");
+  const [dataEvento,  setDataEvento] = useState("");
+  const [driveLink,   setDriveLink]  = useState("");
+  const [prazoFixo,   setPrazoFixo]  = useState<number | "custom">(30);
+  const [prazoCustom, setPrazoCustom]= useState("");
+  const [renovacao,   setRenovacao]  = useState("");
+  const [mensagem,    setMensagem]   = useState("");
+  const [saving,      setSaving]     = useState(false);
+
+  const diasEfetivos = prazoFixo === "custom"
+    ? (parseInt(prazoCustom) || 0)
+    : prazoFixo;
+
+  const dataExpiracao = diasEfetivos > 0 ? addDias(diasEfetivos) : null;
+
+  async function handlePublicar() {
+    if (!titulo.trim()) return;
+    setSaving(true);
+    await new Promise((r) => setTimeout(r, 600));
+    router.push("/entrega");
+  }
 
   return (
-    <div style={{ padding: "26px 30px", maxWidth: 780 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 24 }}>
-        <button onClick={() => router.back()} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--color-text-secondary)", fontSize: 13, padding: 0 }}>
-          ← Voltar
-        </button>
-        <span style={{ color: "var(--color-border-secondary)" }}>/</span>
-        <span style={{ fontSize: 14, fontWeight: 600, color: "var(--color-text-primary)" }}>Nova galeria de entrega</span>
-      </div>
-
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
-        <div style={{ gridColumn: "1 / -1" }}>
-          <Field label="Título da galeria *">
-            <input value={form.titulo} onChange={(e) => upd("titulo", e.target.value)} placeholder="Ex: Casamento João & Maria — Finais" style={inputStyle} />
-          </Field>
-        </div>
-        <Field label="Cliente *">
-          <select value={form.cliente} onChange={(e) => upd("cliente", e.target.value)} style={inputStyle}>
-            <option value="">Selecione um cliente</option>
-            {MOCK_CLIENTS.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
-        </Field>
-        <Field label="Vincular à galeria de seleção">
-          <select value={form.selecaoRef} onChange={(e) => upd("selecaoRef", e.target.value)} style={inputStyle}>
-            <option value="">Nenhuma (entrega avulsa)</option>
-            {MOCK_SELECAO.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
-          </select>
-        </Field>
-        <Field label="Expiração do link (dias)">
-          <input type="number" value={form.expiracao} onChange={(e) => upd("expiracao", e.target.value)} min={7} style={inputStyle} />
-        </Field>
-        <Field label="Tipo de download permitido">
-          <select value={form.download} onChange={(e) => upd("download", e.target.value)} style={inputStyle}>
-            <option value="individual">Individual por foto</option>
-            <option value="zip">Apenas ZIP completo</option>
-            <option value="ambos">Individual e ZIP</option>
-          </select>
-        </Field>
-        <div style={{ gridColumn: "1 / -1" }}>
-          <Field label="Mensagem para o cliente">
-            <input value={form.obs} onChange={(e) => upd("obs", e.target.value)} placeholder="Ex: Suas fotos estão prontas! Aproveite ❤️" style={inputStyle} />
-          </Field>
-        </div>
-      </div>
-
-      {/* Upload */}
-      <div style={{ marginBottom: 20 }}>
-        <div style={{ fontSize: 12, fontWeight: 600, color: "var(--color-text-secondary)", letterSpacing: "0.03em", marginBottom: 8 }}>FOTOS EDITADAS *</div>
-        <div
-          onClick={() => setFiles(MOCK_FILES)}
-          style={{ border: "1.5px dashed var(--color-border-secondary)", borderRadius: 10, padding: "36px 24px", textAlign: "center", background: "var(--color-background-secondary)", cursor: "pointer" }}
-        >
-          {files.length === 0 ? (
-            <>
-              <div style={{ fontSize: 28, marginBottom: 8 }}>📁</div>
-              <div style={{ fontSize: 13, fontWeight: 500, color: "var(--color-text-primary)", marginBottom: 4 }}>Arraste as fotos editadas em alta resolução</div>
-              <div style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>JPG, TIFF · Alta resolução recomendada</div>
-              <div style={{ marginTop: 14, display: "inline-block", padding: "7px 18px", borderRadius: 7, border: "0.5px solid var(--color-border-secondary)", fontSize: 12, color: "var(--color-text-secondary)", background: "var(--color-background-primary)" }}>
-                Escolher arquivos
-              </div>
-            </>
-          ) : (
-            <>
-              <div style={{ fontSize: 28, marginBottom: 8 }}>✅</div>
-              <div style={{ fontSize: 13, fontWeight: 500, color: "#10B981", marginBottom: 8 }}>{files.length} arquivos adicionados (simulado)</div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, justifyContent: "center" }}>
-                {files.map((f) => (
-                  <span key={f} style={{ fontSize: 11, background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", padding: "3px 9px", borderRadius: 6, color: "var(--color-text-secondary)" }}>{f}</span>
-                ))}
-              </div>
-            </>
-          )}
-        </div>
-      </div>
-
-      <div style={{ display: "flex", gap: 10 }}>
-        <button
-          onClick={() => router.push("/entrega")}
-          style={{ padding: "10px 24px", borderRadius: 8, background: "var(--color-text-primary)", color: "var(--color-background-primary)", border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer" }}
-        >
-          Publicar entrega
-        </button>
+    <div style={{ padding: "26px 30px", maxWidth: 640 }}>
+      <div style={{ marginBottom: 24 }}>
         <button
           onClick={() => router.back()}
-          style={{ padding: "10px 18px", borderRadius: 8, background: "transparent", color: "var(--color-text-secondary)", border: "0.5px solid var(--color-border-secondary)", fontSize: 13, cursor: "pointer" }}
+          style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, color: "var(--color-text-secondary)", padding: 0, marginBottom: 10 }}
         >
-          Cancelar
+          ← Voltar
         </button>
+        <h1 style={{ fontSize: 19, fontWeight: 600, color: "var(--color-text-primary)", margin: "0 0 3px", letterSpacing: "-0.02em" }}>
+          Nova galeria de entrega
+        </h1>
+        <p style={{ fontSize: 13, color: "var(--color-text-secondary)", margin: 0 }}>
+          Configure o link de acesso para o cliente baixar as fotos editadas
+        </p>
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+
+        <Field label="Título da galeria">
+          <input
+            type="text"
+            value={titulo}
+            onChange={(e) => setTitulo(e.target.value)}
+            placeholder="Ex: Casamento Ana & Pedro"
+            style={inputStyle}
+          />
+        </Field>
+
+        <Field label="Cliente">
+          <select value={clienteId} onChange={(e) => setClienteId(e.target.value)} style={inputStyle}>
+            <option value="">Selecionar cliente…</option>
+            {MOCK_CLIENTS.map((c) => (
+              <option key={c.id} value={String(c.id)}>{c.name}</option>
+            ))}
+          </select>
+        </Field>
+
+        <Field label="Data do evento">
+          <input
+            type="date"
+            value={dataEvento}
+            onChange={(e) => setDataEvento(e.target.value)}
+            style={inputStyle}
+          />
+        </Field>
+
+        <Field label="Link do Google Drive">
+          <input
+            type="url"
+            value={driveLink}
+            onChange={(e) => setDriveLink(e.target.value)}
+            placeholder="https://drive.google.com/drive/folders/…"
+            style={inputStyle}
+          />
+          <div style={{
+            marginTop: 7,
+            background: "rgba(245,158,11,0.08)",
+            border: "0.5px solid rgba(245,158,11,0.3)",
+            borderRadius: 7, padding: "8px 12px",
+            fontSize: 12, color: "#92400E", lineHeight: 1.5,
+          }}>
+            ℹ️ Certifique-se de que o link esteja configurado como <strong>"Qualquer pessoa com o link pode visualizar"</strong> no Google Drive.
+          </div>
+        </Field>
+
+        {/* Prazo de acesso */}
+        <div>
+          <div style={{ fontSize: 12, fontWeight: 600, color: "var(--color-text-secondary)", marginBottom: 7, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+            Prazo de acesso
+          </div>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            {PRAZOS_FIXOS.map((d) => (
+              <button key={d} type="button" onClick={() => setPrazoFixo(d)} style={{
+                padding: "9px 16px", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer",
+                border: `0.5px solid ${prazoFixo === d ? "var(--color-text-primary)" : "var(--color-border-secondary)"}`,
+                background: prazoFixo === d ? "var(--color-text-primary)" : "var(--color-background-secondary)",
+                color: prazoFixo === d ? "var(--color-background-primary)" : "var(--color-text-secondary)",
+                transition: "all 0.15s",
+              }}>
+                {d} dias
+              </button>
+            ))}
+            <button type="button" onClick={() => setPrazoFixo("custom")} style={{
+              padding: "9px 16px", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer",
+              border: `0.5px solid ${prazoFixo === "custom" ? "var(--color-text-primary)" : "var(--color-border-secondary)"}`,
+              background: prazoFixo === "custom" ? "var(--color-text-primary)" : "var(--color-background-secondary)",
+              color: prazoFixo === "custom" ? "var(--color-background-primary)" : "var(--color-text-secondary)",
+              transition: "all 0.15s",
+            }}>
+              Personalizado
+            </button>
+          </div>
+
+          {prazoFixo === "custom" && (
+            <input
+              type="number" min={1} placeholder="Número de dias"
+              value={prazoCustom} onChange={(e) => setPrazoCustom(e.target.value)}
+              style={{ ...inputStyle, marginTop: 8, width: 180 }}
+            />
+          )}
+
+          {dataExpiracao && (
+            <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--color-text-secondary)" }}>
+              <span>📅</span>
+              <span>
+                Expira em <strong style={{ color: "var(--color-text-primary)" }}>{formatarData(dataExpiracao)}</strong>
+                <span style={{ fontSize: 11, marginLeft: 6 }}>({diasEfetivos} dias a partir de hoje)</span>
+              </span>
+            </div>
+          )}
+        </div>
+
+        <Field label="Taxa de renovação (R$)">
+          <input
+            type="number" min={0} step={0.01}
+            value={renovacao} onChange={(e) => setRenovacao(e.target.value)}
+            placeholder="Ex: 29.90"
+            style={{ ...inputStyle, width: 200 }}
+          />
+          <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: "4px 0 0" }}>
+            Valor cobrado para prorrogar o prazo de acesso por mais 30 dias.
+          </p>
+        </Field>
+
+        <Field label="Mensagem para o cliente">
+          <textarea
+            value={mensagem} onChange={(e) => setMensagem(e.target.value)}
+            placeholder="Olá! Suas fotos estão prontas 🎉 Acesse o link abaixo para baixar…"
+            rows={4}
+            style={{ ...inputStyle, resize: "vertical", lineHeight: 1.5 }}
+          />
+        </Field>
+
+        <div style={{ display: "flex", gap: 10, paddingTop: 8 }}>
+          <button
+            onClick={handlePublicar}
+            disabled={saving || !titulo.trim()}
+            style={{
+              padding: "10px 24px", borderRadius: 9, border: "none",
+              background: saving || !titulo.trim() ? "var(--color-background-secondary)" : "var(--color-text-primary)",
+              color: saving || !titulo.trim() ? "var(--color-text-secondary)" : "var(--color-background-primary)",
+              fontSize: 13, fontWeight: 600, cursor: saving || !titulo.trim() ? "default" : "pointer",
+            }}
+          >
+            {saving ? "Publicando…" : "Publicar galeria"}
+          </button>
+          <button
+            onClick={() => router.back()}
+            style={{
+              padding: "10px 18px", borderRadius: 9,
+              border: "0.5px solid var(--color-border-secondary)",
+              background: "transparent", fontSize: 13,
+              color: "var(--color-text-secondary)", cursor: "pointer",
+            }}
+          >
+            Cancelar
+          </button>
+        </div>
       </div>
     </div>
   );

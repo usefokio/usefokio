@@ -28,9 +28,14 @@ export type EntregaGaleria = {
   date: string;
   photos: number;
   size: string;
-  status: string;
   downloads: number;
   cover: string;
+  driveLink: string;
+  expiresAt: Date;
+  renewalFee: number;
+  telefone: string;
+  email: string;
+  message: string;
 };
 
 export type Activity = {
@@ -120,6 +125,11 @@ export const MOCK_SELECAO: SelecaoGaleria[] = [
   },
 ];
 
+function addDays(d: Date, n: number): Date {
+  const r = new Date(d); r.setDate(r.getDate() + n); return r;
+}
+const _hoje = new Date();
+
 export const MOCK_ENTREGA: EntregaGaleria[] = [
   {
     id: 1,
@@ -129,9 +139,14 @@ export const MOCK_ENTREGA: EntregaGaleria[] = [
     date: "20 Mai 2025",
     photos: 89,
     size: "2.4 GB",
-    status: "Entregue",
     downloads: 14,
     cover: "#7C6E5A",
+    driveLink: "https://drive.google.com/drive/folders/exemplo1",
+    expiresAt: addDays(_hoje, 45),
+    renewalFee: 29.90,
+    telefone: "11999990001",
+    email: "ana@email.com",
+    message: "Olá Ana! Suas fotos estão prontas 🎉",
   },
   {
     id: 2,
@@ -141,9 +156,14 @@ export const MOCK_ENTREGA: EntregaGaleria[] = [
     date: "10 Jun 2025",
     photos: 30,
     size: "820 MB",
-    status: "Disponível",
     downloads: 3,
     cover: "#5A7C6E",
+    driveLink: "https://drive.google.com/drive/folders/exemplo2",
+    expiresAt: addDays(_hoje, 5),
+    renewalFee: 19.90,
+    telefone: "11999990004",
+    email: "isabela@email.com",
+    message: "Olá Isabela! Seu book está disponível para download.",
   },
   {
     id: 3,
@@ -153,9 +173,14 @@ export const MOCK_ENTREGA: EntregaGaleria[] = [
     date: "15 Jun 2025",
     photos: 40,
     size: "1.1 GB",
-    status: "Preparando",
     downloads: 0,
     cover: "#5A6E7C",
+    driveLink: "https://drive.google.com/drive/folders/exemplo3",
+    expiresAt: addDays(_hoje, -3),
+    renewalFee: 19.90,
+    telefone: "11999990003",
+    email: "fernanda@email.com",
+    message: "Olá Fernanda! Suas fotos estão prontas.",
   },
 ];
 
