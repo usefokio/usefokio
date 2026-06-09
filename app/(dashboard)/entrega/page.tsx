@@ -116,24 +116,23 @@ function ModalEnviarAcesso({
   const telefone    = galeria.clientes?.whatsapp ?? galeria.clientes?.telefone ?? "";
   const email       = galeria.clientes?.email ?? "";
 
+  // Link do sistema (controla o acesso) em vez do Drive diretamente
+  const appUrl      = process.env.NEXT_PUBLIC_APP_URL ?? "https://usefokio-ll4r.vercel.app";
+  const linkAcesso  = `${appUrl}/acesso/${galeria.id}`;
+
   // Mensagem personalizada ou padrão
   const msgBase = galeria.mensagem?.trim()
     ? galeria.mensagem
     : `Olá ${nomeCliente}! Suas fotos estão prontas. Acesse o link abaixo para fazer o download.`;
 
-  const msgCompleta = galeria.drive_link
-    ? `${msgBase}\n\n🔗 ${galeria.drive_link}`
-    : msgBase;
-
   const expiracaoStr = galeria.expires_at
-    ? `\n\n⏳ O acesso expira em ${new Date(galeria.expires_at).toLocaleDateString("pt-BR")}.`
+    ? `\n\n⏳ Disponível até ${new Date(galeria.expires_at).toLocaleDateString("pt-BR")}.`
     : "";
 
-  const msgFinal = msgCompleta + expiracaoStr;
+  const msgFinal = `${msgBase}\n\n🔗 ${linkAcesso}${expiracaoStr}`;
 
   async function copiarLink() {
-    if (!galeria.drive_link) return;
-    await navigator.clipboard.writeText(galeria.drive_link);
+    await navigator.clipboard.writeText(linkAcesso);
     setCopiado(true);
     setTimeout(() => setCopiado(false), 2500);
   }
@@ -163,11 +162,14 @@ function ModalEnviarAcesso({
         <div style={{
           background: "var(--color-background-secondary)",
           border: "0.5px solid var(--color-border-tertiary)",
-          borderRadius: 10, padding: "12px 14px", marginBottom: 18,
+          borderRadius: 10, padding: "12px 14px", marginBottom: 6,
           fontSize: 12, color: "var(--color-text-secondary)",
           lineHeight: 1.6, whiteSpace: "pre-wrap", maxHeight: 140, overflowY: "auto",
         }}>
           {msgFinal}
+        </div>
+        <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginBottom: 18, opacity: 0.6 }}>
+          O link acima é controlado pelo sistema — expira automaticamente na data definida.
         </div>
 
         {/* Botões de envio */}
@@ -208,16 +210,14 @@ function ModalEnviarAcesso({
             </div>
           )}
 
-          {/* Copiar link */}
-          {galeria.drive_link && (
-            <button onClick={copiarLink} style={btnStyle(copiado ? "#059669" : "var(--color-text-primary)", copiado ? "rgba(16,185,129,0.08)" : "var(--color-background-secondary)")}>
-              {copiado ? (
-                <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Link copiado!</>
-              ) : (
-                <><IcoCopy /> Copiar link do Drive</>
-              )}
-            </button>
-          )}
+          {/* Copiar link do sistema */}
+          <button onClick={copiarLink} style={btnStyle(copiado ? "#059669" : "var(--color-text-primary)", copiado ? "rgba(16,185,129,0.08)" : "var(--color-background-secondary)")}>
+            {copiado ? (
+              <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Link copiado!</>
+            ) : (
+              <><IcoCopy /> Copiar link de acesso</>
+            )}
+          </button>
         </div>
 
         <button onClick={onFechar} style={{ width: "100%", marginTop: 12, padding: "9px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "transparent", fontSize: 13, color: "var(--color-text-secondary)", cursor: "pointer" }}>
