@@ -28,6 +28,7 @@ function Categorias() {
     const supabase = createClient();
     const { data } = await supabase
       .from("categorias").select("*")
+      .eq("fotografo_id", fotografo.id)
       .order("ordem").order("created_at");
     setLista(data ?? []);
     setLoading(false);

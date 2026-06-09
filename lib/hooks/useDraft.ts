@@ -49,6 +49,8 @@ export function useDraft<T extends Record<string, unknown>>(key: string) {
   /** Remove o rascunho (chamar após submit com sucesso). */
   const clearDraft = useCallback(() => {
     if (typeof window === "undefined") return;
+    // Cancela qualquer save pendente (debounce) antes de remover
+    if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
     localStorage.removeItem(`draft:${key}`);
     setHasDraft(false);
   }, [key]);

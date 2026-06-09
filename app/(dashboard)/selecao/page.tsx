@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { useFotografo } from "@/lib/context/FotografoContext";
 import type { GaleriaSelecao, Cliente } from "@/lib/supabase/types";
 
 type GaleriaComCliente = GaleriaSelecao & { cliente?: Pick<Cliente, "nome"> | null };
@@ -38,6 +39,7 @@ const STATUS_ICON: Record<GaleriaSelecao["status"], string> = {
 function SelecaoConteudo() {
   const router       = useRouter();
   const searchParams = useSearchParams();
+  const { fotografo } = useFotografo();
   const [galerias, setGalerias] = useState<GaleriaComCliente[]>([]);
   const [loading, setLoading]   = useState(true);
 
@@ -46,17 +48,19 @@ function SelecaoConteudo() {
   const [filtro, setFiltro] = useState<Filtro>(filtroInicial);
 
   useEffect(() => {
+    if (!fotografo) return;
     async function load() {
       const supabase = createClient();
       const { data } = await supabase
         .from("galerias_selecao")
         .select("*, cliente:clientes(nome)")
+        .eq("fotografo_id", fotografo!.id)
         .order("created_at", { ascending: false });
       setGalerias((data as GaleriaComCliente[]) ?? []);
       setLoading(false);
     }
     load();
-  }, []);
+  }, [fotografo]);
 
   const aguardando = galerias.filter((g) => g.status === "aguardando_revisao");
   const filtradas  = filtro === "todas" ? galerias : galerias.filter((g) => g.status === filtro);

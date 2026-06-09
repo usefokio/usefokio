@@ -67,12 +67,13 @@ export default function EditarEntregaPage() {
   const [deletando,    setDeletando]   = useState(false);
   const [draftLoaded,  setDraftLoaded] = useState(false);
 
-  const [expiresAt, setExpiresAt] = useState<Date>(new Date());
+  const [expiresAt, setExpiresAt] = useState<Date | null>(null);
   const [prorogarDias,   setProrogarDias]   = useState<number | "custom" | null>(null);
   const [prorogarCustom, setProrogarCustom] = useState("");
 
   const diasProrrogar  = prorogarDias === "custom" ? (parseInt(prorogarCustom) || 0) : (prorogarDias ?? 0);
-  const novaDataProrrogada = diasProrrogar > 0 ? addDias(expiresAt, diasProrrogar) : null;
+  const baseParaProrrogar  = expiresAt ?? new Date();
+  const novaDataProrrogada = diasProrrogar > 0 ? addDias(baseParaProrrogar, diasProrrogar) : null;
 
   // Carregar dados do Supabase
   useEffect(() => {
@@ -88,7 +89,7 @@ export default function EditarEntregaPage() {
         if (error || !data) { setNotFound(true); setLoadingPage(false); return; }
         const g = data as GaleriaEntrega;
         setOriginal(g);
-        setExpiresAt(g.expires_at ? new Date(g.expires_at) : new Date());
+        setExpiresAt(g.expires_at ? new Date(g.expires_at) : null);
 
         // Restaurar rascunho se existir, senão usar dados do banco
         const draft = loadDraft();
@@ -127,7 +128,7 @@ export default function EditarEntregaPage() {
   }
 
   async function handleSalvar() {
-    if (!fotografo) return;
+    if (!fotografo || !titulo.trim()) return;
     setSaving(true);
     const supabase = createClient();
     await supabase
@@ -137,19 +138,21 @@ export default function EditarEntregaPage() {
         cliente_id:  clienteId || null,
         data_evento: dataEvento || null,
         drive_link:  driveLink.trim() || null,
-        expires_at:  expiresAt.toISOString(),
+        expires_at:  expiresAt ? expiresAt.toISOString() : null,
         renewal_fee: renovacao ? parseFloat(renovacao) : null,
         mensagem:    mensagem.trim() || null,
       })
-      .eq("id", id);
+      .eq("id", id)
+      .eq("fotografo_id", fotografo.id);
     clearDraft();
     router.push("/entrega");
   }
 
   async function handleExcluir() {
+    if (!fotografo) return;
     setDeletando(true);
     const supabase = createClient();
-    await supabase.from("galerias_entrega").delete().eq("id", id);
+    await supabase.from("galerias_entrega").delete().eq("id", id).eq("fotografo_id", fotografo.id);
     clearDraft();
     router.push("/entrega");
   }
@@ -190,7 +193,7 @@ export default function EditarEntregaPage() {
             setDriveLink(original.drive_link ?? "");
             setRenovacao(original.renewal_fee != null ? String(original.renewal_fee) : "");
             setMensagem(original.mensagem ?? fotografo?.mensagem_padrao_entrega ?? "");
-            setExpiresAt(original.expires_at ? new Date(original.expires_at) : new Date());
+            setExpiresAt(original.expires_at ? new Date(original.expires_at) : null);
           }
           dismissDraft();
         }} />
@@ -239,13 +242,13 @@ export default function EditarEntregaPage() {
           <div style={{ display: "flex", gap: 20, marginBottom: 16 }}>
             <div>
               <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginBottom: 3 }}>Prazo atual</div>
-              <div style={{ fontSize: 14, fontWeight: 600, color: "var(--color-text-primary)" }}>{formatarData(expiresAt)}</div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: "var(--color-text-primary)" }}>{expiresAt ? formatarData(expiresAt) : "Sem prazo"}</div>
             </div>
             {novaDataProrrogada && (
               <div>
                 <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginBottom: 3 }}>Novo prazo</div>
                 <div style={{ fontSize: 14, fontWeight: 600, color: "#059669" }}>
-                  {formatarData(novaDataProrrogada)}
+                  {formatarData(novaDataProrrogada as Date)}
                   <span style={{ fontSize: 11, color: "var(--color-text-secondary)", fontWeight: 400, marginLeft: 6 }}>+{diasProrrogar}d</span>
                 </div>
               </div>
@@ -270,7 +273,7 @@ export default function EditarEntregaPage() {
 
         {/* Ações */}
         <div style={{ display: "flex", gap: 10, paddingTop: 8 }}>
-          <button onClick={handleSalvar} disabled={saving} style={{ padding: "10px 24px", borderRadius: 9, border: "none", background: saving ? "var(--color-background-secondary)" : "var(--color-text-primary)", color: saving ? "var(--color-text-secondary)" : "var(--color-background-primary)", fontSize: 13, fontWeight: 600, cursor: saving ? "default" : "pointer" }}>
+          <button onClick={handleSalvar} disabled={saving || !titulo.trim()} style={{ padding: "10px 24px", borderRadius: 9, border: "none", background: saving || !titulo.trim() ? "var(--color-background-secondary)" : "var(--color-text-primary)", color: saving || !titulo.trim() ? "var(--color-text-secondary)" : "var(--color-background-primary)", fontSize: 13, fontWeight: 600, cursor: saving || !titulo.trim() ? "default" : "pointer" }}>
             {saving ? "Salvando…" : "Salvar alterações"}
           </button>
           <button onClick={() => router.back()} style={{ padding: "10px 18px", borderRadius: 9, border: "0.5px solid var(--color-border-secondary)", background: "transparent", fontSize: 13, color: "var(--color-text-secondary)", cursor: "pointer" }}>

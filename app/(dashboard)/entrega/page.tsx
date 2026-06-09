@@ -4,34 +4,34 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import { Avatar } from "@/components/ui/Avatar";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import type { GaleriaEntrega } from "@/lib/supabase/types";
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// ─── Helpers de status ────────────────────────────────────────────────────────
+type StatusEntrega = "ativo" | "expirando" | "expirado" | "sem_prazo";
+type Filtro = "todas" | StatusEntrega;
+
 function diasRestantes(expiresAt: string | null): number | null {
   if (!expiresAt) return null;
   return Math.round((new Date(expiresAt).getTime() - Date.now()) / 86_400_000);
 }
 
-function statusDerivado(dias: number | null): "Ativo" | "Expirando" | "Expirado" | "Sem prazo" {
-  if (dias === null) return "Sem prazo";
-  if (dias < 0)     return "Expirado";
-  if (dias <= 7)    return "Expirando";
-  return "Ativo";
+function calcularStatus(dias: number | null): StatusEntrega {
+  if (dias === null) return "sem_prazo";
+  if (dias < 0)     return "expirado";
+  if (dias <= 7)    return "expirando";
+  return "ativo";
 }
 
 function formatarExpiracao(dias: number | null): string {
-  if (dias === null) return "—";
-  if (dias === 0)    return "hoje";
-  if (dias === 1)    return "amanhã";
-  if (dias === -1)   return "ontem";
-  if (dias > 0)     return `em ${dias} dias`;
-  return `há ${Math.abs(dias)} dias`;
+  if (dias === null) return "Sem prazo";
+  if (dias === 0)    return "Expira hoje";
+  if (dias === 1)    return "Expira amanhã";
+  if (dias < 0)     return `Expirou há ${Math.abs(dias)} dia${Math.abs(dias) > 1 ? "s" : ""}`;
+  return `Expira em ${dias} dias`;
 }
 
-function formatarData(iso: string | null): string {
-  if (!iso) return "";
+function formatarData(iso: string): string {
   return new Date(iso).toLocaleDateString("pt-BR");
 }
 
@@ -39,90 +39,72 @@ function iniciais(nome: string): string {
   return nome.split(" ").slice(0, 2).map((p) => p[0]).join("").toUpperCase();
 }
 
-// ─── Badges ───────────────────────────────────────────────────────────────────
-function StatusBadge({ status }: { status: ReturnType<typeof statusDerivado> }) {
-  const cfg: Record<string, { bg: string; color: string }> = {
-    Ativo:      { bg: "rgba(16,185,129,0.1)",  color: "#059669" },
-    Expirando:  { bg: "rgba(245,158,11,0.12)", color: "#B45309" },
-    Expirado:   { bg: "rgba(239,68,68,0.1)",   color: "#EF4444" },
-    "Sem prazo":{ bg: "rgba(107,114,128,0.1)", color: "#6B7280" },
-  };
-  const c = cfg[status] ?? cfg["Sem prazo"];
-  return (
-    <span style={{ display: "inline-block", padding: "2px 9px", borderRadius: 20, fontSize: 11, fontWeight: 600, background: c.bg, color: c.color }}>
-      {status}
-    </span>
-  );
-}
+const STATUS_LABEL: Record<StatusEntrega, string> = {
+  ativo:      "Ativo",
+  expirando:  "Expirando",
+  expirado:   "Expirado",
+  sem_prazo:  "Sem prazo",
+};
 
-// ─── Ícones ───────────────────────────────────────────────────────────────────
-const IcoWhatsapp = () => (
-  <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
-    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z"/>
-  </svg>
-);
-const IcoEmail = () => (
-  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
+const STATUS_COLOR: Record<StatusEntrega, string> = {
+  ativo:      "rgba(16,185,129,0.12)",
+  expirando:  "rgba(245,158,11,0.12)",
+  expirado:   "rgba(239,68,68,0.10)",
+  sem_prazo:  "rgba(107,114,128,0.10)",
+};
+
+const STATUS_TEXT: Record<StatusEntrega, string> = {
+  ativo:      "#059669",
+  expirando:  "#B45309",
+  expirado:   "#EF4444",
+  sem_prazo:  "#6B7280",
+};
+
+// ─── Ícones inline ────────────────────────────────────────────────────────────
+const IcoSend = () => (
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
   </svg>
 );
 const IcoClock = () => (
-  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
   </svg>
 );
 const IcoEdit = () => (
-  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
     <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
   </svg>
 );
 const IcoTrash = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <polyline points="3 6 5 6 21 6"/>
     <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
     <path d="M10 11v6M14 11v6"/>
     <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
   </svg>
 );
-
-const IcoSend = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-    <line x1="22" y1="2" x2="11" y2="13"/>
-    <polygon points="22 2 15 22 11 13 2 9 22 2"/>
-  </svg>
-);
-
 const IcoCopy = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <rect x="9" y="9" width="13" height="13" rx="2"/>
     <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
   </svg>
 );
 
-// ─── Modal enviar acesso ──────────────────────────────────────────────────────
-function ModalEnviarAcesso({
-  galeria,
-  whatsappFotografo,
-  onFechar,
-}: {
-  galeria: GaleriaEntrega;
-  whatsappFotografo: string | null | undefined;
-  onFechar: () => void;
-}) {
+// ─── Modal: Enviar acesso ─────────────────────────────────────────────────────
+function ModalEnviarAcesso({ galeria, onFechar }: { galeria: GaleriaEntrega; onFechar: () => void }) {
   const [copiado, setCopiado] = useState(false);
 
   const nomeCliente = galeria.clientes?.nome ?? "cliente";
   const telefone    = galeria.clientes?.whatsapp ?? galeria.clientes?.telefone ?? "";
   const email       = galeria.clientes?.email ?? "";
 
-  // Link do sistema (controla o acesso) em vez do Drive diretamente
-  const appUrl      = process.env.NEXT_PUBLIC_APP_URL ?? "https://usefokio-ll4r.vercel.app";
-  const linkAcesso  = `${appUrl}/acesso/${galeria.id}`;
+  const appUrl     = process.env.NEXT_PUBLIC_APP_URL ?? "https://usefokio-ll4r.vercel.app";
+  const linkAcesso = `${appUrl}/acesso/${galeria.id}`;
 
-  // Mensagem personalizada ou padrão
   const msgBase = galeria.mensagem?.trim()
-    ? galeria.mensagem
+    ? galeria.mensagem.replace(/\{nome\}/gi, nomeCliente)
     : `Olá ${nomeCliente}! Suas fotos estão prontas. Acesse o link abaixo para fazer o download.`;
 
   const expiracaoStr = galeria.expires_at
@@ -137,90 +119,52 @@ function ModalEnviarAcesso({
     setTimeout(() => setCopiado(false), 2500);
   }
 
-  const btnStyle = (color: string, bg: string): React.CSSProperties => ({
+  const btnRow: React.CSSProperties = {
     display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
     width: "100%", padding: "11px 16px", borderRadius: 9, border: "none",
-    background: bg, color, fontSize: 13, fontWeight: 600, cursor: "pointer",
-  });
+    fontSize: 13, fontWeight: 600, cursor: "pointer", textDecoration: "none",
+  };
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50 }} onClick={onFechar}>
       <div onClick={(e) => e.stopPropagation()} style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 16, padding: "28px 30px", width: 420, boxShadow: "0 12px 48px rgba(0,0,0,0.2)" }}>
-
-        {/* Header */}
         <div style={{ marginBottom: 20 }}>
-          <h3 style={{ margin: "0 0 4px", fontSize: 15, fontWeight: 700, color: "var(--color-text-primary)" }}>
-            Enviar acesso ao download
-          </h3>
+          <h3 style={{ margin: "0 0 4px", fontSize: 15, fontWeight: 700, color: "var(--color-text-primary)" }}>Enviar acesso ao download</h3>
           <p style={{ margin: 0, fontSize: 13, color: "var(--color-text-secondary)" }}>
-            {galeria.titulo}
-            {galeria.clientes && <span> · <strong>{galeria.clientes.nome}</strong></span>}
+            {galeria.titulo}{galeria.clientes && <span> · <strong>{galeria.clientes.nome}</strong></span>}
           </p>
         </div>
 
-        {/* Preview da mensagem */}
-        <div style={{
-          background: "var(--color-background-secondary)",
-          border: "0.5px solid var(--color-border-tertiary)",
-          borderRadius: 10, padding: "12px 14px", marginBottom: 6,
-          fontSize: 12, color: "var(--color-text-secondary)",
-          lineHeight: 1.6, whiteSpace: "pre-wrap", maxHeight: 140, overflowY: "auto",
-        }}>
+        <div style={{ background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 10, padding: "12px 14px", marginBottom: 6, fontSize: 12, color: "var(--color-text-secondary)", lineHeight: 1.6, whiteSpace: "pre-wrap", maxHeight: 140, overflowY: "auto" }}>
           {msgFinal}
         </div>
         <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginBottom: 18, opacity: 0.6 }}>
-          O link acima é controlado pelo sistema — expira automaticamente na data definida.
+          O link expira automaticamente na data definida.
         </div>
 
-        {/* Botões de envio */}
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-
-          {/* WhatsApp */}
           {telefone ? (
-            <a
-              href={`https://wa.me/55${telefone.replace(/\D/g, "")}?text=${encodeURIComponent(msgFinal)}`}
-              target="_blank" rel="noopener noreferrer"
-              style={btnStyle("#fff", "#25D366")}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z"/>
-              </svg>
+            <a href={`https://wa.me/55${telefone.replace(/\D/g, "")}?text=${encodeURIComponent(msgFinal)}`} target="_blank" rel="noopener noreferrer" style={{ ...btnRow, background: "#25D366", color: "#fff" }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z"/></svg>
               Enviar por WhatsApp
             </a>
           ) : (
-            <div style={{ ...btnStyle("var(--color-text-secondary)", "var(--color-background-secondary)"), opacity: 0.5, cursor: "not-allowed", fontSize: 12 }}>
-              WhatsApp — cliente sem telefone cadastrado
-            </div>
+            <div style={{ ...btnRow, background: "var(--color-background-secondary)", color: "var(--color-text-secondary)", opacity: 0.5, cursor: "not-allowed", fontSize: 12 }}>WhatsApp — sem telefone cadastrado</div>
           )}
-
-          {/* Email */}
           {email ? (
-            <a
-              href={`mailto:${email}?subject=${encodeURIComponent(`Suas fotos estão prontas — ${galeria.titulo}`)}&body=${encodeURIComponent(msgFinal)}`}
-              style={btnStyle("#fff", "#2563EB")}
-            >
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
-              </svg>
+            <a href={`mailto:${email}?subject=${encodeURIComponent(`Suas fotos estão prontas — ${galeria.titulo}`)}&body=${encodeURIComponent(msgFinal)}`} style={{ ...btnRow, background: "#2563EB", color: "#fff" }}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
               Enviar por e-mail
             </a>
           ) : (
-            <div style={{ ...btnStyle("var(--color-text-secondary)", "var(--color-background-secondary)"), opacity: 0.5, cursor: "not-allowed", fontSize: 12 }}>
-              E-mail — cliente sem e-mail cadastrado
-            </div>
+            <div style={{ ...btnRow, background: "var(--color-background-secondary)", color: "var(--color-text-secondary)", opacity: 0.5, cursor: "not-allowed", fontSize: 12 }}>E-mail — sem e-mail cadastrado</div>
           )}
-
-          {/* Copiar link do sistema */}
-          <button onClick={copiarLink} style={btnStyle(copiado ? "#059669" : "var(--color-text-primary)", copiado ? "rgba(16,185,129,0.08)" : "var(--color-background-secondary)")}>
-            {copiado ? (
-              <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Link copiado!</>
-            ) : (
-              <><IcoCopy /> Copiar link de acesso</>
-            )}
+          <button onClick={copiarLink} style={{ ...btnRow, background: copiado ? "rgba(16,185,129,0.08)" : "var(--color-background-secondary)", color: copiado ? "#059669" : "var(--color-text-primary)", border: "none" }}>
+            {copiado ? <><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Link copiado!</> : <><IcoCopy /> Copiar link de acesso</>}
           </button>
         </div>
 
-        <button onClick={onFechar} style={{ width: "100%", marginTop: 12, padding: "9px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "transparent", fontSize: 13, color: "var(--color-text-secondary)", cursor: "pointer" }}>
+        <button onClick={onFechar} style={{ width: "100%", marginTop: 10, padding: "9px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "transparent", fontSize: 13, color: "var(--color-text-secondary)", cursor: "pointer" }}>
           Fechar
         </button>
       </div>
@@ -228,52 +172,61 @@ function ModalEnviarAcesso({
   );
 }
 
-// ─── Modal prorrogar ──────────────────────────────────────────────────────────
-function ModalProrrogar({
-  galeria, onConfirmar, onFechar,
-}: {
-  galeria: GaleriaEntrega;
-  onConfirmar: (novaData: Date) => void;
-  onFechar: () => void;
-}) {
-  const [dias, setDias]           = useState<number | null>(30);
-  const [personalizado, setPersonalizado] = useState("");
+// ─── Modal: Prorrogar ─────────────────────────────────────────────────────────
+function ModalProrrogar({ galeria, onConfirmar, onFechar }: { galeria: GaleriaEntrega; onConfirmar: (d: Date) => void; onFechar: () => void }) {
+  const [dias, setDias]     = useState<number | null>(30);
+  const [custom, setCustom] = useState("");
 
-  const diasEfetivos  = dias !== null ? dias : (parseInt(personalizado) || 0);
-  const baseDate      = galeria.expires_at ? new Date(galeria.expires_at) : new Date();
-  const novaData      = new Date(baseDate.getTime() + diasEfetivos * 86_400_000);
+  const diasEf   = dias !== null ? dias : (parseInt(custom) || 0);
+  const baseDate = galeria.expires_at ? new Date(galeria.expires_at) : new Date();
+  const novaData = new Date(baseDate.getTime() + diasEf * 86_400_000);
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50 }} onClick={onFechar}>
       <div onClick={(e) => e.stopPropagation()} style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 14, padding: "28px 32px", width: 380, boxShadow: "0 8px 40px rgba(0,0,0,0.18)" }}>
         <h3 style={{ margin: "0 0 6px", fontSize: 15, fontWeight: 700, color: "var(--color-text-primary)" }}>Prorrogar prazo</h3>
-        <p style={{ margin: "0 0 18px", fontSize: 13, color: "var(--color-text-secondary)" }}>{galeria.titulo} · {galeria.clientes?.nome ?? "—"}</p>
-
+        <p style={{ margin: "0 0 18px", fontSize: 13, color: "var(--color-text-secondary)" }}>{galeria.titulo}</p>
         <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginBottom: 12 }}>
-          Prazo atual: <strong style={{ color: "var(--color-text-primary)" }}>{galeria.expires_at ? new Date(galeria.expires_at).toLocaleDateString("pt-BR") : "Sem prazo"}</strong>
+          Prazo atual: <strong style={{ color: "var(--color-text-primary)" }}>{galeria.expires_at ? formatarData(galeria.expires_at) : "Sem prazo"}</strong>
         </div>
-
         <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
           {[15, 30, 60].map((d) => (
-            <button key={d} onClick={() => { setDias(d); setPersonalizado(""); }} style={{ flex: 1, padding: "8px 0", borderRadius: 8, fontSize: 12, fontWeight: 600, border: `0.5px solid ${dias === d ? "var(--color-text-primary)" : "var(--color-border-secondary)"}`, background: dias === d ? "var(--color-text-primary)" : "transparent", color: dias === d ? "var(--color-background-primary)" : "var(--color-text-secondary)", cursor: "pointer" }}>+{d}d</button>
+            <button key={d} onClick={() => { setDias(d); setCustom(""); }} style={{ flex: 1, padding: "8px 0", borderRadius: 8, fontSize: 12, fontWeight: 600, border: `0.5px solid ${dias === d ? "var(--color-text-primary)" : "var(--color-border-secondary)"}`, background: dias === d ? "var(--color-text-primary)" : "transparent", color: dias === d ? "var(--color-background-primary)" : "var(--color-text-secondary)", cursor: "pointer" }}>+{d}d</button>
           ))}
           <button onClick={() => setDias(null)} style={{ flex: 1, padding: "8px 0", borderRadius: 8, fontSize: 12, fontWeight: 600, border: `0.5px solid ${dias === null ? "var(--color-text-primary)" : "var(--color-border-secondary)"}`, background: dias === null ? "var(--color-text-primary)" : "transparent", color: dias === null ? "var(--color-background-primary)" : "var(--color-text-secondary)", cursor: "pointer" }}>Outro</button>
         </div>
-
         {dias === null && (
-          <input type="number" min={1} placeholder="Quantos dias?" value={personalizado} onChange={(e) => setPersonalizado(e.target.value)} style={{ width: "100%", padding: "9px 12px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-secondary)", fontSize: 13, color: "var(--color-text-primary)", boxSizing: "border-box", marginBottom: 14 }} />
+          <input type="number" min={1} placeholder="Quantos dias?" value={custom} onChange={(e) => setCustom(e.target.value)} style={{ width: "100%", padding: "9px 12px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-secondary)", fontSize: 13, color: "var(--color-text-primary)", boxSizing: "border-box", marginBottom: 14 }} />
         )}
-
-        {diasEfetivos > 0 && (
+        {diasEf > 0 && (
           <div style={{ background: "rgba(16,185,129,0.07)", border: "0.5px solid rgba(16,185,129,0.25)", borderRadius: 8, padding: "10px 14px", marginBottom: 18, fontSize: 13 }}>
             Novo prazo: <strong style={{ color: "#059669" }}>{novaData.toLocaleDateString("pt-BR")}</strong>
-            <span style={{ color: "var(--color-text-secondary)", fontSize: 12 }}> (+{diasEfetivos} dias)</span>
+            <span style={{ color: "var(--color-text-secondary)", fontSize: 12 }}> (+{diasEf} dias)</span>
           </div>
         )}
-
         <div style={{ display: "flex", gap: 8 }}>
           <button onClick={onFechar} style={{ flex: 1, padding: "9px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "transparent", fontSize: 13, color: "var(--color-text-secondary)", cursor: "pointer" }}>Cancelar</button>
-          <button onClick={() => diasEfetivos > 0 && onConfirmar(novaData)} disabled={diasEfetivos <= 0} style={{ flex: 1, padding: "9px", borderRadius: 8, border: "none", background: diasEfetivos > 0 ? "#059669" : "var(--color-background-secondary)", color: diasEfetivos > 0 ? "#fff" : "var(--color-text-secondary)", fontSize: 13, fontWeight: 600, cursor: diasEfetivos > 0 ? "pointer" : "default" }}>Confirmar</button>
+          <button onClick={() => diasEf > 0 && onConfirmar(novaData)} disabled={diasEf <= 0} style={{ flex: 1, padding: "9px", borderRadius: 8, border: "none", background: diasEf > 0 ? "#059669" : "var(--color-background-secondary)", color: diasEf > 0 ? "#fff" : "var(--color-text-secondary)", fontSize: 13, fontWeight: 600, cursor: diasEf > 0 ? "pointer" : "default" }}>Confirmar</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Modal: Confirmar exclusão ────────────────────────────────────────────────
+function ModalExcluir({ titulo, onConfirmar, onFechar, deletando }: { titulo: string; onConfirmar: () => void; onFechar: () => void; deletando: boolean }) {
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50 }} onClick={onFechar}>
+      <div onClick={(e) => e.stopPropagation()} style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 14, padding: "28px 30px", width: 380, boxShadow: "0 8px 40px rgba(0,0,0,0.18)" }}>
+        <h3 style={{ margin: "0 0 10px", fontSize: 15, fontWeight: 700, color: "#EF4444" }}>Excluir galeria</h3>
+        <p style={{ margin: "0 0 22px", fontSize: 13, color: "var(--color-text-secondary)", lineHeight: 1.6 }}>
+          Tem certeza que deseja excluir <strong style={{ color: "var(--color-text-primary)" }}>{titulo}</strong>?<br />Esta ação não pode ser desfeita.
+        </p>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={onFechar} style={{ flex: 1, padding: "9px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "transparent", fontSize: 13, color: "var(--color-text-secondary)", cursor: "pointer" }}>Cancelar</button>
+          <button onClick={onConfirmar} disabled={deletando} style={{ flex: 1, padding: "9px", borderRadius: 8, border: "none", background: "#EF4444", color: "#fff", fontSize: 13, fontWeight: 600, cursor: deletando ? "default" : "pointer" }}>
+            {deletando ? "Excluindo…" : "Excluir"}
+          </button>
         </div>
       </div>
     </div>
@@ -287,10 +240,13 @@ export default function EntregaPage() {
 
   const [galerias,       setGalerias]       = useState<GaleriaEntrega[]>([]);
   const [loading,        setLoading]        = useState(true);
-  const [modalId,        setModalId]        = useState<string | null>(null);
+  const [filtro,         setFiltro]         = useState<Filtro>("todas");
+  const [enviarAcessoId, setEnviarAcessoId] = useState<string | null>(null);
+  const [prorrogarId,    setProrrogarId]    = useState<string | null>(null);
   const [deletarId,      setDeletarId]      = useState<string | null>(null);
   const [deletando,      setDeletando]      = useState(false);
-  const [enviarAcessoId, setEnviarAcessoId] = useState<string | null>(null);
+
+  const CORES = ["#7C6E5A","#5A6E7C","#6E5A7C","#5A7C6E","#7C5A6E","#6E7C5A"];
 
   async function carregar() {
     if (!fotografo) return;
@@ -308,12 +264,9 @@ export default function EntregaPage() {
 
   async function prorrogar(id: string, novaData: Date) {
     const supabase = createClient();
-    await supabase
-      .from("galerias_entrega")
-      .update({ expires_at: novaData.toISOString() })
-      .eq("id", id);
+    await supabase.from("galerias_entrega").update({ expires_at: novaData.toISOString() }).eq("id", id);
     setGalerias((prev) => prev.map((g) => g.id === id ? { ...g, expires_at: novaData.toISOString() } : g));
-    setModalId(null);
+    setProrrogarId(null);
   }
 
   async function deletar(id: string) {
@@ -325,198 +278,188 @@ export default function EntregaPage() {
     setDeletando(false);
   }
 
-  function gerarMsgWhatsapp(g: GaleriaEntrega, dias: number | null): string {
-    const nome   = g.clientes?.nome ?? "cliente";
-    const expStr = dias === null ? "" : dias >= 0 ? ` expira ${formatarExpiracao(dias)}` : ` expirou ${formatarExpiracao(dias)}`;
-    const fee    = g.renewal_fee ? `\n\nPara renovar o acesso, o valor é R$ ${g.renewal_fee.toFixed(2).replace(".", ",")}.` : "";
-    return `Olá ${nome}! Sua galeria "${g.titulo}"${expStr}.${fee}${g.drive_link ? `\n\nLink: ${g.drive_link}` : ""}`;
-  }
+  // Calcular contadores
+  const comStatus = galerias.map((g) => ({ ...g, _status: calcularStatus(diasRestantes(g.expires_at)) }));
+  const expirando = comStatus.filter((g) => g._status === "expirando");
 
-  const galeriaModal = galerias.find((g) => g.id === modalId) ?? null;
-  const wha = fotografo?.whatsapp;
+  const contadores: Record<Filtro, number> = {
+    todas:     galerias.length,
+    ativo:     comStatus.filter((g) => g._status === "ativo").length,
+    expirando: expirando.length,
+    expirado:  comStatus.filter((g) => g._status === "expirado").length,
+    sem_prazo: comStatus.filter((g) => g._status === "sem_prazo").length,
+  };
 
-  // Cores de capa pré-definidas (ciclo)
-  const CORES = ["#7C6E5A","#5A6E7C","#6E5A7C","#5A7C6E","#7C5A6E","#6E7C5A"];
+  const filtradas = filtro === "todas"
+    ? comStatus
+    : comStatus.filter((g) => g._status === filtro);
 
   return (
-    <div style={{ padding: "26px 30px" }}>
+    <div style={{ padding: "26px 30px", maxWidth: 960 }}>
+
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 22 }}>
         <div>
           <h1 style={{ fontSize: 19, fontWeight: 600, color: "var(--color-text-primary)", margin: "0 0 3px", letterSpacing: "-0.02em" }}>Galerias de Entrega</h1>
-          <p style={{ fontSize: 13, color: "var(--color-text-secondary)", margin: 0 }}>Fotos editadas em alta resolução para o cliente baixar</p>
+          <p style={{ fontSize: 13, color: "var(--color-text-secondary)", margin: 0 }}>
+            {loading ? "Carregando…" : `${galerias.length} galeria${galerias.length !== 1 ? "s" : ""}`}
+          </p>
         </div>
-        <Link href="/entrega/nova" style={{ padding: "8px 16px", borderRadius: 8, background: "var(--color-text-primary)", color: "var(--color-background-primary)", fontSize: 13, fontWeight: 500, textDecoration: "none" }}>
+        <Link href="/entrega/nova" style={{ padding: "9px 18px", borderRadius: 8, background: "var(--color-text-primary)", color: "var(--color-background-primary)", fontSize: 13, fontWeight: 600, textDecoration: "none", display: "flex", alignItems: "center", gap: 6 }}>
           + Nova entrega
         </Link>
       </div>
 
-      {/* Tabela */}
-      <div style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 12, overflow: "hidden" }}>
-        {loading ? (
-          <div style={{ padding: "48px 24px", textAlign: "center", fontSize: 13, color: "var(--color-text-secondary)" }}>Carregando…</div>
-        ) : galerias.length === 0 ? (
-          <div style={{ padding: "52px 24px", textAlign: "center", fontSize: 13, color: "var(--color-text-secondary)" }}>
-            Nenhuma galeria de entrega criada ainda.{" "}
-            <Link href="/entrega/nova" style={{ color: "var(--color-text-primary)", fontWeight: 600, textDecoration: "underline" }}>Criar agora</Link>
-          </div>
-        ) : (
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-            <thead>
-              <tr style={{ background: "var(--color-background-secondary)" }}>
-                {["Capa", "Galeria", "Cliente", "Downloads", "Status", "Expira em", "Ações"].map((h) => (
-                  <th key={h} style={{ padding: "10px 14px", textAlign: "left", fontSize: 10, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: "0.5px solid var(--color-border-tertiary)", whiteSpace: "nowrap" }}>
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {galerias.map((g, i) => {
-                const dias   = diasRestantes(g.expires_at);
-                const status = statusDerivado(dias);
-                const cor    = g.cover_color ?? CORES[i % CORES.length];
-
-                const rowBg = status === "Expirando" ? "rgba(245,158,11,0.06)" : "transparent";
-                const rowOp = status === "Expirado" ? 0.55 : 1;
-
-                const msgWpp   = gerarMsgWhatsapp(g, dias);
-                const telefone = g.clientes?.whatsapp ?? g.clientes?.telefone ?? "";
-                const email    = g.clientes?.email ?? "";
-                const subject  = encodeURIComponent(`Sua galeria "${g.titulo}" expira em breve`);
-                const body     = encodeURIComponent(msgWpp);
-
-                return (
-                  <tr key={g.id} style={{ background: rowBg, opacity: rowOp, borderBottom: i < galerias.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none" }}>
-
-                    {/* Capa */}
-                    <td style={{ padding: "10px 14px" }}>
-                      <div style={{ width: 44, height: 34, borderRadius: 6, background: cor, flexShrink: 0 }} />
-                    </td>
-
-                    {/* Nome */}
-                    <td style={{ padding: "10px 14px" }}>
-                      <div style={{ fontWeight: 600, color: "var(--color-text-primary)", whiteSpace: "nowrap" }}>{g.titulo}</div>
-                      {g.data_evento && <div style={{ fontSize: 11, color: "var(--color-text-secondary)" }}>{new Date(g.data_evento).toLocaleDateString("pt-BR")}</div>}
-                    </td>
-
-                    {/* Cliente */}
-                    <td style={{ padding: "10px 14px" }}>
-                      {g.clientes ? (
-                        <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-                          <Avatar initials={iniciais(g.clientes.nome)} size={22} />
-                          <span style={{ color: "var(--color-text-secondary)", whiteSpace: "nowrap" }}>{g.clientes.nome}</span>
-                        </div>
-                      ) : (
-                        <span style={{ color: "var(--color-border-secondary)", fontSize: 12 }}>—</span>
-                      )}
-                    </td>
-
-                    {/* Downloads */}
-                    <td style={{ padding: "10px 14px", textAlign: "center", color: "var(--color-text-primary)", fontWeight: 500 }}>{g.downloads}</td>
-
-                    {/* Status */}
-                    <td style={{ padding: "10px 14px" }}><StatusBadge status={status} /></td>
-
-                    {/* Expira em */}
-                    <td style={{ padding: "10px 14px", whiteSpace: "nowrap" }}>
-                      <span style={{ fontSize: 12, color: status === "Expirado" ? "#EF4444" : status === "Expirando" ? "#B45309" : "var(--color-text-secondary)" }}>
-                        {formatarExpiracao(dias)}
-                      </span>
-                      {g.expires_at && <div style={{ fontSize: 10, color: "var(--color-text-secondary)" }}>{formatarData(g.expires_at)}</div>}
-                    </td>
-
-                    {/* Ações */}
-                    <td style={{ padding: "10px 14px" }}>
-                      <div style={{ display: "flex", gap: 4 }}>
-                        {/* Enviar acesso */}
-                        <button
-                          onClick={() => setEnviarAcessoId(g.id)}
-                          title="Enviar dados de acesso ao cliente"
-                          style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, borderRadius: 7, border: "0.5px solid rgba(37,99,235,0.4)", color: "#2563EB", background: "rgba(37,99,235,0.05)", cursor: "pointer" }}
-                          onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(37,99,235,0.12)"; }}
-                          onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(37,99,235,0.05)"; }}
-                        >
-                          <IcoSend />
-                        </button>
-
-                        {/* WhatsApp (renovação) */}
-                        <a
-                          href={wha && telefone ? `https://wa.me/55${wha}?text=${encodeURIComponent(msgWpp)}` : undefined}
-                          target="_blank" rel="noopener noreferrer"
-                          title={wha ? "Enviar WhatsApp" : "Configure seu WhatsApp em Conta → Editar"}
-                          style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, borderRadius: 7, border: "0.5px solid var(--color-border-secondary)", color: wha ? "#25D366" : "var(--color-text-secondary)", background: "transparent", textDecoration: "none", opacity: wha ? 1 : 0.4, cursor: wha ? "pointer" : "default" }}
-                          onClick={(e) => !wha && e.preventDefault()}
-                        ><IcoWhatsapp /></a>
-
-                        {/* Email */}
-                        <a
-                          href={email ? `mailto:${email}?subject=${subject}&body=${body}` : undefined}
-                          title={email ? "Enviar e-mail" : "Sem e-mail cadastrado"}
-                          style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, borderRadius: 7, border: "0.5px solid var(--color-border-secondary)", color: "var(--color-text-secondary)", background: "transparent", textDecoration: "none", opacity: email ? 1 : 0.4, cursor: email ? "pointer" : "default" }}
-                          onClick={(e) => !email && e.preventDefault()}
-                        ><IcoEmail /></a>
-
-                        {/* Prorrogar */}
-                        <button onClick={() => setModalId(g.id)} title="Prorrogar prazo" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, borderRadius: 7, border: "0.5px solid var(--color-border-secondary)", color: status === "Expirado" ? "#059669" : "var(--color-text-secondary)", background: "transparent", cursor: "pointer" }}><IcoClock /></button>
-
-                        {/* Editar */}
-                        <button onClick={() => router.push(`/entrega/${g.id}/editar`)} title="Editar galeria" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, borderRadius: 7, border: "0.5px solid var(--color-border-secondary)", color: "var(--color-text-secondary)", background: "transparent", cursor: "pointer" }}><IcoEdit /></button>
-
-                        {/* Excluir */}
-                        <button
-                          onClick={() => setDeletarId(g.id)}
-                          title="Excluir galeria"
-                          style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, borderRadius: 7, border: "0.5px solid rgba(239,68,68,0.3)", color: "#EF4444", background: "transparent", cursor: "pointer", opacity: 0.7 }}
-                          onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
-                          onMouseLeave={(e) => (e.currentTarget.style.opacity = "0.7")}
-                        ><IcoTrash /></button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        )}
-      </div>
-
-      {/* Modal enviar acesso */}
-      {enviarAcessoId && (() => {
-        const g = galerias.find((g) => g.id === enviarAcessoId);
-        if (!g) return null;
-        return <ModalEnviarAcesso galeria={g} whatsappFotografo={wha} onFechar={() => setEnviarAcessoId(null)} />;
-      })()}
-
-      {/* Modal prorrogar */}
-      {galeriaModal && (
-        <ModalProrrogar
-          galeria={galeriaModal}
-          onConfirmar={(novaData) => prorrogar(galeriaModal.id, novaData)}
-          onFechar={() => setModalId(null)}
-        />
-      )}
-
-      {/* Modal excluir */}
-      {deletarId !== null && (() => {
-        const g = galerias.find((g) => g.id === deletarId);
-        if (!g) return null;
-        return (
-          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50 }} onClick={() => setDeletarId(null)}>
-            <div onClick={(e) => e.stopPropagation()} style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 14, padding: "28px 30px", width: 380, boxShadow: "0 8px 40px rgba(0,0,0,0.18)" }}>
-              <h3 style={{ margin: "0 0 10px", fontSize: 15, fontWeight: 700, color: "#EF4444" }}>Excluir galeria</h3>
-              <p style={{ margin: "0 0 22px", fontSize: 13, color: "var(--color-text-secondary)", lineHeight: 1.6 }}>
-                Tem certeza que deseja excluir <strong style={{ color: "var(--color-text-primary)" }}>{g.titulo}</strong>?<br />Esta ação não pode ser desfeita.
-              </p>
-              <div style={{ display: "flex", gap: 8 }}>
-                <button onClick={() => setDeletarId(null)} style={{ flex: 1, padding: "9px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "transparent", fontSize: 13, color: "var(--color-text-secondary)", cursor: "pointer" }}>Cancelar</button>
-                <button onClick={() => deletar(g.id)} disabled={deletando} style={{ flex: 1, padding: "9px", borderRadius: 8, border: "none", background: "#EF4444", color: "#fff", fontSize: 13, fontWeight: 600, cursor: deletando ? "default" : "pointer" }}>
-                  {deletando ? "Excluindo…" : "Excluir"}
-                </button>
-              </div>
+      {/* Banner: expirando */}
+      {!loading && expirando.length > 0 && filtro !== "expirando" && (
+        <div
+          onClick={() => setFiltro("expirando")}
+          style={{ background: "rgba(245,158,11,0.08)", border: "0.5px solid rgba(245,158,11,0.4)", borderRadius: 10, padding: "12px 16px", marginBottom: 18, display: "flex", alignItems: "center", gap: 12, cursor: "pointer" }}
+          onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(245,158,11,0.13)")}
+          onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(245,158,11,0.08)")}
+        >
+          <span style={{ fontSize: 20 }}>⚠️</span>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "#92400E" }}>
+              {expirando.length} galeria{expirando.length !== 1 ? "s" : ""} expirando em breve
+            </div>
+            <div style={{ fontSize: 11, color: "#B45309" }}>
+              {expirando.map((g) => g.titulo).join(", ")}
             </div>
           </div>
-        );
+          <span style={{ fontSize: 12, color: "#B45309", fontWeight: 600 }}>Ver →</span>
+        </div>
+      )}
+
+      {/* Filtros */}
+      <div style={{ display: "flex", gap: 6, marginBottom: 18, flexWrap: "wrap" }}>
+        {(["todas", "expirando", "ativo", "expirado", "sem_prazo"] as Filtro[]).map((s) => {
+          const isAtencao = s === "expirando";
+          const ativo     = filtro === s;
+          return (
+            <button
+              key={s}
+              onClick={() => setFiltro(s)}
+              style={{
+                padding: "5px 14px", borderRadius: 20, border: "0.5px solid", cursor: "pointer", transition: "all 0.15s", fontSize: 12,
+                borderColor: ativo ? (isAtencao ? "#B45309" : "var(--color-text-primary)") : (isAtencao && contadores.expirando > 0 ? "rgba(245,158,11,0.5)" : "var(--color-border-tertiary)"),
+                background: ativo ? (isAtencao ? "#B45309" : "var(--color-text-primary)") : (isAtencao && contadores.expirando > 0 ? "rgba(245,158,11,0.08)" : "transparent"),
+                color: ativo ? "white" : (isAtencao && contadores.expirando > 0 ? "#92400E" : "var(--color-text-secondary)"),
+                fontWeight: ativo || (isAtencao && contadores.expirando > 0) ? 600 : 400,
+              }}
+            >
+              {s === "todas" ? "Todas" : STATUS_LABEL[s]} ({contadores[s]})
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Lista */}
+      {loading ? (
+        <div style={{ padding: "40px 0", textAlign: "center", fontSize: 13, color: "var(--color-text-secondary)" }}>Carregando…</div>
+      ) : filtradas.length === 0 ? (
+        <div style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 12, padding: "52px 24px", textAlign: "center" }}>
+          {galerias.length === 0 ? (
+            <>
+              <div style={{ fontSize: 40, marginBottom: 12 }}>📦</div>
+              <div style={{ fontSize: 15, fontWeight: 600, color: "var(--color-text-primary)", marginBottom: 6 }}>Nenhuma galeria de entrega ainda</div>
+              <div style={{ fontSize: 13, color: "var(--color-text-secondary)", marginBottom: 22 }}>Crie sua primeira galeria de entrega para compartilhar fotos com o cliente.</div>
+              <Link href="/entrega/nova" style={{ padding: "10px 22px", borderRadius: 8, background: "var(--color-text-primary)", color: "var(--color-background-primary)", fontSize: 13, fontWeight: 600, textDecoration: "none" }}>
+                + Nova entrega
+              </Link>
+            </>
+          ) : (
+            <div style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>
+              Nenhuma galeria com status "{STATUS_LABEL[filtro as StatusEntrega]}"
+            </div>
+          )}
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {filtradas.map((g, i) => {
+            const dias   = diasRestantes(g.expires_at);
+            const status = g._status;
+            const isAtencao = status === "expirando";
+            const isExpirado = status === "expirado";
+            const cor = g.cover_color ?? CORES[i % CORES.length];
+
+            return (
+              <div
+                key={g.id}
+                style={{
+                  background: isAtencao ? "rgba(245,158,11,0.04)" : "var(--color-background-primary)",
+                  border: `0.5px solid ${isAtencao ? "rgba(245,158,11,0.35)" : "var(--color-border-tertiary)"}`,
+                  borderRadius: 10, padding: "14px 18px",
+                  display: "flex", alignItems: "center", gap: 14,
+                  opacity: isExpirado ? 0.65 : 1,
+                  transition: "border-color 0.15s",
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.borderColor = isAtencao ? "#F59E0B" : "#2563EB")}
+                onMouseLeave={(e) => (e.currentTarget.style.borderColor = isAtencao ? "rgba(245,158,11,0.35)" : "var(--color-border-tertiary)")}
+              >
+                {/* Capa colorida */}
+                <div style={{ width: 42, height: 42, borderRadius: 9, background: cor, flexShrink: 0 }} />
+
+                {/* Info principal */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: "var(--color-text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {g.titulo}
+                  </div>
+                  <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginTop: 2 }}>
+                    {g.clientes ? g.clientes.nome : "Sem cliente"}
+                    {g.downloads > 0 && <span> · {g.downloads} download{g.downloads !== 1 ? "s" : ""}</span>}
+                    {g.data_evento && <span> · {new Date(g.data_evento + "T12:00:00").toLocaleDateString("pt-BR")}</span>}
+                  </div>
+                </div>
+
+                {/* Status + prazo */}
+                <div style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 10 }}>
+                  <div style={{ textAlign: "right" }}>
+                    <span style={{ display: "inline-block", padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 600, background: STATUS_COLOR[status], color: STATUS_TEXT[status] }}>
+                      {STATUS_LABEL[status]}
+                    </span>
+                    <div style={{ fontSize: 11, color: isAtencao ? "#B45309" : isExpirado ? "#EF4444" : "var(--color-text-secondary)", marginTop: 3 }}>
+                      {formatarExpiracao(dias)}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Ações */}
+                <div style={{ flexShrink: 0, display: "flex", gap: 4 }} onClick={(e) => e.stopPropagation()}>
+                  <button onClick={() => setEnviarAcessoId(g.id)} title="Enviar acesso ao cliente" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, borderRadius: 7, border: "0.5px solid rgba(37,99,235,0.4)", color: "#2563EB", background: "rgba(37,99,235,0.05)", cursor: "pointer" }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(37,99,235,0.12)")}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(37,99,235,0.05)")}
+                  ><IcoSend /></button>
+
+                  <button onClick={() => setProrrogarId(g.id)} title="Prorrogar prazo" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, borderRadius: 7, border: "0.5px solid var(--color-border-secondary)", color: status === "expirado" ? "#059669" : "var(--color-text-secondary)", background: "transparent", cursor: "pointer" }}><IcoClock /></button>
+
+                  <button onClick={() => router.push(`/entrega/${g.id}/editar`)} title="Editar" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, borderRadius: 7, border: "0.5px solid var(--color-border-secondary)", color: "var(--color-text-secondary)", background: "transparent", cursor: "pointer" }}><IcoEdit /></button>
+
+                  <button onClick={() => setDeletarId(g.id)} title="Excluir" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, borderRadius: 7, border: "0.5px solid rgba(239,68,68,0.3)", color: "#EF4444", background: "transparent", cursor: "pointer", opacity: 0.6 }}
+                    onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
+                    onMouseLeave={(e) => (e.currentTarget.style.opacity = "0.6")}
+                  ><IcoTrash /></button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Modais */}
+      {enviarAcessoId && (() => {
+        const g = galerias.find((g) => g.id === enviarAcessoId);
+        return g ? <ModalEnviarAcesso galeria={g} onFechar={() => setEnviarAcessoId(null)} /> : null;
+      })()}
+
+      {prorrogarId && (() => {
+        const g = galerias.find((g) => g.id === prorrogarId);
+        return g ? <ModalProrrogar galeria={g} onConfirmar={(d) => prorrogar(g.id, d)} onFechar={() => setProrrogarId(null)} /> : null;
+      })()}
+
+      {deletarId && (() => {
+        const g = galerias.find((g) => g.id === deletarId);
+        return g ? <ModalExcluir titulo={g.titulo} onConfirmar={() => deletar(g.id)} onFechar={() => setDeletarId(null)} deletando={deletando} /> : null;
       })()}
     </div>
   );

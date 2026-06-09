@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { inputStyle } from "@/lib/styles";
+import { gerarSenhaAcesso } from "@/lib/utils";
 import type { Cliente } from "@/lib/supabase/types";
 
 // ── Modal criar novo cliente ─────────────────────────────────────────────────
@@ -18,6 +19,7 @@ function ModalNovoCliente({
   const [nome,     setNome]     = useState("");
   const [email,    setEmail]    = useState("");
   const [telefone, setTelefone] = useState("");
+  const [whatsapp, setWhatsapp] = useState("");
   const [saving,   setSaving]   = useState(false);
   const [erro,     setErro]     = useState("");
 
@@ -29,11 +31,12 @@ function ModalNovoCliente({
     const { data, error } = await supabase
       .from("clientes")
       .insert({
-        fotografo_id: fotografo.id,
-        nome: nome.trim(),
-        email: email.trim() || null,
-        telefone: telefone.trim() || null,
-        whatsapp: telefone.trim() || null,
+        fotografo_id:  fotografo.id,
+        nome:          nome.trim(),
+        email:         email.trim() || null,
+        telefone:      telefone.trim() || null,
+        whatsapp:      whatsapp.trim() || telefone.trim() || null,
+        senha_acesso:  gerarSenhaAcesso(),
       })
       .select()
       .single();
@@ -98,15 +101,31 @@ function ModalNovoCliente({
 
           <div>
             <label style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.04em", display: "block", marginBottom: 5 }}>
-              Telefone / WhatsApp
+              Telefone
             </label>
             <input
               type="tel"
               value={telefone}
               onChange={(e) => setTelefone(e.target.value)}
+              placeholder="(11) 3333-0000"
+              style={inputStyle}
+            />
+          </div>
+
+          <div>
+            <label style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.04em", display: "block", marginBottom: 5 }}>
+              WhatsApp
+            </label>
+            <input
+              type="tel"
+              value={whatsapp}
+              onChange={(e) => setWhatsapp(e.target.value)}
               placeholder="(11) 99999-0000"
               style={inputStyle}
             />
+            <p style={{ margin: "3px 0 0", fontSize: 11, color: "var(--color-text-secondary)" }}>
+              Se igual ao telefone, deixe em branco.
+            </p>
           </div>
 
           {erro && (

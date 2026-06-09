@@ -376,7 +376,15 @@ function NovaSelecaoConteudo() {
       }).catch(() => {});
     }
 
-    router.push(`/selecao/${data.id}`);
+    // Redireciona apenas se todos os uploads tiveram sucesso
+    setFila((filaAtual) => {
+      const erros = filaAtual.filter((f) => f.status === "erro").length;
+      if (erros === 0) {
+        router.push(`/selecao/${data.id}`);
+      }
+      // Se houver erros, mantém na tela de progresso para o usuário ver quais falharam
+      return filaAtual;
+    });
   }
 
   // Fase de upload em andamento
