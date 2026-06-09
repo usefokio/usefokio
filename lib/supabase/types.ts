@@ -49,6 +49,24 @@ export type Categoria = {
   created_at: string;
 };
 
+export type GaleriaEntrega = {
+  id: string;
+  fotografo_id: string;
+  cliente_id: string | null;
+  titulo: string;
+  data_evento: string | null;
+  drive_link: string | null;
+  expires_at: string | null;
+  renewal_fee: number | null;
+  mensagem: string | null;
+  downloads: number;
+  cover_color: string | null;
+  created_at: string;
+  updated_at: string;
+  // joined
+  clientes?: { nome: string; email: string | null; telefone: string | null; whatsapp: string | null } | null;
+};
+
 export type ConfigVendaFotos = {
   id: string;
   fotografo_id: string;
