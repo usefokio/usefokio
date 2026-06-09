@@ -22,6 +22,7 @@ export type Fotografo = {
   plano: "gratuito" | "profissional" | "estudio";
   total_fotos_usadas: number;
   aprovado: boolean;
+  mensagem_padrao_entrega: string | null;
   created_at: string;
   updated_at: string;
 };

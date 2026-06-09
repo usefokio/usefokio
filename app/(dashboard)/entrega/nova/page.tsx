@@ -1,10 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
+import { useFotografo } from "@/lib/context/FotografoContext";
 import { Field } from "@/components/ui/Field";
 import { inputStyle } from "@/lib/styles";
-import { MOCK_CLIENTS } from "@/lib/mock-data";
+import { ClienteSelect } from "../_components/ClienteSelect";
+import type { Cliente } from "@/lib/supabase/types";
 
 const PRAZOS_FIXOS = [15, 30, 60, 120];
 
@@ -18,9 +21,11 @@ function formatarData(d: Date): string {
 
 export default function NovaEntregaPage() {
   const router = useRouter();
+  const { fotografo } = useFotografo();
 
   const [titulo,      setTitulo]     = useState("");
   const [clienteId,   setClienteId]  = useState("");
+  const [cliente,     setCliente]    = useState<Cliente | null>(null);
   const [dataEvento,  setDataEvento] = useState("");
   const [driveLink,   setDriveLink]  = useState("");
   const [prazoFixo,   setPrazoFixo]  = useState<number | "custom">(30);
@@ -29,6 +34,13 @@ export default function NovaEntregaPage() {
   const [mensagem,    setMensagem]   = useState("");
   const [saving,      setSaving]     = useState(false);
 
+  // Pré-preencher mensagem padrão quando o fotografo carrega
+  useEffect(() => {
+    if (fotografo?.mensagem_padrao_entrega && !mensagem) {
+      setMensagem(fotografo.mensagem_padrao_entrega);
+    }
+  }, [fotografo]);
+
   const diasEfetivos = prazoFixo === "custom"
     ? (parseInt(prazoCustom) || 0)
     : prazoFixo;
@@ -36,9 +48,22 @@ export default function NovaEntregaPage() {
   const dataExpiracao = diasEfetivos > 0 ? addDias(diasEfetivos) : null;
 
   async function handlePublicar() {
-    if (!titulo.trim()) return;
+    if (!titulo.trim() || !fotografo) return;
     setSaving(true);
-    await new Promise((r) => setTimeout(r, 600));
+    const supabase = createClient();
+    const expires_at = dataExpiracao ? dataExpiracao.toISOString() : null;
+
+    await supabase.from("galerias_entrega").insert({
+      fotografo_id: fotografo.id,
+      cliente_id:   clienteId || null,
+      titulo:       titulo.trim(),
+      data_evento:  dataEvento || null,
+      drive_link:   driveLink.trim() || null,
+      expires_at,
+      renewal_fee:  renovacao ? parseFloat(renovacao) : null,
+      mensagem:     mensagem.trim() || null,
+    });
+
     router.push("/entrega");
   }
 
@@ -72,12 +97,10 @@ export default function NovaEntregaPage() {
         </Field>
 
         <Field label="Cliente">
-          <select value={clienteId} onChange={(e) => setClienteId(e.target.value)} style={inputStyle}>
-            <option value="">Selecionar cliente…</option>
-            {MOCK_CLIENTS.map((c) => (
-              <option key={c.id} value={String(c.id)}>{c.name}</option>
-            ))}
-          </select>
+          <ClienteSelect
+            value={clienteId}
+            onChange={(id, c) => { setClienteId(id); setCliente(c); }}
+          />
         </Field>
 
         <Field label="Data do evento">
@@ -174,6 +197,19 @@ export default function NovaEntregaPage() {
             rows={4}
             style={{ ...inputStyle, resize: "vertical", lineHeight: 1.5 }}
           />
+          {fotografo?.mensagem_padrao_entrega && mensagem !== fotografo.mensagem_padrao_entrega && (
+            <button
+              type="button"
+              onClick={() => setMensagem(fotografo.mensagem_padrao_entrega!)}
+              style={{
+                marginTop: 6, background: "none", border: "none", padding: 0,
+                fontSize: 11, color: "var(--color-text-secondary)", cursor: "pointer",
+                textDecoration: "underline",
+              }}
+            >
+              ↺ Restaurar mensagem padrão
+            </button>
+          )}
         </Field>
 
         <div style={{ display: "flex", gap: 10, paddingTop: 8 }}>

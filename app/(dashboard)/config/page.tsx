@@ -8,7 +8,7 @@ import { PLANOS, pctUso, corBarra, type PlanoId } from "@/lib/planos";
 import type { Categoria, ConfigVendaFotos } from "@/lib/supabase/types";
 import { inputStyle } from "@/lib/styles";
 
-type Tab = "categorias" | "venda";
+type Tab = "categorias" | "venda" | "entrega";
 
 // ── Gerenciador de categorias ────────────────────────────────────────────────
 function Categorias() {
@@ -322,6 +322,73 @@ function VendaFotos() {
   );
 }
 
+// ── Configuração de Entrega ──────────────────────────────────────────────────
+function ConfigEntrega() {
+  const { fotografo, reload } = useFotografo();
+  const [mensagem, setMensagem] = useState("");
+  const [saving,   setSaving]   = useState(false);
+  const [saved,    setSaved]    = useState(false);
+
+  useEffect(() => {
+    if (fotografo) setMensagem(fotografo.mensagem_padrao_entrega ?? "");
+  }, [fotografo]);
+
+  async function salvar() {
+    if (!fotografo) return;
+    setSaving(true);
+    const supabase = createClient();
+    await supabase
+      .from("fotografos")
+      .update({ mensagem_padrao_entrega: mensagem.trim() || null })
+      .eq("id", fotografo.id);
+    await reload();
+    setSaving(false);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 3000);
+  }
+
+  return (
+    <div>
+      <p style={{ fontSize: 13, color: "var(--color-text-secondary)", marginTop: 0, marginBottom: 24 }}>
+        Configure a mensagem padrão enviada aos clientes nas galerias de entrega. Ela será pré-preenchida automaticamente ao criar uma nova galeria, mas pode ser editada em cada caso.
+      </p>
+
+      <div>
+        <label style={{ fontSize: 12, fontWeight: 600, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.04em", display: "block", marginBottom: 7 }}>
+          Mensagem padrão
+        </label>
+        <textarea
+          value={mensagem}
+          onChange={(e) => setMensagem(e.target.value)}
+          placeholder="Olá {nome}! Suas fotos estão prontas 🎉 Acesse o link abaixo para fazer o download…"
+          rows={6}
+          style={{ ...inputStyle, resize: "vertical", lineHeight: 1.6, width: "100%", boxSizing: "border-box" }}
+        />
+        <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: "6px 0 0" }}>
+          Dica: você pode usar {"{nome}"} para personalizar com o nome do cliente.
+        </p>
+      </div>
+
+      {saved && (
+        <div style={{ fontSize: 13, color: "#059669", marginBottom: 14, marginTop: 14 }}>✓ Mensagem padrão salva!</div>
+      )}
+
+      <button
+        onClick={salvar}
+        disabled={saving}
+        style={{
+          marginTop: 20, padding: "10px 28px", borderRadius: 8,
+          background: saving ? "#93C5FD" : "#2563EB",
+          color: "#fff", border: "none", fontSize: 13,
+          fontWeight: 700, cursor: saving ? "not-allowed" : "pointer",
+        }}
+      >
+        {saving ? "Salvando…" : "Salvar mensagem padrão"}
+      </button>
+    </div>
+  );
+}
+
 // ── Card de plano ─────────────────────────────────────────────────────────────
 function CardPlano() {
   const { fotografo } = useFotografo();
@@ -398,8 +465,9 @@ export default function ConfigPage() {
   const [tab, setTab] = useState<Tab>("categorias");
 
   const tabs: { id: Tab; label: string; icon: string }[] = [
-    { id: "categorias", label: "Categorias de fotos", icon: "🏷️" },
-    { id: "venda",      label: "Venda de fotos extras", icon: "💰" },
+    { id: "categorias", label: "Categorias de fotos",   icon: "🏷️" },
+    { id: "venda",      label: "Venda de fotos extras",  icon: "💰" },
+    { id: "entrega",    label: "Galerias de entrega",    icon: "📦" },
   ];
 
   return (
@@ -462,6 +530,7 @@ export default function ConfigPage() {
         }}>
           {tab === "categorias" && <Categorias />}
           {tab === "venda"      && <VendaFotos />}
+          {tab === "entrega"    && <ConfigEntrega />}
         </div>
       </div>
 

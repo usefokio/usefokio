@@ -79,6 +79,15 @@ const IcoEdit = () => (
   </svg>
 );
 
+const IcoTrash = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="3 6 5 6 21 6"/>
+    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+    <path d="M10 11v6M14 11v6"/>
+    <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+  </svg>
+);
+
 // ─── Modal prorrogar ──────────────────────────────────────────────────────────
 function ModalProrrogar({
   galeria,
@@ -220,9 +229,15 @@ export default function EntregaPage() {
   const [galerias, setGalerias] = useState(() =>
     MOCK_ENTREGA.map((g) => ({ ...g, expiresAt: new Date(g.expiresAt) }))
   );
-  const [modalId, setModalId] = useState<number | null>(null);
+  const [modalId,      setModalId]      = useState<number | null>(null);
+  const [deletarId,    setDeletarId]    = useState<number | null>(null);
 
   const galeriaModal = galerias.find((g) => g.id === modalId);
+
+  function deletar(id: number) {
+    setGalerias((prev) => prev.filter((g) => g.id !== id));
+    setDeletarId(null);
+  }
 
   function prorrogar(id: number, novaData: Date) {
     setGalerias((prev) => prev.map((g) => g.id === id ? { ...g, expiresAt: novaData } : g));
@@ -432,6 +447,24 @@ export default function EntregaPage() {
                       >
                         <IcoEdit />
                       </button>
+
+                      {/* Excluir */}
+                      <button
+                        onClick={() => setDeletarId(g.id)}
+                        title="Excluir galeria"
+                        style={{
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          width: 30, height: 30, borderRadius: 7,
+                          border: "0.5px solid rgba(239,68,68,0.3)",
+                          color: "#EF4444",
+                          background: "transparent", cursor: "pointer",
+                          opacity: 0.7,
+                        }}
+                        onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
+                        onMouseLeave={(e) => (e.currentTarget.style.opacity = "0.7")}
+                      >
+                        <IcoTrash />
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -456,6 +489,43 @@ export default function EntregaPage() {
           onFechar={() => setModalId(null)}
         />
       )}
+
+      {/* Modal excluir */}
+      {deletarId !== null && (() => {
+        const g = galerias.find((g) => g.id === deletarId);
+        if (!g) return null;
+        return (
+          <div
+            style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50 }}
+            onClick={() => setDeletarId(null)}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 14, padding: "28px 30px", width: 380, boxShadow: "0 8px 40px rgba(0,0,0,0.18)" }}
+            >
+              <h3 style={{ margin: "0 0 10px", fontSize: 15, fontWeight: 700, color: "#EF4444" }}>Excluir galeria</h3>
+              <p style={{ margin: "0 0 22px", fontSize: 13, color: "var(--color-text-secondary)", lineHeight: 1.6 }}>
+                Tem certeza que deseja excluir <strong style={{ color: "var(--color-text-primary)" }}>{g.name}</strong>?
+                <br />Esta ação não pode ser desfeita.
+              </p>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button
+                  onClick={() => setDeletarId(null)}
+                  style={{ flex: 1, padding: "9px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "transparent", fontSize: 13, color: "var(--color-text-secondary)", cursor: "pointer" }}
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={() => deletar(g.id)}
+                  style={{ flex: 1, padding: "9px", borderRadius: 8, border: "none", background: "#EF4444", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer" }}
+                >
+                  Excluir
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
