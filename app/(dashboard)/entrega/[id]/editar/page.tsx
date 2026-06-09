@@ -4,7 +4,9 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
+import { useDraft } from "@/lib/hooks/useDraft";
 import { Field } from "@/components/ui/Field";
+import { DraftBanner } from "@/components/ui/DraftBanner";
 import { inputStyle } from "@/lib/styles";
 import { ClienteSelect } from "../../_components/ClienteSelect";
 import { MOCK_ENTREGA } from "@/lib/mock-data";
@@ -63,6 +65,11 @@ export default function EditarEntregaPage() {
   // Mock ainda usado para pré-preencher dados (futuro: buscar do Supabase)
   const original = MOCK_ENTREGA.find((g) => g.id === parseInt(id));
 
+  const draftKey = `entrega-editar:${id}`;
+  const { loadDraft, saveDraft, clearDraft, hasDraft, dismissDraft } = useDraft<{
+    titulo: string; clienteId: string; dataEvento: string; driveLink: string; renovacao: string; mensagem: string;
+  }>(draftKey);
+
   const [titulo,      setTitulo]     = useState(original?.name     ?? "");
   const [clienteId,   setClienteId]  = useState("");
   const [cliente,     setCliente]    = useState<Cliente | null>(null);
@@ -72,6 +79,7 @@ export default function EditarEntregaPage() {
   const [mensagem,    setMensagem]   = useState(original?.message   ?? "");
   const [saving,      setSaving]     = useState(false);
   const [modalExcluir, setModalExcluir] = useState(false);
+  const [draftLoaded,  setDraftLoaded]  = useState(false);
 
   const [expiresAt, setExpiresAt] = useState<Date>(
     original ? new Date(original.expiresAt) : addDias(new Date(), 30)
@@ -87,12 +95,28 @@ export default function EditarEntregaPage() {
 
   const novaDataProrrogada = diasProrrogar > 0 ? addDias(expiresAt, diasProrrogar) : null;
 
-  // Pré-preencher mensagem padrão se vazia
+  // Restaurar rascunho ao montar
   useEffect(() => {
-    if (fotografo?.mensagem_padrao_entrega && !mensagem) {
+    if (draftLoaded) return;
+    const draft = loadDraft();
+    if (draft) {
+      setTitulo(draft.titulo ?? original?.name ?? "");
+      setClienteId(draft.clienteId ?? "");
+      setDataEvento(draft.dataEvento ?? "");
+      setDriveLink(draft.driveLink ?? original?.driveLink ?? "");
+      setRenovacao(draft.renovacao ?? (original ? String(original.renewalFee) : ""));
+      setMensagem(draft.mensagem ?? original?.message ?? "");
+    } else if (fotografo?.mensagem_padrao_entrega && !mensagem) {
       setMensagem(fotografo.mensagem_padrao_entrega);
     }
+    setDraftLoaded(true);
   }, [fotografo]);
+
+  // Auto-salvar rascunho
+  useEffect(() => {
+    if (!draftLoaded) return;
+    saveDraft({ titulo, clienteId, dataEvento, driveLink, renovacao, mensagem });
+  }, [titulo, clienteId, dataEvento, driveLink, renovacao, mensagem, draftLoaded]);
 
   function aplicarProrrogacao() {
     if (novaDataProrrogada) {
@@ -106,6 +130,7 @@ export default function EditarEntregaPage() {
     setSaving(true);
     // TODO: salvar no Supabase quando tabela galerias_entrega estiver mapeada
     await new Promise((r) => setTimeout(r, 600));
+    clearDraft();
     router.push("/entrega");
   }
 
@@ -153,6 +178,20 @@ export default function EditarEntregaPage() {
           Excluir galeria
         </button>
       </div>
+
+      {hasDraft && (
+        <DraftBanner onDiscard={() => {
+          clearDraft();
+          setTitulo(original?.name ?? "");
+          setClienteId("");
+          setCliente(null);
+          setDataEvento("");
+          setDriveLink(original?.driveLink ?? "");
+          setRenovacao(original ? String(original.renewalFee) : "");
+          setMensagem(original?.message ?? fotografo?.mensagem_padrao_entrega ?? "");
+          dismissDraft();
+        }} />
+      )}
 
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 

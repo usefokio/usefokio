@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
+import { useDraft } from "@/lib/hooks/useDraft";
+import { DraftBanner } from "@/components/ui/DraftBanner";
 import { gerarSenhaAcesso } from "@/lib/utils";
 import type { Cliente, Categoria, ConfigVendaFotos, ResolucaoExibicao } from "@/lib/supabase/types";
 import { processarImagem, formatBytes } from "@/lib/imageResize";
@@ -176,6 +178,13 @@ function NovaSelecaoConteudo() {
   const params        = useSearchParams();
   const { fotografo } = useFotografo();
 
+  const draftKey = `selecao-nova:${fotografo?.id ?? "anonimo"}`;
+  const { loadDraft, saveDraft, clearDraft, hasDraft, dismissDraft } = useDraft<{
+    titulo: string; categorias: string[]; clienteId: string; dataEvento: string;
+    prazo: string; resolucao: ResolucaoExibicao; selecaoLivre: boolean;
+    limiteMin: string; limiteMax: string; vendaAtiva: boolean; vendaPreco: string; vendaPacoteMin: string;
+  }>(draftKey);
+
   const [clientes, setClientes]   = useState<Cliente[]>([]);
   const [cfgVenda, setCfgVenda]   = useState<ConfigVendaFotos | null>(null);
   const [modalCliente, setModalCliente] = useState(false);
@@ -193,6 +202,7 @@ function NovaSelecaoConteudo() {
   const [vendaAtiva, setVendaAtiva] = useState(false);
   const [vendaPreco, setVendaPreco] = useState("");
   const [vendaPacoteMin, setVendaPacoteMin] = useState("");
+  const [draftInitialized, setDraftInitialized] = useState(false);
 
   // Fila de upload
   const [fila, setFila]           = useState<ArquivoFila[]>([]);
@@ -216,13 +226,36 @@ function NovaSelecaoConteudo() {
         supabase.from("config_venda_fotos").select("*").eq("fotografo_id", fotografo.id).maybeSingle(),
       ]);
       setClientes((cls as Cliente[]) ?? []);
-      if (cfg) {
+
+      // Restaurar rascunho ou pré-preencher configurações padrão
+      const draft = loadDraft();
+      if (draft && !draftInitialized) {
+        setTitulo(draft.titulo ?? "");
+        setCategorias(draft.categorias ?? []);
+        setClienteId(draft.clienteId || params.get("cliente") || "");
+        setDataEvento(draft.dataEvento ?? "");
+        setPrazo(draft.prazo ?? "");
+        setResolucao(draft.resolucao ?? (BETA_RESOLUCAO_MAXIMA ? "hd" : "fullhd"));
+        setSelecaoLivre(draft.selecaoLivre ?? true);
+        setLimiteMin(draft.limiteMin ?? "");
+        setLimiteMax(draft.limiteMax ?? "");
+        setVendaAtiva(draft.vendaAtiva ?? false);
+        setVendaPreco(draft.vendaPreco ?? "");
+        setVendaPacoteMin(draft.vendaPacoteMin ?? "");
+      } else if (cfg) {
         setCfgVenda(cfg);
         if (cfg.ativa) { setVendaAtiva(true); setVendaPreco(cfg.preco_por_foto?.toString() ?? ""); setVendaPacoteMin(cfg.pacote_minimo?.toString() ?? ""); }
       }
+      setDraftInitialized(true);
     }
     load();
   }, [fotografo]);
+
+  // Auto-salvar rascunho a cada mudança (após inicialização)
+  useEffect(() => {
+    if (!draftInitialized) return;
+    saveDraft({ titulo, categorias, clienteId, dataEvento, prazo, resolucao, selecaoLivre, limiteMin, limiteMax, vendaAtiva, vendaPreco, vendaPacoteMin });
+  }, [titulo, categorias, clienteId, dataEvento, prazo, resolucao, selecaoLivre, limiteMin, limiteMax, vendaAtiva, vendaPreco, vendaPacoteMin, draftInitialized]);
 
   function handleClienteCriado(novo: Cliente) {
     setClientes((l) => [...l, novo].sort((a, b) => a.nome.localeCompare(b.nome)));
@@ -278,6 +311,9 @@ function NovaSelecaoConteudo() {
     if (categorias.length > 0) {
       await supabase.from("galeria_selecao_categorias").insert(categorias.map((cat_id) => ({ galeria_id: data.id, categoria_id: cat_id })));
     }
+
+    // Limpar rascunho ao publicar com sucesso
+    clearDraft();
 
     // Se não tem fotos em fila → vai direto
     if (fila.length === 0) { router.push(`/selecao/${data.id}`); return; }
@@ -400,6 +436,18 @@ function NovaSelecaoConteudo() {
         <span style={{ color: "var(--color-border-secondary)" }}>/</span>
         <span style={{ fontSize: 14, fontWeight: 600, color: "var(--color-text-primary)" }}>Nova galeria de seleção</span>
       </div>
+
+      {hasDraft && (
+        <DraftBanner onDiscard={() => {
+          clearDraft();
+          setTitulo(""); setCategorias([]); setClienteId(params.get("cliente") ?? "");
+          setDataEvento(""); setPrazo(""); setResolucao(BETA_RESOLUCAO_MAXIMA ? "hd" : "fullhd");
+          setSelecaoLivre(true); setLimiteMin(""); setLimiteMax("");
+          if (cfgVenda?.ativa) { setVendaAtiva(true); setVendaPreco(cfgVenda.preco_por_foto?.toString() ?? ""); setVendaPacoteMin(cfgVenda.pacote_minimo?.toString() ?? ""); }
+          else { setVendaAtiva(false); setVendaPreco(""); setVendaPacoteMin(""); }
+          dismissDraft();
+        }} />
+      )}
 
       {error && (
         <div style={{ background: "rgba(239,68,68,0.08)", border: "0.5px solid rgba(239,68,68,0.3)", borderRadius: 8, padding: "10px 16px", marginBottom: 16, fontSize: 13, color: "#EF4444" }}>

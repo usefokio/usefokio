@@ -4,12 +4,25 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
+import { useDraft } from "@/lib/hooks/useDraft";
 import { Field } from "@/components/ui/Field";
+import { DraftBanner } from "@/components/ui/DraftBanner";
 import { inputStyle } from "@/lib/styles";
 import { ClienteSelect } from "../_components/ClienteSelect";
 import type { Cliente } from "@/lib/supabase/types";
 
 const PRAZOS_FIXOS = [15, 30, 60, 120];
+
+type DraftData = {
+  titulo: string;
+  clienteId: string;
+  dataEvento: string;
+  driveLink: string;
+  prazoFixo: number | "custom";
+  prazoCustom: string;
+  renovacao: string;
+  mensagem: string;
+};
 
 function addDias(n: number): Date {
   const d = new Date(); d.setDate(d.getDate() + n); return d;
@@ -23,23 +36,61 @@ export default function NovaEntregaPage() {
   const router = useRouter();
   const { fotografo } = useFotografo();
 
-  const [titulo,      setTitulo]     = useState("");
-  const [clienteId,   setClienteId]  = useState("");
-  const [cliente,     setCliente]    = useState<Cliente | null>(null);
-  const [dataEvento,  setDataEvento] = useState("");
-  const [driveLink,   setDriveLink]  = useState("");
-  const [prazoFixo,   setPrazoFixo]  = useState<number | "custom">(30);
-  const [prazoCustom, setPrazoCustom]= useState("");
-  const [renovacao,   setRenovacao]  = useState("");
-  const [mensagem,    setMensagem]   = useState("");
-  const [saving,      setSaving]     = useState(false);
+  const draftKey = `entrega-nova:${fotografo?.id ?? "anonimo"}`;
+  const { loadDraft, saveDraft, clearDraft, hasDraft, dismissDraft } = useDraft<DraftData>(draftKey);
 
-  // Pré-preencher mensagem padrão quando o fotografo carrega
+  const [titulo,      setTitulo]      = useState("");
+  const [clienteId,   setClienteId]   = useState("");
+  const [cliente,     setCliente]     = useState<Cliente | null>(null);
+  const [dataEvento,  setDataEvento]  = useState("");
+  const [driveLink,   setDriveLink]   = useState("");
+  const [prazoFixo,   setPrazoFixo]   = useState<number | "custom">(30);
+  const [prazoCustom, setPrazoCustom] = useState("");
+  const [renovacao,   setRenovacao]   = useState("");
+  const [mensagem,    setMensagem]    = useState("");
+  const [saving,      setSaving]      = useState(false);
+  const [initialized, setInitialized] = useState(false);
+
+  // 1. Restaurar rascunho ou mensagem padrão ao montar
   useEffect(() => {
-    if (fotografo?.mensagem_padrao_entrega && !mensagem) {
+    if (!fotografo || initialized) return;
+
+    const draft = loadDraft();
+    if (draft) {
+      // Rascunho existe — restaurar campos
+      setTitulo(draft.titulo ?? "");
+      setClienteId(draft.clienteId ?? "");
+      setDataEvento(draft.dataEvento ?? "");
+      setDriveLink(draft.driveLink ?? "");
+      setPrazoFixo(draft.prazoFixo ?? 30);
+      setPrazoCustom(draft.prazoCustom ?? "");
+      setRenovacao(draft.renovacao ?? "");
+      setMensagem(draft.mensagem ?? "");
+    } else if (fotografo.mensagem_padrao_entrega) {
       setMensagem(fotografo.mensagem_padrao_entrega);
     }
+    setInitialized(true);
   }, [fotografo]);
+
+  // 2. Auto-salvar rascunho a cada mudança (após inicialização)
+  useEffect(() => {
+    if (!initialized) return;
+    saveDraft({ titulo, clienteId, dataEvento, driveLink, prazoFixo, prazoCustom, renovacao, mensagem });
+  }, [titulo, clienteId, dataEvento, driveLink, prazoFixo, prazoCustom, renovacao, mensagem, initialized]);
+
+  function handleDescartar() {
+    clearDraft();
+    setTitulo("");
+    setClienteId("");
+    setCliente(null);
+    setDataEvento("");
+    setDriveLink("");
+    setPrazoFixo(30);
+    setPrazoCustom("");
+    setRenovacao("");
+    setMensagem(fotografo?.mensagem_padrao_entrega ?? "");
+    dismissDraft();
+  }
 
   const diasEfetivos = prazoFixo === "custom"
     ? (parseInt(prazoCustom) || 0)
@@ -64,6 +115,7 @@ export default function NovaEntregaPage() {
       mensagem:     mensagem.trim() || null,
     });
 
+    clearDraft();
     router.push("/entrega");
   }
 
@@ -83,6 +135,8 @@ export default function NovaEntregaPage() {
           Configure o link de acesso para o cliente baixar as fotos editadas
         </p>
       </div>
+
+      {hasDraft && <DraftBanner onDiscard={handleDescartar} />}
 
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 
