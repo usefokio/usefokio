@@ -23,6 +23,38 @@ type GaleriaPublica = {
 
 type Estado = "carregando" | "ativo" | "expirado" | "sem_link" | "nao_encontrado";
 
+/**
+ * Analisa o link do Google Drive e retorna:
+ * - tipo: "file" | "folder" | "unknown"
+ * - downloadUrl: URL de download direto (só para arquivos)
+ */
+function parseDriveLink(url: string): { tipo: "file" | "folder" | "unknown"; downloadUrl: string } {
+  // Pasta: /drive/folders/FOLDER_ID
+  if (/\/drive\/folders\//.test(url)) {
+    return { tipo: "folder", downloadUrl: url };
+  }
+
+  // Arquivo view: /file/d/FILE_ID/view  ou  /file/d/FILE_ID/
+  const fileMatch = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+  if (fileMatch) {
+    return {
+      tipo: "file",
+      downloadUrl: `https://drive.usercontent.google.com/download?id=${fileMatch[1]}&export=download&confirm=t`,
+    };
+  }
+
+  // open?id= ou ?id=  (sem /folders/)
+  const idMatch = url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+  if (idMatch) {
+    return {
+      tipo: "file",
+      downloadUrl: `https://drive.usercontent.google.com/download?id=${idMatch[1]}&export=download&confirm=t`,
+    };
+  }
+
+  return { tipo: "unknown", downloadUrl: url };
+}
+
 function formatarData(iso: string): string {
   return new Date(iso).toLocaleDateString("pt-BR", {
     day: "2-digit", month: "long", year: "numeric",
@@ -58,15 +90,27 @@ export default function AcessoPage() {
       });
   }, [id]);
 
+  const driveInfo = galeria?.drive_link ? parseDriveLink(galeria.drive_link) : null;
+
   async function handleDownload() {
-    if (!galeria?.drive_link) return;
+    if (!galeria?.drive_link || !driveInfo) return;
     setBaixando(true);
 
     // Incrementar contador
     await fetch(`/api/entrega/${id}/download`, { method: "POST" }).catch(() => {});
 
-    // Abrir link do Drive
-    window.open(galeria.drive_link, "_blank", "noopener,noreferrer");
+    if (driveInfo.tipo === "file") {
+      // Download direto — usa <a download> para forçar o download
+      const a = document.createElement("a");
+      a.href = driveInfo.downloadUrl;
+      a.rel  = "noopener noreferrer";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } else {
+      // Pasta — abre no Drive (limitação do Google)
+      window.open(galeria.drive_link, "_blank", "noopener,noreferrer");
+    }
 
     setBaixando(false);
     setBaixado(true);
@@ -285,17 +329,33 @@ export default function AcessoPage() {
           }}
         >
           {baixando ? (
-            "Abrindo…"
+            "Iniciando download…"
           ) : baixado ? (
-            <><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Download iniciado!</>
+            <><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            {driveInfo?.tipo === "folder" ? "Álbum aberto!" : "Download iniciado!"}</>
           ) : (
             <><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Baixar minhas fotos</>
           )}
         </button>
 
-        {baixado && (
+        {/* Instrução extra para pasta do Drive */}
+        {baixado && driveInfo?.tipo === "folder" && (
+          <div style={{ marginTop: 16, background: "#EFF6FF", border: "0.5px solid #BFDBFE", borderRadius: 10, padding: "12px 16px", fontSize: 13, color: "#1E40AF", lineHeight: 1.7, textAlign: "left" }}>
+            <strong>Como baixar todas as fotos:</strong>
+            <ol style={{ margin: "6px 0 0", paddingLeft: 18, display: "flex", flexDirection: "column", gap: 2 }}>
+              <li>Na página do Google Drive que abriu, clique em <strong>"Download tudo"</strong></li>
+              <li>Ou selecione as fotos desejadas e clique em <strong>⋮ → Fazer download</strong></li>
+            </ol>
+            <p style={{ margin: "8px 0 0", fontSize: 12, color: "#3B82F6" }}>
+              As fotos serão baixadas como um arquivo ZIP.
+            </p>
+          </div>
+        )}
+
+        {baixado && driveInfo?.tipo === "file" && (
           <p style={{ fontSize: 12, color: "#6B7280", marginTop: 12 }}>
-            Uma nova aba foi aberta com o seu álbum de fotos.
+            O download deve iniciar automaticamente. Se não iniciar,{" "}
+            <a href={driveInfo.downloadUrl} style={{ color: "#10B981", fontWeight: 600 }}>clique aqui</a>.
           </p>
         )}
       </div>
