@@ -9,7 +9,8 @@ import { Field } from "@/components/ui/Field";
 import { DraftBanner } from "@/components/ui/DraftBanner";
 import { inputStyle } from "@/lib/styles";
 import { ClienteSelect } from "../../_components/ClienteSelect";
-import type { Cliente, GaleriaEntrega } from "@/lib/supabase/types";
+import { FotosEntregaUpload } from "../../_components/FotosEntregaUpload";
+import type { Cliente, GaleriaEntrega, GaleriaEntregaFoto } from "@/lib/supabase/types";
 
 const PRAZOS_FIXOS = [15, 30, 60, 120];
 
@@ -66,6 +67,7 @@ export default function EditarEntregaPage() {
   const [modalExcluir, setModalExcluir] = useState(false);
   const [deletando,    setDeletando]   = useState(false);
   const [draftLoaded,  setDraftLoaded] = useState(false);
+  const [fotosExistentes, setFotosExistentes] = useState<GaleriaEntregaFoto[]>([]);
 
   const [expiresAt, setExpiresAt] = useState<Date | null>(null);
   const [prorogarDias,   setProrogarDias]   = useState<number | "custom" | null>(null);
@@ -110,6 +112,14 @@ export default function EditarEntregaPage() {
         }
         setDraftLoaded(true);
         setLoadingPage(false);
+
+        // Carregar fotos existentes
+        supabase
+          .from("galerias_entrega_fotos")
+          .select("*")
+          .eq("galeria_id", id)
+          .order("created_at")
+          .then(({ data: fotos }) => setFotosExistentes((fotos as GaleriaEntregaFoto[]) ?? []));
       });
   }, [fotografo]);
 
@@ -270,6 +280,17 @@ export default function EditarEntregaPage() {
             Aplicar prorrogação
           </button>
         </div>
+
+        {/* Fotos da galeria */}
+        {fotografo && (
+          <div style={{ background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 12, padding: "20px 22px" }}>
+            <FotosEntregaUpload
+              galeriaId={id}
+              fotografoId={fotografo.id}
+              fotosExistentes={fotosExistentes}
+            />
+          </div>
+        )}
 
         {/* Ações */}
         <div style={{ display: "flex", gap: 10, paddingTop: 8 }}>

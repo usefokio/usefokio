@@ -9,6 +9,7 @@ import { Field } from "@/components/ui/Field";
 import { DraftBanner } from "@/components/ui/DraftBanner";
 import { inputStyle } from "@/lib/styles";
 import { ClienteSelect } from "../_components/ClienteSelect";
+import { FotosEntregaUpload } from "../_components/FotosEntregaUpload";
 import type { Cliente } from "@/lib/supabase/types";
 
 const PRAZOS_FIXOS = [15, 30, 60, 120];
@@ -50,6 +51,7 @@ export default function NovaEntregaPage() {
   const [mensagem,    setMensagem]    = useState("");
   const [saving,      setSaving]      = useState(false);
   const [initialized, setInitialized] = useState(false);
+  const [galeriaId,   setGaleriaId]   = useState<string | null>(null);
 
   // 1. Restaurar rascunho ou mensagem padrão ao montar
   useEffect(() => {
@@ -104,7 +106,7 @@ export default function NovaEntregaPage() {
     const supabase = createClient();
     const expires_at = dataExpiracao ? dataExpiracao.toISOString() : null;
 
-    await supabase.from("galerias_entrega").insert({
+    const { data } = await supabase.from("galerias_entrega").insert({
       fotografo_id: fotografo.id,
       cliente_id:   clienteId || null,
       titulo:       titulo.trim(),
@@ -113,10 +115,47 @@ export default function NovaEntregaPage() {
       expires_at,
       renewal_fee:  renovacao ? parseFloat(renovacao) : null,
       mensagem:     mensagem.trim() || null,
-    });
+    }).select("id").single();
 
     clearDraft();
-    router.push("/entrega");
+    if (data?.id) {
+      setGaleriaId(data.id);
+      setSaving(false);
+    } else {
+      router.push("/entrega");
+    }
+  }
+
+  // Fase de upload de fotos após galeria criada
+  if (galeriaId && fotografo) {
+    return (
+      <div style={{ padding: "26px 30px", maxWidth: 700 }}>
+        <div style={{ marginBottom: 24 }}>
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "rgba(16,185,129,0.08)", border: "0.5px solid rgba(16,185,129,0.3)", borderRadius: 8, padding: "8px 14px", marginBottom: 16, fontSize: 13, color: "#059669", fontWeight: 600 }}>
+            ✓ Galeria criada com sucesso!
+          </div>
+          <h1 style={{ fontSize: 19, fontWeight: 600, color: "var(--color-text-primary)", margin: "0 0 4px", letterSpacing: "-0.02em" }}>Adicionar fotos</h1>
+          <p style={{ fontSize: 13, color: "var(--color-text-secondary)", margin: 0 }}>
+            Faça upload das fotos em baixa resolução para a galeria do cliente. Você pode pular esta etapa e adicionar depois.
+          </p>
+        </div>
+        <FotosEntregaUpload galeriaId={galeriaId} fotografoId={fotografo.id} />
+        <div style={{ display: "flex", gap: 10, marginTop: 24 }}>
+          <button
+            onClick={() => router.push("/entrega")}
+            style={{ padding: "10px 24px", borderRadius: 9, border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}
+          >
+            Concluir e ir para galerias
+          </button>
+          <button
+            onClick={() => router.push(`/entrega/${galeriaId}/editar`)}
+            style={{ padding: "10px 18px", borderRadius: 9, border: "0.5px solid var(--color-border-secondary)", background: "transparent", fontSize: 13, color: "var(--color-text-secondary)", cursor: "pointer" }}
+          >
+            Editar galeria
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (

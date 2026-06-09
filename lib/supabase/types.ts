@@ -23,8 +23,23 @@ export type Fotografo = {
   total_fotos_usadas: number;
   aprovado: boolean;
   mensagem_padrao_entrega: string | null;
+  logo_url: string | null;
+  watermark_url: string | null;
   created_at: string;
   updated_at: string;
+};
+
+export type GaleriaEntregaFoto = {
+  id: string;
+  galeria_id: string;
+  storage_path: string;
+  url_publica: string;
+  nome_arquivo: string | null;
+  tamanho_bytes: number | null;
+  largura: number | null;
+  altura: number | null;
+  ordem: number;
+  created_at: string;
 };
 
 export type Cliente = {

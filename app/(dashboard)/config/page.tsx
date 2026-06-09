@@ -8,7 +8,7 @@ import { PLANOS, pctUso, corBarra, type PlanoId } from "@/lib/planos";
 import type { Categoria, ConfigVendaFotos } from "@/lib/supabase/types";
 import { inputStyle } from "@/lib/styles";
 
-type Tab = "categorias" | "venda" | "entrega";
+type Tab = "categorias" | "venda" | "entrega" | "identidade";
 
 // ── Gerenciador de categorias ────────────────────────────────────────────────
 function Categorias() {
@@ -390,6 +390,152 @@ function ConfigEntrega() {
   );
 }
 
+// ── Identidade Visual ─────────────────────────────────────────────────────────
+function IdentidadeVisual() {
+  const { fotografo, reload } = useFotografo();
+  const [saving, setSaving]   = useState(false);
+  const [saved,  setSaved]    = useState(false);
+  const [logoUrl,      setLogoUrl]      = useState<string | null>(null);
+  const [watermarkUrl, setWatermarkUrl] = useState<string | null>(null);
+  const [logoUploading,      setLogoUploading]      = useState(false);
+  const [watermarkUploading, setWatermarkUploading] = useState(false);
+  const logoInputRef      = useRef<HTMLInputElement>(null);
+  const watermarkInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (fotografo) {
+      setLogoUrl(fotografo.logo_url ?? null);
+      setWatermarkUrl(fotografo.watermark_url ?? null);
+    }
+  }, [fotografo]);
+
+  async function uploadImagem(
+    file: File,
+    tipo: "logo" | "watermark",
+    setUploading: (v: boolean) => void,
+    setUrl: (v: string | null) => void,
+  ) {
+    if (!fotografo) return;
+    setUploading(true);
+    const supabase = createClient();
+    const ext = file.name.split(".").pop() ?? "png";
+    const path = `assets/${fotografo.id}/${tipo}.${ext}`;
+    const { error } = await supabase.storage
+      .from("galerias")
+      .upload(path, file, { contentType: file.type, upsert: true });
+    if (!error) {
+      const { data } = supabase.storage.from("galerias").getPublicUrl(path);
+      // Bust cache so preview updates immediately
+      setUrl(data.publicUrl + "?t=" + Date.now());
+      const field = tipo === "logo" ? "logo_url" : "watermark_url";
+      await supabase.from("fotografos").update({ [field]: data.publicUrl }).eq("id", fotografo.id);
+      await reload();
+    }
+    setUploading(false);
+  }
+
+  async function remover(tipo: "logo" | "watermark") {
+    if (!fotografo) return;
+    const supabase = createClient();
+    const field = tipo === "logo" ? "logo_url" : "watermark_url";
+    await supabase.from("fotografos").update({ [field]: null }).eq("id", fotografo.id);
+    if (tipo === "logo") setLogoUrl(null);
+    else setWatermarkUrl(null);
+    await reload();
+  }
+
+  function UploadCard({ tipo, label, descricao, url, uploading, inputRef: ref }: {
+    tipo: "logo" | "watermark";
+    label: string;
+    descricao: string;
+    url: string | null;
+    uploading: boolean;
+    inputRef: React.RefObject<HTMLInputElement | null>;
+  }) {
+    const setUploadingFn = tipo === "logo" ? setLogoUploading : setWatermarkUploading;
+    const setUrlFn       = tipo === "logo" ? setLogoUrl       : setWatermarkUrl;
+    return (
+      <div style={{ border: "0.5px solid var(--color-border-secondary)", borderRadius: 12, padding: "20px 22px" }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: "var(--color-text-primary)", marginBottom: 4 }}>{label}</div>
+        <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginBottom: 16, lineHeight: 1.5 }}>{descricao}</div>
+
+        {url ? (
+          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+            <div style={{ background: "#F9FAFB", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 8, padding: 8, display: "flex", alignItems: "center", justifyContent: "center", minWidth: 80, minHeight: 60 }}>
+              <img src={url} alt={label} style={{ maxHeight: 56, maxWidth: 140, objectFit: "contain" }} />
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <button
+                type="button"
+                onClick={() => ref.current?.click()}
+                style={{ padding: "7px 14px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-secondary)", fontSize: 12, fontWeight: 600, cursor: "pointer", color: "var(--color-text-primary)" }}
+              >
+                {uploading ? "Enviando…" : "Trocar imagem"}
+              </button>
+              <button
+                type="button"
+                onClick={() => remover(tipo)}
+                style={{ padding: "7px 14px", borderRadius: 8, border: "0.5px solid rgba(239,68,68,0.3)", background: "rgba(239,68,68,0.06)", fontSize: 12, fontWeight: 600, cursor: "pointer", color: "#DC2626" }}
+              >
+                Remover
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => ref.current?.click()}
+            disabled={uploading}
+            style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 18px", borderRadius: 9, border: "1.5px dashed var(--color-border-secondary)", background: "var(--color-background-secondary)", fontSize: 13, fontWeight: 600, cursor: "pointer", color: "var(--color-text-secondary)", width: "100%" }}
+          >
+            <span style={{ fontSize: 20 }}>🖼</span>
+            {uploading ? "Enviando…" : "Clique para enviar PNG"}
+          </button>
+        )}
+
+        <input
+          ref={ref}
+          type="file"
+          accept="image/png,image/jpeg,image/webp"
+          style={{ display: "none" }}
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) uploadImagem(f, tipo, setUploadingFn, setUrlFn);
+            e.target.value = "";
+          }}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <p style={{ fontSize: 13, color: "var(--color-text-secondary)", marginTop: 0, marginBottom: 24, lineHeight: 1.6 }}>
+        Configure a logo do seu estúdio e a marca d'água aplicada nas galerias de seleção.
+      </p>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        <UploadCard
+          tipo="logo"
+          label="Logo do estúdio"
+          descricao="Exibida no topo da galeria de entrega do cliente (PNG ou JPG recomendado, fundo transparente)."
+          url={logoUrl}
+          uploading={logoUploading}
+          inputRef={logoInputRef}
+        />
+        <UploadCard
+          tipo="watermark"
+          label="Marca d'água"
+          descricao="Aplicada automaticamente nas fotos das galerias de seleção. Use um PNG com fundo transparente para melhor resultado."
+          url={watermarkUrl}
+          uploading={watermarkUploading}
+          inputRef={watermarkInputRef}
+        />
+      </div>
+    </div>
+  );
+}
+
 // ── Card de plano ─────────────────────────────────────────────────────────────
 function CardPlano() {
   const { fotografo } = useFotografo();
@@ -466,9 +612,10 @@ export default function ConfigPage() {
   const [tab, setTab] = useState<Tab>("categorias");
 
   const tabs: { id: Tab; label: string; icon: string }[] = [
-    { id: "categorias", label: "Categorias de fotos",   icon: "🏷️" },
-    { id: "venda",      label: "Venda de fotos extras",  icon: "💰" },
-    { id: "entrega",    label: "Galerias de entrega",    icon: "📦" },
+    { id: "categorias",  label: "Categorias de fotos",   icon: "🏷️" },
+    { id: "identidade",  label: "Identidade visual",     icon: "🎨" },
+    { id: "venda",       label: "Venda de fotos extras",  icon: "💰" },
+    { id: "entrega",     label: "Galerias de entrega",    icon: "📦" },
   ];
 
   return (
@@ -529,9 +676,10 @@ export default function ConfigPage() {
           border: "0.5px solid var(--color-border-tertiary)",
           borderRadius: 12, padding: "24px 28px",
         }}>
-          {tab === "categorias" && <Categorias />}
-          {tab === "venda"      && <VendaFotos />}
-          {tab === "entrega"    && <ConfigEntrega />}
+          {tab === "categorias"  && <Categorias />}
+          {tab === "identidade"  && <IdentidadeVisual />}
+          {tab === "venda"       && <VendaFotos />}
+          {tab === "entrega"     && <ConfigEntrega />}
         </div>
       </div>
 

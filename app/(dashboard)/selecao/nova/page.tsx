@@ -8,7 +8,7 @@ import { useDraft } from "@/lib/hooks/useDraft";
 import { DraftBanner } from "@/components/ui/DraftBanner";
 import { gerarSenhaAcesso } from "@/lib/utils";
 import type { Cliente, Categoria, ConfigVendaFotos, ResolucaoExibicao } from "@/lib/supabase/types";
-import { processarImagem, formatBytes } from "@/lib/imageResize";
+import { processarImagem, aplicarMarcaDagua, formatBytes } from "@/lib/imageResize";
 import { BETA_RESOLUCAO_MAXIMA } from "@/lib/planos";
 import { Field } from "@/components/ui/Field";
 import { inputStyle } from "@/lib/styles";
@@ -332,7 +332,23 @@ function NovaSelecaoConteudo() {
         updateItem({ status: "processando", progresso: 10 });
         // Beta: forçar HD independente da seleção do fotógrafo
         const resolucaoUpload = BETA_RESOLUCAO_MAXIMA ? "hd" : resolucao;
-        const processed = await processarImagem(item.file, resolucaoUpload);
+        let processed = await processarImagem(item.file, resolucaoUpload);
+
+        // Aplicar marca d'água se configurada
+        if (fotografo.watermark_url) {
+          const img = new Image();
+          const blobUrl = URL.createObjectURL(processed.blob);
+          await new Promise<void>((res, rej) => { img.onload = () => res(); img.onerror = rej; img.src = blobUrl; });
+          URL.revokeObjectURL(blobUrl);
+          const canvas = document.createElement("canvas");
+          canvas.width = processed.largura; canvas.height = processed.altura;
+          const ctx = canvas.getContext("2d")!;
+          ctx.drawImage(img, 0, 0);
+          await aplicarMarcaDagua(ctx, processed.largura, processed.altura, fotografo.watermark_url);
+          const watermarkedBlob = await new Promise<Blob>((res, rej) => canvas.toBlob((b) => b ? res(b) : rej(new Error("toBlob null")), "image/jpeg", 0.88));
+          processed = { ...processed, blob: watermarkedBlob, tamanho_bytes: watermarkedBlob.size };
+        }
+
         updateItem({ status: "enviando", progresso: 40 });
 
         const uuid      = crypto.randomUUID();

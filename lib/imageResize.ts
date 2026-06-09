@@ -116,6 +116,72 @@ function canvasToBlob(
   );
 }
 
+/**
+ * Versão simplificada para fotos de entrega (baixa resolução, sem thumbnail separado).
+ * Retorna apenas o blob redimensionado — o mesmo arquivo serve para grid e download.
+ */
+export async function processarImagemEntrega(
+  file: File,
+  maxPx = 1200,
+  qualidade = 0.82,
+): Promise<{ blob: Blob; largura: number; altura: number; tamanho_bytes: number }> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const { naturalWidth: ow, naturalHeight: oh } = img;
+      let largura = ow, altura = oh;
+      const ladoLongo = Math.max(ow, oh);
+      if (ladoLongo > maxPx) {
+        const r = maxPx / ladoLongo;
+        largura = Math.round(ow * r);
+        altura  = Math.round(oh * r);
+      }
+      const canvas = document.createElement("canvas");
+      canvas.width = largura; canvas.height = altura;
+      const ctx = canvas.getContext("2d")!;
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "high";
+      ctx.drawImage(img, 0, 0, largura, altura);
+      canvasToBlob(canvas, "image/jpeg", qualidade).then((blob) =>
+        resolve({ blob, largura, altura, tamanho_bytes: blob.size })
+      ).catch(reject);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error(`Erro ao carregar ${file.name}`)); };
+    img.src = url;
+  });
+}
+
+/**
+ * Aplica marca d'água PNG sobre o canvas antes de exportar.
+ * watermarkUrl deve ser acessível (mesma origem ou CORS habilitado).
+ */
+export async function aplicarMarcaDagua(
+  ctx: CanvasRenderingContext2D,
+  largura: number,
+  altura: number,
+  watermarkUrl: string,
+): Promise<void> {
+  return new Promise((resolve) => {
+    const wm = new Image();
+    wm.crossOrigin = "anonymous";
+    wm.onload = () => {
+      const maxW = largura * 0.30;
+      const scale = Math.min(maxW / wm.naturalWidth, 1);
+      const w = wm.naturalWidth * scale;
+      const h = wm.naturalHeight * scale;
+      const margin = largura * 0.03;
+      ctx.globalAlpha = 0.55;
+      ctx.drawImage(wm, largura - w - margin, altura - h - margin, w, h);
+      ctx.globalAlpha = 1;
+      resolve();
+    };
+    wm.onerror = () => resolve(); // falha silenciosa — não bloqueia o upload
+    wm.src = watermarkUrl;
+  });
+}
+
 /** Formata bytes em texto legível */
 export function formatBytes(bytes: number): string {
   if (bytes < 1024)        return `${bytes} B`;
