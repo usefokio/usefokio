@@ -4,11 +4,13 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
-import { PLANOS, pctUso, corBarra, type PlanoId } from "@/lib/planos";
+import { PLANOS, pctUso, corBarra, limiteEfetivo, type PlanoId } from "@/lib/planos";
 import type { Categoria, ConfigVendaFotos } from "@/lib/supabase/types";
 import { inputStyle } from "@/lib/styles";
+import { mascaraMoeda, parseMoeda, formatarMoeda } from "@/lib/moeda";
+import { DoacaoDev } from "../_components/DoacaoDev";
 
-type Tab = "categorias" | "venda" | "entrega" | "identidade";
+type Tab = "categorias" | "venda" | "entrega" | "identidade" | "pagamentos";
 
 // ── Gerenciador de categorias ────────────────────────────────────────────────
 function Categorias() {
@@ -327,11 +329,15 @@ function VendaFotos() {
 function ConfigEntrega() {
   const { fotografo, reload } = useFotografo();
   const [mensagem, setMensagem] = useState("");
+  const [taxaPadrao, setTaxaPadrao] = useState("");
   const [saving,   setSaving]   = useState(false);
   const [saved,    setSaved]    = useState(false);
 
   useEffect(() => {
-    if (fotografo) setMensagem(fotografo.mensagem_padrao_entrega ?? "");
+    if (fotografo) {
+      setMensagem(fotografo.mensagem_padrao_entrega ?? "");
+      setTaxaPadrao(fotografo.renewal_fee_padrao != null ? formatarMoeda(fotografo.renewal_fee_padrao) : "");
+    }
   }, [fotografo]);
 
   async function salvar() {
@@ -340,7 +346,10 @@ function ConfigEntrega() {
     const supabase = createClient();
     await supabase
       .from("fotografos")
-      .update({ mensagem_padrao_entrega: mensagem.trim() || null })
+      .update({
+        mensagem_padrao_entrega: mensagem.trim() || null,
+        renewal_fee_padrao: parseMoeda(taxaPadrao),
+      })
       .eq("id", fotografo.id);
     await reload();
     setSaving(false);
@@ -370,8 +379,27 @@ function ConfigEntrega() {
         </p>
       </div>
 
+      <div style={{ marginTop: 24 }}>
+        <label style={{ fontSize: 12, fontWeight: 600, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.04em", display: "block", marginBottom: 7 }}>
+          Taxa de renovação padrão
+        </label>
+        <div style={{ position: "relative", width: 200 }}>
+          <span style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", fontSize: 13, color: "var(--color-text-secondary)", pointerEvents: "none" }}>R$</span>
+          <input
+            type="text" inputMode="numeric"
+            value={taxaPadrao}
+            onChange={(e) => setTaxaPadrao(mascaraMoeda(e.target.value))}
+            placeholder="0,00"
+            style={{ ...inputStyle, width: "100%", paddingLeft: 34 }}
+          />
+        </div>
+        <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: "6px 0 0" }}>
+          Valor pré-preenchido como taxa de renovação ao criar uma nova galeria de entrega.
+        </p>
+      </div>
+
       {saved && (
-        <div style={{ fontSize: 13, color: "#059669", marginBottom: 14, marginTop: 14 }}>✓ Mensagem padrão salva!</div>
+        <div style={{ fontSize: 13, color: "#059669", marginBottom: 14, marginTop: 14 }}>✓ Configurações salvas!</div>
       )}
 
       <button
@@ -390,9 +418,114 @@ function ConfigEntrega() {
   );
 }
 
+// ── Pagamentos (Asaas) ────────────────────────────────────────────────────────
+function ConfigPagamentos() {
+  const { fotografo, reload } = useFotografo();
+  const [apiKey,    setApiKey]    = useState("");
+  const [ambiente,  setAmbiente]  = useState<"producao" | "sandbox">("producao");
+  const [salvando,  setSalvando]  = useState(false);
+  const [erro,      setErro]      = useState("");
+  const [contaNome, setContaNome] = useState<string | null>(null);
+
+  const conectado = fotografo?.asaas_ativo ?? false;
+
+  async function conectar() {
+    if (!apiKey.trim()) { setErro("Cole sua API key do Asaas."); return; }
+    setSalvando(true);
+    setErro("");
+    try {
+      const res = await fetch("/api/asaas/config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ apiKey: apiKey.trim(), ambiente }),
+      });
+      const json = await res.json();
+      if (!res.ok) { setErro(json.erro ?? "Erro ao conectar."); return; }
+      setContaNome(json.conta?.nome ?? null);
+      setApiKey("");
+      await reload();
+    } catch {
+      setErro("Erro de conexão. Tente novamente.");
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  async function desconectar() {
+    if (!confirm("Desconectar sua conta Asaas? Clientes não poderão mais pagar renovações online.")) return;
+    setSalvando(true);
+    await fetch("/api/asaas/config", { method: "DELETE" });
+    setContaNome(null);
+    await reload();
+    setSalvando(false);
+  }
+
+  return (
+    <div>
+      <p style={{ fontSize: 13, color: "var(--color-text-secondary)", marginTop: 0, marginBottom: 24, lineHeight: 1.6 }}>
+        Conecte sua conta <strong>Asaas</strong> para receber pagamentos de renovação de acesso das galerias de entrega.
+        O pagamento vai direto para a sua conta — o UseFokio não fica com nenhuma taxa.
+      </p>
+
+      {conectado ? (
+        <div style={{ background: "rgba(16,185,129,0.06)", border: "0.5px solid rgba(16,185,129,0.3)", borderRadius: 12, padding: "18px 22px", marginBottom: 24 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
+            <span style={{ fontSize: 16 }}>✅</span>
+            <span style={{ fontSize: 14, fontWeight: 700, color: "#059669" }}>
+              Conta Asaas conectada{contaNome ? ` — ${contaNome}` : ""}
+            </span>
+            <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 10, background: fotografo?.asaas_ambiente === "sandbox" ? "rgba(245,158,11,0.12)" : "rgba(37,99,235,0.10)", color: fotografo?.asaas_ambiente === "sandbox" ? "#B45309" : "#2563EB" }}>
+              {fotografo?.asaas_ambiente === "sandbox" ? "SANDBOX" : "PRODUÇÃO"}
+            </span>
+          </div>
+          <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginBottom: 14 }}>
+            Suas galerias com taxa de renovação já aceitam pagamento online (Pix, boleto e cartão).
+          </div>
+          <button onClick={desconectar} disabled={salvando} style={{ padding: "8px 16px", borderRadius: 8, border: "0.5px solid rgba(239,68,68,0.3)", background: "rgba(239,68,68,0.05)", fontSize: 12, fontWeight: 600, color: "#DC2626", cursor: "pointer" }}>
+            Desconectar conta
+          </button>
+        </div>
+      ) : (
+        <div style={{ border: "0.5px solid var(--color-border-secondary)", borderRadius: 12, padding: "20px 22px", marginBottom: 24 }}>
+          <div style={{ marginBottom: 14 }}>
+            <label style={{ fontSize: 12, fontWeight: 600, color: "var(--color-text-secondary)", display: "block", marginBottom: 6 }}>API Key do Asaas</label>
+            <input
+              type="password"
+              value={apiKey}
+              onChange={(e) => setApiKey(e.target.value)}
+              placeholder="$aact_..."
+              style={{ ...inputStyle, width: "100%", boxSizing: "border-box", fontFamily: "monospace" }}
+            />
+            <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: "5px 0 0", lineHeight: 1.5 }}>
+              Gere em: painel Asaas → Configurações → Integrações → <strong>Chave de API</strong>. A chave é armazenada criptografada.
+            </p>
+          </div>
+          <div style={{ marginBottom: 16 }}>
+            <label style={{ fontSize: 12, fontWeight: 600, color: "var(--color-text-secondary)", display: "block", marginBottom: 6 }}>Ambiente</label>
+            <select value={ambiente} onChange={(e) => setAmbiente(e.target.value as "producao" | "sandbox")} style={{ ...inputStyle, width: 220 }}>
+              <option value="producao">Produção (asaas.com)</option>
+              <option value="sandbox">Sandbox (testes)</option>
+            </select>
+          </div>
+          {erro && <div style={{ fontSize: 12, color: "#EF4444", marginBottom: 12 }}>{erro}</div>}
+          <button onClick={conectar} disabled={salvando} style={{ padding: "10px 24px", borderRadius: 8, border: "none", background: salvando ? "#93C5FD" : "#2563EB", color: "#fff", fontSize: 13, fontWeight: 700, cursor: salvando ? "not-allowed" : "pointer" }}>
+            {salvando ? "Validando…" : "Conectar conta Asaas"}
+          </button>
+        </div>
+      )}
+
+      {/* Doação ao desenvolvedor */}
+      <div style={{ borderTop: "0.5px solid var(--color-border-tertiary)", paddingTop: 20 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: "var(--color-text-primary)", marginBottom: 4 }}>❤️ Apoie o desenvolvedor</div>
+        <DoacaoDev />
+      </div>
+    </div>
+  );
+}
+
 // ── Identidade Visual ─────────────────────────────────────────────────────────
 function IdentidadeVisual() {
-  const { fotografo, reload } = useFotografo();
+  const { fotografo } = useFotografo();
   const [saving, setSaving]   = useState(false);
   const [saved,  setSaved]    = useState(false);
   const [logoUrl,      setLogoUrl]      = useState<string | null>(null);
@@ -425,11 +558,9 @@ function IdentidadeVisual() {
       .upload(path, file, { contentType: file.type, upsert: true });
     if (!error) {
       const { data } = supabase.storage.from("galerias").getPublicUrl(path);
-      // Bust cache so preview updates immediately
-      setUrl(data.publicUrl + "?t=" + Date.now());
       const field = tipo === "logo" ? "logo_url" : "watermark_url";
       await supabase.from("fotografos").update({ [field]: data.publicUrl }).eq("id", fotografo.id);
-      await reload();
+      setUrl(data.publicUrl + "?t=" + Date.now());
     }
     setUploading(false);
   }
@@ -441,7 +572,6 @@ function IdentidadeVisual() {
     await supabase.from("fotografos").update({ [field]: null }).eq("id", fotografo.id);
     if (tipo === "logo") setLogoUrl(null);
     else setWatermarkUrl(null);
-    await reload();
   }
 
   function UploadCard({ tipo, label, descricao, url, uploading, inputRef: ref }: {
@@ -542,7 +672,8 @@ function CardPlano() {
   if (!fotografo) return null;
   const plano  = PLANOS[fotografo.plano as PlanoId] ?? PLANOS.gratuito;
   const usadas = fotografo.total_fotos_usadas ?? 0;
-  const pct    = pctUso(usadas, plano);
+  const limite = limiteEfetivo(plano, fotografo.limite_fotos_custom);
+  const pct    = pctUso(usadas, plano, fotografo.limite_fotos_custom);
   const bc     = pct !== null ? corBarra(pct) : "#2563EB";
 
   return (
@@ -564,8 +695,8 @@ function CardPlano() {
               {plano.badge.toUpperCase()}
             </span>
           )}
-          <span style={{ marginLeft: "auto", fontSize: 13, fontWeight: 700, color: "var(--color-text-primary)" }}>
-            {plano.preco === 0 ? "Grátis" : `R$ ${plano.preco}/mês`}
+          <span style={{ marginLeft: "auto", fontSize: 13, fontWeight: 700, color: "#2563EB" }}>
+            Fase beta — gratuito
           </span>
         </div>
 
@@ -574,7 +705,7 @@ function CardPlano() {
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6, fontSize: 12 }}>
               <span style={{ color: "var(--color-text-secondary)" }}>Fotos usadas</span>
               <span style={{ fontWeight: 600, color: pct >= 80 ? bc : "var(--color-text-primary)" }}>
-                {usadas.toLocaleString("pt-BR")} / {plano.limite_fotos!.toLocaleString("pt-BR")}
+                {usadas.toLocaleString("pt-BR")} / {limite!.toLocaleString("pt-BR")}
               </span>
             </div>
             <div style={{ height: 6, background: "rgba(0,0,0,0.08)", borderRadius: 3, overflow: "hidden" }}>
@@ -616,6 +747,7 @@ export default function ConfigPage() {
     { id: "identidade",  label: "Identidade visual",     icon: "🎨" },
     { id: "venda",       label: "Venda de fotos extras",  icon: "💰" },
     { id: "entrega",     label: "Galerias de entrega",    icon: "📦" },
+    { id: "pagamentos",  label: "Pagamentos (Asaas)",     icon: "💳" },
   ];
 
   return (
@@ -680,6 +812,7 @@ export default function ConfigPage() {
           {tab === "identidade"  && <IdentidadeVisual />}
           {tab === "venda"       && <VendaFotos />}
           {tab === "entrega"     && <ConfigEntrega />}
+          {tab === "pagamentos"  && <ConfigPagamentos />}
         </div>
       </div>
 

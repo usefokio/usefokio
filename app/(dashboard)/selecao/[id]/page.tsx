@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { processarImagem } from "@/lib/imageResize";
 import exifr from "exifr";
-import { PLANOS, BETA_RESOLUCAO_MAXIMA, type PlanoId } from "@/lib/planos";
+import { PLANOS, BETA_RESOLUCAO_MAXIMA, limiteEfetivo, type PlanoId } from "@/lib/planos";
 import type { GaleriaSelecao, GaleriaSelecaoFoto, Cliente, Categoria } from "@/lib/supabase/types";
 
 import type { FotoComStatus, EscolhaItem, Tab, Evento } from "./_components/types";
@@ -152,7 +152,8 @@ export default function GaleriaSelecaoPage() {
     if (validos.length === 0) return;
 
     const plano = PLANOS[fotografo.plano as PlanoId] ?? PLANOS.gratuito;
-    if (plano.limite_fotos !== null && (fotografo.total_fotos_usadas ?? 0) >= plano.limite_fotos) {
+    const limite = limiteEfetivo(plano, fotografo.limite_fotos_custom);
+    if (limite !== null && (fotografo.total_fotos_usadas ?? 0) >= limite) {
       setAvisoLimite(true);
     }
 
@@ -488,7 +489,7 @@ export default function GaleriaSelecaoPage() {
               <div style={{ background: "rgba(245,158,11,0.08)", border: "0.5px solid rgba(245,158,11,0.4)", borderRadius: 10, padding: "12px 16px", marginBottom: 16, display: "flex", alignItems: "center", gap: 12 }}>
                 <span style={{ fontSize: 18 }}>⚠️</span>
                 <div style={{ flex: 1, fontSize: 13, color: "#92400E" }}>
-                  <strong>Limite do plano {plano.nome} atingido</strong> ({plano.limite_fotos?.toLocaleString("pt-BR")} fotos).
+                  <strong>Limite do plano {plano.nome} atingido</strong> ({limiteEfetivo(plano, fotografo.limite_fotos_custom)?.toLocaleString("pt-BR")} fotos).
                   O upload continua durante o período beta, mas considere fazer upgrade.
                 </div>
                 <a href="/conta/plano" style={{ fontSize: 12, fontWeight: 700, color: "#B45309", whiteSpace: "nowrap", padding: "5px 12px", borderRadius: 8, border: "0.5px solid rgba(245,158,11,0.5)", background: "rgba(245,158,11,0.1)", textDecoration: "none" }}>

@@ -105,15 +105,24 @@ export default function EditarContaPage() {
     <div style={{ padding: "26px 30px", maxWidth: 740 }}>
 
       {/* Breadcrumb */}
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 24 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 24 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <button
+            onClick={() => router.back()}
+            style={{ background: "none", border: "none", cursor: "pointer", color: "var(--color-text-secondary)", fontSize: 13, padding: 0 }}
+          >
+            ← Voltar
+          </button>
+          <span style={{ color: "var(--color-border-secondary)" }}>/</span>
+          <span style={{ fontSize: 14, fontWeight: 600, color: "var(--color-text-primary)" }}>Editar dados</span>
+        </div>
         <button
-          onClick={() => router.back()}
-          style={{ background: "none", border: "none", cursor: "pointer", color: "var(--color-text-secondary)", fontSize: 13, padding: 0 }}
+          onClick={handleSave}
+          disabled={saving}
+          style={{ padding: "8px 18px", borderRadius: 8, border: "none", background: saving ? "#93C5FD" : "#2563EB", color: "#fff", fontSize: 13, fontWeight: 600, cursor: saving ? "default" : "pointer", flexShrink: 0 }}
         >
-          ← Voltar
+          {saving ? "Salvando…" : "Salvar"}
         </button>
-        <span style={{ color: "var(--color-border-secondary)" }}>/</span>
-        <span style={{ fontSize: 14, fontWeight: 600, color: "var(--color-text-primary)" }}>Editar dados</span>
       </div>
 
       {success && (

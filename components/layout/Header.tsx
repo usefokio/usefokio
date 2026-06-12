@@ -9,7 +9,6 @@ import { useFotografo } from "@/lib/context/FotografoContext";
 export function Header() {
   const router  = useRouter();
   const { fotografo } = useFotografo();
-  const [search, setSearch]       = useState("");
   const [menuOpen, setMenuOpen]   = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -47,23 +46,6 @@ export function Header() {
         flexShrink: 0,
       }}
     >
-      {/* Search */}
-      <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 7, maxWidth: 300 }}>
-        <svg width="12" height="12" viewBox="0 0 14 14" fill="none" style={{ opacity: 0.35, flexShrink: 0 }}>
-          <circle cx="6" cy="6" r="4" stroke="var(--color-text-primary)" strokeWidth="1.3" />
-          <path d="M9.5 9.5L12 12" stroke="var(--color-text-primary)" strokeWidth="1.3" strokeLinecap="round" />
-        </svg>
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Buscar…"
-          style={{ flex: 1, border: "none", background: "transparent", fontSize: 13, color: "var(--color-text-primary)", outline: "none" }}
-        />
-        <kbd style={{ fontSize: 9, color: "var(--color-text-secondary)", background: "var(--color-background-secondary)", padding: "1px 5px", borderRadius: 4, border: "0.5px solid var(--color-border-tertiary)", flexShrink: 0 }}>
-          ⌘K
-        </kbd>
-      </div>
-
       {/* Right side */}
       <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10 }}>
         {/* Alert */}

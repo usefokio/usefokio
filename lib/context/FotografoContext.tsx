@@ -34,6 +34,17 @@ export function FotografoProvider({ children }: { children: ReactNode }) {
         return;
       }
 
+      // "Não lembrar": se o sessionStorage foi limpo (browser fechado e reaberto), desloga
+      if (typeof window !== "undefined") {
+        const querLembrar = localStorage.getItem("usefokio_lembrar");
+        const sessionFlag = sessionStorage.getItem("usefokio_session_only");
+        if (querLembrar === "false" && !sessionFlag) {
+          await supabase.auth.signOut();
+          setFotografo(null);
+          return;
+        }
+      }
+
       const { data, error } = await supabase
         .from("fotografos")
         .select("*")

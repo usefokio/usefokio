@@ -4,7 +4,8 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useFotografo } from "@/lib/context/FotografoContext";
 
-const WEBMASTER_ID = process.env.NEXT_PUBLIC_WEBMASTER_ID ?? "";
+const WEBMASTER_ID    = process.env.NEXT_PUBLIC_WEBMASTER_ID ?? "";
+const WEBMASTER_EMAIL = "usefokio@gmail.com";
 
 export function DashboardGuard({ children }: { children: React.ReactNode }) {
   const { fotografo, loading } = useFotografo();
@@ -13,12 +14,17 @@ export function DashboardGuard({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (loading) return;
 
-    // Sem perfil (não está logado ou sem registro) — proxy.ts já redireciona
-    // mas fazemos o check aqui também por segurança
-    if (!fotografo) return;
+    // Sem perfil — redireciona para login
+    if (!fotografo) {
+      router.replace("/login");
+      return;
+    }
 
     // Se for o webmaster, redireciona para o painel
-    if (WEBMASTER_ID && fotografo.id === WEBMASTER_ID) {
+    const isWebmaster =
+      (WEBMASTER_ID    && fotografo.id    === WEBMASTER_ID) ||
+      (WEBMASTER_EMAIL && fotografo.email === WEBMASTER_EMAIL);
+    if (isWebmaster) {
       router.replace("/webmaster");
       return;
     }
@@ -47,9 +53,23 @@ export function DashboardGuard({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // Se não aprovado (ou webmaster), não renderiza — o useEffect vai redirecionar
-  if (!fotografo || !fotografo.aprovado || (WEBMASTER_ID && fotografo.id === WEBMASTER_ID)) {
-    return null;
+  // Se vai redirecionar, não renderiza — o useEffect vai redirecionar
+  const isWebmaster = (WEBMASTER_ID && fotografo?.id === WEBMASTER_ID) || (WEBMASTER_EMAIL && fotografo?.email === WEBMASTER_EMAIL);
+  if (!fotografo || !fotografo.aprovado || isWebmaster) {
+    return (
+      <div style={{
+        height: "100vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "var(--color-background-tertiary)",
+        fontFamily: "var(--font-sans)",
+      }}>
+        <div style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>
+          Redirecionando…
+        </div>
+      </div>
+    );
   }
 
   return <>{children}</>;

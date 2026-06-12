@@ -1,28 +1,25 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
-import { useDraft } from "@/lib/hooks/useDraft";
 import { Field } from "@/components/ui/Field";
-import { DraftBanner } from "@/components/ui/DraftBanner";
 import { inputStyle } from "@/lib/styles";
 import { ClienteSelect } from "../_components/ClienteSelect";
-import { FotosEntregaUpload } from "../_components/FotosEntregaUpload";
+import { processarImagemEntrega, formatBytes } from "@/lib/imageResize";
 import type { Cliente } from "@/lib/supabase/types";
+import { mascaraMoeda, parseMoeda, formatarMoeda } from "@/lib/moeda";
 
 const PRAZOS_FIXOS = [15, 30, 60, 120];
 
-type DraftData = {
-  titulo: string;
-  clienteId: string;
-  dataEvento: string;
-  driveLink: string;
-  prazoFixo: number | "custom";
-  prazoCustom: string;
-  renovacao: string;
-  mensagem: string;
+type ArquivoFila = {
+  id: string;
+  file: File;
+  previewUrl: string;
+  status: "aguardando" | "processando" | "enviando" | "ok" | "erro";
+  progresso: number;
+  erro?: string;
 };
 
 function addDias(n: number): Date {
@@ -37,145 +34,207 @@ export default function NovaEntregaPage() {
   const router = useRouter();
   const { fotografo } = useFotografo();
 
-  const draftKey = `entrega-nova:${fotografo?.id ?? "anonimo"}`;
-  const { loadDraft, saveDraft, clearDraft, hasDraft, dismissDraft } = useDraft<DraftData>(draftKey);
+  const hoje = new Date().toISOString().split("T")[0];
 
   const [titulo,      setTitulo]      = useState("");
   const [clienteId,   setClienteId]   = useState("");
   const [cliente,     setCliente]     = useState<Cliente | null>(null);
-  const [dataEvento,  setDataEvento]  = useState("");
+  const [dataEvento,  setDataEvento]  = useState(hoje);
   const [driveLink,   setDriveLink]   = useState("");
   const [prazoFixo,   setPrazoFixo]   = useState<number | "custom">(30);
   const [prazoCustom, setPrazoCustom] = useState("");
-  const [renovacao,   setRenovacao]   = useState("");
-  const [mensagem,    setMensagem]    = useState("");
-  const [saving,      setSaving]      = useState(false);
-  const [initialized, setInitialized] = useState(false);
-  const [galeriaId,   setGaleriaId]   = useState<string | null>(null);
+  const [renovacao,          setRenovacao]          = useState("");
+  const [renovacaoDias,      setRenovacaoDias]      = useState("30");
+  const [mensagem,           setMensagem]           = useState("");
+  const [apenaZip,           setApenaZip]           = useState(false);
+  const [ordenacaoFotos,     setOrdenacaoFotos]     = useState<"envio" | "nome" | "nome_desc" | "data">("nome");
+  const [identificacaoObrig, setIdentificacaoObrig] = useState(false);
+  const [driveApenasIdentif, setDriveApenasIdentif] = useState(false);
+  const [saving,             setSaving]             = useState(false);
+  const [initialized,        setInitialized]        = useState(false);
 
-  // 1. Restaurar rascunho ou mensagem padrão ao montar
+  const [fila,        setFila]        = useState<ArquivoFila[]>([]);
+  const [dragOver,    setDragOver]    = useState(false);
+  const [uploadTotal, setUploadTotal] = useState(0);
+  const [uploadAtual, setUploadAtual] = useState(0);
+  const inputFotosRef = useRef<HTMLInputElement>(null);
+  const proximoRef = useRef<(() => void) | null>(null);
+
+  useEffect(() => {
+    const handler = () => {
+      if (document.visibilityState === "visible" && proximoRef.current) {
+        proximoRef.current();
+      }
+    };
+    document.addEventListener("visibilitychange", handler);
+    return () => document.removeEventListener("visibilitychange", handler);
+  }, []);
+
   useEffect(() => {
     if (!fotografo || initialized) return;
-
-    const draft = loadDraft();
-    if (draft) {
-      // Rascunho existe — restaurar campos
-      setTitulo(draft.titulo ?? "");
-      setClienteId(draft.clienteId ?? "");
-      setDataEvento(draft.dataEvento ?? "");
-      setDriveLink(draft.driveLink ?? "");
-      setPrazoFixo(draft.prazoFixo ?? 30);
-      setPrazoCustom(draft.prazoCustom ?? "");
-      setRenovacao(draft.renovacao ?? "");
-      setMensagem(draft.mensagem ?? "");
-    } else if (fotografo.mensagem_padrao_entrega) {
-      setMensagem(fotografo.mensagem_padrao_entrega);
-    }
+    if (fotografo.mensagem_padrao_entrega) setMensagem(fotografo.mensagem_padrao_entrega);
+    if (fotografo.renewal_fee_padrao != null) setRenovacao(formatarMoeda(fotografo.renewal_fee_padrao));
     setInitialized(true);
   }, [fotografo]);
 
-  // 2. Auto-salvar rascunho a cada mudança (após inicialização)
-  useEffect(() => {
-    if (!initialized) return;
-    saveDraft({ titulo, clienteId, dataEvento, driveLink, prazoFixo, prazoCustom, renovacao, mensagem });
-  }, [titulo, clienteId, dataEvento, driveLink, prazoFixo, prazoCustom, renovacao, mensagem, initialized]);
-
-  function handleDescartar() {
-    clearDraft();
-    setTitulo("");
-    setClienteId("");
-    setCliente(null);
-    setDataEvento("");
-    setDriveLink("");
-    setPrazoFixo(30);
-    setPrazoCustom("");
-    setRenovacao("");
-    setMensagem(fotografo?.mensagem_padrao_entrega ?? "");
-    dismissDraft();
+  function adicionarArquivos(files: FileList | File[]) {
+    const arr = Array.from(files).filter((f) => f.type.startsWith("image/"));
+    setFila((prev) => {
+      const existentes = new Set(prev.map((f) => f.file.name + "_" + f.file.size));
+      const novos: ArquivoFila[] = arr
+        .filter((f) => !existentes.has(f.name + "_" + f.size))
+        .map((f) => ({
+          id: crypto.randomUUID(),
+          file: f,
+          previewUrl: URL.createObjectURL(f),
+          status: "aguardando",
+          progresso: 0,
+        }));
+      return [...prev, ...novos];
+    });
   }
 
-  const diasEfetivos = prazoFixo === "custom"
-    ? (parseInt(prazoCustom) || 0)
-    : prazoFixo;
+  function removerArquivo(id: string) {
+    setFila((prev) => {
+      const item = prev.find((f) => f.id === id);
+      if (item) URL.revokeObjectURL(item.previewUrl);
+      return prev.filter((f) => f.id !== id);
+    });
+  }
 
+  async function enviarFila(idGaleria: string) {
+    if (fila.length === 0 || !fotografo) return;
+    setUploadTotal(fila.length);
+    setUploadAtual(0);
+    let concluidos = 0;
+    const supabase = createClient();
+    const fotoId = fotografo.id;
+
+    // Semáforo: máximo 3 uploads simultâneos
+    const CONCORRENCIA = 3;
+    let slots = CONCORRENCIA;
+    const pendentes = [...fila];
+
+    await new Promise<void>((done) => {
+      let iniciados = 0;
+      let finalizados = 0;
+      const total = pendentes.length;
+
+      const proximo = () => {
+        while (slots > 0 && iniciados < total) {
+          slots--;
+          const item = pendentes[iniciados++];
+          const upd = (patch: Partial<ArquivoFila>) =>
+            setFila((prev) => prev.map((f) => f.id === item.id ? { ...f, ...patch } : f));
+
+          (async () => {
+            try {
+              upd({ status: "processando", progresso: 15 });
+              const processed = await processarImagemEntrega(item.file, 1200);
+              upd({ status: "enviando", progresso: 50 });
+
+              const path = `entrega/${fotoId}/${idGaleria}/${crypto.randomUUID()}.jpg`;
+              const { error: upErr } = await supabase.storage
+                .from("galerias")
+                .upload(path, processed.blob, { contentType: processed.blob.type || "image/jpeg", upsert: false });
+              if (upErr) throw new Error(upErr.message);
+              upd({ progresso: 80 });
+
+              const { data: urlData } = supabase.storage.from("galerias").getPublicUrl(path);
+              const { error: dbErr } = await supabase.from("galerias_entrega_fotos").insert({
+                galeria_id:    idGaleria,
+                storage_path:  path,
+                url_publica:   urlData.publicUrl,
+                nome_arquivo:  item.file.name,
+                tamanho_bytes: processed.tamanho_bytes,
+                largura:       processed.largura,
+                altura:        processed.altura,
+                ordem:         0,
+              });
+              if (dbErr) throw new Error(dbErr.message);
+              upd({ status: "ok", progresso: 100 });
+            } catch (e) {
+              upd({ status: "erro", erro: e instanceof Error ? e.message : "Erro no upload", progresso: 0 });
+            } finally {
+              slots++;
+              concluidos++;
+              setUploadAtual(concluidos);
+              finalizados++;
+              if (finalizados === total) done();
+              else proximo();
+            }
+          })();
+        }
+      };
+
+      // Quando a aba volta ao foco, re-bombeia o semáforo
+      // (canvas é throttled pelo browser quando a janela está minimizada)
+      proximoRef.current = proximo;
+      proximo();
+    });
+    proximoRef.current = null;
+  }
+
+  const diasEfetivos = prazoFixo === "custom" ? (parseInt(prazoCustom) || 0) : prazoFixo;
   const dataExpiracao = diasEfetivos > 0 ? addDias(diasEfetivos) : null;
 
   async function handlePublicar() {
     if (!titulo.trim() || !fotografo) return;
     setSaving(true);
     const supabase = createClient();
+
     const expires_at = dataExpiracao ? dataExpiracao.toISOString() : null;
+    const { data, error } = await supabase.from("galerias_entrega")
+      .insert({
+        fotografo_id: fotografo.id,
+        cliente_id:   clienteId || null,
+        titulo:       titulo.trim(),
+        data_evento:  dataEvento || null,
+        drive_link:   driveLink.trim() || null,
+        expires_at,
+        renewal_fee:  parseMoeda(renovacao),
+        renovacao_dias: parseInt(renovacaoDias) || 30,
+        mensagem:     mensagem.trim() || null,
+        apenas_zip:   apenaZip,
+        identificacao_obrigatoria: identificacaoObrig,
+        drive_apenas_identificado: driveApenasIdentif,
+        ordenacao_fotos: ordenacaoFotos,
+        rascunho: false,
+      })
+      .select("id")
+      .single();
 
-    const { data } = await supabase.from("galerias_entrega").insert({
-      fotografo_id: fotografo.id,
-      cliente_id:   clienteId || null,
-      titulo:       titulo.trim(),
-      data_evento:  dataEvento || null,
-      drive_link:   driveLink.trim() || null,
-      expires_at,
-      renewal_fee:  renovacao ? parseFloat(renovacao) : null,
-      mensagem:     mensagem.trim() || null,
-    }).select("id").single();
+    if (error || !data) { setSaving(false); return; }
 
-    clearDraft();
-    if (data?.id) {
-      setGaleriaId(data.id);
-      setSaving(false);
-    } else {
-      router.push("/entrega");
-    }
-  }
-
-  // Fase de upload de fotos após galeria criada
-  if (galeriaId && fotografo) {
-    return (
-      <div style={{ padding: "26px 30px", maxWidth: 700 }}>
-        <div style={{ marginBottom: 24 }}>
-          <div style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "rgba(16,185,129,0.08)", border: "0.5px solid rgba(16,185,129,0.3)", borderRadius: 8, padding: "8px 14px", marginBottom: 16, fontSize: 13, color: "#059669", fontWeight: 600 }}>
-            ✓ Galeria criada com sucesso!
-          </div>
-          <h1 style={{ fontSize: 19, fontWeight: 600, color: "var(--color-text-primary)", margin: "0 0 4px", letterSpacing: "-0.02em" }}>Adicionar fotos</h1>
-          <p style={{ fontSize: 13, color: "var(--color-text-secondary)", margin: 0 }}>
-            Faça upload das fotos em baixa resolução para a galeria do cliente. Você pode pular esta etapa e adicionar depois.
-          </p>
-        </div>
-        <FotosEntregaUpload galeriaId={galeriaId} fotografoId={fotografo.id} />
-        <div style={{ display: "flex", gap: 10, marginTop: 24 }}>
-          <button
-            onClick={() => router.push("/entrega")}
-            style={{ padding: "10px 24px", borderRadius: 9, border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}
-          >
-            Concluir e ir para galerias
-          </button>
-          <button
-            onClick={() => router.push(`/entrega/${galeriaId}/editar`)}
-            style={{ padding: "10px 18px", borderRadius: 9, border: "0.5px solid var(--color-border-secondary)", background: "transparent", fontSize: 13, color: "var(--color-text-secondary)", cursor: "pointer" }}
-          >
-            Editar galeria
-          </button>
-        </div>
-      </div>
-    );
+    await enviarFila(data.id);
+    router.push(`/entrega/${data.id}`);
   }
 
   return (
     <div style={{ padding: "26px 30px", maxWidth: 640 }}>
       <div style={{ marginBottom: 24 }}>
-        <button
-          onClick={() => router.back()}
-          style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, color: "var(--color-text-secondary)", padding: 0, marginBottom: 10 }}
-        >
-          ← Voltar
-        </button>
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, marginBottom: 10 }}>
+          <button
+            onClick={() => router.push("/entrega")}
+            style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, color: "var(--color-text-secondary)", padding: 0 }}
+          >
+            ← Voltar
+          </button>
+          <button
+            onClick={handlePublicar}
+            disabled={saving || !titulo.trim()}
+            style={{ padding: "8px 20px", borderRadius: 8, border: "none", background: saving || !titulo.trim() ? "var(--color-background-secondary)" : "var(--color-text-primary)", color: saving || !titulo.trim() ? "var(--color-text-secondary)" : "var(--color-background-primary)", fontSize: 13, fontWeight: 600, cursor: saving || !titulo.trim() ? "default" : "pointer", flexShrink: 0 }}
+          >
+            {saving ? "Publicando…" : fila.length > 0 ? `Publicar e enviar ${fila.length} foto${fila.length !== 1 ? "s" : ""}` : "Publicar galeria"}
+          </button>
+        </div>
         <h1 style={{ fontSize: 19, fontWeight: 600, color: "var(--color-text-primary)", margin: "0 0 3px", letterSpacing: "-0.02em" }}>
           Nova galeria de entrega
         </h1>
         <p style={{ fontSize: 13, color: "var(--color-text-secondary)", margin: 0 }}>
-          Configure o link de acesso para o cliente baixar as fotos editadas
+          Entregue as fotos via link do Google Drive, galeria online, ou ambos
         </p>
       </div>
-
-      {hasDraft && <DraftBanner onDiscard={handleDescartar} />}
 
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 
@@ -205,7 +264,7 @@ export default function NovaEntregaPage() {
           />
         </Field>
 
-        <Field label="Link do Google Drive">
+        <Field label="Link do Google Drive" hint="Opcional — deixe em branco para usar somente a galeria online">
           <input
             type="url"
             value={driveLink}
@@ -213,18 +272,19 @@ export default function NovaEntregaPage() {
             placeholder="https://drive.google.com/drive/folders/…"
             style={inputStyle}
           />
-          <div style={{
-            marginTop: 7,
-            background: "rgba(245,158,11,0.08)",
-            border: "0.5px solid rgba(245,158,11,0.3)",
-            borderRadius: 7, padding: "8px 12px",
-            fontSize: 12, color: "#92400E", lineHeight: 1.5,
-          }}>
-            ℹ️ Certifique-se de que o link esteja configurado como <strong>"Qualquer pessoa com o link pode visualizar"</strong> no Google Drive.
-          </div>
+          {driveLink.trim() && (
+            <div style={{
+              marginTop: 7,
+              background: "rgba(245,158,11,0.08)",
+              border: "0.5px solid rgba(245,158,11,0.3)",
+              borderRadius: 7, padding: "8px 12px",
+              fontSize: 12, color: "#92400E", lineHeight: 1.5,
+            }}>
+              ℹ️ Certifique-se de que o link esteja configurado como <strong>"Qualquer pessoa com o link pode visualizar"</strong> no Google Drive.
+            </div>
+          )}
         </Field>
 
-        {/* Prazo de acesso */}
         <div>
           <div style={{ fontSize: 12, fontWeight: 600, color: "var(--color-text-secondary)", marginBottom: 7, textTransform: "uppercase", letterSpacing: "0.04em" }}>
             Prazo de acesso
@@ -251,7 +311,6 @@ export default function NovaEntregaPage() {
               Personalizado
             </button>
           </div>
-
           {prazoFixo === "custom" && (
             <input
               type="number" min={1} placeholder="Número de dias"
@@ -259,7 +318,6 @@ export default function NovaEntregaPage() {
               style={{ ...inputStyle, marginTop: 8, width: 180 }}
             />
           )}
-
           {dataExpiracao && (
             <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--color-text-secondary)" }}>
               <span>📅</span>
@@ -271,16 +329,32 @@ export default function NovaEntregaPage() {
           )}
         </div>
 
-        <Field label="Taxa de renovação (R$)">
-          <input
-            type="number" min={0} step={0.01}
-            value={renovacao} onChange={(e) => setRenovacao(e.target.value)}
-            placeholder="Ex: 29.90"
-            style={{ ...inputStyle, width: 200 }}
-          />
+        <Field label="Taxa de renovação">
+          <div style={{ position: "relative", width: 200 }}>
+            <span style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", fontSize: 13, color: "var(--color-text-secondary)", pointerEvents: "none" }}>R$</span>
+            <input
+              type="text" inputMode="numeric"
+              value={renovacao} onChange={(e) => setRenovacao(mascaraMoeda(e.target.value))}
+              placeholder="0,00"
+              style={{ ...inputStyle, width: "100%", paddingLeft: 34 }}
+            />
+          </div>
           <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: "4px 0 0" }}>
-            Valor cobrado para prorrogar o prazo de acesso por mais 30 dias.
+            Valor cobrado do cliente para reabrir o acesso após expirar.
           </p>
+          {renovacao.trim() !== "" && (
+            <div style={{ marginTop: 12 }}>
+              <label style={{ fontSize: 12, fontWeight: 600, color: "var(--color-text-secondary)", display: "block", marginBottom: 6 }}>
+                Dias liberados após o pagamento
+              </label>
+              <input
+                type="number" min={1}
+                value={renovacaoDias}
+                onChange={(e) => setRenovacaoDias(e.target.value)}
+                style={{ ...inputStyle, width: 120 }}
+              />
+            </div>
+          )}
         </Field>
 
         <Field label="Mensagem para o cliente">
@@ -305,6 +379,111 @@ export default function NovaEntregaPage() {
           )}
         </Field>
 
+        <div style={{ background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 12, padding: "18px 22px" }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 16 }}>
+            Opções de acesso e download
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <label style={{ display: "flex", alignItems: "flex-start", gap: 12, cursor: "pointer" }}>
+              <input type="checkbox" checked={identificacaoObrig} onChange={(e) => setIdentificacaoObrig(e.target.checked)} style={{ marginTop: 2, width: 16, height: 16, accentColor: "var(--color-text-primary)", cursor: "pointer", flexShrink: 0 }} />
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)", marginBottom: 3 }}>Exigir identificação</div>
+                <div style={{ fontSize: 12, color: "var(--color-text-secondary)", lineHeight: 1.5 }}>O cliente precisa informar nome e e-mail antes de acessar.</div>
+              </div>
+            </label>
+            <label style={{ display: "flex", alignItems: "flex-start", gap: 12, cursor: "pointer" }}>
+              <input type="checkbox" checked={driveApenasIdentif} onChange={(e) => setDriveApenasIdentif(e.target.checked)} style={{ marginTop: 2, width: 16, height: 16, accentColor: "var(--color-text-primary)", cursor: "pointer", flexShrink: 0 }} />
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)", marginBottom: 3 }}>Link do Drive somente após identificação</div>
+                <div style={{ fontSize: 12, color: "var(--color-text-secondary)", lineHeight: 1.5 }}>Oculta o botão "Baixar todas" até o cliente se identificar.</div>
+              </div>
+            </label>
+            <label style={{ display: "flex", alignItems: "flex-start", gap: 12, cursor: "pointer" }}>
+              <input type="checkbox" checked={apenaZip} onChange={(e) => setApenaZip(e.target.checked)} style={{ marginTop: 2, width: 16, height: 16, accentColor: "var(--color-text-primary)", cursor: "pointer", flexShrink: 0 }} />
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)", marginBottom: 3 }}>Galeria somente visualização</div>
+                <div style={{ fontSize: 12, color: "var(--color-text-secondary)", lineHeight: 1.5 }}>Desativa o download individual de fotos.</div>
+              </div>
+            </label>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)", marginBottom: 6 }}>Ordem das fotos na galeria</div>
+              <select
+                value={ordenacaoFotos}
+                onChange={(e) => setOrdenacaoFotos(e.target.value as "envio" | "nome" | "data")}
+                style={{ ...inputStyle, width: 240 }}
+              >
+                <option value="nome">Nome do arquivo (A–Z)</option>
+                <option value="nome_desc">Nome do arquivo (Z–A)</option>
+                <option value="envio">Ordem de envio</option>
+                <option value="data">Data de envio (mais recente primeiro)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div style={{ background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 12, padding: "18px 22px" }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>
+            Fotos da galeria
+          </div>
+          <p style={{ fontSize: 12, color: "var(--color-text-secondary)", margin: "0 0 14px", lineHeight: 1.5 }}>
+            Selecione as fotos agora — elas serão enviadas quando você publicar a galeria.
+          </p>
+
+          <input
+            ref={inputFotosRef}
+            type="file" accept="image/*" multiple
+            style={{ display: "none" }}
+            onChange={(e) => { if (e.target.files) adicionarArquivos(e.target.files); e.target.value = ""; }}
+          />
+
+          <div
+            onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={(e) => { e.preventDefault(); setDragOver(false); adicionarArquivos(e.dataTransfer.files); }}
+            onClick={() => inputFotosRef.current?.click()}
+            style={{
+              border: `1.5px dashed ${dragOver ? "#2563EB" : "var(--color-border-secondary)"}`,
+              borderRadius: 10,
+              background: dragOver ? "rgba(37,99,235,0.04)" : "var(--color-background-primary)",
+              padding: fila.length === 0 ? "28px 20px" : "14px 16px",
+              textAlign: "center", cursor: "pointer", transition: "all 0.15s",
+            }}
+          >
+            <div style={{ fontSize: fila.length === 0 ? 26 : 18, marginBottom: 6 }}>🖼</div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)" }}>
+              {fila.length === 0 ? "Arraste fotos ou clique para selecionar" : "+ Adicionar mais fotos"}
+            </div>
+            {fila.length === 0 && (
+              <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 4 }}>
+                JPG, PNG, WEBP · As fotos serão reduzidas para baixa resolução
+              </div>
+            )}
+          </div>
+
+          {fila.length > 0 && (
+            <div style={{ marginTop: 12 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(72px, 1fr))", gap: 6, maxHeight: 260, overflowY: "auto" }}>
+                {fila.map((item) => (
+                  <div key={item.id} style={{ position: "relative", aspectRatio: "1", borderRadius: 7, overflow: "hidden", background: "var(--color-border-tertiary)" }}>
+                    <img src={item.previewUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", opacity: item.status === "erro" ? 0.4 : 1 }} />
+                    {item.status === "erro" && (
+                      <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>⚠️</div>
+                    )}
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); removerArquivo(item.id); }}
+                      style={{ position: "absolute", top: 3, right: 3, width: 18, height: 18, borderRadius: "50%", background: "rgba(0,0,0,0.6)", border: "none", color: "#fff", fontSize: 10, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1 }}
+                    >✕</button>
+                  </div>
+                ))}
+              </div>
+              <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 8 }}>
+                {fila.length} foto{fila.length !== 1 ? "s" : ""} na fila ({formatBytes(fila.reduce((s, f) => s + f.file.size, 0))}) · serão enviadas ao publicar
+              </div>
+            </div>
+          )}
+        </div>
+
         <div style={{ display: "flex", gap: 10, paddingTop: 8 }}>
           <button
             onClick={handlePublicar}
@@ -316,10 +495,10 @@ export default function NovaEntregaPage() {
               fontSize: 13, fontWeight: 600, cursor: saving || !titulo.trim() ? "default" : "pointer",
             }}
           >
-            {saving ? "Publicando…" : "Publicar galeria"}
+            {saving ? "Publicando…" : fila.length > 0 ? `Publicar e enviar ${fila.length} foto${fila.length !== 1 ? "s" : ""}` : "Publicar galeria"}
           </button>
           <button
-            onClick={() => router.back()}
+            onClick={() => router.push("/entrega")}
             style={{
               padding: "10px 18px", borderRadius: 9,
               border: "0.5px solid var(--color-border-secondary)",
@@ -331,6 +510,20 @@ export default function NovaEntregaPage() {
           </button>
         </div>
       </div>
+
+      {uploadTotal > 0 && uploadAtual < uploadTotal && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 90 }}>
+          <div style={{ background: "var(--color-background-primary)", borderRadius: 14, padding: "30px 36px", width: 360, textAlign: "center", boxShadow: "0 8px 40px rgba(0,0,0,0.25)" }}>
+            <div style={{ fontSize: 28, marginBottom: 12 }}>📤</div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: "var(--color-text-primary)", marginBottom: 6 }}>Enviando fotos…</div>
+            <div style={{ fontSize: 13, color: "var(--color-text-secondary)", marginBottom: 16 }}>{uploadAtual} de {uploadTotal}</div>
+            <div style={{ height: 8, background: "var(--color-background-secondary)", borderRadius: 4, overflow: "hidden" }}>
+              <div style={{ height: "100%", borderRadius: 4, background: "#2563EB", width: `${Math.round((uploadAtual / uploadTotal) * 100)}%`, transition: "width 0.3s" }} />
+            </div>
+            <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 12 }}>Não feche esta janela até concluir.</div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

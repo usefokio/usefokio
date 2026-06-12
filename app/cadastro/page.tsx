@@ -158,33 +158,36 @@ export default function CadastroPage() {
       return;
     }
 
-    // 2. Salva o perfil via função SECURITY DEFINER (bypassa RLS no signup)
-    // Nota: p_id foi removido — a função usa auth.uid() internamente
-    const { error: profileError } = await supabase.rpc("criar_perfil_fotografo", {
-      p_nome_completo: form.nomeCompleto,
-      p_nome_empresa:  form.nomeEmpresa,
-      p_email:         form.email,
-      p_telefone:      form.telefone    || null,
-      p_whatsapp:      form.whatsapp    || null,
-      p_cep:           form.cep         || null,
-      p_rua:           form.rua         || null,
-      p_numero:        form.numero      || null,
-      p_complemento:   form.complemento || null,
-      p_bairro:        form.bairro      || null,
-      p_cidade:        form.cidade      || null,
-      p_estado:        form.estado      || null,
-      p_instagram:     form.instagram   || null,
-      p_facebook:      form.facebook    || null,
-      p_tiktok:        form.tiktok      || null,
-      p_youtube:       form.youtube     || null,
-      p_site:          form.site        || null,
-      p_aceita_emails: form.aceitaEmails,
-    });
+    // 2. Salva o perfil — só se a sessão já está disponível (sem confirmação de email)
+    // Se email confirmation está ativa, authData.session é null e auth.uid() seria null na RPC.
+    // Nesse caso, o auth/callback cria o perfil automaticamente ao confirmar o email.
+    if (authData.session) {
+      const { error: profileError } = await supabase.rpc("criar_perfil_fotografo", {
+        p_nome_completo: form.nomeCompleto,
+        p_nome_empresa:  form.nomeEmpresa,
+        p_email:         form.email,
+        p_telefone:      form.telefone    || null,
+        p_whatsapp:      form.whatsapp    || null,
+        p_cep:           form.cep         || null,
+        p_rua:           form.rua         || null,
+        p_numero:        form.numero      || null,
+        p_complemento:   form.complemento || null,
+        p_bairro:        form.bairro      || null,
+        p_cidade:        form.cidade      || null,
+        p_estado:        form.estado      || null,
+        p_instagram:     form.instagram   || null,
+        p_facebook:      form.facebook    || null,
+        p_tiktok:        form.tiktok      || null,
+        p_youtube:       form.youtube     || null,
+        p_site:          form.site        || null,
+        p_aceita_emails: form.aceitaEmails,
+      });
 
-    if (profileError) {
-      setGlobalError("Conta criada, mas erro ao salvar perfil: " + profileError.message);
-      setLoading(false);
-      return;
+      if (profileError) {
+        setGlobalError("Conta criada, mas erro ao salvar perfil: " + profileError.message);
+        setLoading(false);
+        return;
+      }
     }
 
     // 3. Notifica webmaster sobre novo cadastro (fire-and-forget, não bloqueia)
@@ -225,14 +228,8 @@ export default function CadastroPage() {
 
       {/* Header */}
       <nav style={{ background: "var(--color-background-primary)", borderBottom: "0.5px solid var(--color-border-tertiary)", padding: "0 32px", height: 54, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <Link href="/landing" style={{ display: "flex", alignItems: "center", gap: 8, textDecoration: "none" }}>
-          <div style={{ width: 26, height: 26, borderRadius: 6, background: "var(--color-text-primary)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
-              <circle cx="7" cy="7" r="4" stroke="#fff" strokeWidth="1.5"/>
-              <circle cx="7" cy="7" r="1.5" fill="#fff"/>
-            </svg>
-          </div>
-          <span style={{ fontSize: 14, fontWeight: 700, color: "var(--color-text-primary)", letterSpacing: "-0.02em" }}>UseFokio</span>
+        <Link href="/landing" style={{ display: "flex", alignItems: "center", textDecoration: "none" }}>
+          <img src="/usefokio-logo.svg" alt="UseFokio" style={{ height: 24, width: "auto", display: "block" }} />
         </Link>
         <span style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>
           Já tem conta?{" "}

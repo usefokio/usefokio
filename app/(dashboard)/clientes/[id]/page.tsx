@@ -11,6 +11,175 @@ import { inputStyle } from "@/lib/styles";
 
 type TabId = "perfil" | "galerias";
 
+const ESTADOS_BR = [
+  "AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG",
+  "PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO",
+];
+
+const SEXO_LABELS: Record<string, string> = {
+  feminino: "Feminino", masculino: "Masculino", outro: "Outro", nao_declarar: "Não declarar",
+};
+
+type GaleriaSelecaoMin = { id: string; titulo: string; status: string; total_fotos: number; created_at: string };
+type GaleriaEntregaMin = { id: string; titulo: string; expires_at: string | null; downloads: number; suspensa: boolean; created_at: string };
+type AlbumMin          = { id: string; titulo: string; status: string; created_at: string };
+
+// ─── Aba Galerias ─────────────────────────────────────────────────────────────
+function TabGalerias({ clienteId, clienteNome }: { clienteId: string; clienteNome: string }) {
+  const [selecoes,  setSelecoes]  = useState<GaleriaSelecaoMin[]>([]);
+  const [entregas,  setEntregas]  = useState<GaleriaEntregaMin[]>([]);
+  const [albuns,    setAlbuns]    = useState<AlbumMin[]>([]);
+  const [loading,   setLoading]   = useState(true);
+
+  useEffect(() => {
+    const supabase = createClient();
+    Promise.all([
+      supabase.from("galerias_selecao").select("id, titulo, status, total_fotos, created_at").eq("cliente_id", clienteId).order("created_at", { ascending: false }),
+      supabase.from("galerias_entrega").select("id, titulo, expires_at, downloads, suspensa, created_at").eq("cliente_id", clienteId).order("created_at", { ascending: false }),
+      supabase.from("album_selecoes").select("id, titulo, status, created_at").eq("cliente_id", clienteId).order("created_at", { ascending: false }),
+    ]).then(([{ data: s }, { data: e }, { data: a }]) => {
+      setSelecoes((s as GaleriaSelecaoMin[]) ?? []);
+      setEntregas((e as GaleriaEntregaMin[]) ?? []);
+      setAlbuns((a as AlbumMin[]) ?? []);
+      setLoading(false);
+    });
+  }, [clienteId]);
+
+  const total = selecoes.length + entregas.length + albuns.length;
+
+  if (loading) return <div style={{ padding: "40px 24px", textAlign: "center", fontSize: 13, color: "var(--color-text-secondary)" }}>Carregando…</div>;
+
+  const fmtData = (s: string) => new Date(s).toLocaleDateString("pt-BR");
+  const fmtExpira = (e: GaleriaEntregaMin) => {
+    if (e.suspensa) return { label: "Suspensa", color: "#B45309", bg: "rgba(245,158,11,0.10)" };
+    if (!e.expires_at) return { label: "Sem prazo", color: "#6B7280", bg: "rgba(107,114,128,0.08)" };
+    const dias = Math.round((new Date(e.expires_at).getTime() - Date.now()) / 86_400_000);
+    if (dias < 0) return { label: "Expirado", color: "#EF4444", bg: "rgba(239,68,68,0.08)" };
+    if (dias <= 7) return { label: `${dias}d restantes`, color: "#B45309", bg: "rgba(245,158,11,0.10)" };
+    return { label: `Expira ${new Date(e.expires_at).toLocaleDateString("pt-BR")}`, color: "#059669", bg: "rgba(16,185,129,0.08)" };
+  };
+
+  const STATUS_SEL: Record<string, { label: string; color: string; bg: string }> = {
+    rascunho:           { label: "Rascunho",     color: "#64748B", bg: "rgba(100,116,139,0.10)" },
+    ativa:              { label: "Ativa",         color: "#059669", bg: "rgba(16,185,129,0.10)"  },
+    encerrada:          { label: "Encerrada",     color: "#EF4444", bg: "rgba(239,68,68,0.10)"   },
+    aguardando_revisao: { label: "Ag. revisão",   color: "#B45309", bg: "rgba(245,158,11,0.10)"  },
+  };
+  const STATUS_ALB: Record<string, { label: string; color: string; bg: string }> = {
+    rascunho:           { label: "Rascunho",     color: "#64748B", bg: "rgba(100,116,139,0.10)" },
+    ativa:              { label: "Ativa",         color: "#059669", bg: "rgba(16,185,129,0.10)"  },
+    aguardando_revisao: { label: "Ag. revisão",   color: "#B45309", bg: "rgba(245,158,11,0.10)"  },
+    aprovado:           { label: "Aprovado",      color: "#2563EB", bg: "rgba(37,99,235,0.10)"   },
+    encerrada:          { label: "Encerrada",     color: "#EF4444", bg: "rgba(239,68,68,0.10)"   },
+  };
+
+  const cardStyle: React.CSSProperties = {
+    display: "flex", alignItems: "center", justifyContent: "space-between",
+    padding: "11px 16px", borderRadius: 9,
+    border: "0.5px solid var(--color-border-tertiary)",
+    background: "var(--color-background-primary)",
+    textDecoration: "none", gap: 12,
+  };
+  const badge = (label: string, color: string, bg: string) => (
+    <span style={{ fontSize: 11, fontWeight: 600, color, background: bg, padding: "2px 8px", borderRadius: 10, whiteSpace: "nowrap" }}>{label}</span>
+  );
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+
+      {/* ── Seleção ── */}
+      <div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+            Seleção de fotos ({selecoes.length})
+          </div>
+          <Link href={`/selecao/nova?cliente=${clienteId}`} style={{ fontSize: 12, color: "#2563EB", textDecoration: "none", fontWeight: 600 }}>+ Nova</Link>
+        </div>
+        {selecoes.length === 0 ? (
+          <div style={{ fontSize: 13, color: "var(--color-text-secondary)", padding: "12px 16px", borderRadius: 9, border: "0.5px dashed var(--color-border-secondary)" }}>Nenhuma galeria de seleção.</div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {selecoes.map((g) => {
+              const st = STATUS_SEL[g.status] ?? { label: g.status, color: "#6B7280", bg: "rgba(107,114,128,0.08)" };
+              return (
+                <Link key={g.id} href={`/selecao/${g.id}`} style={cardStyle}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{g.titulo}</div>
+                    <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 2 }}>{fmtData(g.created_at)} · {g.total_fotos} foto{g.total_fotos !== 1 ? "s" : ""}</div>
+                  </div>
+                  {badge(st.label, st.color, st.bg)}
+                </Link>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* ── Entrega ── */}
+      <div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+            Entrega de fotos ({entregas.length})
+          </div>
+          <Link href={`/entrega/nova?cliente=${clienteId}`} style={{ fontSize: 12, color: "#7C3AED", textDecoration: "none", fontWeight: 600 }}>+ Nova</Link>
+        </div>
+        {entregas.length === 0 ? (
+          <div style={{ fontSize: 13, color: "var(--color-text-secondary)", padding: "12px 16px", borderRadius: 9, border: "0.5px dashed var(--color-border-secondary)" }}>Nenhuma galeria de entrega.</div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {entregas.map((g) => {
+              const exp = fmtExpira(g);
+              return (
+                <Link key={g.id} href={`/entrega/${g.id}/editar`} style={cardStyle}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{g.titulo}</div>
+                    <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 2 }}>{fmtData(g.created_at)} · {g.downloads} download{g.downloads !== 1 ? "s" : ""}</div>
+                  </div>
+                  {badge(exp.label, exp.color, exp.bg)}
+                </Link>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* ── Álbuns ── */}
+      <div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+            Álbuns ({albuns.length})
+          </div>
+          <Link href={`/album/nova?cliente=${clienteId}`} style={{ fontSize: 12, color: "#059669", textDecoration: "none", fontWeight: 600 }}>+ Novo</Link>
+        </div>
+        {albuns.length === 0 ? (
+          <div style={{ fontSize: 13, color: "var(--color-text-secondary)", padding: "12px 16px", borderRadius: 9, border: "0.5px dashed var(--color-border-secondary)" }}>Nenhum álbum.</div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {albuns.map((g) => {
+              const st = STATUS_ALB[g.status] ?? { label: g.status, color: "#6B7280", bg: "rgba(107,114,128,0.08)" };
+              return (
+                <Link key={g.id} href={`/album/${g.id}`} style={cardStyle}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{g.titulo}</div>
+                    <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 2 }}>{fmtData(g.created_at)}</div>
+                  </div>
+                  {badge(st.label, st.color, st.bg)}
+                </Link>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {total === 0 && (
+        <div style={{ textAlign: "center", padding: "12px 0 4px", fontSize: 12, color: "var(--color-text-secondary)" }}>
+          Nenhuma galeria vinculada a <strong>{clienteNome}</strong>.
+        </div>
+      )}
+    </div>
+  );
+}
+
 function avatarColor(nome: string) {
   const colors = ["#2563EB","#7C3AED","#DB2777","#059669","#D97706","#DC2626","#0891B2"];
   return colors[nome.charCodeAt(0) % colors.length];
@@ -213,13 +382,24 @@ export default function ClienteDetailPage() {
     const { data, error } = await supabase
       .from("clientes")
       .update({
-        nome:        form.nome?.trim(),
-        email:       form.email?.trim()       || null,
-        telefone:    form.telefone?.trim()    || null,
-        whatsapp:    form.whatsapp?.trim()    || null,
-        instagram:   form.instagram?.trim()   || null,
-        observacoes: form.observacoes?.trim() || null,
-        updated_at:  new Date().toISOString(),
+        nome:            form.nome?.trim(),
+        email:           form.email?.trim()           || null,
+        telefone:        form.telefone?.trim()        || null,
+        whatsapp:        form.whatsapp?.trim()        || null,
+        instagram:       form.instagram?.trim()       || null,
+        cpf:             form.cpf?.trim()             || null,
+        observacoes:     form.observacoes?.trim()     || null,
+        data_nascimento: form.data_nascimento || null,
+        rg:              form.rg?.trim()     || null,
+        sexo:            form.sexo           || null,
+        cep:             form.cep?.replace(/\D/g,"") || null,
+        logradouro:      form.logradouro?.trim()    || null,
+        numero:          form.numero?.trim()        || null,
+        complemento:     form.complemento?.trim()   || null,
+        bairro:          form.bairro?.trim()        || null,
+        cidade:          form.cidade?.trim()        || null,
+        estado:          form.estado               || null,
+        updated_at:      new Date().toISOString(),
       })
       .eq("id", id)
       .select().single();
@@ -339,12 +519,83 @@ export default function ClienteDetailPage() {
                   <input value={form.instagram ?? ""} onChange={(e) => upd("instagram", e.target.value)} style={{ ...inputStyle, paddingLeft: 24 }} placeholder="perfil" />
                 </div>
               </Field>
+              <Field label="CPF / CNPJ">
+                <input value={form.cpf ?? ""} onChange={(e) => upd("cpf", e.target.value)} style={inputStyle} placeholder="000.000.000-00 ou 00.000.000/0001-00" />
+              </Field>
               <div style={{ gridColumn: "1 / -1" }}>
                 <Field label="Observações">
                   <textarea value={form.observacoes ?? ""} onChange={(e) => upd("observacoes", e.target.value)} placeholder="Notas internas sobre este cliente…" rows={3} style={{ ...inputStyle, resize: "vertical", height: "auto" }} />
                 </Field>
               </div>
             </div>
+
+            {/* Dados pessoais + endereço */}
+            <div style={{ marginTop: 24, borderTop: "0.5px solid var(--color-border-tertiary)", paddingTop: 20 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 14 }}>Dados pessoais</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14 }}>
+                <Field label="Data de nascimento">
+                  <input type="date" value={form.data_nascimento ?? ""} onChange={(e) => setForm((f) => ({ ...f, data_nascimento: e.target.value }))} style={inputStyle} />
+                </Field>
+                <Field label="RG">
+                  <input value={form.rg ?? ""} onChange={(e) => setForm((f) => ({ ...f, rg: e.target.value }))} placeholder="00.000.000-0" style={inputStyle} />
+                </Field>
+                <Field label="Sexo">
+                  <select value={form.sexo ?? ""} onChange={(e) => setForm((f) => ({ ...f, sexo: e.target.value }))} style={inputStyle}>
+                    <option value="">Selecionar…</option>
+                    <option value="feminino">Feminino</option>
+                    <option value="masculino">Masculino</option>
+                    <option value="outro">Outro</option>
+                    <option value="nao_declarar">Não declarar</option>
+                  </select>
+                </Field>
+              </div>
+            </div>
+
+            <div style={{ marginTop: 20 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 14 }}>Endereço</div>
+              <div style={{ display: "grid", gridTemplateColumns: "140px 1fr", gap: 14, marginBottom: 14 }}>
+                <Field label="CEP">
+                  <input value={form.cep ?? ""} onChange={async (e) => {
+                    const v = e.target.value;
+                    setForm((f) => ({ ...f, cep: v }));
+                    const limpo = v.replace(/\D/g,"");
+                    if (limpo.length === 8) {
+                      try {
+                        const r = await fetch(`https://viacep.com.br/ws/${limpo}/json/`);
+                        const d = await r.json();
+                        if (!d.erro) setForm((f) => ({ ...f, logradouro: d.logradouro ?? f.logradouro, bairro: d.bairro ?? f.bairro, cidade: d.localidade ?? f.cidade, estado: d.uf ?? f.estado }));
+                      } catch { /* ignora */ }
+                    }
+                  }} placeholder="00000-000" maxLength={9} style={inputStyle} />
+                </Field>
+                <Field label="Logradouro">
+                  <input value={form.logradouro ?? ""} onChange={(e) => setForm((f) => ({ ...f, logradouro: e.target.value }))} placeholder="Rua, Av., etc." style={inputStyle} />
+                </Field>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "100px 1fr", gap: 14, marginBottom: 14 }}>
+                <Field label="Número">
+                  <input value={form.numero ?? ""} onChange={(e) => setForm((f) => ({ ...f, numero: e.target.value }))} placeholder="123" style={inputStyle} />
+                </Field>
+                <Field label="Complemento">
+                  <input value={form.complemento ?? ""} onChange={(e) => setForm((f) => ({ ...f, complemento: e.target.value }))} placeholder="Apto, Bloco, etc." style={inputStyle} />
+                </Field>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 80px", gap: 14 }}>
+                <Field label="Bairro">
+                  <input value={form.bairro ?? ""} onChange={(e) => setForm((f) => ({ ...f, bairro: e.target.value }))} placeholder="Bairro" style={inputStyle} />
+                </Field>
+                <Field label="Cidade">
+                  <input value={form.cidade ?? ""} onChange={(e) => setForm((f) => ({ ...f, cidade: e.target.value }))} placeholder="Cidade" style={inputStyle} />
+                </Field>
+                <Field label="Estado">
+                  <select value={form.estado ?? ""} onChange={(e) => setForm((f) => ({ ...f, estado: e.target.value }))} style={inputStyle}>
+                    <option value="">UF</option>
+                    {ESTADOS_BR.map((uf) => <option key={uf} value={uf}>{uf}</option>)}
+                  </select>
+                </Field>
+              </div>
+            </div>
+
             <div style={{ marginTop: 22, display: "flex", gap: 10 }}>
               <button onClick={handleSave} disabled={saving || !form.nome?.trim()} style={{ padding: "9px 24px", borderRadius: 8, background: saving ? "#93C5FD" : "#2563EB", color: "#fff", border: "none", fontSize: 13, fontWeight: 700, cursor: saving ? "not-allowed" : "pointer" }}>
                 {saving ? "Salvando…" : "Salvar"}
@@ -367,6 +618,7 @@ export default function ClienteDetailPage() {
                 { label: "Telefone",  value: cliente.telefone },
                 { label: "WhatsApp",  value: cliente.whatsapp },
                 { label: "Instagram", value: cliente.instagram ? `@${cliente.instagram}` : null },
+                { label: "CPF/CNPJ",  value: cliente.cpf },
               ].filter(r => r.value).map((row, i, arr) => (
                 <div key={row.label} style={{ display: "flex", padding: "11px 20px", borderBottom: i < arr.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none" }}>
                   <span style={{ fontSize: 13, color: "var(--color-text-secondary)", width: 120, flexShrink: 0 }}>{row.label}</span>
@@ -380,6 +632,44 @@ export default function ClienteDetailPage() {
                 </div>
               )}
             </div>
+
+            {/* Dados pessoais */}
+            {(cliente.data_nascimento || cliente.rg || cliente.sexo) && (
+              <div style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 12, overflow: "hidden" }}>
+                <div style={{ padding: "9px 20px", borderBottom: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-secondary)" }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.06em" }}>Dados pessoais</span>
+                </div>
+                {[
+                  { label: "Nascimento", value: cliente.data_nascimento ? new Date(cliente.data_nascimento + "T12:00:00").toLocaleDateString("pt-BR") : null },
+                  { label: "RG",         value: cliente.rg },
+                  { label: "Sexo",       value: cliente.sexo ? (SEXO_LABELS[cliente.sexo] ?? cliente.sexo) : null },
+                ].filter(r => r.value).map((row, i, arr) => (
+                  <div key={row.label} style={{ display: "flex", padding: "11px 20px", borderBottom: i < arr.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none" }}>
+                    <span style={{ fontSize: 13, color: "var(--color-text-secondary)", width: 120, flexShrink: 0 }}>{row.label}</span>
+                    <span style={{ fontSize: 13, color: "var(--color-text-primary)", fontWeight: 500 }}>{row.value}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Endereço */}
+            {(cliente.logradouro || cliente.cidade) && (
+              <div style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 12, overflow: "hidden" }}>
+                <div style={{ padding: "9px 20px", borderBottom: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-secondary)" }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.06em" }}>Endereço</span>
+                </div>
+                <div style={{ padding: "14px 20px", fontSize: 13, color: "var(--color-text-primary)", lineHeight: 1.8 }}>
+                  {cliente.logradouro && (
+                    <div>{cliente.logradouro}{cliente.numero ? `, ${cliente.numero}` : ""}{cliente.complemento ? ` — ${cliente.complemento}` : ""}</div>
+                  )}
+                  {cliente.bairro && <div>{cliente.bairro}</div>}
+                  {(cliente.cidade || cliente.estado) && (
+                    <div>{[cliente.cidade, cliente.estado].filter(Boolean).join(" — ")}</div>
+                  )}
+                  {cliente.cep && <div style={{ color: "var(--color-text-secondary)", fontSize: 12 }}>CEP {cliente.cep}</div>}
+                </div>
+              </div>
+            )}
 
             {/* Observações */}
             {cliente.observacoes && (
@@ -410,21 +700,7 @@ export default function ClienteDetailPage() {
 
       {/* ── Tab: Galerias ── */}
       {tab === "galerias" && (
-        <div style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 12, padding: "44px 24px", textAlign: "center" }}>
-          <div style={{ fontSize: 38, marginBottom: 12 }}>🖼</div>
-          <div style={{ fontSize: 15, fontWeight: 600, color: "var(--color-text-primary)", marginBottom: 6 }}>Nenhuma galeria ainda</div>
-          <div style={{ fontSize: 13, color: "var(--color-text-secondary)", marginBottom: 24 }}>
-            Crie uma galeria de seleção ou entrega vinculada a <strong>{cliente.nome}</strong>.
-          </div>
-          <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
-            <Link href={`/selecao/nova?cliente=${cliente.id}`} style={{ padding: "9px 18px", borderRadius: 8, background: "rgba(37,99,235,0.08)", border: "0.5px solid rgba(37,99,235,0.2)", color: "#2563EB", fontSize: 13, fontWeight: 600, textDecoration: "none" }}>
-              🖼 Nova seleção
-            </Link>
-            <Link href={`/entrega/nova?cliente=${cliente.id}`} style={{ padding: "9px 18px", borderRadius: 8, background: "rgba(139,92,246,0.08)", border: "0.5px solid rgba(139,92,246,0.2)", color: "#7C3AED", fontSize: 13, fontWeight: 600, textDecoration: "none" }}>
-              📦 Nova entrega
-            </Link>
-          </div>
-        </div>
+        <TabGalerias clienteId={cliente.id} clienteNome={cliente.nome} />
       )}
 
       {/* Modal exclusão */}

@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
-const WEBMASTER_ID = process.env.NEXT_PUBLIC_WEBMASTER_ID ?? "";
+const WEBMASTER_ID    = process.env.NEXT_PUBLIC_WEBMASTER_ID ?? "";
+const WEBMASTER_EMAIL = "usefokio@gmail.com";
 
 type FotografoStats = {
   id: string;
@@ -39,6 +40,201 @@ function Badge({ children, color }: { children: React.ReactNode; color: string }
   );
 }
 
+// ── Pagamentos / Doações (conta Asaas do desenvolvedor) ─────────────────────
+type DoacaoItem = { id: string; valor: number; status: string; pagador_nome: string | null; pagador_email: string | null; created_at: string; paid_at: string | null };
+type WmConfig = { asaas_ativo: boolean; asaas_ambiente: string; doacao_manual_pix: string | null; doacao_manual_link: string | null; doacao_manual_msg: string | null };
+
+function SecaoPagamentos() {
+  const [config,    setConfig]    = useState<WmConfig | null>(null);
+  const [doacoes,   setDoacoes]   = useState<DoacaoItem[]>([]);
+  const [apiKey,    setApiKey]    = useState("");
+  const [ambiente,  setAmbiente]  = useState("sandbox");
+  const [manualPix, setManualPix] = useState("");
+  const [manualLink, setManualLink] = useState("");
+  const [manualMsg, setManualMsg] = useState("");
+  const [salvando,  setSalvando]  = useState(false);
+  const [msg,       setMsg]       = useState("");
+  const [aberto,    setAberto]    = useState(false);
+
+  useEffect(() => { carregar(); }, []);
+
+  async function carregar() {
+    const res = await fetch("/api/webmaster/asaas");
+    if (!res.ok) return;
+    const json = await res.json();
+    setConfig(json.config);
+    setDoacoes(json.doacoes ?? []);
+    setManualPix(json.config?.doacao_manual_pix ?? "");
+    setManualLink(json.config?.doacao_manual_link ?? "");
+    setManualMsg(json.config?.doacao_manual_msg ?? "");
+  }
+
+  async function salvar(comKey: boolean) {
+    setSalvando(true);
+    setMsg("");
+    const body: Record<string, unknown> = { manualPix, manualLink, manualMsg };
+    if (comKey && apiKey.trim()) { body.apiKey = apiKey.trim(); body.ambiente = ambiente; }
+    const res = await fetch("/api/webmaster/asaas", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const json = await res.json();
+    if (!res.ok) { setMsg("❌ " + (json.erro ?? "Erro ao salvar.")); setSalvando(false); return; }
+    setMsg(json.conta ? `✅ Conectado como ${json.conta.nome}` : "✅ Salvo!");
+    setApiKey("");
+    await carregar();
+    setSalvando(false);
+  }
+
+  async function desconectar() {
+    if (!confirm("Desconectar a conta Asaas do desenvolvedor?")) return;
+    await fetch("/api/webmaster/asaas", { method: "DELETE" });
+    await carregar();
+  }
+
+  const totalRecebido = doacoes.filter((d) => d.status === "pago").reduce((s, d) => s + Number(d.valor), 0);
+
+  return (
+    <div style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 12, padding: "20px 24px", marginBottom: 28 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, cursor: "pointer" }} onClick={() => setAberto(!aberto)}>
+        <span style={{ fontSize: 13, transform: aberto ? "rotate(90deg)" : "none", transition: "transform 0.15s", color: "var(--color-text-secondary)" }}>▶</span>
+        <span style={{ fontSize: 14, fontWeight: 700, color: "var(--color-text-primary)" }}>💳 Pagamentos / Doações</span>
+        {config?.asaas_ativo && (
+          <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 10, background: "rgba(16,185,129,0.10)", color: "#059669" }}>
+            ASAAS CONECTADO · {config.asaas_ambiente?.toUpperCase()}
+          </span>
+        )}
+        <span style={{ marginLeft: "auto", fontSize: 12, color: "var(--color-text-secondary)" }}>
+          {doacoes.filter((d) => d.status === "pago").length} doações · R$ {totalRecebido.toFixed(2).replace(".", ",")}
+        </span>
+      </div>
+
+      {aberto && (
+        <div style={{ marginTop: 20, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
+          {/* Coluna 1: Config */}
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 12 }}>Conta Asaas (doações)</div>
+            {config?.asaas_ativo ? (
+              <button onClick={desconectar} style={{ padding: "8px 16px", borderRadius: 8, border: "0.5px solid rgba(239,68,68,0.3)", background: "rgba(239,68,68,0.05)", fontSize: 12, fontWeight: 600, color: "#DC2626", cursor: "pointer", marginBottom: 18 }}>
+                Desconectar Asaas
+              </button>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 18 }}>
+                <input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder="API Key do Asaas ($aact_...)" style={{ padding: "9px 12px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", fontSize: 12, fontFamily: "monospace", background: "var(--color-background-primary)", color: "var(--color-text-primary)" }} />
+                <select value={ambiente} onChange={(e) => setAmbiente(e.target.value)} style={{ padding: "9px 12px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", fontSize: 12, background: "var(--color-background-primary)", color: "var(--color-text-primary)", width: 200 }}>
+                  <option value="sandbox">Sandbox (testes)</option>
+                  <option value="producao">Produção</option>
+                </select>
+                <button onClick={() => salvar(true)} disabled={salvando || !apiKey.trim()} style={{ padding: "9px 18px", borderRadius: 8, border: "none", background: "#2563EB", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer", width: "fit-content" }}>
+                  {salvando ? "Validando…" : "Conectar"}
+                </button>
+              </div>
+            )}
+
+            <div style={{ fontSize: 12, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 12 }}>Doação manual (fallback)</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <input value={manualPix} onChange={(e) => setManualPix(e.target.value)} placeholder="Chave Pix" style={{ padding: "9px 12px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", fontSize: 12, background: "var(--color-background-primary)", color: "var(--color-text-primary)" }} />
+              <input value={manualLink} onChange={(e) => setManualLink(e.target.value)} placeholder="Link de pagamento (opcional)" style={{ padding: "9px 12px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", fontSize: 12, background: "var(--color-background-primary)", color: "var(--color-text-primary)" }} />
+              <textarea value={manualMsg} onChange={(e) => setManualMsg(e.target.value)} placeholder="Mensagem exibida aos fotógrafos (opcional)" rows={2} style={{ padding: "9px 12px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", fontSize: 12, background: "var(--color-background-primary)", color: "var(--color-text-primary)", resize: "vertical", fontFamily: "inherit" }} />
+              <button onClick={() => salvar(false)} disabled={salvando} style={{ padding: "9px 18px", borderRadius: 8, border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", fontSize: 12, fontWeight: 700, cursor: "pointer", width: "fit-content" }}>
+                {salvando ? "Salvando…" : "Salvar dados manuais"}
+              </button>
+            </div>
+            {msg && <div style={{ fontSize: 12, marginTop: 10, color: msg.startsWith("❌") ? "#EF4444" : "#059669" }}>{msg}</div>}
+          </div>
+
+          {/* Coluna 2: Doações recebidas */}
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 12 }}>Doações recebidas</div>
+            {doacoes.length === 0 ? (
+              <div style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>Nenhuma doação registrada ainda.</div>
+            ) : (
+              <div style={{ maxHeight: 260, overflowY: "auto", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 8 }}>
+                {doacoes.map((d, i) => (
+                  <div key={d.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", borderBottom: i < doacoes.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", fontSize: 12 }}>
+                    <span style={{ flex: 1, color: "var(--color-text-primary)", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{d.pagador_nome ?? d.pagador_email ?? "—"}</span>
+                    <span style={{ fontWeight: 700, color: "var(--color-text-primary)", flexShrink: 0 }}>R$ {Number(d.valor).toFixed(2).replace(".", ",")}</span>
+                    <span style={{ fontSize: 10, fontWeight: 700, padding: "1px 8px", borderRadius: 10, flexShrink: 0, background: d.status === "pago" ? "rgba(16,185,129,0.10)" : "rgba(245,158,11,0.12)", color: d.status === "pago" ? "#059669" : "#B45309" }}>
+                      {d.status === "pago" ? "PAGO" : "PENDENTE"}
+                    </span>
+                    <span style={{ color: "var(--color-text-secondary)", fontSize: 11, flexShrink: 0 }}>{new Date(d.created_at).toLocaleDateString("pt-BR")}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Recursos disponíveis por fotógrafo (checkboxes) ──────────────────────────
+const RECURSOS_LABELS: { chave: string; label: string }[] = [
+  { chave: "selecao",    label: "Seleção" },
+  { chave: "entrega",    label: "Entrega" },
+  { chave: "album",      label: "Álbum" },
+  { chave: "contatos",   label: "Contatos" },
+  { chave: "pagamentos", label: "Pagamentos" },
+];
+
+function RecursosCell({ fotografoId }: { fotografoId: string }) {
+  const [aberto,   setAberto]   = useState(false);
+  const [recursos, setRecursos] = useState<Record<string, boolean> | null>(null);
+  const [salvando, setSalvando] = useState(false);
+
+  async function abrir() {
+    if (!aberto && !recursos) {
+      const supabase = createClient();
+      const { data } = await supabase.from("fotografos").select("recursos").eq("id", fotografoId).maybeSingle();
+      setRecursos((data?.recursos as Record<string, boolean>) ?? { selecao: true, entrega: true, album: true, contatos: true, pagamentos: true });
+    }
+    setAberto(!aberto);
+  }
+
+  async function alternar(chave: string) {
+    if (!recursos) return;
+    const novos = { ...recursos, [chave]: !recursos[chave] };
+    setRecursos(novos);
+    setSalvando(true);
+    const supabase = createClient();
+    await supabase.rpc("webmaster_set_recursos", { p_fotografo_id: fotografoId, p_recursos: novos });
+    setSalvando(false);
+  }
+
+  const ativos = recursos ? Object.values(recursos).filter(Boolean).length : null;
+
+  return (
+    <div style={{ position: "relative" }}>
+      <button
+        onClick={abrir}
+        style={{ padding: "5px 12px", borderRadius: 7, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-secondary)", fontSize: 11, fontWeight: 600, color: "var(--color-text-primary)", cursor: "pointer", whiteSpace: "nowrap" }}
+      >
+        ⚙ {ativos !== null ? `${ativos}/${RECURSOS_LABELS.length}` : "Recursos"}
+      </button>
+      {aberto && recursos && (
+        <div style={{ position: "absolute", top: "calc(100% + 4px)", right: 0, zIndex: 30, background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-secondary)", borderRadius: 10, padding: "12px 14px", boxShadow: "0 6px 24px rgba(0,0,0,0.15)", minWidth: 170 }}>
+          {RECURSOS_LABELS.map((r) => (
+            <label key={r.chave} style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 0", cursor: "pointer", fontSize: 12, color: "var(--color-text-primary)" }}>
+              <input
+                type="checkbox"
+                checked={recursos[r.chave] !== false}
+                onChange={() => alternar(r.chave)}
+                style={{ width: 14, height: 14, accentColor: "#2563EB", cursor: "pointer" }}
+              />
+              {r.label}
+            </label>
+          ))}
+          <div style={{ fontSize: 10, color: "var(--color-text-secondary)", marginTop: 6 }}>
+            {salvando ? "Salvando…" : "Salvo automaticamente"}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function WebmasterPage() {
   const router = useRouter();
   const [verificado, setVerificado] = useState(false);
@@ -52,7 +248,11 @@ export default function WebmasterPage() {
     async function verificar() {
       const supabase = createClient();
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session || session.user.id !== WEBMASTER_ID) {
+      const isWebmaster = session && (
+        (WEBMASTER_ID    && session.user.id    === WEBMASTER_ID) ||
+        (WEBMASTER_EMAIL && session.user.email === WEBMASTER_EMAIL)
+      );
+      if (!isWebmaster) {
         router.push("/login");
         return;
       }
@@ -153,6 +353,9 @@ export default function WebmasterPage() {
             </div>
           ))}
         </div>
+
+        {/* Pagamentos / Doações */}
+        <SecaoPagamentos />
 
         {/* Pendentes — destaque */}
         {pendentes.length > 0 && (
@@ -259,7 +462,7 @@ export default function WebmasterPage() {
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
                 <thead>
                   <tr style={{ background: "var(--color-background-secondary)" }}>
-                    {["Nome / Empresa", "Email", "Plano", "Status", "Clientes", "Galerias", "Fotos", "Uso", "Cadastro", "Ação"].map((h) => (
+                    {["Nome / Empresa", "Email", "Plano", "Status", "Clientes", "Galerias", "Fotos", "Uso", "Cadastro", "Recursos", "Ação"].map((h) => (
                       <th key={h} style={{
                         padding: "10px 14px", textAlign: "left",
                         fontSize: 10, fontWeight: 700,
@@ -311,6 +514,9 @@ export default function WebmasterPage() {
                       </td>
                       <td style={{ padding: "12px 14px", color: "var(--color-text-secondary)", whiteSpace: "nowrap" }}>
                         {new Date(f.created_at).toLocaleDateString("pt-BR")}
+                      </td>
+                      <td style={{ padding: "12px 14px" }}>
+                        <RecursosCell fotografoId={f.id} />
                       </td>
                       <td style={{ padding: "12px 14px" }}>
                         <button

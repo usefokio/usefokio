@@ -74,10 +74,16 @@ export const PLANOS: Record<PlanoId, PlanoConfig> = {
   },
 };
 
-/** Retorna a porcentagem de uso (0–100). Retorna null se plano ilimitado. */
-export function pctUso(usadas: number, plano: PlanoConfig): number | null {
-  if (plano.limite_fotos === null) return null;
-  return Math.min(100, Math.round((usadas / plano.limite_fotos) * 100));
+/** Limite efetivo de fotos: o custom do fotógrafo (se definido) sobrepõe o do plano. */
+export function limiteEfetivo(plano: PlanoConfig, custom?: number | null): number | null {
+  return custom ?? plano.limite_fotos;
+}
+
+/** Retorna a porcentagem de uso (0–100). Retorna null se ilimitado. */
+export function pctUso(usadas: number, plano: PlanoConfig, custom?: number | null): number | null {
+  const limite = limiteEfetivo(plano, custom);
+  if (limite === null) return null;
+  return Math.min(100, Math.round((usadas / limite) * 100));
 }
 
 /** Cor da barra de progresso conforme o uso. */

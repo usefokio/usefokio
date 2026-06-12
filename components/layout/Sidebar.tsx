@@ -3,9 +3,10 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 import { Avatar } from "@/components/ui/Avatar";
 import { useFotografo } from "@/lib/context/FotografoContext";
-import { PLANOS, pctUso, corBarra, type PlanoId } from "@/lib/planos";
+import { PLANOS, pctUso, corBarra, limiteEfetivo, type PlanoId } from "@/lib/planos";
 
 const NAV_ITEMS = [
   {
@@ -52,6 +53,40 @@ const NAV_ITEMS = [
     ),
   },
   {
+    href: "/album",
+    label: "Álbuns",
+    icon: (
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+        <rect x="1" y="2" width="7" height="12" rx="1.5" stroke="currentColor" strokeWidth="1.3" fill="none" opacity=".8" />
+        <rect x="8" y="2" width="7" height="12" rx="1.5" stroke="currentColor" strokeWidth="1.3" fill="none" opacity=".4" />
+        <path d="M8 2v12" stroke="currentColor" strokeWidth="1" opacity=".5" />
+      </svg>
+    ),
+  },
+  {
+    href: "/contatos",
+    label: "Contatos",
+    icon: (
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+        <rect x="2" y="2" width="12" height="12" rx="2" stroke="currentColor" strokeWidth="1.3" fill="none" opacity=".8" />
+        <circle cx="8" cy="6.5" r="1.8" fill="currentColor" opacity=".8" />
+        <path d="M4.5 12c.5-1.8 1.9-2.7 3.5-2.7s3 .9 3.5 2.7" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" fill="none" opacity=".8" />
+      </svg>
+    ),
+  },
+  {
+    href: "/recebimentos",
+    label: "Recebimentos",
+    icon: (
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+        <rect x="1" y="3" width="14" height="10" rx="2" stroke="currentColor" strokeWidth="1.3" fill="none" opacity=".8" />
+        <path d="M1 6h14" stroke="currentColor" strokeWidth="1.3" opacity=".5" />
+        <rect x="3" y="9" width="3" height="1.5" rx=".5" fill="currentColor" opacity=".6" />
+        <rect x="8" y="9" width="5" height="1.5" rx=".5" fill="currentColor" opacity=".4" />
+      </svg>
+    ),
+  },
+  {
     href: "/config",
     label: "Configurações",
     icon: (
@@ -83,6 +118,12 @@ export function Sidebar() {
   const router        = useRouter();
   const { fotografo } = useFotografo();
   const [collapsed, setCollapsed] = useState(false);
+
+  async function handleLogout() {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    router.push("/");
+  }
 
   const isActive = (href: string) =>
     pathname === href || (href !== "/dashboard" && pathname.startsWith(href));
@@ -151,7 +192,15 @@ export function Sidebar() {
 
       {/* Nav */}
       <nav style={{ padding: collapsed ? "8px 6px" : 8, flex: 1 }}>
-        {NAV_ITEMS.map((item) => {
+        {NAV_ITEMS.filter((item) => {
+          // Oculta itens cujo recurso foi desativado pelo webmaster para este fotógrafo
+          const recursoPorRota: Record<string, keyof NonNullable<typeof fotografo>["recursos"]> = {
+            "/selecao": "selecao", "/entrega": "entrega", "/album": "album", "/contatos": "contatos",
+          };
+          const chave = recursoPorRota[item.href];
+          if (!chave || !fotografo?.recursos) return true;
+          return fotografo.recursos[chave] !== false;
+        }).map((item) => {
           const active = isActive(item.href);
           return (
             <Link
@@ -193,8 +242,9 @@ export function Sidebar() {
         {!collapsed && fotografo && (() => {
           const plano = PLANOS[fotografo.plano as PlanoId] ?? PLANOS.gratuito;
           const usadas = fotografo.total_fotos_usadas ?? 0;
-          const pct    = pctUso(usadas, plano);
-          if (pct === null) return null;
+          const limite = limiteEfetivo(plano, fotografo.limite_fotos_custom);
+          const pct    = pctUso(usadas, plano, fotografo.limite_fotos_custom);
+          if (pct === null || limite === null) return null;
           const bc = corBarra(pct);
           return (
             <Link href="/conta/plano" style={{ display: "block", padding: "10px 13px 0", textDecoration: "none" }}>
@@ -203,7 +253,7 @@ export function Sidebar() {
                   {plano.nome}
                 </span>
                 <span style={{ fontSize: 10, color: pct >= 80 ? bc : "var(--color-text-secondary)", fontWeight: 600 }}>
-                  {usadas.toLocaleString("pt-BR")} / {plano.limite_fotos!.toLocaleString("pt-BR")}
+                  {usadas.toLocaleString("pt-BR")} / {limite.toLocaleString("pt-BR")}
                 </span>
               </div>
               <div style={{ height: 4, background: "var(--color-background-secondary)", borderRadius: 2, overflow: "hidden" }}>
@@ -245,7 +295,7 @@ export function Sidebar() {
                 </div>
               </div>
               <button
-                onClick={() => router.push("/landing")}
+                onClick={handleLogout}
                 title="Sair"
                 style={{ background: "none", border: "none", cursor: "pointer", color: "var(--color-text-secondary)", fontSize: 13, opacity: 0.5, padding: 3 }}
               >

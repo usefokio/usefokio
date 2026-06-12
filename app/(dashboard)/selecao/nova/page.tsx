@@ -4,8 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
-import { useDraft } from "@/lib/hooks/useDraft";
-import { DraftBanner } from "@/components/ui/DraftBanner";
+import { useUnsavedGuard } from "@/lib/hooks/useUnsavedGuard";
 import { gerarSenhaAcesso } from "@/lib/utils";
 import type { Cliente, Categoria, ConfigVendaFotos, ResolucaoExibicao } from "@/lib/supabase/types";
 import { processarImagem, aplicarMarcaDagua, formatBytes } from "@/lib/imageResize";
@@ -178,13 +177,6 @@ function NovaSelecaoConteudo() {
   const params        = useSearchParams();
   const { fotografo } = useFotografo();
 
-  const draftKey = `selecao-nova:${fotografo?.id ?? "anonimo"}`;
-  const { loadDraft, saveDraft, clearDraft, hasDraft, dismissDraft } = useDraft<{
-    titulo: string; categorias: string[]; clienteId: string; dataEvento: string;
-    prazo: string; resolucao: ResolucaoExibicao; selecaoLivre: boolean;
-    limiteMin: string; limiteMax: string; vendaAtiva: boolean; vendaPreco: string; vendaPacoteMin: string;
-  }>(draftKey);
-
   const [clientes, setClientes]   = useState<Cliente[]>([]);
   const [cfgVenda, setCfgVenda]   = useState<ConfigVendaFotos | null>(null);
   const [modalCliente, setModalCliente] = useState(false);
@@ -193,7 +185,7 @@ function NovaSelecaoConteudo() {
   const [titulo, setTitulo]         = useState("");
   const [categorias, setCategorias] = useState<string[]>([]);
   const [clienteId, setClienteId]   = useState(params.get("cliente") ?? "");
-  const [dataEvento, setDataEvento] = useState("");
+  const [dataEvento, setDataEvento] = useState(new Date().toISOString().split("T")[0]);
   const [prazo, setPrazo]           = useState("");
   const [resolucao, setResolucao]   = useState<ResolucaoExibicao>(BETA_RESOLUCAO_MAXIMA ? "hd" : "fullhd");
   const [selecaoLivre, setSelecaoLivre] = useState(true);
@@ -227,22 +219,8 @@ function NovaSelecaoConteudo() {
       ]);
       setClientes((cls as Cliente[]) ?? []);
 
-      // Restaurar rascunho ou pré-preencher configurações padrão
-      const draft = loadDraft();
-      if (draft && !draftInitialized) {
-        setTitulo(draft.titulo ?? "");
-        setCategorias(draft.categorias ?? []);
-        setClienteId(draft.clienteId || params.get("cliente") || "");
-        setDataEvento(draft.dataEvento ?? "");
-        setPrazo(draft.prazo ?? "");
-        setResolucao(draft.resolucao ?? (BETA_RESOLUCAO_MAXIMA ? "hd" : "fullhd"));
-        setSelecaoLivre(draft.selecaoLivre ?? true);
-        setLimiteMin(draft.limiteMin ?? "");
-        setLimiteMax(draft.limiteMax ?? "");
-        setVendaAtiva(draft.vendaAtiva ?? false);
-        setVendaPreco(draft.vendaPreco ?? "");
-        setVendaPacoteMin(draft.vendaPacoteMin ?? "");
-      } else if (cfg) {
+      // Pré-preencher configurações padrão de venda
+      if (cfg) {
         setCfgVenda(cfg);
         if (cfg.ativa) { setVendaAtiva(true); setVendaPreco(cfg.preco_por_foto?.toString() ?? ""); setVendaPacoteMin(cfg.pacote_minimo?.toString() ?? ""); }
       }
@@ -251,11 +229,16 @@ function NovaSelecaoConteudo() {
     load();
   }, [fotografo]);
 
-  // Auto-salvar rascunho a cada mudança (após inicialização)
-  useEffect(() => {
-    if (!draftInitialized) return;
-    saveDraft({ titulo, categorias, clienteId, dataEvento, prazo, resolucao, selecaoLivre, limiteMin, limiteMax, vendaAtiva, vendaPreco, vendaPacoteMin });
-  }, [titulo, categorias, clienteId, dataEvento, prazo, resolucao, selecaoLivre, limiteMin, limiteMax, vendaAtiva, vendaPreco, vendaPacoteMin, draftInitialized]);
+  // Há dados que seriam perdidos ao sair? (formulário preenchido ou fotos na fila, antes de criar)
+  const temAlteracoes = !galeriaId && (titulo.trim() !== "" || fila.length > 0 || categorias.length > 0);
+
+  // Guarda de navegação: intercepta links internos e fechar aba
+  const { modalAberto: modalSair, setModalAberto: setModalSair, pedirSaida, irParaDestino } = useUnsavedGuard(temAlteracoes);
+
+  function handleSairClick() {
+    if (temAlteracoes) { pedirSaida("/selecao"); return; }
+    router.back();
+  }
 
   function handleClienteCriado(novo: Cliente) {
     setClientes((l) => [...l, novo].sort((a, b) => a.nome.localeCompare(b.nome)));
@@ -311,9 +294,6 @@ function NovaSelecaoConteudo() {
     if (categorias.length > 0) {
       await supabase.from("galeria_selecao_categorias").insert(categorias.map((cat_id) => ({ galeria_id: data.id, categoria_id: cat_id })));
     }
-
-    // Limpar rascunho ao publicar com sucesso
-    clearDraft();
 
     // Se não tem fotos em fila → vai direto
     if (fila.length === 0) { router.push(`/selecao/${data.id}`); return; }
@@ -453,25 +433,22 @@ function NovaSelecaoConteudo() {
     <div style={{ padding: "26px 30px", maxWidth: 740 }}>
 
       {/* Breadcrumb */}
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 24 }}>
-        <button onClick={() => router.push("/selecao")} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--color-text-secondary)", fontSize: 13, padding: 0 }}>
-          ← Seleções
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 24 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <button onClick={() => router.push("/selecao")} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--color-text-secondary)", fontSize: 13, padding: 0 }}>
+            ← Seleções
+          </button>
+          <span style={{ color: "var(--color-border-secondary)" }}>/</span>
+          <span style={{ fontSize: 14, fontWeight: 600, color: "var(--color-text-primary)" }}>Nova galeria de seleção</span>
+        </div>
+        <button
+          onClick={() => handleSave("ativa")}
+          disabled={saving || !titulo.trim()}
+          style={{ padding: "8px 18px", borderRadius: 8, border: "none", background: saving || !titulo.trim() ? "var(--color-background-secondary)" : "#2563EB", color: saving || !titulo.trim() ? "var(--color-text-secondary)" : "#fff", fontSize: 13, fontWeight: 600, cursor: saving || !titulo.trim() ? "default" : "pointer", flexShrink: 0 }}
+        >
+          {saving ? "Criando…" : fila.length > 0 ? `Criar e enviar ${fila.length} foto${fila.length !== 1 ? "s" : ""}` : "Criar e ativar"}
         </button>
-        <span style={{ color: "var(--color-border-secondary)" }}>/</span>
-        <span style={{ fontSize: 14, fontWeight: 600, color: "var(--color-text-primary)" }}>Nova galeria de seleção</span>
       </div>
-
-      {hasDraft && (
-        <DraftBanner onDiscard={() => {
-          clearDraft();
-          setTitulo(""); setCategorias([]); setClienteId(params.get("cliente") ?? "");
-          setDataEvento(""); setPrazo(""); setResolucao(BETA_RESOLUCAO_MAXIMA ? "hd" : "fullhd");
-          setSelecaoLivre(true); setLimiteMin(""); setLimiteMax("");
-          if (cfgVenda?.ativa) { setVendaAtiva(true); setVendaPreco(cfgVenda.preco_por_foto?.toString() ?? ""); setVendaPacoteMin(cfgVenda.pacote_minimo?.toString() ?? ""); }
-          else { setVendaAtiva(false); setVendaPreco(""); setVendaPacoteMin(""); }
-          dismissDraft();
-        }} />
-      )}
 
       {error && (
         <div style={{ background: "rgba(239,68,68,0.08)", border: "0.5px solid rgba(239,68,68,0.3)", borderRadius: 8, padding: "10px 16px", marginBottom: 16, fontSize: 13, color: "#EF4444" }}>
@@ -691,13 +668,36 @@ function NovaSelecaoConteudo() {
         <button onClick={() => handleSave("rascunho")} disabled={saving} style={{ padding: "10px 20px", borderRadius: 8, background: "transparent", color: "var(--color-text-secondary)", border: "0.5px solid var(--color-border-secondary)", fontSize: 13, cursor: saving ? "not-allowed" : "pointer" }}>
           Salvar rascunho
         </button>
-        <button onClick={() => router.back()} style={{ padding: "10px 18px", borderRadius: 8, background: "transparent", color: "var(--color-text-secondary)", border: "0.5px solid var(--color-border-secondary)", fontSize: 13, cursor: "pointer", marginLeft: "auto" }}>
+        <button onClick={handleSairClick} style={{ padding: "10px 18px", borderRadius: 8, background: "transparent", color: "var(--color-text-secondary)", border: "0.5px solid var(--color-border-secondary)", fontSize: 13, cursor: "pointer", marginLeft: "auto" }}>
           Cancelar
         </button>
       </div>
 
       {modalCliente && fotografo && (
         <ModalNovoCliente fotografoId={fotografo.id} onClose={() => setModalCliente(false)} onCriado={handleClienteCriado} />
+      )}
+
+      {/* Modal: dados não salvos */}
+      {modalSair && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 70, padding: 20 }} onClick={() => setModalSair(false)}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 14, padding: "26px 28px", width: 400, maxWidth: "100%", boxShadow: "0 8px 40px rgba(0,0,0,0.18)" }}>
+            <h3 style={{ margin: "0 0 8px", fontSize: 15, fontWeight: 700, color: "var(--color-text-primary)" }}>⚠️ Dados não salvos</h3>
+            <p style={{ margin: "0 0 20px", fontSize: 13, color: "var(--color-text-secondary)", lineHeight: 1.6 }}>
+              Você preencheu informações{fila.length > 0 ? " e adicionou fotos" : ""} que serão perdidas se sair sem salvar. O que deseja fazer?
+            </p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <button onClick={() => { setModalSair(false); handleSave("rascunho"); }} disabled={saving} style={{ padding: "10px", borderRadius: 8, border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+                💾 Salvar como rascunho e sair
+              </button>
+              <button onClick={() => irParaDestino("/selecao")} style={{ padding: "10px", borderRadius: 8, border: "0.5px solid rgba(239,68,68,0.3)", background: "rgba(239,68,68,0.05)", color: "#DC2626", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+                Descartar tudo e sair
+              </button>
+              <button onClick={() => setModalSair(false)} style={{ padding: "10px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "transparent", color: "var(--color-text-secondary)", fontSize: 13, cursor: "pointer" }}>
+                Continuar editando
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

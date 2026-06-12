@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
     // Cria perfil com dados mínimos — o fotógrafo pode completar depois em /conta/editar
     await supabase.rpc("criar_perfil_fotografo", {
       p_nome_completo: nomeCompleto,
-      p_nome_empresa:  nomeCompleto,   // pode editar depois
+      p_nome_empresa:  nomeCompleto,
       p_email:         email,
       p_telefone:      null,
       p_whatsapp:      null,
@@ -70,13 +70,18 @@ export async function GET(request: NextRequest) {
       p_youtube:       null,
       p_site:          null,
       p_aceita_emails: false,
+      p_user_id:       user.id,
     });
   }
 
-  const WEBMASTER_ID = process.env.NEXT_PUBLIC_WEBMASTER_ID ?? "";
+  const WEBMASTER_EMAIL = process.env.WEBMASTER_EMAIL ?? "";
+  const WEBMASTER_ID    = process.env.NEXT_PUBLIC_WEBMASTER_ID ?? "";
 
   // Webmaster → painel webmaster
-  if (WEBMASTER_ID && user.id === WEBMASTER_ID) {
+  if (
+    (WEBMASTER_EMAIL && user.email === WEBMASTER_EMAIL) ||
+    (WEBMASTER_ID    && user.id    === WEBMASTER_ID)
+  ) {
     return NextResponse.redirect(new URL("/webmaster", request.url));
   }
 

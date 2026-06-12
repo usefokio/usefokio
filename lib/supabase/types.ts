@@ -1,3 +1,11 @@
+export type RecursosFotografo = {
+  selecao: boolean;
+  entrega: boolean;
+  album: boolean;
+  contatos: boolean;
+  pagamentos: boolean;
+};
+
 export type Fotografo = {
   id: string;
   nome_completo: string;
@@ -23,6 +31,12 @@ export type Fotografo = {
   total_fotos_usadas: number;
   aprovado: boolean;
   mensagem_padrao_entrega: string | null;
+  renewal_fee_padrao: number | null;
+  asaas_api_key_enc: string | null;
+  asaas_ambiente: "producao" | "sandbox";
+  asaas_ativo: boolean;
+  limite_fotos_custom: number | null;
+  recursos: RecursosFotografo;
   logo_url: string | null;
   watermark_url: string | null;
   created_at: string;
@@ -50,8 +64,19 @@ export type Cliente = {
   telefone: string | null;
   whatsapp: string | null;
   instagram: string | null;
+  cpf: string | null;
   observacoes: string | null;
   senha_acesso: string | null;
+  data_nascimento: string | null;
+  rg: string | null;
+  sexo: string | null;
+  cep: string | null;
+  logradouro: string | null;
+  numero: string | null;
+  complemento: string | null;
+  bairro: string | null;
+  cidade: string | null;
+  estado: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -76,10 +101,63 @@ export type GaleriaEntrega = {
   mensagem: string | null;
   downloads: number;
   cover_color: string | null;
+  apenas_zip: boolean;
+  identificacao_obrigatoria: boolean;
+  drive_apenas_identificado: boolean;
+  suspensa: boolean;
+  rascunho: boolean;
+  renovacao_dias: number;
+  ordenacao_fotos: "envio" | "nome" | "nome_desc" | "data";
   created_at: string;
   updated_at: string;
   // joined
   clientes?: { nome: string; email: string | null; telefone: string | null; whatsapp: string | null } | null;
+};
+
+export type Pagamento = {
+  id: string;
+  tipo: "renovacao" | "doacao";
+  galeria_id: string | null;
+  fotografo_id: string | null;
+  doador_fotografo_id: string | null;
+  asaas_payment_id: string | null;
+  valor: number;
+  status: "pendente" | "pago" | "cancelado";
+  invoice_url: string | null;
+  dias_liberados: number | null;
+  pagador_nome: string | null;
+  pagador_email: string | null;
+  doacao_sugerida: boolean;
+  created_at: string;
+  paid_at: string | null;
+};
+
+export type WebmasterConfig = {
+  id: number;
+  asaas_api_key_enc: string | null;
+  asaas_ambiente: "producao" | "sandbox";
+  asaas_ativo: boolean;
+  doacao_manual_pix: string | null;
+  doacao_manual_link: string | null;
+  doacao_manual_msg: string | null;
+  updated_at: string;
+};
+
+export type ContatoCategoria = {
+  id: string;
+  fotografo_id: string;
+  nome: string;
+  created_at: string;
+};
+
+export type Contato = {
+  id: string;
+  categoria_id: string;
+  fotografo_id: string;
+  nome: string | null;
+  email: string;
+  origem: string | null;
+  created_at: string;
 };
 
 export type ConfigVendaFotos = {
@@ -141,4 +219,60 @@ export type GaleriaSelecaoEscolha = {
   galeria_id: string;
   foto_id: string;
   created_at: string;
+};
+
+export type FotografoAlbumModelo = {
+  id: string;
+  fotografo_id: string;
+  nome: string;
+  largura_cm: number;
+  altura_cm: number;
+  is_default: boolean;
+  ordem: number;
+  created_at: string;
+};
+
+export type AlbumSelecao = {
+  id: string;
+  fotografo_id: string;
+  cliente_id: string | null;
+  modelo_id: string | null;
+  titulo: string;
+  descricao: string | null;
+  status: "rascunho" | "ativa" | "aguardando_revisao" | "aprovado" | "encerrada";
+  expira_em: string | null;
+  senha_acesso: string | null;
+  modelo_nome: string | null;
+  modelo_largura_cm: number | null;
+  modelo_altura_cm: number | null;
+  created_at: string;
+  updated_at: string;
+  // joined
+  clientes?: { nome: string; email: string | null; telefone: string | null } | null;
+};
+
+export type AlbumLamina = {
+  id: string;
+  selecao_id: string;
+  tipo: "capa" | "spread" | "contracapa";
+  storage_path: string;
+  url_publica: string;
+  nome_arquivo: string | null;
+  tamanho_bytes: number | null;
+  largura: number | null;
+  altura: number | null;
+  ordem: number;
+  created_at: string;
+};
+
+export type AlbumComentario = {
+  id: string;
+  selecao_id: string;
+  lamina_id: string;
+  pos_x: number;
+  pos_y: number;
+  texto: string;
+  resolvido: boolean;
+  created_at: string;
+  updated_at: string;
 };

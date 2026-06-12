@@ -1,0 +1,79 @@
+// Doação ao desenvolvedor — usa a conta Asaas do webmaster (webmaster_config).
+// GET: dados de doação disponíveis (asaas ativo? dados manuais?)
+// POST: cria cobrança de doação para o fotógrafo logado.
+import { createServerClient } from "@supabase/ssr";
+import { cookies } from "next/headers";
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { decryptKey, criarCobranca, type AsaasAmbiente } from "@/lib/asaas";
+
+async function getUser() {
+  const cookieStore = await cookies();
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    { cookies: { getAll() { return cookieStore.getAll(); }, setAll() {} } }
+  );
+  const { data: { user } } = await supabase.auth.getUser();
+  return user;
+}
+
+export async function GET() {
+  const user = await getUser();
+  if (!user) return NextResponse.json({ erro: "Não autenticado" }, { status: 401 });
+
+  const admin = createAdminClient();
+  const { data: cfg } = await admin.from("webmaster_config").select("asaas_ativo, doacao_manual_pix, doacao_manual_link, doacao_manual_msg").eq("id", 1).maybeSingle();
+
+  return NextResponse.json({
+    asaasAtivo: cfg?.asaas_ativo ?? false,
+    manualPix:  cfg?.doacao_manual_pix ?? null,
+    manualLink: cfg?.doacao_manual_link ?? null,
+    manualMsg:  cfg?.doacao_manual_msg ?? null,
+  });
+}
+
+export async function POST(request: NextRequest) {
+  const user = await getUser();
+  if (!user) return NextResponse.json({ erro: "Não autenticado" }, { status: 401 });
+
+  const { valor } = await request.json().catch(() => ({}));
+  const v = Number(valor);
+  if (!v || v < 1) return NextResponse.json({ erro: "Valor mínimo R$ 1,00" }, { status: 400 });
+
+  const admin = createAdminClient();
+  const { data: cfg } = await admin.from("webmaster_config").select("*").eq("id", 1).maybeSingle();
+  if (!cfg?.asaas_ativo || !cfg.asaas_api_key_enc) {
+    return NextResponse.json({ erro: "Doação online indisponível no momento." }, { status: 400 });
+  }
+
+  const { data: doador } = await admin.from("fotografos").select("nome_completo, email").eq("id", user.id).maybeSingle();
+
+  try {
+    const apiKey = decryptKey(cfg.asaas_api_key_enc);
+    const { paymentId, invoiceUrl } = await criarCobranca({
+      apiKey,
+      ambiente: cfg.asaas_ambiente as AsaasAmbiente,
+      cliente: { nome: doador?.nome_completo ?? "Fotógrafo UseFokio", email: doador?.email ?? user.email ?? "" },
+      valor: v,
+      descricao: "Doação ao desenvolvedor — UseFokio ❤️",
+      externalReference: `doacao:${user.id}`,
+    });
+
+    await admin.from("pagamentos").insert({
+      tipo:                "doacao",
+      doador_fotografo_id: user.id,
+      asaas_payment_id:    paymentId,
+      valor:               v,
+      status:              "pendente",
+      invoice_url:         invoiceUrl,
+      pagador_nome:        doador?.nome_completo ?? null,
+      pagador_email:       doador?.email ?? null,
+    });
+
+    return NextResponse.json({ ok: true, invoiceUrl });
+  } catch (e) {
+    return NextResponse.json({ erro: "Erro ao gerar doação: " + (e instanceof Error ? e.message : "") }, { status: 500 });
+  }
+}

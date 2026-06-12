@@ -1,3 +1,6 @@
+// piexifjs é CommonJS sem default export — require é necessário
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const piexif = require("piexifjs");
 import type { ResolucaoExibicao } from "@/lib/supabase/types";
 
 // Lado longo máximo por resolução
@@ -76,11 +79,16 @@ export async function processarImagem(
       tCtx.imageSmoothingQuality = "high";
       tCtx.drawImage(img, 0, 0, thumbW, thumbH);
 
-      // Converte para Blob
-      const [blob, thumbnail] = await Promise.all([
+      // Converte canvas → blob
+      const [blobSemExif, thumbnail] = await Promise.all([
         canvasToBlob(canvas, "image/jpeg", qualidade),
         canvasToBlob(thumbCanvas, "image/jpeg", 0.75),
       ]);
+
+      // Reinjeta EXIF original no blob principal (preserva copyright, autor, câmera…)
+      const originalDataUrl = await fileToDataUrl(file);
+      const exifStr = extrairExif(originalDataUrl);
+      const blob = exifStr ? await injetarExif(blobSemExif, exifStr) : blobSemExif;
 
       resolve({
         blob,
@@ -116,6 +124,46 @@ function canvasToBlob(
   );
 }
 
+/** Lê um File como DataURL base64. */
+function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((res, rej) => {
+    const reader = new FileReader();
+    reader.onload = () => res(reader.result as string);
+    reader.onerror = () => rej(new Error("Falha ao ler arquivo"));
+    reader.readAsDataURL(file);
+  });
+}
+
+/** Extrai o bloco EXIF de um JPEG original (retorna null se não houver). */
+function extrairExif(dataUrl: string): string | null {
+  try {
+    return piexif.dump(piexif.load(dataUrl));
+  } catch {
+    return null;
+  }
+}
+
+/** Injeta bloco EXIF em um blob JPEG, retornando novo Blob com metadados. */
+function injetarExif(blob: Blob, exifStr: string): Promise<Blob> {
+  return new Promise((res, rej) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const dataUrl = reader.result as string;
+        const comExif = piexif.insert(exifStr, dataUrl);
+        const bin = atob(comExif.split(",")[1]);
+        const arr = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+        res(new Blob([arr], { type: "image/jpeg" }));
+      } catch {
+        res(blob); // fallback: retorna sem EXIF se der erro
+      }
+    };
+    reader.onerror = () => res(blob);
+    reader.readAsDataURL(blob);
+  });
+}
+
 /**
  * Versão simplificada para fotos de entrega (baixa resolução, sem thumbnail separado).
  * Retorna apenas o blob redimensionado — o mesmo arquivo serve para grid e download.
@@ -125,10 +173,24 @@ export async function processarImagemEntrega(
   maxPx = 1200,
   qualidade = 0.82,
 ): Promise<{ blob: Blob; largura: number; altura: number; tamanho_bytes: number }> {
+  // Arquivos menores que 1 MB não passam pelo canvas — devolvem o original
+  if (file.size < 1024 * 1024) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        resolve({ blob: file, largura: img.naturalWidth, altura: img.naturalHeight, tamanho_bytes: file.size });
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error(`Erro ao carregar ${file.name}`)); };
+      img.src = url;
+    });
+  }
+
   return new Promise((resolve, reject) => {
     const img = new Image();
     const url = URL.createObjectURL(file);
-    img.onload = () => {
+    img.onload = async () => {
       URL.revokeObjectURL(url);
       const { naturalWidth: ow, naturalHeight: oh } = img;
       let largura = ow, altura = oh;
@@ -144,9 +206,15 @@ export async function processarImagemEntrega(
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = "high";
       ctx.drawImage(img, 0, 0, largura, altura);
-      canvasToBlob(canvas, "image/jpeg", qualidade).then((blob) =>
-        resolve({ blob, largura, altura, tamanho_bytes: blob.size })
-      ).catch(reject);
+      try {
+        const blobSemExif = await canvasToBlob(canvas, "image/jpeg", qualidade);
+        const originalDataUrl = await fileToDataUrl(file);
+        const exifStr = extrairExif(originalDataUrl);
+        const blob = exifStr ? await injetarExif(blobSemExif, exifStr) : blobSemExif;
+        resolve({ blob, largura, altura, tamanho_bytes: blob.size });
+      } catch (e) {
+        reject(e);
+      }
     };
     img.onerror = () => { URL.revokeObjectURL(url); reject(new Error(`Erro ao carregar ${file.name}`)); };
     img.src = url;

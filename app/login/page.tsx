@@ -73,7 +73,18 @@ export default function LoginPage() {
       sessionStorage.removeItem("usefokio_session_only");
     }
 
-    router.push("/dashboard");
+    // Verifica se é webmaster antes de redirecionar
+    const WEBMASTER_ID    = process.env.NEXT_PUBLIC_WEBMASTER_ID ?? "";
+    const WEBMASTER_EMAIL = "usefokio@gmail.com";
+    const { data: { user } } = await supabase.auth.getUser();
+    const isWebmaster =
+      (WEBMASTER_ID    && user?.id    === WEBMASTER_ID) ||
+      (WEBMASTER_EMAIL && user?.email === WEBMASTER_EMAIL);
+    if (isWebmaster) {
+      router.push("/webmaster");
+    } else {
+      router.push("/dashboard");
+    }
     router.refresh();
   };
 

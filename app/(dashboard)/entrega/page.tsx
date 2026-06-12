@@ -8,7 +8,7 @@ import { useFotografo } from "@/lib/context/FotografoContext";
 import type { GaleriaEntrega } from "@/lib/supabase/types";
 
 // ─── Helpers de status ────────────────────────────────────────────────────────
-type StatusEntrega = "ativo" | "expirando" | "expirado" | "sem_prazo";
+type StatusEntrega = "ativo" | "expirando" | "expirado" | "sem_prazo" | "suspensa" | "rascunho";
 type Filtro = "todas" | StatusEntrega;
 
 function diasRestantes(expiresAt: string | null): number | null {
@@ -44,6 +44,8 @@ const STATUS_LABEL: Record<StatusEntrega, string> = {
   expirando:  "Expirando",
   expirado:   "Expirado",
   sem_prazo:  "Sem prazo",
+  suspensa:   "Suspensa",
+  rascunho:   "Rascunho",
 };
 
 const STATUS_COLOR: Record<StatusEntrega, string> = {
@@ -51,6 +53,8 @@ const STATUS_COLOR: Record<StatusEntrega, string> = {
   expirando:  "rgba(245,158,11,0.12)",
   expirado:   "rgba(239,68,68,0.10)",
   sem_prazo:  "rgba(107,114,128,0.10)",
+  suspensa:   "rgba(245,158,11,0.12)",
+  rascunho:   "rgba(124,58,237,0.10)",
 };
 
 const STATUS_TEXT: Record<StatusEntrega, string> = {
@@ -58,6 +62,8 @@ const STATUS_TEXT: Record<StatusEntrega, string> = {
   expirando:  "#B45309",
   expirado:   "#EF4444",
   sem_prazo:  "#6B7280",
+  suspensa:   "#B45309",
+  rascunho:   "#7C3AED",
 };
 
 // ─── Ícones inline ────────────────────────────────────────────────────────────
@@ -85,6 +91,11 @@ const IcoTrash = () => (
     <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
   </svg>
 );
+const IcoBan = () => (
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>
+  </svg>
+);
 const IcoCopy = () => (
   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <rect x="9" y="9" width="13" height="13" rx="2"/>
@@ -100,8 +111,8 @@ function ModalEnviarAcesso({ galeria, onFechar }: { galeria: GaleriaEntrega; onF
   const telefone    = galeria.clientes?.whatsapp ?? galeria.clientes?.telefone ?? "";
   const email       = galeria.clientes?.email ?? "";
 
-  const appUrl     = process.env.NEXT_PUBLIC_APP_URL ?? "https://usefokio-ll4r.vercel.app";
-  const linkAcesso = `${appUrl}/acesso/${galeria.id}`;
+  const appUrl     = typeof window !== "undefined" ? window.location.origin : (process.env.NEXT_PUBLIC_APP_URL ?? "https://usefokio.com.br");
+  const linkAcesso = `${appUrl}/acesso/entrega/${galeria.id}`;
 
   const msgBase = galeria.mensagem?.trim()
     ? galeria.mensagem.replace(/\{nome\}/gi, nomeCliente)
@@ -244,6 +255,7 @@ export default function EntregaPage() {
   const [enviarAcessoId, setEnviarAcessoId] = useState<string | null>(null);
   const [prorrogarId,    setProrrogarId]    = useState<string | null>(null);
   const [deletarId,      setDeletarId]      = useState<string | null>(null);
+  const [copiandoId,     setCopiandoId]     = useState<string | null>(null);
   const [deletando,      setDeletando]      = useState(false);
 
   const CORES = ["#7C6E5A","#5A6E7C","#6E5A7C","#5A7C6E","#7C5A6E","#6E7C5A"];
@@ -255,6 +267,7 @@ export default function EntregaPage() {
       .from("galerias_entrega")
       .select("*, clientes(nome, email, telefone, whatsapp)")
       .eq("fotografo_id", fotografo.id)
+      .eq("rascunho", false)
       .order("created_at", { ascending: false });
     setGalerias((data as GaleriaEntrega[]) ?? []);
     setLoading(false);
@@ -264,9 +277,22 @@ export default function EntregaPage() {
 
   async function prorrogar(id: string, novaData: Date) {
     const supabase = createClient();
-    await supabase.from("galerias_entrega").update({ expires_at: novaData.toISOString() }).eq("id", id);
-    setGalerias((prev) => prev.map((g) => g.id === id ? { ...g, expires_at: novaData.toISOString() } : g));
+    await supabase.from("galerias_entrega").update({ expires_at: novaData.toISOString(), suspensa: false }).eq("id", id);
+    setGalerias((prev) => prev.map((g) => g.id === id ? { ...g, expires_at: novaData.toISOString(), suspensa: false } : g));
     setProrrogarId(null);
+  }
+
+  async function suspender(id: string) {
+    const supabase = createClient();
+    await supabase.from("galerias_entrega").update({ suspensa: true }).eq("id", id);
+    setGalerias((prev) => prev.map((g) => g.id === id ? { ...g, suspensa: true } : g));
+  }
+
+  async function copiarLink(id: string) {
+    const appUrl = window.location.origin;
+    await navigator.clipboard.writeText(`${appUrl}/acesso/entrega/${id}`);
+    setCopiandoId(id);
+    setTimeout(() => setCopiandoId(null), 2000);
   }
 
   async function deletar(id: string) {
@@ -279,15 +305,20 @@ export default function EntregaPage() {
   }
 
   // Calcular contadores
-  const comStatus = galerias.map((g) => ({ ...g, _status: calcularStatus(diasRestantes(g.expires_at)) }));
+  const comStatus = galerias.map((g) => ({
+    ...g,
+    _status: g.rascunho ? "rascunho" as StatusEntrega : g.suspensa ? "suspensa" as StatusEntrega : calcularStatus(diasRestantes(g.expires_at)),
+  }));
   const expirando = comStatus.filter((g) => g._status === "expirando");
 
   const contadores: Record<Filtro, number> = {
-    todas:     galerias.length,
-    ativo:     comStatus.filter((g) => g._status === "ativo").length,
+    todas:    galerias.length,
+    ativo:    comStatus.filter((g) => g._status === "ativo").length,
     expirando: expirando.length,
-    expirado:  comStatus.filter((g) => g._status === "expirado").length,
+    expirado: comStatus.filter((g) => g._status === "expirado").length,
     sem_prazo: comStatus.filter((g) => g._status === "sem_prazo").length,
+    suspensa: comStatus.filter((g) => g._status === "suspensa").length,
+    rascunho: comStatus.filter((g) => g._status === "rascunho").length,
   };
 
   const filtradas = filtro === "todas"
@@ -333,7 +364,7 @@ export default function EntregaPage() {
 
       {/* Filtros */}
       <div style={{ display: "flex", gap: 6, marginBottom: 18, flexWrap: "wrap" }}>
-        {(["todas", "expirando", "ativo", "expirado", "sem_prazo"] as Filtro[]).map((s) => {
+        {(["todas", "expirando", "ativo", "expirado", "sem_prazo", "suspensa", "rascunho"] as Filtro[]).map((s) => {
           const isAtencao = s === "expirando";
           const ativo     = filtro === s;
           return (
@@ -401,7 +432,7 @@ export default function EntregaPage() {
                 <div style={{ width: 42, height: 42, borderRadius: 9, background: cor, flexShrink: 0 }} />
 
                 {/* Info principal */}
-                <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ flex: 1, minWidth: 0, cursor: "pointer" }} onClick={() => router.push(`/entrega/${g.id}`)}>
                   <div style={{ fontSize: 14, fontWeight: 600, color: "var(--color-text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {g.titulo}
                   </div>
@@ -421,17 +452,38 @@ export default function EntregaPage() {
                     <div style={{ fontSize: 11, color: isAtencao ? "#B45309" : isExpirado ? "#EF4444" : "var(--color-text-secondary)", marginTop: 3 }}>
                       {formatarExpiracao(dias)}
                     </div>
+                    {g.expires_at && (
+                      <div style={{ fontSize: 11, fontWeight: 600, color: isAtencao ? "#B45309" : isExpirado ? "#EF4444" : "var(--color-text-primary)", marginTop: 1 }}>
+                        Encerra em {new Date(g.expires_at).toLocaleDateString("pt-BR")}
+                      </div>
+                    )}
                   </div>
                 </div>
 
                 {/* Ações */}
                 <div style={{ flexShrink: 0, display: "flex", gap: 4 }} onClick={(e) => e.stopPropagation()}>
+                  <button
+                    onClick={() => copiarLink(g.id)}
+                    title="Copiar link da galeria"
+                    style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, borderRadius: 7, border: "0.5px solid var(--color-border-secondary)", color: copiandoId === g.id ? "#059669" : "var(--color-text-secondary)", background: copiandoId === g.id ? "rgba(16,185,129,0.08)" : "transparent", cursor: "pointer" }}
+                  ><IcoCopy /></button>
+
                   <button onClick={() => setEnviarAcessoId(g.id)} title="Enviar acesso ao cliente" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, borderRadius: 7, border: "0.5px solid rgba(37,99,235,0.4)", color: "#2563EB", background: "rgba(37,99,235,0.05)", cursor: "pointer" }}
                     onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(37,99,235,0.12)")}
                     onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(37,99,235,0.05)")}
                   ><IcoSend /></button>
 
                   <button onClick={() => setProrrogarId(g.id)} title="Prorrogar prazo" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, borderRadius: 7, border: "0.5px solid var(--color-border-secondary)", color: status === "expirado" ? "#059669" : "var(--color-text-secondary)", background: "transparent", cursor: "pointer" }}><IcoClock /></button>
+
+                  {status !== "expirado" && (
+                    <button
+                      onClick={() => g.suspensa ? prorrogar(g.id, new Date((g.expires_at ? new Date(g.expires_at).getTime() : Date.now()) + 30*86400000)) : suspender(g.id)}
+                      title={g.suspensa ? "Reativar acesso" : "Suspender acesso imediatamente"}
+                      style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, borderRadius: 7, border: g.suspensa ? "0.5px solid rgba(16,185,129,0.35)" : "0.5px solid rgba(245,158,11,0.35)", color: g.suspensa ? "#059669" : "#B45309", background: g.suspensa ? "rgba(16,185,129,0.05)" : "rgba(245,158,11,0.05)", cursor: "pointer" }}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = g.suspensa ? "rgba(16,185,129,0.12)" : "rgba(245,158,11,0.12)")}
+                      onMouseLeave={(e) => (e.currentTarget.style.background = g.suspensa ? "rgba(16,185,129,0.05)" : "rgba(245,158,11,0.05)")}
+                    >{g.suspensa ? <IcoClock /> : <IcoBan />}</button>
+                  )}
 
                   <button onClick={() => router.push(`/entrega/${g.id}/editar`)} title="Editar" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, borderRadius: 7, border: "0.5px solid var(--color-border-secondary)", color: "var(--color-text-secondary)", background: "transparent", cursor: "pointer" }}><IcoEdit /></button>
 

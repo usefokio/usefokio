@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Avatar } from "@/components/ui/Avatar";
 import { PLANOS } from "@/lib/planos";
 
 const MOCK_PREVIEW_COLORS = [
@@ -128,29 +127,14 @@ export default function LandingPage() {
             </div>
           </section>
 
-          {/* Testimonials */}
+          {/* Fase beta */}
           <section style={{ padding: "72px 32px" }}>
-            <div style={{ maxWidth: 860, margin: "0 auto" }}>
-              <h2 style={{ fontSize: 30, fontWeight: 700, textAlign: "center", marginBottom: 10, letterSpacing: "-0.03em" }}>O que dizem nossos usuários</h2>
-              <p style={{ fontSize: 14, color: "#6B7280", textAlign: "center", marginBottom: 48 }}>Mais de 1.200 fotógrafos já usam o UseFokio.</p>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 16 }}>
-                {[
-                  { n: "Camila Duarte", r: "Fotógrafa de casamentos — SP", a: "CD", t: "O UseFokio transformou meu fluxo. Meus clientes adoram selecionar online e eu paro de receber mensagens no WhatsApp pedindo mais uma fotinho." },
-                  { n: "Rafael Cunha",  r: "Fotógrafo comercial — RJ",     a: "RC", t: "A galeria de entrega HD impressiona o cliente e me poupa horas de exportação manual. Já indiquei pra 6 colegas." },
-                  { n: "Bruna Alves",   r: "Estúdio de newborn — BH",      a: "BA", t: "Uso com minha sócia. Conseguimos gerenciar todos os clientes num lugar só. Suporte responde rápido e resolve tudo." },
-                ].map((t, i) => (
-                  <div key={i} style={{ background: "#f8f9fa", border: "1px solid #e5e7eb", borderRadius: 12, padding: "22px 20px" }}>
-                    <p style={{ fontSize: 13, color: "#374151", lineHeight: 1.7, margin: "0 0 18px", fontStyle: "italic" }}>"{t.t}"</p>
-                    <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
-                      <Avatar initials={t.a} size={34} />
-                      <div>
-                        <div style={{ fontSize: 13, fontWeight: 600, color: "#111" }}>{t.n}</div>
-                        <div style={{ fontSize: 11, color: "#6B7280" }}>{t.r}</div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
+            <div style={{ maxWidth: 680, margin: "0 auto", textAlign: "center" }}>
+              <span style={{ display: "inline-block", background: "#eff6ff", color: "#2563EB", fontSize: 12, fontWeight: 700, padding: "4px 14px", borderRadius: 20, letterSpacing: "0.04em", marginBottom: 16 }}>FASE BETA</span>
+              <h2 style={{ fontSize: 30, fontWeight: 700, marginBottom: 12, letterSpacing: "-0.03em" }}>Estamos em fase beta</h2>
+              <p style={{ fontSize: 14, color: "#6B7280", lineHeight: 1.7, margin: 0 }}>
+                O UseFokio está em período de testes com uso gratuito. Crie sua conta, use à vontade e nos ajude a construir a melhor plataforma de galerias para fotógrafos.
+              </p>
             </div>
           </section>
 
@@ -184,7 +168,10 @@ export default function LandingPage() {
       {/* ── FEATURES ── */}
       {nav === "features" && (
         <div style={{ maxWidth: 800, margin: "0 auto", padding: "64px 32px" }}>
-          <h1 style={{ fontSize: 36, fontWeight: 800, letterSpacing: "-0.04em", marginBottom: 10 }}>Funcionalidades</h1>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10 }}>
+            <h1 style={{ fontSize: 36, fontWeight: 800, letterSpacing: "-0.04em", margin: 0 }}>Funcionalidades</h1>
+            <span style={{ background: "#eff6ff", color: "#2563EB", fontSize: 11, fontWeight: 700, padding: "3px 11px", borderRadius: 20, letterSpacing: "0.04em" }}>FASE BETA</span>
+          </div>
           <p style={{ fontSize: 15, color: "#6B7280", marginBottom: 48 }}>Tudo que um fotógrafo profissional precisa.</p>
           <div style={{ display: "flex", flexDirection: "column", gap: 40 }}>
             {[
@@ -208,20 +195,21 @@ export default function LandingPage() {
       {/* ── PLANS ── */}
       {nav === "plans" && (
         <div style={{ maxWidth: 860, margin: "0 auto", padding: "64px 32px" }}>
-          <h1 style={{ fontSize: 36, fontWeight: 800, letterSpacing: "-0.04em", marginBottom: 10, textAlign: "center" }}>Planos simples e transparentes</h1>
-          <p style={{ fontSize: 14, color: "#6B7280", textAlign: "center", marginBottom: 48 }}>Sem taxa de adesão. Cancele quando quiser.</p>
+          <h1 style={{ fontSize: 36, fontWeight: 800, letterSpacing: "-0.04em", marginBottom: 10, textAlign: "center" }}>Planos</h1>
+          <div style={{ maxWidth: 560, margin: "0 auto 48px", background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 12, padding: "16px 24px", textAlign: "center" }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "#2563EB", marginBottom: 4 }}>🚀 Estamos em fase beta</div>
+            <div style={{ fontSize: 13, color: "#374151", lineHeight: 1.6 }}>Durante o período de testes o uso é gratuito. Os valores dos planos serão divulgados em breve.</div>
+          </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(230px,1fr))", gap: 14 }}>
             {Object.values(PLANOS).map((p) => {
               const isPopular = p.badge === "Popular";
-              const priceStr  = p.preco === 0 ? "Grátis" : `R$ ${p.preco}`;
-              const cta       = p.preco === 0 ? "Começar grátis" : p.id === "estudio" ? "Falar com vendas" : "Assinar agora";
+              const cta       = "Começar grátis";
               return (
                 <div key={p.id} style={{ border: isPopular ? `2px solid ${p.cor}` : "1px solid #e5e7eb", borderRadius: 14, padding: "26px 22px", position: "relative", background: isPopular ? p.corBg : "#fff" }}>
                   {p.badge && <div style={{ position: "absolute", top: -11, left: "50%", transform: "translateX(-50%)", background: p.cor, color: "#fff", fontSize: 11, fontWeight: 600, padding: "2px 13px", borderRadius: 20, whiteSpace: "nowrap" }}>{p.badge}</div>}
                   <div style={{ fontSize: 12, fontWeight: 600, color: p.cor, marginBottom: 7, textTransform: "uppercase", letterSpacing: "0.05em" }}>{p.nome}</div>
                   <div style={{ display: "flex", alignItems: "baseline", gap: 3, marginBottom: 4 }}>
-                    <span style={{ fontSize: 32, fontWeight: 800, letterSpacing: "-0.03em" }}>{priceStr}</span>
-                    {p.preco > 0 && <span style={{ fontSize: 12, color: "#9CA3AF" }}>/mês</span>}
+                    <span style={{ fontSize: 20, fontWeight: 800, letterSpacing: "-0.02em", color: "#2563EB" }}>Fase beta</span>
                   </div>
                   <div style={{ fontSize: 12, color: "#6B7280", marginBottom: 18 }}>{p.descricao}</div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 9, marginBottom: 24 }}>
