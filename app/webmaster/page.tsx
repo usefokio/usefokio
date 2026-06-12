@@ -131,16 +131,57 @@ function SecaoPagamentos() {
       </div>
 
       {aberto && (
-        <div style={{ marginTop: 20, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
-          {/* Coluna 1: Config */}
+        <div style={{ marginTop: 20, display: "flex", flexDirection: "column", gap: 24 }}>
+
+          {/* ── Seção Pix (independente) ── */}
+          <div style={{ background: "var(--color-background-secondary)", borderRadius: 10, padding: "16px 18px" }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "var(--color-text-primary)", marginBottom: 14 }}>🟢 Recebimento via Pix</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 16, alignItems: "flex-start" }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <input value={manualPix} onChange={(e) => setManualPix(e.target.value)} placeholder="Chave Pix (e-mail, CPF, telefone ou chave aleatória)" style={{ padding: "9px 12px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", fontSize: 12, background: "var(--color-background-primary)", color: "var(--color-text-primary)" }} />
+                <input value={manualLink} onChange={(e) => setManualLink(e.target.value)} placeholder="Link de pagamento (opcional)" style={{ padding: "9px 12px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", fontSize: 12, background: "var(--color-background-primary)", color: "var(--color-text-primary)" }} />
+                <textarea value={manualMsg} onChange={(e) => setManualMsg(e.target.value)} placeholder="Mensagem exibida aos fotógrafos (opcional)" rows={2} style={{ padding: "9px 12px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", fontSize: 12, background: "var(--color-background-primary)", color: "var(--color-text-primary)", resize: "vertical", fontFamily: "inherit" }} />
+                <button onClick={() => salvar(false)} disabled={salvando} style={{ padding: "9px 18px", borderRadius: 8, border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", fontSize: 12, fontWeight: 700, cursor: "pointer", width: "fit-content" }}>
+                  {salvando ? "Salvando…" : "Salvar"}
+                </button>
+              </div>
+              {/* QR Code */}
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em" }}>QR Code</div>
+                {config?.pix_qrcode_url ? (
+                  <>
+                    <img src={config.pix_qrcode_url} alt="QR Code Pix" style={{ width: 100, height: 100, objectFit: "contain", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "#fff", padding: 5 }} />
+                    <label style={{ fontSize: 11, fontWeight: 600, cursor: uploadandoQr ? "not-allowed" : "pointer", color: "#2563EB", opacity: uploadandoQr ? 0.5 : 1 }}>
+                      {uploadandoQr ? "Enviando…" : "Trocar"}
+                      <input type="file" accept="image/*" style={{ display: "none" }} disabled={uploadandoQr} onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadQrCode(f); e.target.value = ""; }} />
+                    </label>
+                    <button onClick={removerQrCode} style={{ fontSize: 11, fontWeight: 600, color: "#EF4444", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Remover</button>
+                  </>
+                ) : (
+                  <label style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, width: 100, height: 100, borderRadius: 8, border: "0.5px dashed var(--color-border-secondary)", background: "var(--color-background-primary)", cursor: uploadandoQr ? "not-allowed" : "pointer", justifyContent: "center", opacity: uploadandoQr ? 0.5 : 1 }}>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--color-text-secondary)" }}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                    <span style={{ fontSize: 10, color: "var(--color-text-secondary)", textAlign: "center", lineHeight: 1.3 }}>{uploadandoQr ? "Enviando…" : "Enviar QR"}</span>
+                    <input type="file" accept="image/*" style={{ display: "none" }} disabled={uploadandoQr} onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadQrCode(f); e.target.value = ""; }} />
+                  </label>
+                )}
+              </div>
+            </div>
+            {msg && <div style={{ fontSize: 12, marginTop: 10, color: msg.startsWith("❌") ? "#EF4444" : "#059669" }}>{msg}</div>}
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
+          {/* Coluna 1: Asaas */}
           <div>
-            <div style={{ fontSize: 12, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 12 }}>Conta Asaas (doações)</div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 12 }}>Asaas (cobranças automáticas)</div>
+            <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: "0 0 12px", lineHeight: 1.5 }}>
+              Usado pelo sistema para gerar cobranças automáticas quando solicitado. Não interfere no Pix acima.
+            </p>
             {config?.asaas_ativo ? (
-              <button onClick={desconectar} style={{ padding: "8px 16px", borderRadius: 8, border: "0.5px solid rgba(239,68,68,0.3)", background: "rgba(239,68,68,0.05)", fontSize: 12, fontWeight: 600, color: "#DC2626", cursor: "pointer", marginBottom: 18 }}>
+              <button onClick={desconectar} style={{ padding: "8px 16px", borderRadius: 8, border: "0.5px solid rgba(239,68,68,0.3)", background: "rgba(239,68,68,0.05)", fontSize: 12, fontWeight: 600, color: "#DC2626", cursor: "pointer" }}>
                 Desconectar Asaas
               </button>
             ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 18 }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 <input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder="API Key do Asaas ($aact_...)" style={{ padding: "9px 12px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", fontSize: 12, fontFamily: "monospace", background: "var(--color-background-primary)", color: "var(--color-text-primary)" }} />
                 <select value={ambiente} onChange={(e) => setAmbiente(e.target.value)} style={{ padding: "9px 12px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", fontSize: 12, background: "var(--color-background-primary)", color: "var(--color-text-primary)", width: 200 }}>
                   <option value="sandbox">Sandbox (testes)</option>
@@ -151,52 +192,6 @@ function SecaoPagamentos() {
                 </button>
               </div>
             )}
-
-            <div style={{ fontSize: 12, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 12 }}>Doação manual (fallback)</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              <input value={manualPix} onChange={(e) => setManualPix(e.target.value)} placeholder="Chave Pix (e-mail, CPF, telefone ou chave aleatória)" style={{ padding: "9px 12px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", fontSize: 12, background: "var(--color-background-primary)", color: "var(--color-text-primary)" }} />
-              <input value={manualLink} onChange={(e) => setManualLink(e.target.value)} placeholder="Link de pagamento (opcional)" style={{ padding: "9px 12px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", fontSize: 12, background: "var(--color-background-primary)", color: "var(--color-text-primary)" }} />
-              <textarea value={manualMsg} onChange={(e) => setManualMsg(e.target.value)} placeholder="Mensagem exibida aos fotógrafos (opcional)" rows={2} style={{ padding: "9px 12px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", fontSize: 12, background: "var(--color-background-primary)", color: "var(--color-text-primary)", resize: "vertical", fontFamily: "inherit" }} />
-              <button onClick={() => salvar(false)} disabled={salvando} style={{ padding: "9px 18px", borderRadius: 8, border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", fontSize: 12, fontWeight: 700, cursor: "pointer", width: "fit-content" }}>
-                {salvando ? "Salvando…" : "Salvar dados manuais"}
-              </button>
-            </div>
-
-            {/* QR Code Pix */}
-            <div style={{ marginTop: 18 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 10 }}>QR Code Pix</div>
-              {config?.pix_qrcode_url ? (
-                <div style={{ display: "flex", alignItems: "flex-start", gap: 14 }}>
-                  <img
-                    src={config.pix_qrcode_url}
-                    alt="QR Code Pix"
-                    style={{ width: 110, height: 110, objectFit: "contain", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "#fff", padding: 6 }}
-                  />
-                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                    <label style={{ display: "inline-block", padding: "8px 14px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-secondary)", fontSize: 12, fontWeight: 600, cursor: "pointer", color: "var(--color-text-primary)" }}>
-                      {uploadandoQr ? "Enviando…" : "Trocar imagem"}
-                      <input type="file" accept="image/*" style={{ display: "none" }} disabled={uploadandoQr}
-                        onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadQrCode(f); e.target.value = ""; }} />
-                    </label>
-                    <button onClick={removerQrCode} style={{ padding: "8px 14px", borderRadius: 8, border: "0.5px solid rgba(239,68,68,0.3)", background: "rgba(239,68,68,0.05)", fontSize: 12, fontWeight: 600, color: "#DC2626", cursor: "pointer" }}>
-                      Remover
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <label style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "9px 16px", borderRadius: 8, border: "0.5px dashed var(--color-border-secondary)", background: "var(--color-background-secondary)", fontSize: 12, fontWeight: 600, cursor: uploadandoQr ? "not-allowed" : "pointer", color: "var(--color-text-secondary)", opacity: uploadandoQr ? 0.6 : 1 }}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                  {uploadandoQr ? "Enviando…" : "Enviar imagem do QR code"}
-                  <input type="file" accept="image/*" style={{ display: "none" }} disabled={uploadandoQr}
-                    onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadQrCode(f); e.target.value = ""; }} />
-                </label>
-              )}
-              <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: "6px 0 0" }}>
-                Exibido aos fotógrafos quando fazem doação manual. Máx. 2 MB.
-              </p>
-            </div>
-
-            {msg && <div style={{ fontSize: 12, marginTop: 10, color: msg.startsWith("❌") ? "#EF4444" : "#059669" }}>{msg}</div>}
           </div>
 
           {/* Coluna 2: Doações recebidas */}
@@ -219,6 +214,7 @@ function SecaoPagamentos() {
               </div>
             )}
           </div>
+        </div>
         </div>
       )}
     </div>
