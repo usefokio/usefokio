@@ -108,6 +108,7 @@ export type GaleriaEntrega = {
   rascunho: boolean;
   renovacao_dias: number;
   ordenacao_fotos: "envio" | "nome" | "nome_desc" | "data";
+  foto_capa_url: string | null;
   created_at: string;
   updated_at: string;
   // joined

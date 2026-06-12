@@ -60,6 +60,10 @@ export default function NovaEntregaPage() {
   const inputFotosRef = useRef<HTMLInputElement>(null);
   const proximoRef = useRef<(() => void) | null>(null);
 
+  const [capaFile,    setCapaFile]    = useState<File | null>(null);
+  const [capaPreview, setCapaPreview] = useState<string | null>(null);
+  const inputCapaRef = useRef<HTMLInputElement>(null);
+
   useEffect(() => {
     const handler = () => {
       if (document.visibilityState === "visible" && proximoRef.current) {
@@ -206,6 +210,16 @@ export default function NovaEntregaPage() {
 
     if (error || !data) { setSaving(false); return; }
 
+    if (capaFile && fotografo) {
+      const ext = capaFile.type === "image/png" ? "png" : capaFile.type === "image/webp" ? "webp" : "jpg";
+      const capaPath = `entrega/${fotografo.id}/${data.id}/capa.${ext}`;
+      const { error: capaErr } = await supabase.storage.from("galerias").upload(capaPath, capaFile, { upsert: true, contentType: capaFile.type });
+      if (!capaErr) {
+        const { data: { publicUrl } } = supabase.storage.from("galerias").getPublicUrl(capaPath);
+        await supabase.from("galerias_entrega").update({ foto_capa_url: publicUrl }).eq("id", data.id);
+      }
+    }
+
     await enviarFila(data.id);
     router.push(`/entrega/${data.id}`);
   }
@@ -246,6 +260,48 @@ export default function NovaEntregaPage() {
             placeholder="Ex: Casamento Ana & Pedro"
             style={inputStyle}
           />
+        </Field>
+
+        <Field label="Foto de capa" hint="Opcional — aparece como destaque na galeria do cliente">
+          <input
+            ref={inputCapaRef}
+            type="file" accept="image/*"
+            style={{ display: "none" }}
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (!f) return;
+              setCapaFile(f);
+              setCapaPreview(URL.createObjectURL(f));
+              e.target.value = "";
+            }}
+          />
+          {capaPreview ? (
+            <div style={{ position: "relative", width: "100%", aspectRatio: "16/7", borderRadius: 10, overflow: "hidden", background: "var(--color-border-tertiary)" }}>
+              <img src={capaPreview} alt="Capa" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              <button
+                type="button"
+                onClick={() => { setCapaFile(null); setCapaPreview(null); }}
+                style={{ position: "absolute", top: 8, right: 8, background: "rgba(0,0,0,0.55)", border: "none", borderRadius: 6, color: "#fff", fontSize: 11, fontWeight: 600, padding: "4px 10px", cursor: "pointer" }}
+              >
+                Remover
+              </button>
+              <button
+                type="button"
+                onClick={() => inputCapaRef.current?.click()}
+                style={{ position: "absolute", top: 8, left: 8, background: "rgba(0,0,0,0.55)", border: "none", borderRadius: 6, color: "#fff", fontSize: 11, fontWeight: 600, padding: "4px 10px", cursor: "pointer" }}
+              >
+                Trocar
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => inputCapaRef.current?.click()}
+              style={{ width: "100%", padding: "18px 0", border: "1.5px dashed var(--color-border-secondary)", borderRadius: 10, background: "var(--color-background-primary)", cursor: "pointer", color: "var(--color-text-secondary)", fontSize: 13 }}
+            >
+              🖼 Selecionar foto de capa
+            </button>
+          )}
         </Field>
 
         <Field label="Cliente">

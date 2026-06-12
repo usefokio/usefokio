@@ -76,6 +76,12 @@ export default function EditarEntregaPage() {
 
   const [expiresAt, setExpiresAt] = useState<Date | null>(null);
   const [prorogarDias,   setProrogarDias]   = useState<number | "custom" | null>(null);
+
+  const [capaUrl,     setCapaUrl]     = useState<string | null>(null);
+  const [capaFile,    setCapaFile]    = useState<File | null>(null);
+  const [capaPreview, setCapaPreview] = useState<string | null>(null);
+  const [uploadandoCapa, setUploadandoCapa] = useState(false);
+  const inputCapaRef = useRef<HTMLInputElement>(null);
   const [prorogarCustom, setProrogarCustom] = useState("");
 
   const diasProrrogar  = prorogarDias === "custom" ? (parseInt(prorogarCustom) || 0) : (prorogarDias ?? 0);
@@ -109,6 +115,8 @@ export default function EditarEntregaPage() {
         setDriveLink(g.drive_link ?? "");
         setRenovacao(g.renewal_fee != null ? formatarMoeda(g.renewal_fee) : "");
         setMensagem(g.mensagem ?? fotografo.mensagem_padrao_entrega ?? "");
+        setCapaUrl(g.foto_capa_url ?? null);
+        setCapaPreview(g.foto_capa_url ?? null);
         setCarregado(true);
         setLoadingPage(false);
       });
@@ -154,10 +162,26 @@ export default function EditarEntregaPage() {
     }
   }
 
+  async function uploadCapa(idGaleria: string): Promise<string | null> {
+    if (!capaFile || !fotografo) return capaUrl;
+    setUploadandoCapa(true);
+    const supabase = createClient();
+    const ext = capaFile.type === "image/png" ? "png" : capaFile.type === "image/webp" ? "webp" : "jpg";
+    const path = `entrega/${fotografo.id}/${idGaleria}/capa.${ext}`;
+    const { error } = await supabase.storage.from("galerias").upload(path, capaFile, { upsert: true, contentType: capaFile.type });
+    setUploadandoCapa(false);
+    if (error) return capaUrl;
+    const { data: { publicUrl } } = supabase.storage.from("galerias").getPublicUrl(path);
+    return publicUrl;
+  }
+
   async function handleSalvar() {
     if (!fotografo || !titulo.trim()) return;
     setSaving(true);
     const supabase = createClient();
+
+    const novaCapaUrl = await uploadCapa(id);
+
     await supabase
       .from("galerias_entrega")
       .update({
@@ -173,6 +197,7 @@ export default function EditarEntregaPage() {
         identificacao_obrigatoria:  identificacaoObrig,
         drive_apenas_identificado:  driveApenasIdentif,
         ordenacao_fotos:            ordenacaoFotos,
+        foto_capa_url:              novaCapaUrl ?? null,
       })
       .eq("id", id)
       .eq("fotografo_id", fotografo.id);
@@ -254,6 +279,49 @@ export default function EditarEntregaPage() {
 
         <Field label="Título da galeria">
           <input type="text" value={titulo} onChange={(e) => setTitulo(e.target.value)} style={inputStyle} />
+        </Field>
+
+        <Field label="Foto de capa" hint="Opcional — aparece como destaque na galeria do cliente">
+          <input
+            ref={inputCapaRef}
+            type="file" accept="image/*"
+            style={{ display: "none" }}
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (!f) return;
+              setCapaFile(f);
+              if (capaPreview && !capaPreview.startsWith("http")) URL.revokeObjectURL(capaPreview);
+              setCapaPreview(URL.createObjectURL(f));
+              e.target.value = "";
+            }}
+          />
+          {capaPreview ? (
+            <div style={{ position: "relative", width: "100%", aspectRatio: "16/7", borderRadius: 10, overflow: "hidden", background: "var(--color-border-tertiary)" }}>
+              <img src={capaPreview} alt="Capa" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              <button
+                type="button"
+                onClick={() => { setCapaFile(null); setCapaPreview(null); setCapaUrl(null); }}
+                style={{ position: "absolute", top: 8, right: 8, background: "rgba(0,0,0,0.55)", border: "none", borderRadius: 6, color: "#fff", fontSize: 11, fontWeight: 600, padding: "4px 10px", cursor: "pointer" }}
+              >
+                Remover
+              </button>
+              <button
+                type="button"
+                onClick={() => inputCapaRef.current?.click()}
+                style={{ position: "absolute", top: 8, left: 8, background: "rgba(0,0,0,0.55)", border: "none", borderRadius: 6, color: "#fff", fontSize: 11, fontWeight: 600, padding: "4px 10px", cursor: "pointer" }}
+              >
+                Trocar
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => inputCapaRef.current?.click()}
+              style={{ width: "100%", padding: "18px 0", border: "1.5px dashed var(--color-border-secondary)", borderRadius: 10, background: "var(--color-background-primary)", cursor: "pointer", color: "var(--color-text-secondary)", fontSize: 13 }}
+            >
+              🖼 Selecionar foto de capa
+            </button>
+          )}
         </Field>
 
         <Field label="Cliente">
