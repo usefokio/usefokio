@@ -666,10 +666,63 @@ export default function AcessoEntregaPage() {
         )}
 
         {fotos.length === 0 ? (
+          galeria?.drive_link ? (
+            // Galeria só com Drive — sem fotos online
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "60vh", padding: "40px 20px" }}>
+              <div style={{ maxWidth: 480, width: "100%", textAlign: "center" }}>
+                <div style={{ fontSize: 48, marginBottom: 20 }}>☁️</div>
+                <h2 style={{ fontSize: 20, fontWeight: 800, color: "#111", margin: "0 0 10px", letterSpacing: "-0.02em" }}>
+                  Suas fotos estão no Google Drive
+                </h2>
+                <p style={{ fontSize: 14, color: "#666", lineHeight: 1.7, margin: "0 0 32px" }}>
+                  O fotógrafo disponibilizou as imagens via Google Drive.<br />
+                  Clique no botão abaixo para abrir e baixar todas as fotos.
+                </p>
+
+                <a
+                  href={galeria.drive_link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => {
+                    if (!galeria.drive_apenas_identificado || identificacao) return;
+                    if (temCliente) return;
+                    e.preventDefault();
+                    setFormErro("");
+                    setModalDrive(true);
+                  }}
+                  style={{ display: "inline-flex", alignItems: "center", gap: 10, padding: "14px 32px", borderRadius: 40, background: "#111", color: "#fff", fontSize: 15, fontWeight: 700, textDecoration: "none", boxShadow: "0 4px 20px rgba(0,0,0,0.15)", transition: "transform 0.15s, box-shadow 0.15s" }}
+                  onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.03)"; e.currentTarget.style.boxShadow = "0 8px 28px rgba(0,0,0,0.22)"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; e.currentTarget.style.boxShadow = "0 4px 20px rgba(0,0,0,0.15)"; }}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                  Baixar fotos no Google Drive
+                </a>
+
+                <div style={{ marginTop: 32, background: "#f9f9f9", border: "1px solid #eee", borderRadius: 14, padding: "20px 24px", textAlign: "left" }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 14 }}>
+                    Como baixar
+                  </div>
+                  <ol style={{ margin: 0, padding: "0 0 0 18px", display: "flex", flexDirection: "column", gap: 10 }}>
+                    {[
+                      "Clique em \"Baixar fotos no Google Drive\" acima",
+                      "Na pasta do Google Drive, clique nos três pontos (⋮) ou selecione todas as fotos",
+                      "Escolha \"Fazer download\" — as fotos serão salvas como um arquivo .zip",
+                      "Extraia o arquivo .zip para acessar todas as imagens",
+                    ].map((passo, i) => (
+                      <li key={i} style={{ fontSize: 13, color: "#555", lineHeight: 1.5 }}>
+                        {passo}
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+              </div>
+            </div>
+          ) : (
           <div style={{ textAlign: "center", padding: "80px 20px", color: "#aaa" }}>
             <div style={{ fontSize: 32, marginBottom: 12 }}>📷</div>
             <div style={{ fontSize: 14 }}>As fotos ainda não foram enviadas. Tente novamente em breve.</div>
           </div>
+          )
         ) : (
           // Grade justificada — cada foto mantém a proporção original (verticais em pé)
           <div style={{ display: "flex", flexWrap: "wrap", gap: 3, padding: "0 3px", maxWidth: 1600, margin: "0 auto", alignItems: "stretch" }}>
