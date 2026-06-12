@@ -563,7 +563,25 @@ export default function AcessoEntregaPage() {
           <div style={{ fontSize: 14, fontWeight: 700, color: "#111", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {galeria?.titulo}
           </div>
-          {nomeCliente && <div style={{ fontSize: 11, color: "#888" }}>Para {nomeCliente}</div>}
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 1, flexWrap: "wrap" }}>
+            {nomeCliente && <span style={{ fontSize: 11, color: "#888" }}>Para {nomeCliente}</span>}
+            {fotos.length > 0 && (
+              <span style={{ fontSize: 11, color: "#888" }}>{fotos.length} foto{fotos.length !== 1 ? "s" : ""}</span>
+            )}
+            {dias !== null && (
+              <span style={{
+                fontSize: 11, fontWeight: 700,
+                color: dias <= 0 ? "#EF4444" : dias <= 7 ? "#B45309" : "#059669",
+                background: dias <= 0 ? "rgba(239,68,68,0.10)" : dias <= 7 ? "rgba(245,158,11,0.12)" : "rgba(16,185,129,0.10)",
+                padding: "1px 7px", borderRadius: 10,
+              }}>
+                {dias <= 0 ? "Expirado" : `${dias} dia${dias !== 1 ? "s" : ""} restante${dias !== 1 ? "s" : ""}`}
+              </span>
+            )}
+            {dias === null && galeria?.expires_at === null && (
+              <span style={{ fontSize: 11, color: "#aaa" }}>Sem prazo</span>
+            )}
+          </div>
         </div>
         {/* Drive link → botão "Baixar todas" padrão */}
         {galeria?.drive_link && (

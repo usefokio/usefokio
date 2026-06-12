@@ -2,7 +2,7 @@
 
 import {
   createContext, useContext, useEffect,
-  useState, useCallback, ReactNode,
+  useState, useCallback, useRef, ReactNode,
 } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { Fotografo } from "@/lib/supabase/types";
@@ -22,9 +22,11 @@ const FotografoContext = createContext<FotografoContextType>({
 export function FotografoProvider({ children }: { children: ReactNode }) {
   const [fotografo, setFotografo] = useState<Fotografo | null>(null);
   const [loading, setLoading]     = useState(true);
+  const firstLoadDone             = useRef(false);
 
-  const load = useCallback(async (silent = false) => {
-    if (!silent) setLoading(true);
+  const load = useCallback(async () => {
+    // Só mostra spinner na primeira carga; recargas de token são silenciosas
+    if (!firstLoadDone.current) setLoading(true);
     try {
       const supabase = createClient();
       const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
@@ -61,6 +63,7 @@ export function FotografoProvider({ children }: { children: ReactNode }) {
       console.error("[FotografoContext] Exceção:", err);
       setFotografo(null);
     } finally {
+      firstLoadDone.current = true;
       setLoading(false);
     }
   }, []);
@@ -70,8 +73,7 @@ export function FotografoProvider({ children }: { children: ReactNode }) {
 
     const supabase = createClient();
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === "TOKEN_REFRESHED") load(true); // silencioso — não desmonta filhos
-      if (event === "SIGNED_IN") load();
+      if (event === "TOKEN_REFRESHED" || event === "SIGNED_IN") load();
       if (event === "SIGNED_OUT") { setFotografo(null); setLoading(false); }
     });
 
