@@ -659,19 +659,11 @@ export default function AcessoEntregaPage() {
 
       {/* Grid de fotos */}
       <div style={{ paddingTop: 68, paddingBottom: 40 }}>
-        <div style={{ padding: "16px 16px 10px", maxWidth: 1400, margin: "0 auto" }}>
-          {galeria?.expires_at && dias !== null && dias >= 0 && (
-            <div style={{ display: "inline-flex", alignItems: "center", gap: 7, background: dias <= 7 ? "rgba(245,158,11,0.10)" : "rgba(0,0,0,0.04)", border: `1px solid ${dias <= 7 ? "rgba(245,158,11,0.35)" : "rgba(0,0,0,0.08)"}`, borderRadius: 8, padding: "7px 13px", marginBottom: 10, fontSize: 12, fontWeight: 600, color: dias <= 7 ? "#B45309" : "#555" }}>
-              <span>⏳</span>
-              Acesso disponível até {new Date(galeria.expires_at).toLocaleDateString("pt-BR")}
-              {dias <= 14 && <span style={{ fontWeight: 400, color: dias <= 7 ? "#B45309" : "#888" }}>({dias === 0 ? "expira hoje" : `${dias} dia${dias !== 1 ? "s" : ""}`})</span>}
-            </div>
-          )}
-          <div style={{ fontSize: 12, color: "#999" }}>
-            {fotos.length} foto{fotos.length !== 1 ? "s" : ""}
-            {galeria?.mensagem && <span style={{ marginLeft: 8, color: "#bbb" }}>· Clique para ampliar</span>}
+        {galeria?.mensagem && (
+          <div style={{ padding: "14px 16px 4px", maxWidth: 1400, margin: "0 auto", fontSize: 12, color: "#bbb" }}>
+            Clique para ampliar
           </div>
-        </div>
+        )}
 
         {fotos.length === 0 ? (
           <div style={{ textAlign: "center", padding: "80px 20px", color: "#aaa" }}>
