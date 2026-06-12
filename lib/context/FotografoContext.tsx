@@ -23,8 +23,8 @@ export function FotografoProvider({ children }: { children: ReactNode }) {
   const [fotografo, setFotografo] = useState<Fotografo | null>(null);
   const [loading, setLoading]     = useState(true);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const supabase = createClient();
       const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
@@ -70,7 +70,8 @@ export function FotografoProvider({ children }: { children: ReactNode }) {
 
     const supabase = createClient();
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") load();
+      if (event === "TOKEN_REFRESHED") load(true); // silencioso — não desmonta filhos
+      if (event === "SIGNED_IN") load();
       if (event === "SIGNED_OUT") { setFotografo(null); setLoading(false); }
     });
 
