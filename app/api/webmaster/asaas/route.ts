@@ -30,7 +30,7 @@ export async function GET() {
 
   const admin = createAdminClient();
   const [{ data: cfg }, { data: doacoes }] = await Promise.all([
-    admin.from("webmaster_config").select("asaas_ativo, asaas_ambiente, doacao_manual_pix, doacao_manual_link, doacao_manual_msg").eq("id", 1).maybeSingle(),
+    admin.from("webmaster_config").select("asaas_ativo, asaas_ambiente, doacao_manual_pix, doacao_manual_link, doacao_manual_msg, pix_qrcode_url").eq("id", 1).maybeSingle(),
     admin.from("pagamentos")
       .select("id, valor, status, pagador_nome, pagador_email, created_at, paid_at")
       .eq("tipo", "doacao")
