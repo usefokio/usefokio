@@ -22,35 +22,39 @@ type Draft = {
   bairro: string; cidade: string; estado: string;
 };
 
-function loadDraft(): Partial<Draft> {
-  try { return JSON.parse(sessionStorage.getItem(DRAFT_KEY) ?? "{}"); } catch { return {}; }
+// Lazy initializer — só executa no cliente, nunca no SSR
+function draftOr(key: keyof Draft, fallback: string): () => string {
+  return () => {
+    try {
+      const d = JSON.parse(sessionStorage.getItem(DRAFT_KEY) ?? "{}") as Partial<Draft>;
+      return d[key] ?? fallback;
+    } catch { return fallback; }
+  };
 }
 
 export default function NovoClientePage() {
   const router = useRouter();
   const { fotografo } = useFotografo();
 
-  const draft = loadDraft();
-
-  const [nome, setNome]         = useState(draft.nome ?? "");
-  const [email, setEmail]       = useState(draft.email ?? "");
-  const [telefone, setTelefone] = useState(draft.telefone ?? "");
-  const [cpf, setCpf]           = useState(draft.cpf ?? "");
-  const [senha, setSenha]       = useState(draft.senha ?? gerarSenhaAcesso());
+  const [nome, setNome]         = useState(draftOr("nome", ""));
+  const [email, setEmail]       = useState(draftOr("email", ""));
+  const [telefone, setTelefone] = useState(draftOr("telefone", ""));
+  const [cpf, setCpf]           = useState(draftOr("cpf", ""));
+  const [senha, setSenha]       = useState(() => draftOr("senha", "")() || gerarSenhaAcesso());
   const [saving, setSaving]     = useState(false);
   const [error, setError]       = useState("");
   const [copiado, setCopiado]   = useState(false);
 
-  const [dataNascimento, setDataNascimento] = useState(draft.dataNascimento ?? "");
-  const [rg, setRg]                         = useState(draft.rg ?? "");
-  const [sexo, setSexo]                     = useState(draft.sexo ?? "");
-  const [cep, setCep]                       = useState(draft.cep ?? "");
-  const [logradouro, setLogradouro]         = useState(draft.logradouro ?? "");
-  const [numero, setNumero]                 = useState(draft.numero ?? "");
-  const [complemento, setComplemento]       = useState(draft.complemento ?? "");
-  const [bairro, setBairro]                 = useState(draft.bairro ?? "");
-  const [cidade, setCidade]                 = useState(draft.cidade ?? "");
-  const [estado, setEstado]                 = useState(draft.estado ?? "");
+  const [dataNascimento, setDataNascimento] = useState(draftOr("dataNascimento", ""));
+  const [rg, setRg]                         = useState(draftOr("rg", ""));
+  const [sexo, setSexo]                     = useState(draftOr("sexo", ""));
+  const [cep, setCep]                       = useState(draftOr("cep", ""));
+  const [logradouro, setLogradouro]         = useState(draftOr("logradouro", ""));
+  const [numero, setNumero]                 = useState(draftOr("numero", ""));
+  const [complemento, setComplemento]       = useState(draftOr("complemento", ""));
+  const [bairro, setBairro]                 = useState(draftOr("bairro", ""));
+  const [cidade, setCidade]                 = useState(draftOr("cidade", ""));
+  const [estado, setEstado]                 = useState(draftOr("estado", ""));
   const [buscandoCep, setBuscandoCep]       = useState(false);
 
   useEffect(() => {
