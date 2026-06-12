@@ -197,7 +197,6 @@ export default function NovoClientePage() {
                   <option value="feminino">Feminino</option>
                   <option value="masculino">Masculino</option>
                   <option value="outro">Outro</option>
-                  <option value="nao_declarar">Não declarar</option>
                 </select>
               </Field>
             </div>
