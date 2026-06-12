@@ -140,6 +140,8 @@ export default function AcessoEntregaPage() {
   const [renovNome,        setRenovNome]        = useState("");
   const [renovEmail,       setRenovEmail]       = useState("");
   const [renovCpf,         setRenovCpf]         = useState("");
+  const [modalCpf,         setModalCpf]         = useState(false);
+  const [cpfTemp,          setCpfTemp]          = useState("");
 
   // Restaura sessão
   useEffect(() => {
@@ -263,11 +265,19 @@ export default function AcessoEntregaPage() {
     if (tela === "expirada" || tela === "suspensa") verificarRenovacao(true);
   }, [tela]);
 
-  async function gerarCobrancaRenovacao() {
-    // Usa dados do cliente vinculado se existir, senão usa o formulário
+  async function gerarCobrancaRenovacao(cpfFornecido?: string) {
     const pagadorNome  = galeria?.clientes?.nome  || renovNome.trim();
     const pagadorEmail = galeria?.clientes?.email || renovEmail.trim();
-    const pagadorCpf   = galeria?.clientes?.cpf   || renovCpf.trim();
+    const pagadorCpf   = cpfFornecido ?? galeria?.clientes?.cpf ?? renovCpf.trim();
+
+    // Cliente vinculado sem CPF → abre modal para coletar
+    const temClienteVinculado = !!(galeria?.clientes?.nome && galeria?.clientes?.email);
+    if (temClienteVinculado && !pagadorCpf) {
+      setCpfTemp("");
+      setModalCpf(true);
+      return;
+    }
+
     if (!pagadorNome) { setRenovMsg("Informe seu nome."); return; }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(pagadorEmail)) { setRenovMsg("Informe um e-mail válido."); return; }
     setRenovGerando(true);
@@ -287,6 +297,78 @@ export default function AcessoEntregaPage() {
     } finally {
       setRenovGerando(false);
     }
+  }
+
+  function renderModalCpf() {
+    if (!modalCpf) return null;
+    const cliente = galeria?.clientes;
+    return (
+      <div
+        style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.65)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 300, padding: 20 }}
+        onClick={() => setModalCpf(false)}
+      >
+        <div onClick={(e) => e.stopPropagation()} style={{ background: "#fff", borderRadius: 18, padding: "32px 28px", width: 400, maxWidth: "100%", boxShadow: "0 16px 60px rgba(0,0,0,0.35)" }}>
+          <h3 style={{ margin: "0 0 6px", fontSize: 16, fontWeight: 800, color: "#111", letterSpacing: "-0.01em" }}>
+            Complete seu cadastro
+          </h3>
+          <p style={{ margin: "0 0 24px", fontSize: 13, color: "#666", lineHeight: 1.6 }}>
+            Para gerar a cobrança precisamos do seu CPF.
+          </p>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 20 }}>
+            {/* Nome — pré-preenchido, somente leitura */}
+            <div>
+              <label style={{ fontSize: 11, fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: 4 }}>Nome</label>
+              <input
+                readOnly value={cliente?.nome ?? ""}
+                style={{ width: "100%", padding: "11px 14px", borderRadius: 9, border: "1px solid #e5e5e5", fontSize: 14, color: "#444", background: "#f9f9f9", boxSizing: "border-box" }}
+              />
+            </div>
+            {/* E-mail — pré-preenchido, somente leitura */}
+            <div>
+              <label style={{ fontSize: 11, fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: 4 }}>E-mail</label>
+              <input
+                readOnly value={cliente?.email ?? ""}
+                style={{ width: "100%", padding: "11px 14px", borderRadius: 9, border: "1px solid #e5e5e5", fontSize: 14, color: "#444", background: "#f9f9f9", boxSizing: "border-box" }}
+              />
+            </div>
+            {/* CPF — campo a preencher */}
+            <div>
+              <label style={{ fontSize: 11, fontWeight: 600, color: "#111", textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: 4 }}>CPF <span style={{ color: "#EF4444" }}>*</span></label>
+              <input
+                autoFocus
+                value={cpfTemp}
+                onChange={(e) => setCpfTemp(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && cpfTemp.trim()) {
+                    setModalCpf(false);
+                    gerarCobrancaRenovacao(cpfTemp.trim());
+                  }
+                }}
+                placeholder="000.000.000-00"
+                style={{ width: "100%", padding: "11px 14px", borderRadius: 9, border: "1.5px solid #111", fontSize: 14, color: "#111", background: "#fff", boxSizing: "border-box", outline: "none" }}
+              />
+            </div>
+          </div>
+
+          <div style={{ display: "flex", gap: 8 }}>
+            <button
+              onClick={() => setModalCpf(false)}
+              style={{ flex: 1, padding: "12px", borderRadius: 10, border: "1px solid #ddd", background: "transparent", fontSize: 13, color: "#666", cursor: "pointer" }}
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={() => { setModalCpf(false); gerarCobrancaRenovacao(cpfTemp.trim()); }}
+              disabled={!cpfTemp.trim()}
+              style={{ flex: 1.5, padding: "12px", borderRadius: 10, border: "none", background: cpfTemp.trim() ? "#111" : "#ddd", color: cpfTemp.trim() ? "#fff" : "#999", fontSize: 13, fontWeight: 700, cursor: cpfTemp.trim() ? "pointer" : "default", transition: "all 0.15s" }}
+            >
+              Continuar para pagamento
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   // Bloco de pagamento de renovação — usado nas telas expirada e suspensa.
@@ -339,7 +421,7 @@ export default function AcessoEntregaPage() {
               </div>
             )}
             <button
-              onClick={gerarCobrancaRenovacao}
+              onClick={() => gerarCobrancaRenovacao()}
               disabled={renovGerando}
               style={{ padding: "12px 24px", borderRadius: 9, border: "none", background: "#fff", color: "#000", fontSize: 14, fontWeight: 700, cursor: "pointer" }}
             >
@@ -386,6 +468,8 @@ export default function AcessoEntregaPage() {
 
   // ─── Tela: expirada ────────────────────────────────────────────────────────
   if (tela === "expirada") return (
+    <>
+    {renderModalCpf()}
     <div style={{ height: "100vh", position: "relative", overflow: "hidden", background: "#0a0a0a", display: "flex", alignItems: "center", justifyContent: "center" }}>
       {capaUrl && <img src={capaUrl} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 0.3, filter: "blur(4px)", transform: "scale(1.05)" }} />}
       <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.65)" }} />
@@ -416,10 +500,13 @@ export default function AcessoEntregaPage() {
         </div>
       </div>
     </div>
+    </>
   );
 
   // ─── Tela: suspensa ───────────────────────────────────────────────────────
   if (tela === "suspensa") return (
+    <>
+    {renderModalCpf()}
     <div style={{ height: "100vh", position: "relative", overflow: "hidden", background: "#0a0a0a", display: "flex", alignItems: "center", justifyContent: "center" }}>
       {capaUrl && <img src={capaUrl} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 0.25, filter: "blur(4px)", transform: "scale(1.05)" }} />}
       <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.65)" }} />
@@ -450,6 +537,7 @@ export default function AcessoEntregaPage() {
         </div>
       </div>
     </div>
+    </>
   );
 
   // ─── Tela: identificação ───────────────────────────────────────────────────
