@@ -373,7 +373,7 @@ export default function AcessoEntregaPage() {
     </div>
   );
 
-  const capaUrl    = fotos[0]?.url_publica ?? null;
+  const capaUrl    = galeria?.foto_capa_url ?? fotos[0]?.url_publica ?? null;
   const logoUrl    = galeria?.fotografos?.logo_url ?? null;
   const nomeEmpresa = galeria?.fotografos?.nome_empresa ?? "";
   const temCliente = !!galeria?.clientes?.nome;
