@@ -270,16 +270,15 @@ export default function AcessoEntregaPage() {
     const pagadorEmail = galeria?.clientes?.email || renovEmail.trim();
     const pagadorCpf   = cpfFornecido ?? galeria?.clientes?.cpf ?? renovCpf.trim();
 
-    // Cliente vinculado sem CPF → abre modal para coletar
-    const temClienteVinculado = !!(galeria?.clientes?.nome && galeria?.clientes?.email);
-    if (temClienteVinculado && !pagadorCpf) {
+    if (!pagadorNome) { setRenovMsg("Informe seu nome."); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(pagadorEmail)) { setRenovMsg("Informe um e-mail válido."); return; }
+
+    // CPF ausente → abre modal para coletar (pré-preenchido com dados disponíveis)
+    if (!pagadorCpf) {
       setCpfTemp("");
       setModalCpf(true);
       return;
     }
-
-    if (!pagadorNome) { setRenovMsg("Informe seu nome."); return; }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(pagadorEmail)) { setRenovMsg("Informe um e-mail válido."); return; }
     setRenovGerando(true);
     setRenovMsg("");
     try {
@@ -301,7 +300,8 @@ export default function AcessoEntregaPage() {
 
   function renderModalCpf() {
     if (!modalCpf) return null;
-    const cliente = galeria?.clientes;
+    const nomeModal  = galeria?.clientes?.nome  || renovNome.trim();
+    const emailModal = galeria?.clientes?.email || renovEmail.trim();
     return (
       <div
         style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.65)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 300, padding: 20 }}
@@ -320,7 +320,7 @@ export default function AcessoEntregaPage() {
             <div>
               <label style={{ fontSize: 11, fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: 4 }}>Nome</label>
               <input
-                readOnly value={cliente?.nome ?? ""}
+                readOnly value={nomeModal}
                 style={{ width: "100%", padding: "11px 14px", borderRadius: 9, border: "1px solid #e5e5e5", fontSize: 14, color: "#444", background: "#f9f9f9", boxSizing: "border-box" }}
               />
             </div>
@@ -328,7 +328,7 @@ export default function AcessoEntregaPage() {
             <div>
               <label style={{ fontSize: 11, fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: 4 }}>E-mail</label>
               <input
-                readOnly value={cliente?.email ?? ""}
+                readOnly value={emailModal}
                 style={{ width: "100%", padding: "11px 14px", borderRadius: 9, border: "1px solid #e5e5e5", fontSize: 14, color: "#444", background: "#f9f9f9", boxSizing: "border-box" }}
               />
             </div>
