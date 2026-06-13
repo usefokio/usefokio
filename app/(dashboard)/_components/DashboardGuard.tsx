@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useFotografo } from "@/lib/context/FotografoContext";
+import { createClient } from "@/lib/supabase/client";
 
 const WEBMASTER_ID    = process.env.NEXT_PUBLIC_WEBMASTER_ID ?? "";
 const WEBMASTER_EMAIL = "usefokio@gmail.com";
@@ -14,9 +15,26 @@ export function DashboardGuard({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (loading) return;
 
-    // Sem perfil — redireciona para login
     if (!fotografo) {
-      router.replace("/login");
+      // Verifica se há sessão ativa — se sim, cria o perfil ausente e aguarda aprovação
+      createClient().auth.getUser().then(async ({ data }) => {
+        if (!data.user) {
+          router.replace("/login");
+          return;
+        }
+        // Usuário autenticado mas sem perfil na tabela fotografos
+        // (ocorre quando o auth/callback não criou o perfil ao confirmar o email)
+        const meta         = data.user.user_metadata ?? {};
+        const nomeCompleto = meta.nome_completo ?? meta.full_name ?? meta.name ?? (data.user.email?.split("@")[0] ?? "Fotógrafo");
+        const nomeEmpresa  = meta.nome_empresa  ?? nomeCompleto;
+        await createClient().rpc("criar_perfil_fotografo", {
+          p_nome_completo: nomeCompleto,
+          p_nome_empresa:  nomeEmpresa,
+          p_email:         data.user.email ?? "",
+          p_user_id:       data.user.id,
+        });
+        router.replace("/aguardando-aprovacao");
+      });
       return;
     }
 
