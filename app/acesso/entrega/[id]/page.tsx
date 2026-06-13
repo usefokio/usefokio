@@ -207,7 +207,10 @@ export default function AcessoEntregaPage() {
     setSalvando(false);
     setModalDrive(false);
     setFormErro("");
-    if (galeria?.drive_link) window.open(galeria.drive_link, "_blank", "noopener,noreferrer");
+    if (galeria?.drive_link) {
+      fetch(`/api/entrega/${id}/download`, { method: "POST" }).catch(() => {});
+      window.open(galeria.drive_link, "_blank", "noopener,noreferrer");
+    }
   }
 
   // ── Seleção e download ──────────────────────────────────────────────────────
@@ -679,14 +682,12 @@ export default function AcessoEntregaPage() {
           <a
             href={galeria.drive_link} target="_blank" rel="noopener noreferrer"
             onClick={(e) => {
-              if (!galeria.drive_apenas_identificado || identificacao) return;
+              if (!galeria.drive_apenas_identificado || identificacao) {
+                fetch(`/api/entrega/${id}/download`, { method: "POST" }).catch(() => {});
+                return;
+              }
               if (temCliente) {
-                const supabase = createClient();
-                supabase.from("galeria_acessos").insert({
-                  galeria_id: id,
-                  nome: galeria.clientes.nome,
-                  email: galeria.clientes.email ?? "",
-                }).then(() => {});
+                fetch(`/api/entrega/${id}/download`, { method: "POST" }).catch(() => {});
                 return;
               }
               e.preventDefault();
@@ -775,8 +776,14 @@ export default function AcessoEntregaPage() {
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={(e) => {
-                    if (!galeria.drive_apenas_identificado || identificacao) return;
-                    if (temCliente) return;
+                    if (!galeria.drive_apenas_identificado || identificacao) {
+                      fetch(`/api/entrega/${id}/download`, { method: "POST" }).catch(() => {});
+                      return;
+                    }
+                    if (temCliente) {
+                      fetch(`/api/entrega/${id}/download`, { method: "POST" }).catch(() => {});
+                      return;
+                    }
                     e.preventDefault();
                     setFormErro("");
                     setModalDrive(true);
