@@ -10,7 +10,7 @@ import { inputStyle } from "@/lib/styles";
 import { mascaraMoeda, parseMoeda, formatarMoeda } from "@/lib/moeda";
 import { DoacaoDev } from "../_components/DoacaoDev";
 
-type Tab = "categorias" | "venda" | "entrega" | "identidade" | "pagamentos";
+type Tab = "categorias" | "venda" | "entrega" | "identidade" | "pagamentos" | "seguranca";
 
 // ── Gerenciador de categorias ────────────────────────────────────────────────
 function Categorias() {
@@ -738,6 +738,100 @@ function CardPlano() {
   );
 }
 
+// ── Alterar senha ─────────────────────────────────────────────────────────────
+function AlterarSenha() {
+  const [novaSenha,      setNovaSenha]      = useState("");
+  const [confirmarSenha, setConfirmarSenha] = useState("");
+  const [salvando,       setSalvando]       = useState(false);
+  const [erro,           setErro]           = useState("");
+  const [salvo,          setSalvo]          = useState(false);
+  const [provedor,       setProvedor]       = useState<string | null>(null);
+
+  useEffect(() => {
+    createClient().auth.getUser().then(({ data }) => {
+      const identities = data.user?.identities ?? [];
+      // Se só tem identidade Google (sem 'email'), não pode alterar senha
+      const temEmail = identities.some((i) => i.provider === "email");
+      const temGoogle = identities.some((i) => i.provider === "google");
+      if (temGoogle && !temEmail) setProvedor("google");
+      else setProvedor("email");
+    });
+  }, []);
+
+  async function salvar() {
+    if (!novaSenha)                   { setErro("Informe a nova senha."); return; }
+    if (novaSenha.length < 6)         { setErro("A senha deve ter pelo menos 6 caracteres."); return; }
+    if (novaSenha !== confirmarSenha) { setErro("As senhas não coincidem."); return; }
+
+    setSalvando(true); setErro("");
+    const { error } = await createClient().auth.updateUser({ password: novaSenha });
+    setSalvando(false);
+    if (error) { setErro(error.message); return; }
+    setNovaSenha(""); setConfirmarSenha("");
+    setSalvo(true); setTimeout(() => setSalvo(false), 3000);
+  }
+
+  const inp: React.CSSProperties = {
+    width: "100%", padding: "9px 12px", borderRadius: 8,
+    background: "var(--color-background-secondary)",
+    border: "0.5px solid var(--color-border-secondary)",
+    color: "var(--color-text-primary)", fontSize: 13,
+    outline: "none", boxSizing: "border-box",
+  };
+  const lbl: React.CSSProperties = {
+    fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)",
+    textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6, display: "block",
+  };
+
+  if (provedor === "google") {
+    return (
+      <div style={{ background: "rgba(37,99,235,0.05)", border: "0.5px solid rgba(37,99,235,0.2)", borderRadius: 10, padding: "20px 22px", fontSize: 13, color: "var(--color-text-secondary)", lineHeight: 1.6 }}>
+        ℹ️ Sua conta usa login com o Google. Para alterar a senha, acesse as configurações da sua conta Google.
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ maxWidth: 400 }}>
+      <p style={{ fontSize: 13, color: "var(--color-text-secondary)", marginTop: 0, marginBottom: 24, lineHeight: 1.6 }}>
+        Altere sua senha de acesso ao UseFokio. A nova senha deve ter no mínimo 6 caracteres.
+      </p>
+
+      {erro && (
+        <div style={{ background: "rgba(239,68,68,0.08)", border: "0.5px solid rgba(239,68,68,0.3)", borderRadius: 8, padding: "10px 14px", marginBottom: 16, fontSize: 13, color: "#EF4444" }}>
+          {erro}
+        </div>
+      )}
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        <div>
+          <label style={lbl}>NOVA SENHA</label>
+          <input type="password" value={novaSenha} onChange={(e) => setNovaSenha(e.target.value)} placeholder="Mínimo 6 caracteres" style={inp} />
+        </div>
+        <div>
+          <label style={lbl}>CONFIRMAR NOVA SENHA</label>
+          <input type="password" value={confirmarSenha} onChange={(e) => setConfirmarSenha(e.target.value)} onKeyDown={(e) => e.key === "Enter" && salvar()} placeholder="Repita a nova senha" style={inp} />
+        </div>
+
+        <button
+          onClick={salvar}
+          disabled={salvando}
+          style={{
+            padding: "10px 28px", borderRadius: 9, width: "fit-content",
+            background: salvo ? "rgba(5,150,105,0.1)" : "var(--color-text-primary)",
+            color: salvo ? "#059669" : "var(--color-background-primary)",
+            border: salvo ? "0.5px solid rgba(5,150,105,0.4)" : "none",
+            fontSize: 13, fontWeight: 700, cursor: salvando ? "not-allowed" : "pointer",
+            transition: "all 0.2s",
+          }}
+        >
+          {salvando ? "Salvando…" : salvo ? "✓ Senha alterada!" : "Alterar senha"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ── Página principal ─────────────────────────────────────────────────────────
 export default function ConfigPage() {
   const [tab, setTab] = useState<Tab>("categorias");
@@ -748,6 +842,7 @@ export default function ConfigPage() {
     { id: "venda",       label: "Venda de fotos extras",  icon: "💰" },
     { id: "entrega",     label: "Galerias de entrega",    icon: "📦" },
     { id: "pagamentos",  label: "Pagamentos (Asaas)",     icon: "💳" },
+    { id: "seguranca",   label: "Segurança",              icon: "🔐" },
   ];
 
   return (
@@ -813,6 +908,7 @@ export default function ConfigPage() {
           {tab === "venda"       && <VendaFotos />}
           {tab === "entrega"     && <ConfigEntrega />}
           {tab === "pagamentos"  && <ConfigPagamentos />}
+          {tab === "seguranca"   && <AlterarSenha />}
         </div>
       </div>
 
