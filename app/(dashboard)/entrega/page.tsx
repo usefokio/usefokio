@@ -174,9 +174,7 @@ export default function EntregaPage() {
   const [loading,        setLoading]        = useState(true);
   const [filtro,         setFiltro]         = useState<Filtro>("todas");
   const [enviarAcessoId, setEnviarAcessoId] = useState<string | null>(null);
-  const [prorrogarId,    setProrrogarId]    = useState<string | null>(null);
   const [deletarId,      setDeletarId]      = useState<string | null>(null);
-  const [copiandoId,     setCopiandoId]     = useState<string | null>(null);
   const [deletando,      setDeletando]      = useState(false);
 
   const CORES = ["#7C6E5A","#5A6E7C","#6E5A7C","#5A7C6E","#7C5A6E","#6E7C5A"];
@@ -196,24 +194,10 @@ export default function EntregaPage() {
 
   useEffect(() => { carregar(); }, [fotografo]);
 
-  async function prorrogar(id: string, novaData: Date) {
+  async function toggleSuspender(id: string, suspensa: boolean) {
     const supabase = createClient();
-    await supabase.from("galerias_entrega").update({ expires_at: novaData.toISOString(), suspensa: false }).eq("id", id);
-    setGalerias((prev) => prev.map((g) => g.id === id ? { ...g, expires_at: novaData.toISOString(), suspensa: false } : g));
-    setProrrogarId(null);
-  }
-
-  async function suspender(id: string) {
-    const supabase = createClient();
-    await supabase.from("galerias_entrega").update({ suspensa: true }).eq("id", id);
-    setGalerias((prev) => prev.map((g) => g.id === id ? { ...g, suspensa: true } : g));
-  }
-
-  async function copiarLink(id: string) {
-    const appUrl = window.location.origin;
-    await navigator.clipboard.writeText(`${appUrl}/acesso/entrega/${id}`);
-    setCopiandoId(id);
-    setTimeout(() => setCopiandoId(null), 2000);
+    await supabase.from("galerias_entrega").update({ suspensa: !suspensa }).eq("id", id);
+    setGalerias((prev) => prev.map((g) => g.id === id ? { ...g, suspensa: !suspensa } : g));
   }
 
   async function deletar(id: string) {
@@ -388,32 +372,42 @@ export default function EntregaPage() {
 
                 {/* Ações */}
                 <div style={{ flexShrink: 0, display: "flex", gap: 4 }} onClick={(e) => e.stopPropagation()}>
-                  <button
-                    onClick={() => copiarLink(g.id)}
-                    title="Copiar link da galeria"
-                    style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, borderRadius: 7, border: "0.5px solid var(--color-border-secondary)", color: copiandoId === g.id ? "#059669" : "var(--color-text-secondary)", background: copiandoId === g.id ? "rgba(16,185,129,0.08)" : "transparent", cursor: "pointer" }}
-                  ><IcoCopy /></button>
 
-                  <button onClick={() => setEnviarAcessoId(g.id)} title="Enviar acesso ao cliente" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, borderRadius: 7, border: "0.5px solid rgba(37,99,235,0.4)", color: "#2563EB", background: "rgba(37,99,235,0.05)", cursor: "pointer" }}
+                  <button
+                    onClick={() => setEnviarAcessoId(g.id)}
+                    title="Enviar acesso ao cliente"
+                    style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, borderRadius: 7, border: "0.5px solid rgba(37,99,235,0.4)", color: "#2563EB", background: "rgba(37,99,235,0.05)", cursor: "pointer" }}
                     onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(37,99,235,0.12)")}
                     onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(37,99,235,0.05)")}
                   ><IcoSend /></button>
 
-                  <button onClick={() => setProrrogarId(g.id)} title="Prorrogar prazo" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, borderRadius: 7, border: "0.5px solid var(--color-border-secondary)", color: status === "expirado" ? "#059669" : "var(--color-text-secondary)", background: "transparent", cursor: "pointer" }}><IcoClock /></button>
+                  {/* Suspender / Reativar — verde = ativa, laranja = suspensa */}
+                  <button
+                    onClick={() => toggleSuspender(g.id, g.suspensa)}
+                    title={g.suspensa ? "Reativar acesso" : "Suspender acesso"}
+                    style={{
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      width: 30, height: 30, borderRadius: 7, cursor: "pointer",
+                      border: g.suspensa
+                        ? "0.5px solid rgba(245,158,11,0.45)"
+                        : "0.5px solid rgba(16,185,129,0.45)",
+                      color:  g.suspensa ? "#D97706" : "#059669",
+                      background: g.suspensa ? "rgba(245,158,11,0.08)" : "rgba(16,185,129,0.08)",
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = g.suspensa ? "rgba(245,158,11,0.16)" : "rgba(16,185,129,0.16)")}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = g.suspensa ? "rgba(245,158,11,0.08)" : "rgba(16,185,129,0.08)")}
+                  ><IcoClock /></button>
 
-                  {status !== "expirado" && (
-                    <button
-                      onClick={() => g.suspensa ? prorrogar(g.id, new Date((g.expires_at ? new Date(g.expires_at).getTime() : Date.now()) + 30*86400000)) : suspender(g.id)}
-                      title={g.suspensa ? "Reativar acesso" : "Suspender acesso imediatamente"}
-                      style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, borderRadius: 7, border: g.suspensa ? "0.5px solid rgba(16,185,129,0.35)" : "0.5px solid rgba(245,158,11,0.35)", color: g.suspensa ? "#059669" : "#B45309", background: g.suspensa ? "rgba(16,185,129,0.05)" : "rgba(245,158,11,0.05)", cursor: "pointer" }}
-                      onMouseEnter={(e) => (e.currentTarget.style.background = g.suspensa ? "rgba(16,185,129,0.12)" : "rgba(245,158,11,0.12)")}
-                      onMouseLeave={(e) => (e.currentTarget.style.background = g.suspensa ? "rgba(16,185,129,0.05)" : "rgba(245,158,11,0.05)")}
-                    >{g.suspensa ? <IcoClock /> : <IcoBan />}</button>
-                  )}
+                  <button
+                    onClick={() => router.push(`/entrega/${g.id}/editar`)}
+                    title="Editar"
+                    style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, borderRadius: 7, border: "0.5px solid var(--color-border-secondary)", color: "var(--color-text-secondary)", background: "transparent", cursor: "pointer" }}
+                  ><IcoEdit /></button>
 
-                  <button onClick={() => router.push(`/entrega/${g.id}/editar`)} title="Editar" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, borderRadius: 7, border: "0.5px solid var(--color-border-secondary)", color: "var(--color-text-secondary)", background: "transparent", cursor: "pointer" }}><IcoEdit /></button>
-
-                  <button onClick={() => setDeletarId(g.id)} title="Excluir" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, borderRadius: 7, border: "0.5px solid rgba(239,68,68,0.3)", color: "#EF4444", background: "transparent", cursor: "pointer", opacity: 0.6 }}
+                  <button
+                    onClick={() => setDeletarId(g.id)}
+                    title="Excluir"
+                    style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, borderRadius: 7, border: "0.5px solid rgba(239,68,68,0.3)", color: "#EF4444", background: "transparent", cursor: "pointer", opacity: 0.6 }}
                     onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
                     onMouseLeave={(e) => (e.currentTarget.style.opacity = "0.6")}
                   ><IcoTrash /></button>
@@ -428,11 +422,6 @@ export default function EntregaPage() {
       {enviarAcessoId && (() => {
         const g = galerias.find((g) => g.id === enviarAcessoId);
         return g ? <ModalEnviarAcesso galeria={g} onFechar={() => setEnviarAcessoId(null)} /> : null;
-      })()}
-
-      {prorrogarId && (() => {
-        const g = galerias.find((g) => g.id === prorrogarId);
-        return g ? <ModalProrrogar galeria={g} onConfirmar={(d) => prorrogar(g.id, d)} onFechar={() => setProrrogarId(null)} /> : null;
       })()}
 
       {deletarId && (() => {
