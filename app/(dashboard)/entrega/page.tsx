@@ -194,10 +194,18 @@ export default function EntregaPage() {
 
   useEffect(() => { carregar(); }, [fotografo]);
 
-  async function toggleSuspender(id: string, suspensa: boolean) {
+  async function toggleSuspender(id: string, suspensa: boolean, renovacao_dias: number) {
     const supabase = createClient();
-    await supabase.from("galerias_entrega").update({ suspensa: !suspensa }).eq("id", id);
-    setGalerias((prev) => prev.map((g) => g.id === id ? { ...g, suspensa: !suspensa } : g));
+    if (suspensa) {
+      // Reativar: concede prazo de renovação a partir de agora
+      const novaExpiracao = new Date(Date.now() + renovacao_dias * 86_400_000).toISOString();
+      await supabase.from("galerias_entrega").update({ suspensa: false, expires_at: novaExpiracao }).eq("id", id);
+      setGalerias((prev) => prev.map((g) => g.id === id ? { ...g, suspensa: false, expires_at: novaExpiracao } : g));
+    } else {
+      // Suspender: zera o prazo
+      await supabase.from("galerias_entrega").update({ suspensa: true, expires_at: null }).eq("id", id);
+      setGalerias((prev) => prev.map((g) => g.id === id ? { ...g, suspensa: true, expires_at: null } : g));
+    }
   }
 
   async function deletar(id: string) {
@@ -383,7 +391,7 @@ export default function EntregaPage() {
 
                   {/* Suspender / Reativar — verde = ativa, laranja = suspensa */}
                   <button
-                    onClick={() => toggleSuspender(g.id, g.suspensa)}
+                    onClick={() => toggleSuspender(g.id, g.suspensa, g.renovacao_dias)}
                     title={g.suspensa ? "Reativar acesso" : "Suspender acesso"}
                     style={{
                       display: "flex", alignItems: "center", justifyContent: "center",
