@@ -196,10 +196,11 @@ export default function EntregaDetailPage() {
   const [copiado,  setCopiado]  = useState(false);
   const [modalLista, setModalLista] = useState(false);
 
-  const [modoSelecao,  setModoSelecao]  = useState(false);
-  const [selecionadas, setSelecionadas] = useState<Set<string>>(new Set());
-  const [excluindoFotos, setExcluindoFotos] = useState(false);
-  const [confirmarExclusao, setConfirmarExclusao] = useState(false);
+  const [modoSelecao,     setModoSelecao]     = useState(false);
+  const [selecionadas,    setSelecionadas]    = useState<Set<string>>(new Set());
+  const [excluindoFotos,  setExcluindoFotos]  = useState(false);
+  const [confirmarExclusao,  setConfirmarExclusao]  = useState(false);
+  const [confirmarTodas,     setConfirmarTodas]     = useState(false);
 
   const appUrl = typeof window !== "undefined" ? window.location.origin : (process.env.NEXT_PUBLIC_APP_URL ?? "https://usefokio.com.br");
   const linkPublico = `${appUrl}/acesso/entrega/${id}`;
@@ -241,6 +242,20 @@ export default function EntregaDetailPage() {
 
   function desmarcarTodas() {
     setSelecionadas(new Set());
+  }
+
+  async function excluirTodasFotos() {
+    setExcluindoFotos(true);
+    setConfirmarTodas(false);
+    const supabase = createClient();
+    const paths = fotos.map((f) => f.storage_path);
+    for (let i = 0; i < paths.length; i += 100)
+      await supabase.storage.from("galerias").remove(paths.slice(i, i + 100));
+    await supabase.from("galerias_entrega_fotos").delete().eq("galeria_id", id);
+    setFotos([]);
+    setSelecionadas(new Set());
+    setModoSelecao(false);
+    setExcluindoFotos(false);
   }
 
   async function excluirFotosSelecionadas() {
@@ -514,6 +529,12 @@ export default function EntregaDetailPage() {
                       </button>
                     )}
                     <button
+                      onClick={() => setConfirmarTodas(true)}
+                      style={{ fontSize: 11, fontWeight: 600, padding: "4px 12px", borderRadius: 6, border: "0.5px solid rgba(239,68,68,0.35)", background: "rgba(239,68,68,0.07)", color: "#DC2626", cursor: "pointer" }}
+                    >
+                      Excluir todas
+                    </button>
+                    <button
                       onClick={() => { setModoSelecao(false); setSelecionadas(new Set()); }}
                       style={{ fontSize: 11, fontWeight: 600, padding: "4px 12px", borderRadius: 6, border: "0.5px solid var(--color-border-secondary)", background: "transparent", color: "var(--color-text-secondary)", cursor: "pointer" }}
                     >
@@ -561,6 +582,26 @@ export default function EntregaDetailPage() {
                     +{fotos.length - 48}
                   </div>
                 )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal confirmação excluir todas */}
+        {confirmarTodas && (
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 80 }} onClick={() => setConfirmarTodas(false)}>
+            <div onClick={(e) => e.stopPropagation()} style={{ background: "var(--color-background-primary)", borderRadius: 14, padding: "26px 28px", width: 360, boxShadow: "0 8px 40px rgba(0,0,0,0.2)" }}>
+              <div style={{ fontSize: 15, fontWeight: 700, color: "#EF4444", marginBottom: 8 }}>Excluir todas as fotos?</div>
+              <div style={{ fontSize: 13, color: "var(--color-text-secondary)", lineHeight: 1.5, marginBottom: 20 }}>
+                Todas as <strong>{fotos.length} foto{fotos.length !== 1 ? "s" : ""}</strong> serão removidas permanentemente. Esta ação não pode ser desfeita.
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button onClick={() => setConfirmarTodas(false)} style={{ flex: 1, padding: "9px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "transparent", fontSize: 13, color: "var(--color-text-secondary)", cursor: "pointer" }}>
+                  Cancelar
+                </button>
+                <button onClick={excluirTodasFotos} disabled={excluindoFotos} style={{ flex: 1, padding: "9px", borderRadius: 8, border: "none", background: "#DC2626", color: "#fff", fontSize: 13, fontWeight: 600, cursor: excluindoFotos ? "default" : "pointer" }}>
+                  {excluindoFotos ? "Excluindo…" : "Excluir todas"}
+                </button>
               </div>
             </div>
           </div>

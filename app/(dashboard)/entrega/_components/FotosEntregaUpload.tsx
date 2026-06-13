@@ -36,11 +36,15 @@ export const FotosEntregaUpload = forwardRef<FotosEntregaUploadHandle, Props>(fu
   { galeriaId, fotografoId, ensureGaleriaId, onFotosChange, deferred = false },
   ref,
 ) {
-  const [fila,       setFila]       = useState<FotoFila[]>([]);
-  const [fotos,      setFotos]      = useState<GaleriaEntregaFoto[]>([]);
-  const [carregando, setCarregando] = useState(galeriaId !== null);
-  const [dragOver,   setDragOver]   = useState(false);
-  const [pagina,     setPagina]     = useState(0);
+  const [fila,               setFila]               = useState<FotoFila[]>([]);
+  const [fotos,              setFotos]              = useState<GaleriaEntregaFoto[]>([]);
+  const [carregando,         setCarregando]         = useState(galeriaId !== null);
+  const [dragOver,           setDragOver]           = useState(false);
+  const [pagina,             setPagina]             = useState(0);
+  const [modoSelecao,        setModoSelecao]        = useState(false);
+  const [selecionadas,       setSelecionadas]       = useState<Set<string>>(new Set());
+  const [excluindo,          setExcluindo]          = useState(false);
+  const [confirmarTodas,     setConfirmarTodas]     = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const galeriaIdRef = useRef<string | null>(galeriaId);
   galeriaIdRef.current = galeriaIdRef.current ?? galeriaId;
@@ -218,6 +222,37 @@ export const FotosEntregaUpload = forwardRef<FotosEntregaUploadHandle, Props>(fu
     atualizarFotos(novas);
   }
 
+  async function removerFotosSelecionadas(ids: Set<string>) {
+    if (ids.size === 0) return;
+    setExcluindo(true);
+    const supabase = createClient();
+    const alvo = fotos.filter((f) => ids.has(f.id));
+    const paths = alvo.map((f) => f.storage_path);
+    for (let i = 0; i < paths.length; i += 100)
+      await supabase.storage.from("galerias").remove(paths.slice(i, i + 100));
+    for (const f of alvo)
+      await supabase.from("galerias_entrega_fotos").delete().eq("id", f.id);
+    atualizarFotos(fotos.filter((f) => !ids.has(f.id)));
+    setSelecionadas(new Set());
+    setModoSelecao(false);
+    setExcluindo(false);
+  }
+
+  async function removerTodasFotos() {
+    setExcluindo(true);
+    const supabase = createClient();
+    const paths = fotos.map((f) => f.storage_path);
+    for (let i = 0; i < paths.length; i += 100)
+      await supabase.storage.from("galerias").remove(paths.slice(i, i + 100));
+    const gid = galeriaIdRef.current;
+    if (gid) await supabase.from("galerias_entrega_fotos").delete().eq("galeria_id", gid);
+    atualizarFotos([]);
+    setSelecionadas(new Set());
+    setModoSelecao(false);
+    setConfirmarTodas(false);
+    setExcluindo(false);
+  }
+
   function removerDaFila(id: string) {
     setFilaSync((prev) => {
       const item = prev.find((f) => f.id === id);
@@ -234,7 +269,7 @@ export const FotosEntregaUpload = forwardRef<FotosEntregaUploadHandle, Props>(fu
   return (
     <div>
       {/* Cabeçalho */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, gap: 8, flexWrap: "wrap" }}>
         <div>
           <div style={{ fontSize: 12, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
             Galeria de fotos
@@ -246,14 +281,70 @@ export const FotosEntregaUpload = forwardRef<FotosEntregaUploadHandle, Props>(fu
             {erros > 0 && <span style={{ color: "#EF4444" }}> · {erros} com erro</span>}
           </div>
         </div>
-        <button
-          type="button"
-          onClick={() => inputRef.current?.click()}
-          style={{ padding: "7px 14px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-secondary)", fontSize: 12, fontWeight: 600, color: "var(--color-text-primary)", cursor: "pointer" }}
-        >
-          + Adicionar fotos
-        </button>
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+          {!modoSelecao ? (
+            <>
+              {total > 0 && (
+                <button type="button" onClick={() => { setModoSelecao(true); setSelecionadas(new Set()); }}
+                  style={{ padding: "7px 14px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "transparent", fontSize: 12, fontWeight: 600, color: "var(--color-text-primary)", cursor: "pointer" }}>
+                  Selecionar
+                </button>
+              )}
+              <button type="button" onClick={() => inputRef.current?.click()}
+                style={{ padding: "7px 14px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-secondary)", fontSize: 12, fontWeight: 600, color: "var(--color-text-primary)", cursor: "pointer" }}>
+                + Adicionar fotos
+              </button>
+            </>
+          ) : (
+            <>
+              <span style={{ fontSize: 12, color: "var(--color-text-secondary)", alignSelf: "center" }}>
+                {selecionadas.size} selecionada{selecionadas.size !== 1 ? "s" : ""}
+              </span>
+              <button type="button"
+                onClick={() => setSelecionadas(selecionadas.size === fotos.length ? new Set() : new Set(fotos.map((f) => f.id)))}
+                style={{ padding: "7px 14px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "transparent", fontSize: 12, fontWeight: 600, color: "var(--color-text-primary)", cursor: "pointer" }}>
+                {selecionadas.size === fotos.length ? "Desmarcar todas" : "Selecionar todas"}
+              </button>
+              {selecionadas.size > 0 && (
+                <button type="button" onClick={() => removerFotosSelecionadas(selecionadas)} disabled={excluindo}
+                  style={{ padding: "7px 14px", borderRadius: 8, border: "0.5px solid rgba(239,68,68,0.35)", background: "rgba(239,68,68,0.07)", fontSize: 12, fontWeight: 600, color: "#DC2626", cursor: excluindo ? "not-allowed" : "pointer" }}>
+                  {excluindo ? "Excluindo…" : `Excluir ${selecionadas.size}`}
+                </button>
+              )}
+              <button type="button" onClick={() => setConfirmarTodas(true)} disabled={excluindo}
+                style={{ padding: "7px 14px", borderRadius: 8, border: "0.5px solid rgba(239,68,68,0.35)", background: "rgba(239,68,68,0.07)", fontSize: 12, fontWeight: 600, color: "#DC2626", cursor: excluindo ? "not-allowed" : "pointer" }}>
+                Excluir todas
+              </button>
+              <button type="button" onClick={() => { setModoSelecao(false); setSelecionadas(new Set()); }}
+                style={{ padding: "7px 14px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "transparent", fontSize: 12, fontWeight: 600, color: "var(--color-text-secondary)", cursor: "pointer" }}>
+                Cancelar
+              </button>
+            </>
+          )}
+        </div>
       </div>
+
+      {/* Modal confirmação excluir todas */}
+      {confirmarTodas && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+          <div style={{ background: "var(--color-background-primary)", borderRadius: 14, padding: "24px 28px", maxWidth: 380, width: "100%", boxShadow: "0 8px 40px rgba(0,0,0,0.18)" }}>
+            <h3 style={{ margin: "0 0 10px", fontSize: 15, fontWeight: 700, color: "#EF4444" }}>Excluir todas as fotos?</h3>
+            <p style={{ margin: "0 0 22px", fontSize: 13, color: "var(--color-text-secondary)", lineHeight: 1.6 }}>
+              Todas as <strong>{total} foto{total !== 1 ? "s" : ""}</strong> serão removidas permanentemente. Esta ação não pode ser desfeita.
+            </p>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button type="button" onClick={() => setConfirmarTodas(false)}
+                style={{ flex: 1, padding: "10px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "transparent", fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)", cursor: "pointer" }}>
+                Cancelar
+              </button>
+              <button type="button" onClick={removerTodasFotos} disabled={excluindo}
+                style={{ flex: 1, padding: "10px", borderRadius: 8, border: "none", background: "#EF4444", color: "#fff", fontSize: 13, fontWeight: 700, cursor: excluindo ? "not-allowed" : "pointer" }}>
+                {excluindo ? "Excluindo…" : "Excluir todas"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Drop zone */}
       <div
@@ -300,21 +391,39 @@ export const FotosEntregaUpload = forwardRef<FotosEntregaUploadHandle, Props>(fu
               return (
                 <>
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(80px, 1fr))", gap: 6 }}>
-                    {visiveis.map((foto) => (
-                      <div key={foto.id} style={{ position: "relative", aspectRatio: "1", borderRadius: 7, overflow: "hidden", background: "var(--color-border-tertiary)" }}>
-                        <img
-                          src={foto.url_publica}
-                          alt={foto.nome_arquivo ?? ""}
-                          loading="lazy"
-                          style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                        />
-                        <button
-                          type="button"
-                          onClick={(e) => { e.stopPropagation(); removerFoto(foto); }}
-                          style={{ position: "absolute", top: 3, right: 3, width: 20, height: 20, borderRadius: "50%", background: "rgba(0,0,0,0.6)", border: "none", color: "#fff", fontSize: 11, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1 }}
-                        >✕</button>
-                      </div>
-                    ))}
+                    {visiveis.map((foto) => {
+                      const sel = selecionadas.has(foto.id);
+                      return (
+                        <div
+                          key={foto.id}
+                          onClick={() => {
+                            if (modoSelecao) {
+                              setSelecionadas((prev) => { const n = new Set(prev); sel ? n.delete(foto.id) : n.add(foto.id); return n; });
+                            }
+                          }}
+                          style={{ position: "relative", aspectRatio: "1", borderRadius: 7, overflow: "hidden", background: "var(--color-border-tertiary)", cursor: modoSelecao ? "pointer" : "default", outline: sel ? "2.5px solid #2563EB" : "none" }}
+                        >
+                          <img
+                            src={foto.url_publica}
+                            alt={foto.nome_arquivo ?? ""}
+                            loading="lazy"
+                            style={{ width: "100%", height: "100%", objectFit: "cover", opacity: modoSelecao && !sel ? 0.6 : 1, transition: "opacity 0.1s" }}
+                          />
+                          {modoSelecao && (
+                            <div style={{ position: "absolute", top: 4, left: 4, width: 18, height: 18, borderRadius: 4, border: sel ? "none" : "1.5px solid #fff", background: sel ? "#2563EB" : "rgba(0,0,0,0.35)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                              {sel && <span style={{ color: "#fff", fontSize: 10, fontWeight: 800 }}>✓</span>}
+                            </div>
+                          )}
+                          {!modoSelecao && (
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); removerFoto(foto); }}
+                              style={{ position: "absolute", top: 3, right: 3, width: 20, height: 20, borderRadius: "50%", background: "rgba(0,0,0,0.6)", border: "none", color: "#fff", fontSize: 11, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1 }}
+                            >✕</button>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                   {totalPaginas > 1 && (
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, padding: "8px 0 2px" }}>
