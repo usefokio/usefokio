@@ -174,6 +174,13 @@ export default function AcessoEntregaPage() {
       const jaIdentificado = !!salvo;
       // Identificação só é exigida quando o fotógrafo marca a opção — caso contrário acesso livre
       if (g.identificacao_obrigatoria && !jaIdentificado) { setTela("identificacao"); return; }
+      // Registra acesso: sem identificação obrigatória (nome/email null) ou visitante recorrente já identificado
+      const dadosSessao = salvo ? (() => { try { return JSON.parse(salvo); } catch { return null; } })() : null;
+      supabase.from("galeria_acessos").insert({
+        galeria_id: id,
+        nome: dadosSessao?.nome ?? null,
+        email: dadosSessao?.email ?? null,
+      }).then(() => {});
       setTela("capa");
     });
   }, [id]);
