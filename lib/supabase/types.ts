@@ -100,6 +100,7 @@ export type GaleriaEntrega = {
   renewal_fee: number | null;
   mensagem: string | null;
   downloads: number;
+  total_acessos: number;
   cover_color: string | null;
   apenas_zip: boolean;
   identificacao_obrigatoria: boolean;

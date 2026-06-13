@@ -351,6 +351,7 @@ export default function EntregaDetailPage() {
           <div>
             {[
               { label: "Fotos",      value: `${fotos.length} foto${fotos.length !== 1 ? "s" : ""}` },
+              { label: "Acessos",    value: `${acessos.length} acesso${acessos.length !== 1 ? "s" : ""} (${new Set(acessos.map((a: any) => a.email).filter(Boolean)).size} pessoa${new Set(acessos.map((a: any) => a.email).filter(Boolean)).size !== 1 ? "s" : ""} única${new Set(acessos.map((a: any) => a.email).filter(Boolean)).size !== 1 ? "s" : ""})` },
               { label: "Downloads",  value: `${g.downloads}` },
               { label: "Prazo",      value: g.expires_at ? `${formatarData(g.expires_at)}${dias !== null && dias >= 0 ? ` (${dias} dia${dias !== 1 ? "s" : ""} restantes)` : dias !== null && dias < 0 ? " (expirado)" : ""}` : "Sem prazo" },
               { label: "Renovação",  value: g.renewal_fee && g.renewal_fee > 0 ? `R$ ${g.renewal_fee.toFixed(2).replace(".", ",")}` : null },
