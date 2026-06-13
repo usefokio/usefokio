@@ -367,10 +367,12 @@ export default function EntregaPage() {
                     <span style={{ display: "inline-block", padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 600, background: STATUS_COLOR[status], color: STATUS_TEXT[status] }}>
                       {STATUS_LABEL[status]}
                     </span>
-                    <div style={{ fontSize: 11, color: isAtencao ? "#B45309" : isExpirado ? "#EF4444" : "var(--color-text-secondary)", marginTop: 3 }}>
-                      {formatarExpiracao(dias)}
-                    </div>
-                    {g.expires_at && (
+                    {status !== "suspensa" && (
+                      <div style={{ fontSize: 11, color: isAtencao ? "#B45309" : isExpirado ? "#EF4444" : "var(--color-text-secondary)", marginTop: 3 }}>
+                        {formatarExpiracao(dias)}
+                      </div>
+                    )}
+                    {status !== "suspensa" && g.expires_at && (
                       <div style={{ fontSize: 11, fontWeight: 600, color: isAtencao ? "#B45309" : isExpirado ? "#EF4444" : "var(--color-text-primary)", marginTop: 1 }}>
                         Encerra em {new Date(g.expires_at).toLocaleDateString("pt-BR")}
                       </div>
