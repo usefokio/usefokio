@@ -18,6 +18,7 @@ export function ConfiguracaoGaleria({
   const [expiraEm,      setExpiraEm]      = useState(galeria.expira_em ? galeria.expira_em.slice(0, 10) : "");
   const [selecaoLivre,  setSelecaoLivre]  = useState(galeria.selecao_livre);
   const [mostrarRating, setMostrarRating] = useState(galeria.mostrar_rating_cliente);
+  const [marcaDagua,    setMarcaDagua]    = useState(galeria.marca_dagua ?? true);
   const [limiteMin,     setLimiteMin]     = useState(galeria.limite_minimo?.toString() ?? "");
   const [limiteMax,     setLimiteMax]     = useState(galeria.limite_maximo?.toString() ?? "");
   const [clienteId,     setClienteId]     = useState(galeria.cliente_id ?? "");
@@ -54,6 +55,7 @@ export function ConfiguracaoGaleria({
       limite_minimo:          selecaoLivre ? null : (limiteMin ? parseInt(limiteMin) : null),
       limite_maximo:          selecaoLivre ? null : (limiteMax ? parseInt(limiteMax) : null),
       mostrar_rating_cliente: mostrarRating,
+      marca_dagua:            marcaDagua,
       cliente_id:             clienteId   || null,
       updated_at:             new Date().toISOString(),
     };
@@ -188,7 +190,7 @@ export function ConfiguracaoGaleria({
       </div>
 
       {/* Toggle: mostrar rating para o cliente */}
-      <div style={{ ...field, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 14px", background: "var(--color-background-secondary)", borderRadius: 8, marginBottom: 14 }}>
+      <div style={{ ...field, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 14px", background: "var(--color-background-secondary)", borderRadius: 8, marginBottom: 10 }}>
         <div>
           <div style={{ fontSize: 13, fontWeight: 500, color: "var(--color-text-primary)" }}>Mostrar classificação (estrelas) para o cliente</div>
           <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 2 }}>O cliente verá a classificação que você atribuiu a cada foto</div>
@@ -203,6 +205,29 @@ export function ConfiguracaoGaleria({
         >
           <span style={{
             position: "absolute", top: 3, left: mostrarRating ? 20 : 3,
+            width: 16, height: 16, borderRadius: "50%", background: "#fff",
+            transition: "left 0.2s", boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
+            display: "block",
+          }} />
+        </button>
+      </div>
+
+      {/* Toggle: marca d'água */}
+      <div style={{ ...field, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 14px", background: "var(--color-background-secondary)", borderRadius: 8, marginBottom: 14 }}>
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 500, color: "var(--color-text-primary)" }}>Aplicar marca d'água nas fotos</div>
+          <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 2 }}>A marca d'água configurada na sua conta será aplicada ao exibir as fotos</div>
+        </div>
+        <button
+          onClick={() => setMarcaDagua((v) => !v)}
+          style={{
+            width: 40, height: 22, borderRadius: 11, border: "none", cursor: "pointer",
+            background: marcaDagua ? "#2563EB" : "var(--color-border-tertiary)",
+            position: "relative", flexShrink: 0, transition: "background 0.2s",
+          }}
+        >
+          <span style={{
+            position: "absolute", top: 3, left: marcaDagua ? 20 : 3,
             width: 16, height: 16, borderRadius: "50%", background: "#fff",
             transition: "left 0.2s", boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
             display: "block",

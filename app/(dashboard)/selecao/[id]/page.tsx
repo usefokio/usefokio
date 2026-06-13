@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useCallback, useEffect, useState, Suspense } from "react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { processarImagem } from "@/lib/imageResize";
@@ -40,9 +40,10 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 // ─── Página principal ─────────────────────────────────────────────────────────
-export default function GaleriaSelecaoPage() {
+function GaleriaSelecaoConteudo() {
   const { id }        = useParams<{ id: string }>();
   const router        = useRouter();
+  const searchParams  = useSearchParams();
   const { fotografo, reload } = useFotografo();
 
   const [galeria, setGaleria]       = useState<GaleriaSelecao | null>(null);
@@ -52,7 +53,8 @@ export default function GaleriaSelecaoPage() {
   const [escolhas, setEscolhas]     = useState<EscolhaItem[]>([]);
   const [eventos, setEventos]       = useState<Evento[]>([]);
   const [loading, setLoading]       = useState(true);
-  const [tab, setTab]               = useState<Tab>("fotos");
+  const tabParam = searchParams.get("tab") as Tab | null;
+  const [tab, setTab]               = useState<Tab>(tabParam ?? "fotos");
   const [catFiltro, setCatFiltro]   = useState<string>("todas");
   const [ordemCampo, setOrdemCampo] = useState<"nome" | "data" | "rating">("data");
   const [ordemDir, setOrdemDir]     = useState<"asc" | "desc">("asc");
@@ -684,5 +686,13 @@ export default function GaleriaSelecaoPage() {
         />
       )}
     </div>
+  );
+}
+
+export default function GaleriaSelecaoPage() {
+  return (
+    <Suspense>
+      <GaleriaSelecaoConteudo />
+    </Suspense>
   );
 }

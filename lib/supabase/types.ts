@@ -195,6 +195,7 @@ export type GaleriaSelecao = {
   selecao_enviada: boolean;
   selecao_enviada_em: string | null;
   mostrar_rating_cliente: boolean;
+  marca_dagua: boolean;
   total_fotos: number;
   created_at: string;
   updated_at: string;

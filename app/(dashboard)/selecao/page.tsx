@@ -322,8 +322,8 @@ function SelecaoConteudo() {
                   ><IcoCopy /></button>
 
                   <button
-                    onClick={() => router.push(`/selecao/${g.id}`)}
-                    title="Editar / Ver detalhes"
+                    onClick={() => router.push(`/selecao/${g.id}?tab=configuracoes`)}
+                    title="Editar configurações"
                     style={iconBtn()}
                   ><IcoEdit /></button>
 
