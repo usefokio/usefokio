@@ -208,7 +208,7 @@ export default function AcessoEntregaPage() {
     setModalDrive(false);
     setFormErro("");
     if (galeria?.drive_link) {
-      fetch(`/api/entrega/${id}/download`, { method: "POST" }).catch(() => {});
+      fetch(`/api/entrega/${id}/download?tipo=drive`, { method: "POST" }).catch(() => {});
       window.open(galeria.drive_link, "_blank", "noopener,noreferrer");
     }
   }
@@ -685,11 +685,11 @@ export default function AcessoEntregaPage() {
             href={galeria.drive_link} target="_blank" rel="noopener noreferrer"
             onClick={(e) => {
               if (!galeria.drive_apenas_identificado || identificacao) {
-                fetch(`/api/entrega/${id}/download`, { method: "POST" }).catch(() => {});
+                fetch(`/api/entrega/${id}/download?tipo=drive`, { method: "POST" }).catch(() => {});
                 return;
               }
               if (temCliente) {
-                fetch(`/api/entrega/${id}/download`, { method: "POST" }).catch(() => {});
+                fetch(`/api/entrega/${id}/download?tipo=drive`, { method: "POST" }).catch(() => {});
                 return;
               }
               e.preventDefault();
@@ -779,11 +779,11 @@ export default function AcessoEntregaPage() {
                   rel="noopener noreferrer"
                   onClick={(e) => {
                     if (!galeria.drive_apenas_identificado || identificacao) {
-                      fetch(`/api/entrega/${id}/download`, { method: "POST" }).catch(() => {});
+                      fetch(`/api/entrega/${id}/download?tipo=drive`, { method: "POST" }).catch(() => {});
                       return;
                     }
                     if (temCliente) {
-                      fetch(`/api/entrega/${id}/download`, { method: "POST" }).catch(() => {});
+                      fetch(`/api/entrega/${id}/download?tipo=drive`, { method: "POST" }).catch(() => {});
                       return;
                     }
                     e.preventDefault();
