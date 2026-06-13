@@ -607,12 +607,11 @@ export default function AcessoEntregaPage() {
 
         <button
           onClick={() => {
-            const supabase = createClient();
-            supabase.from("galeria_acessos").insert({
-              galeria_id: id,
-              nome: identificacao?.nome ?? null,
-              email: identificacao?.email ?? null,
-            }).then(() => {});
+            fetch("/api/galeria-acesso", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ galeria_id: id, nome: identificacao?.nome ?? null, email: identificacao?.email ?? null }),
+            }).catch(() => {});
             setTela("galeria");
           }}
           style={{ padding: "14px 40px", borderRadius: 40, background: "#fff", color: "#000", border: "none", fontSize: 15, fontWeight: 700, cursor: "pointer", letterSpacing: "-0.01em", boxShadow: "0 8px 32px rgba(0,0,0,0.3)", transition: "transform 0.15s, box-shadow 0.15s" }}
