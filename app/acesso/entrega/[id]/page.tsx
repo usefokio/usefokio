@@ -805,9 +805,9 @@ export default function AcessoEntregaPage() {
                   <ol style={{ margin: 0, padding: "0 0 0 18px", display: "flex", flexDirection: "column", gap: 10 }}>
                     {[
                       "Clique em \"Baixar fotos no Google Drive\" acima",
-                      "Na pasta do Google Drive, clique nos três pontos (⋮) ou selecione todas as fotos",
-                      "Escolha \"Fazer download\" — as fotos serão salvas como um arquivo .zip",
-                      "Extraia o arquivo .zip para acessar todas as imagens",
+                      "O Google Drive abrirá uma tela dizendo que o arquivo não pode ser visualizado — isso é normal",
+                      "Clique no botão azul \"Download\" para baixar o arquivo .zip",
+                      "Após o download, extraia o arquivo .zip para acessar todas as imagens",
                     ].map((passo, i) => (
                       <li key={i} style={{ fontSize: 13, color: "#555", lineHeight: 1.5 }}>
                         {passo}
