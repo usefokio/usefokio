@@ -176,7 +176,7 @@ function Lightbox({
         >›</button>
       </div>
 
-      {/* Painel inferior: seleção + comentário */}
+      {/* Painel inferior: seleção + comentário + teclas */}
       <div style={{ flexShrink: 0, padding: "16px 20px", background: "rgba(0,0,0,0.6)", backdropFilter: "blur(10px)", borderTop: "0.5px solid rgba(255,255,255,0.08)" }}>
         <div style={{ maxWidth: 640, margin: "0 auto", display: "flex", flexDirection: "column", gap: 12 }}>
 
@@ -203,31 +203,46 @@ function Lightbox({
             )}
           </button>
 
-          {/* Campo de comentário — só aparece se a foto estiver selecionada */}
-          {selecionada && (
-            <div>
-              <div style={{ fontSize: 11, color: "rgba(255,255,255,0.45)", marginBottom: 6, display: "flex", justifyContent: "space-between" }}>
-                <span>Comentário para o fotógrafo (opcional)</span>
-                <span style={{ color: salvando ? "rgba(255,255,255,0.3)" : salvou ? "#34D399" : "transparent" }}>
-                  {salvando ? "salvando…" : salvou ? "✓ salvo" : ""}
-                </span>
-              </div>
-              <textarea
-                value={comentario}
-                onChange={(e) => setComentario(e.target.value)}
-                placeholder="Deixe um comentário…"
-                rows={2}
-                style={{
-                  width: "100%", padding: "10px 12px", borderRadius: 8,
-                  background: "rgba(255,255,255,0.07)",
-                  border: "1px solid rgba(255,255,255,0.12)",
-                  color: "#fff", fontSize: 13, resize: "none",
-                  outline: "none", boxSizing: "border-box",
-                  fontFamily: "inherit", lineHeight: 1.5,
-                }}
-              />
+          {/* Campo de comentário — sempre visível, ativo só quando selecionada */}
+          <div>
+            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.45)", marginBottom: 6, display: "flex", justifyContent: "space-between" }}>
+              <span>Comentário para o fotógrafo (opcional)</span>
+              <span style={{ color: salvando ? "rgba(255,255,255,0.3)" : salvou ? "#34D399" : "transparent" }}>
+                {salvando ? "salvando…" : salvou ? "✓ salvo" : ""}
+              </span>
             </div>
-          )}
+            <textarea
+              value={comentario}
+              onChange={(e) => setComentario(e.target.value)}
+              placeholder={selecionada ? "Deixe um comentário…" : "Selecione a foto para adicionar um comentário"}
+              disabled={!selecionada}
+              rows={2}
+              style={{
+                width: "100%", padding: "10px 12px", borderRadius: 8,
+                background: selecionada ? "rgba(255,255,255,0.07)" : "rgba(255,255,255,0.02)",
+                border: `1px solid ${selecionada ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.05)"}`,
+                color: selecionada ? "#fff" : "rgba(255,255,255,0.2)",
+                fontSize: 13, resize: "none", outline: "none",
+                boxSizing: "border-box", fontFamily: "inherit", lineHeight: 1.5,
+                cursor: selecionada ? "text" : "default",
+                transition: "all 0.2s",
+              }}
+            />
+          </div>
+
+          {/* Legenda de teclas de atalho */}
+          <div style={{ display: "flex", gap: 16, justifyContent: "center", flexWrap: "wrap" }}>
+            {([
+              { key: "← →", label: "Navegar" },
+              { key: "Espaço", label: "Selecionar" },
+              { key: "Esc", label: "Fechar" },
+            ] as const).map(({ key, label }) => (
+              <div key={key} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: "rgba(255,255,255,0.3)" }}>
+                <kbd style={{ padding: "2px 7px", borderRadius: 4, background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.15)", fontFamily: "monospace", fontSize: 10, fontStyle: "normal" }}>{key}</kbd>
+                <span>{label}</span>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
