@@ -4,11 +4,13 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 export async function GET(request: NextRequest) {
-  const url  = new URL(request.url);
-  const code = url.searchParams.get("code");
-  const next = url.searchParams.get("next") ?? "/dashboard";
+  const url       = new URL(request.url);
+  const code      = url.searchParams.get("code");
+  const tokenHash = url.searchParams.get("token_hash");
+  const type      = url.searchParams.get("type") as "email" | "recovery" | "invite" | "magiclink" | null;
+  const next      = url.searchParams.get("next") ?? "/dashboard";
 
-  if (!code) {
+  if (!code && !tokenHash) {
     return NextResponse.redirect(new URL("/login?erro=link-invalido", request.url));
   }
 
@@ -28,13 +30,27 @@ export async function GET(request: NextRequest) {
     }
   );
 
-  const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+  let user: import("@supabase/supabase-js").User | null = null;
 
-  if (error || !data.user) {
+  if (code) {
+    const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+    if (error || !data.user) {
+      return NextResponse.redirect(new URL("/login?erro=link-invalido", request.url));
+    }
+    user = data.user;
+  } else if (tokenHash && type) {
+    const { data, error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type });
+    if (error || !data.user) {
+      return NextResponse.redirect(new URL("/login?erro=link-invalido", request.url));
+    }
+    user = data.user;
+  } else {
     return NextResponse.redirect(new URL("/login?erro=link-invalido", request.url));
   }
 
-  const user = data.user;
+  if (!user) {
+    return NextResponse.redirect(new URL("/login?erro=link-invalido", request.url));
+  }
 
   // ── Garante que o perfil do fotógrafo existe ─────────────────────────────
   // Caso de uso: primeiro login via Google (perfil ainda não foi criado)
@@ -45,15 +61,16 @@ export async function GET(request: NextRequest) {
     .maybeSingle();
 
   if (!perfil) {
-    // Extrai dados do Google
-    const meta        = user.user_metadata ?? {};
-    const nomeCompleto = meta.full_name ?? meta.name ?? user.email?.split("@")[0] ?? "Fotógrafo";
+    // Extrai dados do Google ou do cadastro manual (user_metadata)
+    const meta         = user.user_metadata ?? {};
+    const nomeCompleto = meta.nome_completo ?? meta.full_name ?? meta.name ?? user.email?.split("@")[0] ?? "Fotógrafo";
+    const nomeEmpresa  = meta.nome_empresa  ?? nomeCompleto;
     const email        = user.email ?? "";
 
-    // Cria perfil com dados mínimos — o fotógrafo pode completar depois em /conta/editar
+    // Cria perfil — o fotógrafo pode completar depois em /conta/editar
     await supabase.rpc("criar_perfil_fotografo", {
       p_nome_completo: nomeCompleto,
-      p_nome_empresa:  nomeCompleto,
+      p_nome_empresa:  nomeEmpresa,
       p_email:         email,
       p_telefone:      null,
       p_whatsapp:      null,
