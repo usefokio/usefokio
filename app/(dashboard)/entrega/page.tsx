@@ -428,8 +428,12 @@ export default function EntregaPage() {
                 onMouseEnter={(e) => (e.currentTarget.style.borderColor = isAtencao ? "#F59E0B" : "#2563EB")}
                 onMouseLeave={(e) => (e.currentTarget.style.borderColor = isAtencao ? "rgba(245,158,11,0.35)" : "var(--color-border-tertiary)")}
               >
-                {/* Capa colorida */}
-                <div style={{ width: 42, height: 42, borderRadius: 9, background: cor, flexShrink: 0 }} />
+                {/* Capa */}
+                {g.foto_capa_url ? (
+                  <img src={g.foto_capa_url} alt="" style={{ width: 42, height: 42, borderRadius: 9, objectFit: "cover", flexShrink: 0 }} />
+                ) : (
+                  <div style={{ width: 42, height: 42, borderRadius: 9, background: cor, flexShrink: 0 }} />
+                )}
 
                 {/* Info principal */}
                 <div style={{ flex: 1, minWidth: 0, cursor: "pointer" }} onClick={() => router.push(`/entrega/${g.id}`)}>
