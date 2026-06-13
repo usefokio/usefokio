@@ -174,13 +174,6 @@ export default function AcessoEntregaPage() {
       const jaIdentificado = !!salvo;
       // Identificação só é exigida quando o fotógrafo marca a opção — caso contrário acesso livre
       if (g.identificacao_obrigatoria && !jaIdentificado) { setTela("identificacao"); return; }
-      // Registra acesso: sem identificação obrigatória (nome/email null) ou visitante recorrente já identificado
-      const dadosSessao = salvo ? (() => { try { return JSON.parse(salvo); } catch { return null; } })() : null;
-      supabase.from("galeria_acessos").insert({
-        galeria_id: id,
-        nome: dadosSessao?.nome ?? null,
-        email: dadosSessao?.email ?? null,
-      }).then(() => {});
       setTela("capa");
     });
   }, [id]);
@@ -199,8 +192,6 @@ export default function AcessoEntregaPage() {
     const dados = { nome: nome.trim(), email: email.trim() };
     sessionStorage.setItem(`${SESSION_KEY}:${id}`, JSON.stringify(dados));
     setIdentificacao(dados);
-    const supabase = createClient();
-    await supabase.from("galeria_acessos").insert({ galeria_id: id, nome: dados.nome, email: dados.email });
     setSalvando(false);
     setTela("capa");
   }
@@ -213,8 +204,6 @@ export default function AcessoEntregaPage() {
     const dados = { nome: nome.trim(), email: email.trim() };
     sessionStorage.setItem(`${SESSION_KEY}:${id}`, JSON.stringify(dados));
     setIdentificacao(dados);
-    const supabase = createClient();
-    await supabase.from("galeria_acessos").insert({ galeria_id: id, nome: dados.nome, email: dados.email });
     setSalvando(false);
     setModalDrive(false);
     setFormErro("");
@@ -617,7 +606,15 @@ export default function AcessoEntregaPage() {
         {!nomeCliente && <div style={{ marginBottom: 36 }} />}
 
         <button
-          onClick={() => setTela("galeria")}
+          onClick={() => {
+            const supabase = createClient();
+            supabase.from("galeria_acessos").insert({
+              galeria_id: id,
+              nome: identificacao?.nome ?? null,
+              email: identificacao?.email ?? null,
+            }).then(() => {});
+            setTela("galeria");
+          }}
           style={{ padding: "14px 40px", borderRadius: 40, background: "#fff", color: "#000", border: "none", fontSize: 15, fontWeight: 700, cursor: "pointer", letterSpacing: "-0.01em", boxShadow: "0 8px 32px rgba(0,0,0,0.3)", transition: "transform 0.15s, box-shadow 0.15s" }}
           onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.03)"; e.currentTarget.style.boxShadow = "0 12px 40px rgba(0,0,0,0.4)"; }}
           onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; e.currentTarget.style.boxShadow = "0 8px 32px rgba(0,0,0,0.3)"; }}
