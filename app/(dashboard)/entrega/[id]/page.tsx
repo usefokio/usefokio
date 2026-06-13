@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { fetchAllRows } from "@/lib/supabase/fetchAll";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import type { GaleriaEntrega, GaleriaEntregaFoto, ContatoCategoria } from "@/lib/supabase/types";
+import { ModalEnviarAcesso } from "../_components/ModalEnviarAcesso";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -195,6 +196,7 @@ export default function EntregaDetailPage() {
   const [loading,  setLoading]  = useState(true);
   const [copiado,  setCopiado]  = useState(false);
   const [modalLista, setModalLista] = useState(false);
+  const [modalEnviar, setModalEnviar] = useState(false);
 
   const [modoSelecao,     setModoSelecao]     = useState(false);
   const [selecionadas,    setSelecionadas]    = useState<Set<string>>(new Set());
@@ -325,6 +327,9 @@ export default function EntregaDetailPage() {
           {g.data_evento && <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginTop: 2 }}>Evento: {formatarData(g.data_evento)}</div>}
         </div>
         <div style={{ display: "flex", gap: 8, flexShrink: 0, flexWrap: "wrap" }}>
+          <button onClick={() => setModalEnviar(true)} style={{ padding: "7px 16px", borderRadius: 8, background: "rgba(37,99,235,0.06)", border: "0.5px solid rgba(37,99,235,0.2)", fontSize: 12, fontWeight: 600, color: "#2563EB", cursor: "pointer" }}>
+            📬 Enviar acesso
+          </button>
           <Link href={`/entrega/${id}/editar`} style={{ padding: "7px 16px", borderRadius: 8, background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-secondary)", fontSize: 12, fontWeight: 600, color: "var(--color-text-primary)", textDecoration: "none" }}>
             ✏️ Editar
           </Link>
@@ -636,6 +641,10 @@ export default function EntregaDetailPage() {
           acessos={acessosUnicos}
           onFechar={() => setModalLista(false)}
         />
+      )}
+
+      {modalEnviar && (
+        <ModalEnviarAcesso galeria={g} onFechar={() => setModalEnviar(false)} />
       )}
     </div>
   );
