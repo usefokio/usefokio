@@ -577,8 +577,8 @@ function NovaSelecaoConteudo() {
           </div>
         </Section>
 
-        {/* ── 3. Venda de fotos extras ── */}
-        <Section title="Venda de fotos extras">
+        {/* ── 3. Venda de fotos extras — só aparece se habilitado na config do fotógrafo ── */}
+        {cfgVenda?.ativa && <Section title="Venda de fotos extras">
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             <div onClick={() => setVendaAtiva((v) => !v)} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 14px", borderRadius: 9, cursor: "pointer", border: `0.5px solid ${vendaAtiva ? "rgba(37,99,235,0.3)" : "var(--color-border-tertiary)"}`, background: vendaAtiva ? "rgba(37,99,235,0.05)" : "var(--color-background-secondary)", transition: "all 0.2s" }}>
               <div>
@@ -609,7 +609,7 @@ function NovaSelecaoConteudo() {
               </div>
             )}
           </div>
-        </Section>
+        </Section>}
 
         {/* ── 4. Opções visuais ── */}
         <Section title="Opções visuais">
