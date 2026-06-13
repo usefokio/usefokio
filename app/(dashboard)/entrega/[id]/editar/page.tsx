@@ -143,7 +143,7 @@ export default function EditarEntregaPage() {
     ordenacaoFotos !== (original.ordenacao_fotos ?? "envio") ||
     identificacaoObrig !== (original.identificacao_obrigatoria ?? false) ||
     driveApenasIdentif !== (original.drive_apenas_identificado ?? false) ||
-    (expiresAt?.toISOString() ?? null) !== (original.expires_at ?? null)
+    (expiresAt?.getTime() ?? null) !== (original.expires_at ? new Date(original.expires_at).getTime() : null)
   );
 
   // Guarda de navegação: intercepta links internos e fechar aba
