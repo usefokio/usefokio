@@ -7,10 +7,12 @@ import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import type { GaleriaEntrega } from "@/lib/supabase/types";
 import { ModalEnviarAcesso } from "./_components/ModalEnviarAcesso";
+import { ModalEmailCliente } from "./_components/ModalEmailCliente";
 
 // ─── Helpers de status ────────────────────────────────────────────────────────
 type StatusEntrega = "ativo" | "expirando" | "expirado" | "sem_prazo" | "suspensa" | "rascunho";
 type Filtro = "todas" | StatusEntrega;
+type Ordenacao = "evento" | "criado";
 
 function diasRestantes(expiresAt: string | null): number | null {
   if (!expiresAt) return null;
@@ -36,8 +38,9 @@ function formatarData(iso: string): string {
   return new Date(iso).toLocaleDateString("pt-BR");
 }
 
-function iniciais(nome: string): string {
-  return nome.split(" ").slice(0, 2).map((p) => p[0]).join("").toUpperCase();
+function anoEvento(g: GaleriaEntrega): number | null {
+  if (!g.data_evento) return null;
+  return new Date(g.data_evento + "T12:00:00").getFullYear();
 }
 
 const STATUS_LABEL: Record<StatusEntrega, string> = {
@@ -73,6 +76,12 @@ const IcoSend = () => (
     <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
   </svg>
 );
+const IcoMail = () => (
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M4 4h16c1.1 0 2 .9 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6c0-1.1.9-2 2-2z"/>
+    <polyline points="22,6 12,12 2,6"/>
+  </svg>
+);
 const IcoClock = () => (
   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
@@ -92,58 +101,6 @@ const IcoTrash = () => (
     <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
   </svg>
 );
-const IcoBan = () => (
-  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>
-  </svg>
-);
-const IcoCopy = () => (
-  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="9" y="9" width="13" height="13" rx="2"/>
-    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
-  </svg>
-);
-
-// ─── Modal: Prorrogar ─────────────────────────────────────────────────────────
-function ModalProrrogar({ galeria, onConfirmar, onFechar }: { galeria: GaleriaEntrega; onConfirmar: (d: Date) => void; onFechar: () => void }) {
-  const [dias, setDias]     = useState<number | null>(30);
-  const [custom, setCustom] = useState("");
-
-  const diasEf   = dias !== null ? dias : (parseInt(custom) || 0);
-  const baseDate = galeria.expires_at ? new Date(galeria.expires_at) : new Date();
-  const novaData = new Date(baseDate.getTime() + diasEf * 86_400_000);
-
-  return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50 }} onClick={onFechar}>
-      <div onClick={(e) => e.stopPropagation()} style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 14, padding: "28px 32px", width: 380, boxShadow: "0 8px 40px rgba(0,0,0,0.18)" }}>
-        <h3 style={{ margin: "0 0 6px", fontSize: 15, fontWeight: 700, color: "var(--color-text-primary)" }}>Prorrogar prazo</h3>
-        <p style={{ margin: "0 0 18px", fontSize: 13, color: "var(--color-text-secondary)" }}>{galeria.titulo}</p>
-        <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginBottom: 12 }}>
-          Prazo atual: <strong style={{ color: "var(--color-text-primary)" }}>{galeria.expires_at ? formatarData(galeria.expires_at) : "Sem prazo"}</strong>
-        </div>
-        <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
-          {[15, 30, 60].map((d) => (
-            <button key={d} onClick={() => { setDias(d); setCustom(""); }} style={{ flex: 1, padding: "8px 0", borderRadius: 8, fontSize: 12, fontWeight: 600, border: `0.5px solid ${dias === d ? "var(--color-text-primary)" : "var(--color-border-secondary)"}`, background: dias === d ? "var(--color-text-primary)" : "transparent", color: dias === d ? "var(--color-background-primary)" : "var(--color-text-secondary)", cursor: "pointer" }}>+{d}d</button>
-          ))}
-          <button onClick={() => setDias(null)} style={{ flex: 1, padding: "8px 0", borderRadius: 8, fontSize: 12, fontWeight: 600, border: `0.5px solid ${dias === null ? "var(--color-text-primary)" : "var(--color-border-secondary)"}`, background: dias === null ? "var(--color-text-primary)" : "transparent", color: dias === null ? "var(--color-background-primary)" : "var(--color-text-secondary)", cursor: "pointer" }}>Outro</button>
-        </div>
-        {dias === null && (
-          <input type="number" min={1} placeholder="Quantos dias?" value={custom} onChange={(e) => setCustom(e.target.value)} style={{ width: "100%", padding: "9px 12px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-secondary)", fontSize: 13, color: "var(--color-text-primary)", boxSizing: "border-box", marginBottom: 14 }} />
-        )}
-        {diasEf > 0 && (
-          <div style={{ background: "rgba(16,185,129,0.07)", border: "0.5px solid rgba(16,185,129,0.25)", borderRadius: 8, padding: "10px 14px", marginBottom: 18, fontSize: 13 }}>
-            Novo prazo: <strong style={{ color: "#059669" }}>{novaData.toLocaleDateString("pt-BR")}</strong>
-            <span style={{ color: "var(--color-text-secondary)", fontSize: 12 }}> (+{diasEf} dias)</span>
-          </div>
-        )}
-        <div style={{ display: "flex", gap: 8 }}>
-          <button onClick={onFechar} style={{ flex: 1, padding: "9px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "transparent", fontSize: 13, color: "var(--color-text-secondary)", cursor: "pointer" }}>Cancelar</button>
-          <button onClick={() => diasEf > 0 && onConfirmar(novaData)} disabled={diasEf <= 0} style={{ flex: 1, padding: "9px", borderRadius: 8, border: "none", background: diasEf > 0 ? "#059669" : "var(--color-background-secondary)", color: diasEf > 0 ? "#fff" : "var(--color-text-secondary)", fontSize: 13, fontWeight: 600, cursor: diasEf > 0 ? "pointer" : "default" }}>Confirmar</button>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 // ─── Modal: Confirmar exclusão ────────────────────────────────────────────────
 function ModalExcluir({ titulo, onConfirmar, onFechar, deletando }: { titulo: string; onConfirmar: () => void; onFechar: () => void; deletando: boolean }) {
@@ -173,7 +130,10 @@ export default function EntregaPage() {
   const [galerias,       setGalerias]       = useState<GaleriaEntrega[]>([]);
   const [loading,        setLoading]        = useState(true);
   const [filtro,         setFiltro]         = useState<Filtro>("todas");
+  const [anoFiltro,      setAnoFiltro]      = useState<number | null>(null);
+  const [ordenacao,      setOrdenacao]      = useState<Ordenacao>("evento");
   const [enviarAcessoId, setEnviarAcessoId] = useState<string | null>(null);
+  const [emailClienteId, setEmailClienteId] = useState<string | null>(null);
   const [deletarId,      setDeletarId]      = useState<string | null>(null);
   const [deletando,      setDeletando]      = useState(false);
 
@@ -186,8 +146,7 @@ export default function EntregaPage() {
       .from("galerias_entrega")
       .select("*, clientes(nome, email, telefone, whatsapp)")
       .eq("fotografo_id", fotografo.id)
-      .eq("rascunho", false)
-      .order("created_at", { ascending: false });
+      .eq("rascunho", false);
     setGalerias((data as GaleriaEntrega[]) ?? []);
     setLoading(false);
   }
@@ -197,12 +156,10 @@ export default function EntregaPage() {
   async function toggleSuspender(id: string, suspensa: boolean, renovacao_dias: number) {
     const supabase = createClient();
     if (suspensa) {
-      // Reativar: concede prazo de renovação a partir de agora
       const novaExpiracao = new Date(Date.now() + renovacao_dias * 86_400_000).toISOString();
       await supabase.from("galerias_entrega").update({ suspensa: false, expires_at: novaExpiracao }).eq("id", id);
       setGalerias((prev) => prev.map((g) => g.id === id ? { ...g, suspensa: false, expires_at: novaExpiracao } : g));
     } else {
-      // Suspender: zera o prazo
       await supabase.from("galerias_entrega").update({ suspensa: true, expires_at: null }).eq("id", id);
       setGalerias((prev) => prev.map((g) => g.id === id ? { ...g, suspensa: true, expires_at: null } : g));
     }
@@ -217,26 +174,53 @@ export default function EntregaPage() {
     setDeletando(false);
   }
 
-  // Calcular contadores
+  // ─── Derivações ──────────────────────────────────────────────────────────────
+
+  // Status enriquecido
   const comStatus = galerias.map((g) => ({
     ...g,
     _status: g.rascunho ? "rascunho" as StatusEntrega : g.suspensa ? "suspensa" as StatusEntrega : calcularStatus(diasRestantes(g.expires_at)),
   }));
+
+  // Anos disponíveis (descrescente), apenas galerias com data_evento
+  const anos = [...new Set(
+    comStatus.filter((g) => g.data_evento).map((g) => anoEvento(g)!)
+  )].sort((a, b) => b - a);
+
+  // Subconjunto pelo filtro de ano
+  const porAno = anoFiltro === null
+    ? comStatus
+    : comStatus.filter((g) => anoEvento(g) === anoFiltro);
+
+  // Banner de expirando sempre global (ignora filtro de ano)
   const expirando = comStatus.filter((g) => g._status === "expirando");
 
+  // Contadores de status dentro do ano selecionado
   const contadores: Record<Filtro, number> = {
-    todas:    galerias.length,
-    ativo:    comStatus.filter((g) => g._status === "ativo").length,
-    expirando: expirando.length,
-    expirado: comStatus.filter((g) => g._status === "expirado").length,
-    sem_prazo: comStatus.filter((g) => g._status === "sem_prazo").length,
-    suspensa: comStatus.filter((g) => g._status === "suspensa").length,
-    rascunho: comStatus.filter((g) => g._status === "rascunho").length,
+    todas:     porAno.length,
+    ativo:     porAno.filter((g) => g._status === "ativo").length,
+    expirando: porAno.filter((g) => g._status === "expirando").length,
+    expirado:  porAno.filter((g) => g._status === "expirado").length,
+    sem_prazo: porAno.filter((g) => g._status === "sem_prazo").length,
+    suspensa:  porAno.filter((g) => g._status === "suspensa").length,
+    rascunho:  porAno.filter((g) => g._status === "rascunho").length,
   };
 
-  const filtradas = filtro === "todas"
-    ? comStatus
-    : comStatus.filter((g) => g._status === filtro);
+  // Aplicar filtro de status
+  const porAnoEStatus = filtro === "todas"
+    ? porAno
+    : porAno.filter((g) => g._status === filtro);
+
+  // Ordenação
+  const filtradas = [...porAnoEStatus].sort((a, b) => {
+    if (ordenacao === "evento") {
+      if (!a.data_evento && !b.data_evento) return 0;
+      if (!a.data_evento) return 1;
+      if (!b.data_evento) return -1;
+      return b.data_evento.localeCompare(a.data_evento);
+    }
+    return b.created_at.localeCompare(a.created_at);
+  });
 
   return (
     <div style={{ padding: "26px 30px", maxWidth: 960 }}>
@@ -249,9 +233,28 @@ export default function EntregaPage() {
             {loading ? "Carregando…" : `${galerias.length} galeria${galerias.length !== 1 ? "s" : ""}`}
           </p>
         </div>
-        <Link href="/entrega/nova" style={{ padding: "9px 18px", borderRadius: 8, background: "var(--color-text-primary)", color: "var(--color-background-primary)", fontSize: 13, fontWeight: 600, textDecoration: "none", display: "flex", alignItems: "center", gap: 6 }}>
-          + Nova entrega
-        </Link>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          {/* Ordenação */}
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>Ordenar:</span>
+            <select
+              value={ordenacao}
+              onChange={(e) => setOrdenacao(e.target.value as Ordenacao)}
+              style={{
+                fontSize: 12, padding: "5px 8px", borderRadius: 7,
+                border: "0.5px solid var(--color-border-secondary)",
+                background: "var(--color-background-secondary)",
+                color: "var(--color-text-primary)", cursor: "pointer",
+              }}
+            >
+              <option value="evento">Data do evento</option>
+              <option value="criado">Data de criação</option>
+            </select>
+          </div>
+          <Link href="/entrega/nova" style={{ padding: "9px 18px", borderRadius: 8, background: "var(--color-text-primary)", color: "var(--color-background-primary)", fontSize: 13, fontWeight: 600, textDecoration: "none", display: "flex", alignItems: "center", gap: 6 }}>
+            + Nova entrega
+          </Link>
+        </div>
       </div>
 
       {/* Banner: expirando */}
@@ -275,24 +278,64 @@ export default function EntregaPage() {
         </div>
       )}
 
-      {/* Filtros */}
-      <div style={{ display: "flex", gap: 6, marginBottom: 18, flexWrap: "wrap" }}>
+      {/* Filtro por ano */}
+      {!loading && anos.length > 0 && (
+        <div style={{ display: "flex", gap: 6, marginBottom: 10, flexWrap: "wrap", alignItems: "center" }}>
+          <span style={{ fontSize: 11, color: "var(--color-text-secondary)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", marginRight: 2 }}>Ano</span>
+          <button
+            onClick={() => setAnoFiltro(null)}
+            style={{
+              padding: "4px 12px", borderRadius: 20, border: "0.5px solid", cursor: "pointer", fontSize: 12, transition: "all 0.15s",
+              borderColor: anoFiltro === null ? "var(--color-text-primary)" : "var(--color-border-tertiary)",
+              background: anoFiltro === null ? "var(--color-text-primary)" : "transparent",
+              color: anoFiltro === null ? "var(--color-background-primary)" : "var(--color-text-secondary)",
+              fontWeight: anoFiltro === null ? 600 : 400,
+            }}
+          >
+            Todos
+          </button>
+          {anos.map((ano) => {
+            const ativo = anoFiltro === ano;
+            const count = comStatus.filter((g) => anoEvento(g) === ano).length;
+            return (
+              <button
+                key={ano}
+                onClick={() => setAnoFiltro(ativo ? null : ano)}
+                style={{
+                  padding: "4px 12px", borderRadius: 20, border: "0.5px solid", cursor: "pointer", fontSize: 12, transition: "all 0.15s",
+                  borderColor: ativo ? "var(--color-text-primary)" : "var(--color-border-tertiary)",
+                  background: ativo ? "var(--color-text-primary)" : "transparent",
+                  color: ativo ? "var(--color-background-primary)" : "var(--color-text-secondary)",
+                  fontWeight: ativo ? 600 : 400,
+                }}
+              >
+                {ano} <span style={{ opacity: 0.65 }}>({count})</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Filtros de status */}
+      <div style={{ display: "flex", gap: 6, marginBottom: 18, flexWrap: "wrap", alignItems: "center" }}>
+        <span style={{ fontSize: 11, color: "var(--color-text-secondary)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", marginRight: 2 }}>Status</span>
         {(["todas", "expirando", "ativo", "expirado", "sem_prazo", "suspensa", "rascunho"] as Filtro[]).map((s) => {
           const isAtencao = s === "expirando";
           const ativo     = filtro === s;
+          const cnt       = contadores[s];
           return (
             <button
               key={s}
               onClick={() => setFiltro(s)}
               style={{
-                padding: "5px 14px", borderRadius: 20, border: "0.5px solid", cursor: "pointer", transition: "all 0.15s", fontSize: 12,
+                padding: "4px 12px", borderRadius: 20, border: "0.5px solid", cursor: "pointer", transition: "all 0.15s", fontSize: 12,
                 borderColor: ativo ? (isAtencao ? "#B45309" : "var(--color-text-primary)") : (isAtencao && contadores.expirando > 0 ? "rgba(245,158,11,0.5)" : "var(--color-border-tertiary)"),
                 background: ativo ? (isAtencao ? "#B45309" : "var(--color-text-primary)") : (isAtencao && contadores.expirando > 0 ? "rgba(245,158,11,0.08)" : "transparent"),
                 color: ativo ? "white" : (isAtencao && contadores.expirando > 0 ? "#92400E" : "var(--color-text-secondary)"),
                 fontWeight: ativo || (isAtencao && contadores.expirando > 0) ? 600 : 400,
               }}
             >
-              {s === "todas" ? "Todas" : STATUS_LABEL[s]} ({contadores[s]})
+              {s === "todas" ? "Todas" : STATUS_LABEL[s]} ({cnt})
             </button>
           );
         })}
@@ -314,7 +357,7 @@ export default function EntregaPage() {
             </>
           ) : (
             <div style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>
-              Nenhuma galeria com status "{STATUS_LABEL[filtro as StatusEntrega]}"
+              Nenhuma galeria encontrada{anoFiltro ? ` em ${anoFiltro}` : ""}{filtro !== "todas" ? ` com status "${STATUS_LABEL[filtro as StatusEntrega]}"` : ""}
             </div>
           )}
         </div>
@@ -391,6 +434,14 @@ export default function EntregaPage() {
                     onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(37,99,235,0.05)")}
                   ><IcoSend /></button>
 
+                  <button
+                    onClick={() => setEmailClienteId(g.id)}
+                    title="Enviar email ao cliente"
+                    style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, borderRadius: 7, border: "0.5px solid rgba(124,58,237,0.35)", color: "#7C3AED", background: "rgba(124,58,237,0.05)", cursor: "pointer" }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(124,58,237,0.12)")}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(124,58,237,0.05)")}
+                  ><IcoMail /></button>
+
                   {/* Suspender / Reativar — verde = ativa, laranja = suspensa */}
                   <button
                     onClick={() => toggleSuspender(g.id, g.suspensa, g.renovacao_dias)}
@@ -432,6 +483,11 @@ export default function EntregaPage() {
       {enviarAcessoId && (() => {
         const g = galerias.find((g) => g.id === enviarAcessoId);
         return g ? <ModalEnviarAcesso galeria={g} onFechar={() => setEnviarAcessoId(null)} /> : null;
+      })()}
+
+      {emailClienteId && (() => {
+        const g = galerias.find((g) => g.id === emailClienteId);
+        return g ? <ModalEmailCliente galeria={g} onFechar={() => setEmailClienteId(null)} /> : null;
       })()}
 
       {deletarId && (() => {
