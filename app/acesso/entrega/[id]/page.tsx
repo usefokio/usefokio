@@ -229,6 +229,8 @@ export default function AcessoEntregaPage() {
     const fotosParaBaixar = fotos.filter((f) => ids ? ids.includes(f.id) : selecionadas.has(f.id));
     if (fotosParaBaixar.length === 0) return;
 
+    fetch(`/api/entrega/${id}/download`, { method: "POST" }).catch(() => {});
+
     // Dispara todos os cliques de uma vez — mesmo contexto de gesto, sem await entre eles
     fotosParaBaixar.forEach((foto) => {
       const a = document.createElement("a");
