@@ -535,12 +535,6 @@ export default function EntregaDetailPage() {
                       </button>
                     )}
                     <button
-                      onClick={() => setConfirmarTodas(true)}
-                      style={{ fontSize: 11, fontWeight: 600, padding: "4px 12px", borderRadius: 6, border: "0.5px solid rgba(239,68,68,0.35)", background: "rgba(239,68,68,0.07)", color: "#DC2626", cursor: "pointer" }}
-                    >
-                      Excluir todas
-                    </button>
-                    <button
                       onClick={() => { setModoSelecao(false); setSelecionadas(new Set()); }}
                       style={{ fontSize: 11, fontWeight: 600, padding: "4px 12px", borderRadius: 6, border: "0.5px solid var(--color-border-secondary)", background: "transparent", color: "var(--color-text-secondary)", cursor: "pointer" }}
                     >
