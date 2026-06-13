@@ -277,8 +277,8 @@ export default function EntregaDetailPage() {
 
   // Dedup por email (acessos já vêm ordenados do mais recente): mantém o último acesso + contagem
   const acessosUnicos = acessos.reduce<(typeof acessos[number] & { vezes: number })[]>((acc, a) => {
-    const chave = a.email.trim().toLowerCase();
-    const existente = acc.find((x) => x.email.trim().toLowerCase() === chave);
+    const chave = (a.email ?? "").trim().toLowerCase();
+    const existente = acc.find((x) => (x.email ?? "").trim().toLowerCase() === chave);
     if (existente) existente.vezes += 1;
     else acc.push({ ...a, vezes: 1 });
     return acc;
