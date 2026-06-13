@@ -6,6 +6,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import type { GaleriaEntrega } from "@/lib/supabase/types";
+import { ModalEnviarAcesso } from "./_components/ModalEnviarAcesso";
 
 // ─── Helpers de status ────────────────────────────────────────────────────────
 type StatusEntrega = "ativo" | "expirando" | "expirado" | "sem_prazo" | "suspensa" | "rascunho";
@@ -102,86 +103,6 @@ const IcoCopy = () => (
     <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
   </svg>
 );
-
-// ─── Modal: Enviar acesso ─────────────────────────────────────────────────────
-function ModalEnviarAcesso({ galeria, onFechar }: { galeria: GaleriaEntrega; onFechar: () => void }) {
-  const [copiado, setCopiado] = useState(false);
-
-  const nomeCliente = galeria.clientes?.nome ?? "cliente";
-  const telefone    = galeria.clientes?.whatsapp ?? galeria.clientes?.telefone ?? "";
-  const email       = galeria.clientes?.email ?? "";
-
-  const appUrl     = typeof window !== "undefined" ? window.location.origin : (process.env.NEXT_PUBLIC_APP_URL ?? "https://usefokio.com.br");
-  const linkAcesso = `${appUrl}/acesso/entrega/${galeria.id}`;
-
-  const msgBase = galeria.mensagem?.trim()
-    ? galeria.mensagem.replace(/\{nome\}/gi, nomeCliente)
-    : `Olá ${nomeCliente}! Suas fotos estão prontas. Acesse o link abaixo para fazer o download.`;
-
-  const expiracaoStr = galeria.expires_at
-    ? `\n\n⏳ Disponível até ${new Date(galeria.expires_at).toLocaleDateString("pt-BR")}.`
-    : "";
-
-  const msgFinal = `${msgBase}\n\n🔗 ${linkAcesso}${expiracaoStr}`;
-
-  async function copiarLink() {
-    await navigator.clipboard.writeText(linkAcesso);
-    setCopiado(true);
-    setTimeout(() => setCopiado(false), 2500);
-  }
-
-  const btnRow: React.CSSProperties = {
-    display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-    width: "100%", padding: "11px 16px", borderRadius: 9, border: "none",
-    fontSize: 13, fontWeight: 600, cursor: "pointer", textDecoration: "none",
-  };
-
-  return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50 }} onClick={onFechar}>
-      <div onClick={(e) => e.stopPropagation()} style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 16, padding: "28px 30px", width: 420, boxShadow: "0 12px 48px rgba(0,0,0,0.2)" }}>
-        <div style={{ marginBottom: 20 }}>
-          <h3 style={{ margin: "0 0 4px", fontSize: 15, fontWeight: 700, color: "var(--color-text-primary)" }}>Enviar acesso ao download</h3>
-          <p style={{ margin: 0, fontSize: 13, color: "var(--color-text-secondary)" }}>
-            {galeria.titulo}{galeria.clientes && <span> · <strong>{galeria.clientes.nome}</strong></span>}
-          </p>
-        </div>
-
-        <div style={{ background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 10, padding: "12px 14px", marginBottom: 6, fontSize: 12, color: "var(--color-text-secondary)", lineHeight: 1.6, whiteSpace: "pre-wrap", maxHeight: 140, overflowY: "auto" }}>
-          {msgFinal}
-        </div>
-        <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginBottom: 18, opacity: 0.6 }}>
-          O link expira automaticamente na data definida.
-        </div>
-
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {telefone ? (
-            <a href={`https://wa.me/55${telefone.replace(/\D/g, "")}?text=${encodeURIComponent(msgFinal)}`} target="_blank" rel="noopener noreferrer" style={{ ...btnRow, background: "#25D366", color: "#fff" }}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z"/></svg>
-              Enviar por WhatsApp
-            </a>
-          ) : (
-            <div style={{ ...btnRow, background: "var(--color-background-secondary)", color: "var(--color-text-secondary)", opacity: 0.5, cursor: "not-allowed", fontSize: 12 }}>WhatsApp — sem telefone cadastrado</div>
-          )}
-          {email ? (
-            <a href={`mailto:${email}?subject=${encodeURIComponent(`Suas fotos estão prontas — ${galeria.titulo}`)}&body=${encodeURIComponent(msgFinal)}`} style={{ ...btnRow, background: "#2563EB", color: "#fff" }}>
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
-              Enviar por e-mail
-            </a>
-          ) : (
-            <div style={{ ...btnRow, background: "var(--color-background-secondary)", color: "var(--color-text-secondary)", opacity: 0.5, cursor: "not-allowed", fontSize: 12 }}>E-mail — sem e-mail cadastrado</div>
-          )}
-          <button onClick={copiarLink} style={{ ...btnRow, background: copiado ? "rgba(16,185,129,0.08)" : "var(--color-background-secondary)", color: copiado ? "#059669" : "var(--color-text-primary)", border: "none" }}>
-            {copiado ? <><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Link copiado!</> : <><IcoCopy /> Copiar link de acesso</>}
-          </button>
-        </div>
-
-        <button onClick={onFechar} style={{ width: "100%", marginTop: 10, padding: "9px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "transparent", fontSize: 13, color: "var(--color-text-secondary)", cursor: "pointer" }}>
-          Fechar
-        </button>
-      </div>
-    </div>
-  );
-}
 
 // ─── Modal: Prorrogar ─────────────────────────────────────────────────────────
 function ModalProrrogar({ galeria, onConfirmar, onFechar }: { galeria: GaleriaEntrega; onConfirmar: (d: Date) => void; onFechar: () => void }) {
