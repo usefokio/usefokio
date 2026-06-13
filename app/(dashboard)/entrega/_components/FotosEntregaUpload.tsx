@@ -285,10 +285,16 @@ export const FotosEntregaUpload = forwardRef<FotosEntregaUploadHandle, Props>(fu
           {!modoSelecao ? (
             <>
               {total > 0 && (
-                <button type="button" onClick={() => { setModoSelecao(true); setSelecionadas(new Set()); }}
-                  style={{ padding: "7px 14px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "transparent", fontSize: 12, fontWeight: 600, color: "var(--color-text-primary)", cursor: "pointer" }}>
-                  Selecionar
-                </button>
+                <>
+                  <button type="button" onClick={() => { setModoSelecao(true); setSelecionadas(new Set()); }}
+                    style={{ padding: "7px 14px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "transparent", fontSize: 12, fontWeight: 600, color: "var(--color-text-primary)", cursor: "pointer" }}>
+                    Selecionar
+                  </button>
+                  <button type="button" onClick={() => setConfirmarTodas(true)}
+                    style={{ padding: "7px 14px", borderRadius: 8, border: "0.5px solid rgba(239,68,68,0.35)", background: "rgba(239,68,68,0.07)", fontSize: 12, fontWeight: 600, color: "#DC2626", cursor: "pointer" }}>
+                    Excluir todas
+                  </button>
+                </>
               )}
               <button type="button" onClick={() => inputRef.current?.click()}
                 style={{ padding: "7px 14px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-secondary)", fontSize: 12, fontWeight: 600, color: "var(--color-text-primary)", cursor: "pointer" }}>
@@ -311,10 +317,6 @@ export const FotosEntregaUpload = forwardRef<FotosEntregaUploadHandle, Props>(fu
                   {excluindo ? "Excluindo…" : `Excluir ${selecionadas.size}`}
                 </button>
               )}
-              <button type="button" onClick={() => setConfirmarTodas(true)} disabled={excluindo}
-                style={{ padding: "7px 14px", borderRadius: 8, border: "0.5px solid rgba(239,68,68,0.35)", background: "rgba(239,68,68,0.07)", fontSize: 12, fontWeight: 600, color: "#DC2626", cursor: excluindo ? "not-allowed" : "pointer" }}>
-                Excluir todas
-              </button>
               <button type="button" onClick={() => { setModoSelecao(false); setSelecionadas(new Set()); }}
                 style={{ padding: "7px 14px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "transparent", fontSize: 12, fontWeight: 600, color: "var(--color-text-secondary)", cursor: "pointer" }}>
                 Cancelar
