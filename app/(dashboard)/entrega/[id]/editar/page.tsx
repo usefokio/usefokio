@@ -471,8 +471,8 @@ export default function EditarEntregaPage() {
         {/* ── Acessos registrados (deduplicados por email) ── */}
         {(() => {
           const acessosUnicos = acessos.reduce<(typeof acessos[number] & { vezes: number })[]>((acc, a) => {
-            const chave = a.email.trim().toLowerCase();
-            const ex = acc.find((x) => x.email.trim().toLowerCase() === chave);
+            const chave = (a.email ?? "").trim().toLowerCase();
+            const ex = acc.find((x) => (x.email ?? "").trim().toLowerCase() === chave);
             if (ex) ex.vezes += 1; else acc.push({ ...a, vezes: 1 });
             return acc;
           }, []);

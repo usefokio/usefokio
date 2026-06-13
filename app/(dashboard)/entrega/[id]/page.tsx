@@ -62,11 +62,11 @@ function ModalSalvarLista({ fotografoId, galeriaTitulo, acessos, onFechar }: {
     const validos: { nome: string; email: string }[] = [];
     let invalidos = 0;
     for (const a of acessos) {
-      const email = a.email.trim().toLowerCase();
+      const email = (a.email ?? "").trim().toLowerCase();
       if (!EMAIL_RE.test(email)) { invalidos++; continue; }
       if (vistos.has(email)) continue;
       vistos.add(email);
-      validos.push({ nome: a.nome.trim(), email });
+      validos.push({ nome: (a.nome ?? "").trim(), email });
     }
     if (validos.length === 0) { setErro("Nenhum email válido para salvar."); setSalvando(false); return; }
 
