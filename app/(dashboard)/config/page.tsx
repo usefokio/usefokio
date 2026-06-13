@@ -21,6 +21,7 @@ function Categorias() {
   const [salvando, setSalvando]   = useState(false);
   const [editando, setEditando]   = useState<string | null>(null);
   const [editNome, setEditNome]   = useState("");
+  const [editTaxa, setEditTaxa]   = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { carregar(); }, [fotografo]);
@@ -54,10 +55,18 @@ function Categorias() {
   async function salvarEdicao(id: string) {
     const nome = editNome.trim();
     if (!nome) return;
+    const taxa = parseMoeda(editTaxa) || null;
     const supabase = createClient();
-    await supabase.from("categorias").update({ nome }).eq("id", id);
-    setLista((l) => l.map((c) => c.id === id ? { ...c, nome } : c));
+    await supabase.from("categorias").update({ nome, taxa_renovacao_padrao: taxa }).eq("id", id);
+    setLista((l) => l.map((c) => c.id === id ? { ...c, nome, taxa_renovacao_padrao: taxa } : c));
     setEditando(null);
+  }
+
+  async function salvarTaxa(id: string, valor: string) {
+    const taxa = parseMoeda(valor) || null;
+    const supabase = createClient();
+    await supabase.from("categorias").update({ taxa_renovacao_padrao: taxa }).eq("id", id);
+    setLista((l) => l.map((c) => c.id === id ? { ...c, taxa_renovacao_padrao: taxa } : c));
   }
 
   async function excluir(id: string) {
@@ -69,7 +78,7 @@ function Categorias() {
   return (
     <div>
       <p style={{ fontSize: 13, color: "var(--color-text-secondary)", marginTop: 0, marginBottom: 20 }}>
-        Categorias são usadas para organizar as fotos dentro de uma galeria de seleção. Você pode criar e gerenciar quantas quiser.
+        Categorias organizam suas galerias. Configure uma taxa de renovação padrão por categoria — ela será preenchida automaticamente ao criar uma galeria de entrega.
       </p>
 
       {/* Adicionar nova */}
@@ -125,20 +134,48 @@ function Categorias() {
               <span style={{ fontSize: 14, opacity: 0.3, cursor: "grab", flexShrink: 0 }}>⠿</span>
 
               {editando === cat.id ? (
-                <input
-                  value={editNome}
-                  onChange={(e) => setEditNome(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") salvarEdicao(cat.id);
-                    if (e.key === "Escape") setEditando(null);
-                  }}
-                  style={{ ...inputStyle, flex: 1, padding: "5px 10px", fontSize: 13 }}
-                  autoFocus
-                />
+                <>
+                  <input
+                    value={editNome}
+                    onChange={(e) => setEditNome(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") salvarEdicao(cat.id);
+                      if (e.key === "Escape") setEditando(null);
+                    }}
+                    style={{ ...inputStyle, flex: 1, padding: "5px 10px", fontSize: 13 }}
+                    autoFocus
+                  />
+                  <input
+                    value={editTaxa}
+                    onChange={(e) => setEditTaxa(mascaraMoeda(e.target.value))}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") salvarEdicao(cat.id);
+                      if (e.key === "Escape") setEditando(null);
+                    }}
+                    placeholder="R$ taxa renovação"
+                    style={{ ...inputStyle, width: 150, padding: "5px 10px", fontSize: 13 }}
+                  />
+                </>
               ) : (
-                <span style={{ flex: 1, fontSize: 13, color: "var(--color-text-primary)", fontWeight: 500 }}>
-                  {cat.nome}
-                </span>
+                <>
+                  <span style={{ flex: 1, fontSize: 13, color: "var(--color-text-primary)", fontWeight: 500 }}>
+                    {cat.nome}
+                  </span>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <span style={{ fontSize: 11, color: "var(--color-text-secondary)" }}>Renovação:</span>
+                    <input
+                      value={cat.taxa_renovacao_padrao != null ? formatarMoeda(cat.taxa_renovacao_padrao) : ""}
+                      onChange={(e) => {
+                        const v = mascaraMoeda(e.target.value);
+                        setLista((l) => l.map((c) => c.id === cat.id ? { ...c, taxa_renovacao_padrao: parseMoeda(v) || null } : c));
+                      }}
+                      onBlur={(e) => salvarTaxa(cat.id, e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+                      placeholder="—"
+                      style={{ ...inputStyle, width: 110, padding: "4px 8px", fontSize: 12, textAlign: "right" }}
+                    />
+                  </div>
+                </>
               )}
 
               <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
@@ -150,7 +187,7 @@ function Categorias() {
                 ) : (
                   <>
                     <button
-                      onClick={() => { setEditando(cat.id); setEditNome(cat.nome); }}
+                      onClick={() => { setEditando(cat.id); setEditNome(cat.nome); setEditTaxa(cat.taxa_renovacao_padrao != null ? formatarMoeda(cat.taxa_renovacao_padrao) : ""); }}
                       style={{ padding: "4px 10px", borderRadius: 6, background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-secondary)", fontSize: 12, cursor: "pointer", color: "var(--color-text-secondary)" }}
                     >✏️</button>
                     <button

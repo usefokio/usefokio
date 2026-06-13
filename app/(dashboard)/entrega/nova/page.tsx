@@ -8,7 +8,7 @@ import { Field } from "@/components/ui/Field";
 import { inputStyle } from "@/lib/styles";
 import { ClienteSelect } from "../_components/ClienteSelect";
 import { processarImagemEntrega, formatBytes } from "@/lib/imageResize";
-import type { Cliente } from "@/lib/supabase/types";
+import type { Cliente, Categoria } from "@/lib/supabase/types";
 import { mascaraMoeda, parseMoeda, formatarMoeda } from "@/lib/moeda";
 
 const PRAZOS_FIXOS = [15, 30, 60, 120];
@@ -50,6 +50,8 @@ export default function NovaEntregaPage() {
   const [ordenacaoFotos,     setOrdenacaoFotos]     = useState<"envio" | "nome" | "nome_desc" | "data">("nome");
   const [identificacaoObrig, setIdentificacaoObrig] = useState(false);
   const [driveApenasIdentif, setDriveApenasIdentif] = useState(false);
+  const [categoriaId,        setCategoriaId]        = useState<string>("");
+  const [categorias,         setCategorias]         = useState<Categoria[]>([]);
   const [saving,             setSaving]             = useState(false);
   const [initialized,        setInitialized]        = useState(false);
 
@@ -78,6 +80,14 @@ export default function NovaEntregaPage() {
     if (!fotografo || initialized) return;
     if (fotografo.mensagem_padrao_entrega) setMensagem(fotografo.mensagem_padrao_entrega);
     if (fotografo.renewal_fee_padrao != null) setRenovacao(formatarMoeda(fotografo.renewal_fee_padrao));
+    // Carrega categorias do fotógrafo
+    createClient()
+      .from("categorias")
+      .select("*")
+      .eq("fotografo_id", fotografo.id)
+      .order("ordem")
+      .order("created_at")
+      .then(({ data }) => setCategorias(data ?? []));
     setInitialized(true);
   }, [fotografo]);
 
@@ -192,6 +202,7 @@ export default function NovaEntregaPage() {
       .insert({
         fotografo_id: fotografo.id,
         cliente_id:   clienteId || null,
+        categoria_id: categoriaId || null,
         titulo:       titulo.trim(),
         data_evento:  dataEvento || null,
         drive_link:   driveLink.trim() || null,
@@ -319,6 +330,28 @@ export default function NovaEntregaPage() {
             style={inputStyle}
           />
         </Field>
+
+        {categorias.length > 0 && (
+          <Field label="Categoria" hint="Preenche a taxa de renovação automaticamente">
+            <select
+              value={categoriaId}
+              onChange={(e) => {
+                const id = e.target.value;
+                setCategoriaId(id);
+                const cat = categorias.find((c) => c.id === id);
+                if (cat?.taxa_renovacao_padrao != null) {
+                  setRenovacao(formatarMoeda(cat.taxa_renovacao_padrao));
+                }
+              }}
+              style={inputStyle}
+            >
+              <option value="">— Sem categoria —</option>
+              {categorias.map((c) => (
+                <option key={c.id} value={c.id}>{c.nome}</option>
+              ))}
+            </select>
+          </Field>
+        )}
 
         <Field label="Link do Google Drive" hint="Opcional — deixe em branco para usar somente a galeria online">
           <input

@@ -86,6 +86,7 @@ export type Categoria = {
   fotografo_id: string;
   nome: string;
   ordem: number;
+  taxa_renovacao_padrao: number | null;
   created_at: string;
 };
 
@@ -111,6 +112,7 @@ export type GaleriaEntrega = {
   renovacao_dias: number;
   ordenacao_fotos: "envio" | "nome" | "nome_desc" | "data";
   foto_capa_url: string | null;
+  categoria_id: string | null;
   created_at: string;
   updated_at: string;
   // joined

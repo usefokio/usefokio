@@ -9,7 +9,7 @@ import { Field } from "@/components/ui/Field";
 import { inputStyle } from "@/lib/styles";
 import { ClienteSelect } from "../../_components/ClienteSelect";
 import { FotosEntregaUpload, type FotosEntregaUploadHandle } from "../../_components/FotosEntregaUpload";
-import type { Cliente, GaleriaEntrega } from "@/lib/supabase/types";
+import type { Cliente, Categoria, GaleriaEntrega } from "@/lib/supabase/types";
 import { mascaraMoeda, parseMoeda, formatarMoeda } from "@/lib/moeda";
 
 const PRAZOS_FIXOS = [15, 30, 60, 120];
@@ -64,6 +64,8 @@ export default function EditarEntregaPage() {
   const [ordenacaoFotos,        setOrdenacaoFotos]        = useState<"envio" | "nome" | "nome_desc" | "data">("nome");
   const [identificacaoObrig,    setIdentificacaoObrig]    = useState(false);
   const [driveApenasIdentif,    setDriveApenasIdentif]    = useState(false);
+  const [categoriaId,  setCategoriaId]  = useState<string>("");
+  const [categorias,   setCategorias]   = useState<Categoria[]>([]);
   const [saving,      setSaving]     = useState(false);
   const [modalExcluir, setModalExcluir] = useState(false);
   const [deletando,    setDeletando]   = useState(false);
@@ -117,9 +119,19 @@ export default function EditarEntregaPage() {
         setMensagem(g.mensagem ?? fotografo.mensagem_padrao_entrega ?? "");
         setCapaUrl(g.foto_capa_url ?? null);
         setCapaPreview(g.foto_capa_url ?? null);
+        setCategoriaId(g.categoria_id ?? "");
         setCarregado(true);
         setLoadingPage(false);
       });
+
+    // Carregar categorias para o seletor
+    supabase
+      .from("categorias")
+      .select("*")
+      .eq("fotografo_id", fotografo.id)
+      .order("ordem")
+      .order("created_at")
+      .then(({ data }) => setCategorias(data ?? []));
 
     // Carregar acessos da galeria
     supabase
@@ -143,7 +155,8 @@ export default function EditarEntregaPage() {
     ordenacaoFotos !== (original.ordenacao_fotos ?? "envio") ||
     identificacaoObrig !== (original.identificacao_obrigatoria ?? false) ||
     driveApenasIdentif !== (original.drive_apenas_identificado ?? false) ||
-    (expiresAt?.getTime() ?? null) !== (original.expires_at ? new Date(original.expires_at).getTime() : null)
+    (expiresAt?.getTime() ?? null) !== (original.expires_at ? new Date(original.expires_at).getTime() : null) ||
+    categoriaId !== (original.categoria_id ?? "")
   );
 
   // Guarda de navegação: intercepta links internos e fechar aba
@@ -198,6 +211,7 @@ export default function EditarEntregaPage() {
         drive_apenas_identificado:  driveApenasIdentif,
         ordenacao_fotos:            ordenacaoFotos,
         foto_capa_url:              novaCapaUrl ?? null,
+        categoria_id:               categoriaId || null,
       })
       .eq("id", id)
       .eq("fotografo_id", fotografo.id);
@@ -331,6 +345,21 @@ export default function EditarEntregaPage() {
         <Field label="Data do evento">
           <input type="date" value={dataEvento} onChange={(e) => setDataEvento(e.target.value)} style={inputStyle} />
         </Field>
+
+        {categorias.length > 0 && (
+          <Field label="Categoria" hint="A taxa de renovação padrão da categoria é aplicada ao criar galerias novas">
+            <select
+              value={categoriaId}
+              onChange={(e) => setCategoriaId(e.target.value)}
+              style={inputStyle}
+            >
+              <option value="">— Sem categoria —</option>
+              {categorias.map((c) => (
+                <option key={c.id} value={c.id}>{c.nome}</option>
+              ))}
+            </select>
+          </Field>
+        )}
 
         <Field label="Link do Google Drive" hint="Opcional — deixe em branco para usar somente a galeria online">
           <input type="url" value={driveLink} onChange={(e) => setDriveLink(e.target.value)} placeholder="https://drive.google.com/drive/folders/…" style={inputStyle} />
