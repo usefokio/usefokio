@@ -68,6 +68,7 @@ export function ModalEmailCliente({ galeria, onFechar }: { galeria: GaleriaEntre
   const [templateId, setTemplateId] = useState<TemplateId | null>(null);
   const [mensagem, setMensagem] = useState("");
   const [copiado, setCopiado] = useState(false);
+  const [mostrarApps, setMostrarApps] = useState(false);
 
   const email = galeria.clientes?.email ?? null;
   const nomeCliente = galeria.clientes?.nome ?? "Cliente";
@@ -90,14 +91,26 @@ export function ModalEmailCliente({ galeria, onFechar }: { galeria: GaleriaEntre
     setTemplateId(null);
     setMensagem("");
     setCopiado(false);
+    setMostrarApps(false);
   }
 
-  function abrirNoEmail() {
-    if (!email || !templateId) return;
+  function assuntoAtual() {
+    if (!templateId) return "";
     const template = TEMPLATES.find((t) => t.id === templateId)!;
-    const assunto = template.assunto.replace("{titulo}", galeria.titulo);
-    const mailto = `mailto:${email}?subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(mensagem)}`;
-    window.open(mailto);
+    return template.assunto.replace("{titulo}", galeria.titulo);
+  }
+
+  function abrirApp(tipo: "mailto" | "gmail" | "outlook") {
+    if (!email) return;
+    const assunto = assuntoAtual();
+    if (tipo === "mailto") {
+      window.open(`mailto:${email}?subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(mensagem)}`);
+    } else if (tipo === "gmail") {
+      window.open(`https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(email)}&su=${encodeURIComponent(assunto)}&body=${encodeURIComponent(mensagem)}`, "_blank");
+    } else if (tipo === "outlook") {
+      window.open(`https://outlook.live.com/mail/0/deeplink/compose?to=${encodeURIComponent(email)}&subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(mensagem)}`, "_blank");
+    }
+    setMostrarApps(false);
   }
 
   async function copiarMensagem() {
@@ -229,16 +242,52 @@ export function ModalEmailCliente({ galeria, onFechar }: { galeria: GaleriaEntre
                 {copiado ? "✓ Copiado!" : "Copiar mensagem"}
               </button>
               {email && (
-                <button
-                  onClick={abrirNoEmail}
-                  style={{
-                    flex: 1, padding: "9px 0", borderRadius: 8, fontSize: 13, fontWeight: 600,
-                    border: "none", background: "var(--color-text-primary)",
-                    color: "var(--color-background-primary)", cursor: "pointer",
-                  }}
-                >
-                  Abrir no email
-                </button>
+                <div style={{ flex: 1, position: "relative" }}>
+                  <button
+                    onClick={() => setMostrarApps((v) => !v)}
+                    style={{
+                      width: "100%", padding: "9px 0", borderRadius: 8, fontSize: 13, fontWeight: 600,
+                      border: "none", background: "var(--color-text-primary)",
+                      color: "var(--color-background-primary)", cursor: "pointer",
+                      display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                    }}
+                  >
+                    Enviar email
+                    <span style={{ fontSize: 10, opacity: 0.7 }}>{mostrarApps ? "▲" : "▼"}</span>
+                  </button>
+                  {mostrarApps && (
+                    <div style={{
+                      position: "absolute", bottom: "calc(100% + 6px)", right: 0, left: 0,
+                      background: "var(--color-background-primary)",
+                      border: "0.5px solid var(--color-border-secondary)",
+                      borderRadius: 10, overflow: "hidden",
+                      boxShadow: "0 4px 20px rgba(0,0,0,0.15)", zIndex: 10,
+                    }}>
+                      {[
+                        { id: "gmail",   label: "Gmail",        emoji: "✉️" },
+                        { id: "outlook", label: "Outlook Web",  emoji: "📧" },
+                        { id: "mailto",  label: "App padrão",   emoji: "📨" },
+                      ].map((op) => (
+                        <button
+                          key={op.id}
+                          onClick={() => abrirApp(op.id as "gmail" | "outlook" | "mailto")}
+                          style={{
+                            display: "flex", alignItems: "center", gap: 10,
+                            width: "100%", padding: "11px 14px",
+                            background: "transparent", border: "none", cursor: "pointer",
+                            fontSize: 13, color: "var(--color-text-primary)", textAlign: "left",
+                            borderBottom: op.id !== "mailto" ? "0.5px solid var(--color-border-tertiary)" : "none",
+                          }}
+                          onMouseEnter={(e) => (e.currentTarget.style.background = "var(--color-background-secondary)")}
+                          onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                        >
+                          <span style={{ fontSize: 16 }}>{op.emoji}</span>
+                          <span>{op.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           </div>
