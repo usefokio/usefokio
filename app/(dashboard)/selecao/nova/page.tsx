@@ -194,6 +194,7 @@ function NovaSelecaoConteudo() {
   const [vendaAtiva, setVendaAtiva] = useState(false);
   const [vendaPreco, setVendaPreco] = useState("");
   const [vendaPacoteMin, setVendaPacoteMin] = useState("");
+  const [marcaDagua, setMarcaDagua] = useState(true);
   const [draftInitialized, setDraftInitialized] = useState(false);
 
   // Fila de upload
@@ -285,6 +286,7 @@ function NovaSelecaoConteudo() {
       venda_pacote_minimo: vendaAtiva ? (parseInt(vendaPacoteMin) || null) : null,
       data_evento: dataEvento || null,
       expira_em: prazo ? new Date(prazo + "T23:59:59").toISOString() : null,
+      marca_dagua: marcaDagua,
       status,
     }).select().single();
 
@@ -314,8 +316,8 @@ function NovaSelecaoConteudo() {
         const resolucaoUpload = BETA_RESOLUCAO_MAXIMA ? "hd" : resolucao;
         let processed = await processarImagem(item.file, resolucaoUpload);
 
-        // Aplicar marca d'água se configurada
-        if (fotografo.watermark_url) {
+        // Aplicar marca d'água se configurada e habilitada para esta galeria
+        if (marcaDagua && fotografo.watermark_url) {
           const img = new Image();
           const blobUrl = URL.createObjectURL(processed.blob);
           await new Promise<void>((res, rej) => { img.onload = () => res(); img.onerror = rej; img.src = blobUrl; });
@@ -609,7 +611,20 @@ function NovaSelecaoConteudo() {
           </div>
         </Section>
 
-        {/* ── 4. Fotos (upload opcional) ── */}
+        {/* ── 4. Opções visuais ── */}
+        <Section title="Opções visuais">
+          <div onClick={() => setMarcaDagua((v) => !v)} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 14px", borderRadius: 9, cursor: "pointer", border: `0.5px solid ${marcaDagua ? "rgba(37,99,235,0.3)" : "var(--color-border-tertiary)"}`, background: marcaDagua ? "rgba(37,99,235,0.05)" : "var(--color-background-secondary)", transition: "all 0.2s" }}>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)" }}>Aplicar marca d'água nas fotos</div>
+              <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 2 }}>A marca d'água configurada na sua conta será aplicada ao exibir as fotos</div>
+            </div>
+            <div style={{ width: 40, height: 22, borderRadius: 11, flexShrink: 0, background: marcaDagua ? "#2563EB" : "var(--color-border-secondary)", position: "relative", transition: "background 0.2s" }}>
+              <div style={{ position: "absolute", top: 3, width: 16, height: 16, borderRadius: "50%", background: "#fff", transition: "left 0.2s", left: marcaDagua ? 21 : 3, boxShadow: "0 1px 3px rgba(0,0,0,0.2)" }} />
+            </div>
+          </div>
+        </Section>
+
+        {/* ── 5. Fotos (upload opcional) ── */}
         <Section title={`Fotos${fila.length > 0 ? ` (${fila.length} na fila)` : ""}`}>
           <div>
             {/* Zona de drop */}
