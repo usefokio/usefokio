@@ -130,7 +130,7 @@ export type GaleriaEntrega = {
   updated_at: string;
   // joined
   clientes?: { nome: string; email: string | null; telefone: string | null; whatsapp: string | null } | null;
-  respostas_campanha?: { token: string; resposta: "renovar" | "tem_arquivos" | null; respondido_em: string | null } | null;
+  respostas_campanha?: { token: string; resposta: "renovar" | "tem_arquivos" | null; respondido_em: string | null }[] | null;
 };
 
 export type Pagamento = {

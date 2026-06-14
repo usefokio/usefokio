@@ -395,12 +395,12 @@ export default function EntregaPage() {
                 <div style={{ flex: 1, minWidth: 0, cursor: "pointer" }} onClick={() => router.push(`/entrega/${g.id}`)}>
                   <div style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 6 }}>
                     <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{g.titulo}</span>
-                    {g.respostas_campanha?.resposta === "tem_arquivos" && (
+                    {g.respostas_campanha?.[0]?.resposta === "tem_arquivos" && (
                       <span title="Cliente confirmou: já tem os arquivos" style={{ flexShrink: 0, fontSize: 10, fontWeight: 600, padding: "2px 7px", borderRadius: 20, background: "rgba(16,185,129,0.12)", color: "#059669" }}>
                         ✓ tem arquivos
                       </span>
                     )}
-                    {g.respostas_campanha?.resposta === "renovar" && (
+                    {g.respostas_campanha?.[0]?.resposta === "renovar" && (
                       <span title="Cliente quer renovar o acesso" style={{ flexShrink: 0, fontSize: 10, fontWeight: 600, padding: "2px 7px", borderRadius: 20, background: "rgba(37,99,235,0.10)", color: "#2563EB" }}>
                         🔄 quer renovar
                       </span>
