@@ -8,6 +8,23 @@ import type { Fotografo } from "@/lib/supabase/types";
 import { Field } from "@/components/ui/Field";
 import { inputStyle } from "@/lib/styles";
 
+const REQUISITOS_SENHA = [
+  { id: "len",     label: "Mínimo 8 caracteres",           ok: (s: string) => s.length >= 8 },
+  { id: "upper",   label: "Letra maiúscula (A–Z)",          ok: (s: string) => /[A-Z]/.test(s) },
+  { id: "lower",   label: "Letra minúscula (a–z)",          ok: (s: string) => /[a-z]/.test(s) },
+  { id: "number",  label: "Número (0–9)",                   ok: (s: string) => /[0-9]/.test(s) },
+  { id: "special", label: "Caractere especial (!@#$%...)", ok: (s: string) => /[^A-Za-z0-9]/.test(s) },
+] as const;
+
+function calcularForcaSenha(s: string): 0 | 1 | 2 | 3 {
+  if (!s) return 0;
+  const n = REQUISITOS_SENHA.filter((r) => r.ok(s)).length;
+  return n <= 2 ? 1 : n <= 3 ? 2 : 3;
+}
+
+const FORCA_COR = { 0: "transparent", 1: "#EF4444", 2: "#F59E0B", 3: "#10B981" } as const;
+const FORCA_LABEL = { 0: "", 1: "Fraca", 2: "Média", 3: "Forte" } as const;
+
 const ESTADOS = [
   "AC","AL","AP","AM","BA","CE","DF","ES","GO","MA",
   "MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN",
@@ -32,6 +49,39 @@ export default function EditarContaPage() {
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError]   = useState("");
+
+  // Senha
+  const [novaSenha,      setNovaSenha]      = useState("");
+  const [confirmarSenha, setConfirmarSenha] = useState("");
+  const [salvandoSenha,  setSalvandoSenha]  = useState(false);
+  const [erroSenha,      setErroSenha]      = useState("");
+  const [salvoSenha,     setSalvoSenha]     = useState(false);
+  const [mostrarSenha,   setMostrarSenha]   = useState(false);
+  const [mostrarConfirm, setMostrarConfirm] = useState(false);
+  const [provedorGoogle, setProvedorGoogle] = useState(false);
+
+  const forcaSenha    = calcularForcaSenha(novaSenha);
+  const todosReqs     = REQUISITOS_SENHA.every((r) => r.ok(novaSenha));
+  const senhasIguais  = novaSenha === confirmarSenha;
+
+  useEffect(() => {
+    createClient().auth.getUser().then(({ data }) => {
+      const ids = data.user?.identities ?? [];
+      setProvedorGoogle(ids.some((i) => i.provider === "google") && !ids.some((i) => i.provider === "email"));
+    });
+  }, []);
+
+  async function salvarSenha() {
+    if (!novaSenha)       { setErroSenha("Informe a nova senha."); return; }
+    if (!todosReqs)       { setErroSenha("A senha não atende todos os requisitos."); return; }
+    if (!senhasIguais)    { setErroSenha("As senhas não coincidem."); return; }
+    setSalvandoSenha(true); setErroSenha("");
+    const { error: err } = await createClient().auth.updateUser({ password: novaSenha });
+    setSalvandoSenha(false);
+    if (err) { setErroSenha(err.message); return; }
+    setNovaSenha(""); setConfirmarSenha("");
+    setSalvoSenha(true); setTimeout(() => setSalvoSenha(false), 3000);
+  }
 
   // Preenche o formulário assim que o contexto tiver os dados
   useEffect(() => {
@@ -242,6 +292,116 @@ export default function EditarContaPage() {
             Cancelar
           </button>
         </div>
+      </div>
+
+      {/* Card de senha */}
+      <div style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 14, padding: "28px 32px", marginTop: 16 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: "var(--color-text-primary)", marginBottom: 4 }}>Alterar senha</div>
+        <p style={{ fontSize: 13, color: "var(--color-text-secondary)", margin: "0 0 20px", lineHeight: 1.6 }}>
+          Altere sua senha de acesso ao UseFokio.
+        </p>
+
+        {provedorGoogle ? (
+          <div style={{ background: "rgba(37,99,235,0.05)", border: "0.5px solid rgba(37,99,235,0.2)", borderRadius: 10, padding: "16px 20px", fontSize: 13, color: "var(--color-text-secondary)", lineHeight: 1.6 }}>
+            ℹ️ Sua conta usa login com o Google. Para alterar a senha, acesse as configurações da sua conta Google.
+          </div>
+        ) : (
+          <div style={{ maxWidth: 420, display: "flex", flexDirection: "column", gap: 16 }}>
+            {erroSenha && (
+              <div style={{ background: "rgba(239,68,68,0.08)", border: "0.5px solid rgba(239,68,68,0.3)", borderRadius: 8, padding: "10px 14px", fontSize: 13, color: "#EF4444" }}>
+                {erroSenha}
+              </div>
+            )}
+
+            {/* Nova senha */}
+            <div>
+              <label style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", textTransform: "uppercase" as const, letterSpacing: "0.05em", marginBottom: 6, display: "block" }}>
+                Nova senha
+              </label>
+              <div style={{ position: "relative" }}>
+                <input
+                  type={mostrarSenha ? "text" : "password"}
+                  value={novaSenha}
+                  onChange={(e) => { setNovaSenha(e.target.value); setErroSenha(""); }}
+                  placeholder="Digite sua nova senha"
+                  style={{ ...inputStyle, paddingRight: 36 }}
+                />
+                <button type="button" onClick={() => setMostrarSenha((v) => !v)}
+                  style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "var(--color-text-secondary)", padding: 2 }}>
+                  {mostrarSenha ? "🙈" : "👁"}
+                </button>
+              </div>
+
+              {novaSenha && (
+                <>
+                  {/* Barra de força */}
+                  <div style={{ display: "flex", gap: 4, marginTop: 10, marginBottom: 4 }}>
+                    {([1, 2, 3] as const).map((n) => (
+                      <div key={n} style={{ flex: 1, height: 4, borderRadius: 2, background: forcaSenha >= n ? FORCA_COR[forcaSenha] : "var(--color-border-secondary)", transition: "background 0.25s" }} />
+                    ))}
+                  </div>
+                  {forcaSenha > 0 && (
+                    <div style={{ fontSize: 11, fontWeight: 700, color: FORCA_COR[forcaSenha], marginBottom: 8 }}>{FORCA_LABEL[forcaSenha]}</div>
+                  )}
+                  {/* Requisitos */}
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                    {REQUISITOS_SENHA.map((r) => {
+                      const ok = r.ok(novaSenha);
+                      return (
+                        <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 12 }}>
+                          <span style={{ fontSize: 11, color: ok ? "#10B981" : "var(--color-text-secondary)" }}>{ok ? "✓" : "○"}</span>
+                          <span style={{ color: ok ? "#10B981" : "var(--color-text-secondary)", fontWeight: ok ? 600 : 400 }}>{r.label}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Confirmar senha */}
+            <div>
+              <label style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", textTransform: "uppercase" as const, letterSpacing: "0.05em", marginBottom: 6, display: "block" }}>
+                Confirmar nova senha
+              </label>
+              <div style={{ position: "relative" }}>
+                <input
+                  type={mostrarConfirm ? "text" : "password"}
+                  value={confirmarSenha}
+                  onChange={(e) => { setConfirmarSenha(e.target.value); setErroSenha(""); }}
+                  onKeyDown={(e) => e.key === "Enter" && salvarSenha()}
+                  placeholder="Repita a nova senha"
+                  style={{
+                    ...inputStyle, paddingRight: 36,
+                    borderColor: confirmarSenha && !senhasIguais ? "rgba(239,68,68,0.6)" : confirmarSenha && senhasIguais ? "rgba(16,185,129,0.5)" : undefined,
+                  }}
+                />
+                <button type="button" onClick={() => setMostrarConfirm((v) => !v)}
+                  style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "var(--color-text-secondary)", padding: 2 }}>
+                  {mostrarConfirm ? "🙈" : "👁"}
+                </button>
+              </div>
+              {confirmarSenha && !senhasIguais && <div style={{ fontSize: 11, color: "#EF4444", marginTop: 5 }}>As senhas não coincidem.</div>}
+              {confirmarSenha && senhasIguais   && <div style={{ fontSize: 11, color: "#10B981", marginTop: 5 }}>✓ As senhas coincidem.</div>}
+            </div>
+
+            <button
+              onClick={salvarSenha}
+              disabled={salvandoSenha || !todosReqs || !senhasIguais || !novaSenha}
+              style={{
+                padding: "10px 28px", borderRadius: 9, width: "fit-content",
+                background: salvoSenha ? "rgba(5,150,105,0.1)" : !todosReqs || !senhasIguais || !novaSenha ? "var(--color-border-secondary)" : "#2563EB",
+                color: salvoSenha ? "#059669" : !todosReqs || !senhasIguais || !novaSenha ? "var(--color-text-secondary)" : "#fff",
+                border: salvoSenha ? "0.5px solid rgba(5,150,105,0.4)" : "none",
+                fontSize: 13, fontWeight: 700,
+                cursor: salvandoSenha || !todosReqs || !senhasIguais || !novaSenha ? "not-allowed" : "pointer",
+                transition: "all 0.2s",
+              }}
+            >
+              {salvandoSenha ? "Salvando…" : salvoSenha ? "✓ Senha alterada!" : "Alterar senha"}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
