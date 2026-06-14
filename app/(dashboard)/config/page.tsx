@@ -10,7 +10,7 @@ import { inputStyle } from "@/lib/styles";
 import { mascaraMoeda, parseMoeda, formatarMoeda } from "@/lib/moeda";
 import { DoacaoDev } from "../_components/DoacaoDev";
 
-type Tab = "categorias" | "venda" | "entrega" | "identidade" | "pagamentos" | "seguranca";
+type Tab = "categorias" | "venda" | "entrega" | "identidade" | "pagamentos" | "seguranca" | "mensagens";
 
 // ── Gerenciador de categorias ────────────────────────────────────────────────
 function Categorias() {
@@ -407,6 +407,140 @@ function ConfigEntrega() {
         }}
       >
         {saving ? "Salvando…" : "Salvar mensagem padrão"}
+      </button>
+    </div>
+  );
+}
+
+// ── Modelos de mensagem ───────────────────────────────────────────────────────
+const DEFS_TEMPLATE = [
+  {
+    id: "link",
+    nome: "Enviar link de acesso",
+    icone: "🔗",
+    quando: "Quando o fotógrafo reenvia o link da galeria ao cliente.",
+    variaveis: "{nomeCliente}, {titulo}, {link}, {nomeEmpresa}",
+    padrao: "Olá, {nomeCliente}!\n\nSuas fotos de {titulo} estão disponíveis para acesso.\n\nClique no link abaixo para visualizar e baixar:\n{link}\n\nQualquer dúvida, estou à disposição.\n\nAtenciosamente,\n{nomeEmpresa}",
+  },
+  {
+    id: "pronta",
+    nome: "Galeria pronta",
+    icone: "📸",
+    quando: "Quando as fotos ficam prontas e o fotógrafo quer notificar o cliente.",
+    variaveis: "{nomeCliente}, {titulo}, {link}, {nomeEmpresa}",
+    padrao: "Olá, {nomeCliente}!\n\nTenho uma ótima notícia: as fotos de {titulo} estão prontas!\n\nAcesse sua galeria pelo link abaixo:\n{link}\n\nFoi um prazer fotografar esse momento especial. Espero que você curta muito as imagens!\n\nAtenciosamente,\n{nomeEmpresa}",
+  },
+  {
+    id: "expirando",
+    nome: "Prazo expirando",
+    icone: "⏰",
+    quando: "Quando o acesso à galeria vai expirar em breve.",
+    variaveis: "{nomeCliente}, {titulo}, {link}, {nomeEmpresa}, {prazo} (ex: hoje / amanhã / em 5 dias)",
+    padrao: "Olá, {nomeCliente}!\n\nPassando para avisar que seu acesso à galeria {titulo} expira {prazo}.\n\nAproveite para baixar suas fotos antes que o prazo encerre:\n{link}\n\nSe precisar de mais tempo, entre em contato comigo.\n\nAtenciosamente,\n{nomeEmpresa}",
+  },
+  {
+    id: "suspensa",
+    nome: "Galeria suspensa",
+    icone: "🔒",
+    quando: "Quando o fotógrafo suspende o acesso à galeria.",
+    variaveis: "{nomeCliente}, {titulo}, {nomeEmpresa}",
+    padrao: "Olá, {nomeCliente}!\n\nInformo que o acesso à galeria {titulo} foi temporariamente suspenso.\n\nCaso queira reativar o acesso, entre em contato comigo.\n\nAtenciosamente,\n{nomeEmpresa}",
+  },
+  {
+    id: "campanha",
+    nome: "Campanha de reativação",
+    icone: "📢",
+    quando: "Campanha para galerias suspensas — pergunta ao cliente se ainda precisa das fotos.",
+    variaveis: "{nomeCliente}, {titulo}, {respostaUrl}, {nomeEmpresa}",
+    padrao: "Olá, {nomeCliente}!\n\nEntramos em contato sobre as fotos de {titulo}.\n\nDevido ao aumento nos custos de armazenamento, precisamos entender se você ainda precisa das imagens.\n\nPor favor, acesse o link abaixo e nos diga:\n{respostaUrl}\n\n✅ Já tenho meus arquivos salvos\n🔄 Quero renovar meu acesso\n\nAtenciosamente,\n{nomeEmpresa}",
+  },
+] as const;
+
+function MensagensConfig() {
+  const { fotografo, reload } = useFotografo();
+  const [templates, setTemplates] = useState<Record<string, string>>({});
+  const [saving,    setSaving]    = useState(false);
+  const [saved,     setSaved]     = useState(false);
+
+  useEffect(() => {
+    if (fotografo?.templates_mensagem) {
+      setTemplates(fotografo.templates_mensagem as Record<string, string>);
+    }
+  }, [fotografo]);
+
+  async function salvar() {
+    if (!fotografo) return;
+    setSaving(true);
+    const supabase = createClient();
+    const payload = Object.fromEntries(Object.entries(templates).filter(([, v]) => v.trim()));
+    await supabase
+      .from("fotografos")
+      .update({ templates_mensagem: Object.keys(payload).length ? payload : null })
+      .eq("id", fotografo.id);
+    await reload();
+    setSaving(false);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 3000);
+  }
+
+  function restaurar(id: string) {
+    setTemplates((t) => { const next = { ...t }; delete next[id]; return next; });
+  }
+
+  return (
+    <div>
+      <p style={{ fontSize: 13, color: "var(--color-text-secondary)", marginTop: 0, marginBottom: 24, lineHeight: 1.6 }}>
+        Personalize os textos usados no modal de envio de email/WhatsApp para clientes. Deixe em branco para usar o texto padrão do sistema.
+      </p>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+        {DEFS_TEMPLATE.map((def) => {
+          const temCustom = !!(templates[def.id]?.trim());
+          return (
+            <div key={def.id} style={{ border: "0.5px solid var(--color-border-secondary)", borderRadius: 10, overflow: "hidden" }}>
+              <div style={{ padding: "12px 16px", background: "var(--color-background-secondary)", borderBottom: "0.5px solid var(--color-border-tertiary)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: "var(--color-text-primary)" }}>{def.icone} {def.nome}</span>
+                  <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 10, background: temCustom ? "rgba(37,99,235,0.1)" : "rgba(0,0,0,0.06)", color: temCustom ? "#2563EB" : "var(--color-text-secondary)", fontWeight: 600 }}>
+                    {temCustom ? "Personalizado" : "Padrão do sistema"}
+                  </span>
+                </div>
+                {temCustom && (
+                  <button
+                    onClick={() => restaurar(def.id)}
+                    style={{ fontSize: 11, color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: "2px 6px", borderRadius: 4 }}
+                  >
+                    Restaurar padrão
+                  </button>
+                )}
+              </div>
+              <div style={{ padding: "14px 16px" }}>
+                <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: "0 0 10px", lineHeight: 1.5 }}>{def.quando}</p>
+                <textarea
+                  value={templates[def.id] ?? ""}
+                  onChange={(e) => setTemplates((t) => ({ ...t, [def.id]: e.target.value }))}
+                  placeholder={def.padrao}
+                  rows={7}
+                  style={{ ...inputStyle, width: "100%", boxSizing: "border-box", resize: "vertical", lineHeight: 1.6, fontFamily: "inherit", fontSize: 12 }}
+                />
+                <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: "6px 0 0" }}>
+                  Variáveis disponíveis:{" "}
+                  <code style={{ fontSize: 10, background: "var(--color-background-secondary)", padding: "1px 5px", borderRadius: 3 }}>{def.variaveis}</code>
+                </p>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {saved && <div style={{ fontSize: 13, color: "#059669", marginTop: 16 }}>✓ Modelos salvos!</div>}
+
+      <button
+        onClick={salvar}
+        disabled={saving}
+        style={{ marginTop: 20, padding: "10px 28px", borderRadius: 8, background: saving ? "#93C5FD" : "#2563EB", color: "#fff", border: "none", fontSize: 13, fontWeight: 700, cursor: saving ? "not-allowed" : "pointer" }}
+      >
+        {saving ? "Salvando…" : "Salvar modelos"}
       </button>
     </div>
   );
@@ -835,6 +969,7 @@ export default function ConfigPage() {
     { id: "identidade",  label: "Identidade visual",     icon: "🎨" },
     { id: "venda",       label: "Venda de fotos extras",  icon: "💰" },
     { id: "entrega",     label: "Galerias de entrega",    icon: "📦" },
+    { id: "mensagens",   label: "Modelos de mensagem",   icon: "✉️" },
     { id: "pagamentos",  label: "Pagamentos (Asaas)",     icon: "💳" },
     { id: "seguranca",   label: "Segurança",              icon: "🔐" },
   ];
@@ -901,6 +1036,7 @@ export default function ConfigPage() {
           {tab === "identidade"  && <IdentidadeVisual />}
           {tab === "venda"       && <VendaFotos />}
           {tab === "entrega"     && <ConfigEntrega />}
+          {tab === "mensagens"   && <MensagensConfig />}
           {tab === "pagamentos"  && <ConfigPagamentos />}
           {tab === "seguranca"   && <AlterarSenha />}
         </div>

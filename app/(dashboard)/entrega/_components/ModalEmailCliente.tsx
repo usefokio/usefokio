@@ -72,6 +72,17 @@ const TEMPLATES: Template[] = [
   },
 ];
 
+function substituirVars(texto: string, vars: TemplateVars & { prazo: string }): string {
+  return texto
+    .replace(/\{nomeCliente\}/g, vars.nomeCliente)
+    .replace(/\{titulo\}/g, vars.titulo)
+    .replace(/\{link\}/g, vars.link)
+    .replace(/\{nomeEmpresa\}/g, vars.nomeEmpresa)
+    .replace(/\{respostaUrl\}/g, vars.respostaUrl)
+    .replace(/\{prazo\}/g, vars.prazo)
+    .replace(/\{diasRestantes\}/g, vars.diasRestantes !== null ? String(vars.diasRestantes) : "");
+}
+
 type TokenInfo = {
   token: string;
   estagio: EstagioFunil;
@@ -117,8 +128,14 @@ export function ModalEmailCliente({ galeria, onFechar, templateInicial, onEstagi
   const diasRestantes = galeria.expires_at
     ? Math.round((new Date(galeria.expires_at).getTime() - Date.now()) / 86_400_000)
     : null;
+  const prazo = diasRestantes !== null
+    ? diasRestantes === 0 ? "hoje"
+      : diasRestantes === 1 ? "amanhã"
+      : `em ${diasRestantes} dias`
+    : "em breve";
 
   async function selecionarTemplate(t: Template) {
+    const customText = (fotografo?.templates_mensagem as Record<string, string> | null)?.[t.id];
     if (t.id === "campanha") {
       setLoadingToken(true);
       try {
@@ -129,13 +146,13 @@ export function ModalEmailCliente({ galeria, onFechar, templateInicial, onEstagi
           ? `${window.location.origin}/campanha/resposta/${info.token}`
           : `/campanha/resposta/${info.token}`;
         const vars: TemplateVars = { nomeCliente, titulo: galeria.titulo, link, respostaUrl, diasRestantes, nomeEmpresa };
-        setMensagem(t.corpo(vars));
+        setMensagem(customText ? substituirVars(customText, { ...vars, prazo }) : t.corpo(vars));
       } finally {
         setLoadingToken(false);
       }
     } else {
       const vars: TemplateVars = { nomeCliente, titulo: galeria.titulo, link, respostaUrl: "", diasRestantes, nomeEmpresa };
-      setMensagem(t.corpo(vars));
+      setMensagem(customText ? substituirVars(customText, { ...vars, prazo }) : t.corpo(vars));
     }
     setTemplateId(t.id);
   }

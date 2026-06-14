@@ -32,6 +32,7 @@ export type Fotografo = {
   aprovado: boolean;
   mensagem_padrao_entrega: string | null;
   renewal_fee_padrao: number | null;
+  templates_mensagem: { link?: string; pronta?: string; expirando?: string; suspensa?: string; campanha?: string } | null;
   asaas_api_key_enc: string | null;
   asaas_ambiente: "producao" | "sandbox";
   asaas_ativo: boolean;
