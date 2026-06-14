@@ -315,39 +315,17 @@ export default function CampanhaPage() {
                             </button>
                           )}
                           {col.id === "concluido" && (
-                            <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                              {/* Tarefa de Drive */}
-                              {item.galeria.drive_link && (
-                                item.drive_revogado ? (
-                                  <div style={{ fontSize: 10, color: "#059669", fontWeight: 600, textAlign: "center", padding: "4px 0" }}>
-                                    ✓ Drive revogado
-                                  </div>
-                                ) : (
-                                  <button
-                                    onClick={() => marcarDriveRevogado(item.galeria.id)}
-                                    style={{
-                                      width: "100%", padding: "6px 0", borderRadius: 7, fontSize: 11, fontWeight: 600,
-                                      border: "0.5px solid rgba(220,38,38,0.4)",
-                                      background: "rgba(220,38,38,0.06)",
-                                      color: "#DC2626", cursor: "pointer",
-                                    }}
-                                  >
-                                    🔗 Revogar acesso Drive
-                                  </button>
-                                )
-                              )}
-                              <button
-                                onClick={() => router.push(`/entrega/${item.galeria.id}`)}
-                                style={{
-                                  width: "100%", padding: "6px 0", borderRadius: 7, fontSize: 11, fontWeight: 600,
-                                  border: "0.5px solid var(--color-border-secondary)",
-                                  background: "transparent",
-                                  color: "var(--color-text-secondary)", cursor: "pointer",
-                                }}
-                              >
-                                Ver galeria →
-                              </button>
-                            </div>
+                            <button
+                              onClick={() => router.push(`/entrega/${item.galeria.id}`)}
+                              style={{
+                                width: "100%", padding: "6px 0", borderRadius: 7, fontSize: 11, fontWeight: 600,
+                                border: "0.5px solid var(--color-border-secondary)",
+                                background: "transparent",
+                                color: "var(--color-text-secondary)", cursor: "pointer",
+                              }}
+                            >
+                              Ver galeria →
+                            </button>
                           )}
 
                           {/* Mover para outra coluna */}
