@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { inputStyle } from "@/lib/styles";
@@ -178,6 +178,13 @@ export function ClienteSelect({
   const [clientes,    setClientes]    = useState<Cliente[]>([]);
   const [loading,     setLoading]     = useState(true);
   const [modalAberto, setModalAberto] = useState(false);
+  const [busca,       setBusca]       = useState("");
+  const [aberto,      setAberto]      = useState(false);
+  const [foco,        setFoco]        = useState(-1);
+
+  const inputRef    = useRef<HTMLInputElement>(null);
+  const listaRef    = useRef<HTMLDivElement>(null);
+  const wrapperRef  = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!fotografo) return;
@@ -193,35 +200,168 @@ export function ClienteSelect({
       });
   }, [fotografo]);
 
+  // Fecha ao clicar fora
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
+        fechar();
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  const clienteSelecionado = clientes.find((c) => c.id === value) ?? null;
+
+  const filtrados = busca.trim()
+    ? clientes.filter((c) => c.nome.toLowerCase().includes(busca.toLowerCase()))
+    : clientes;
+
+  function abrir() {
+    setBusca("");
+    setFoco(-1);
+    setAberto(true);
+    setTimeout(() => inputRef.current?.focus(), 0);
+  }
+
+  function fechar() {
+    setAberto(false);
+    setBusca("");
+    setFoco(-1);
+  }
+
+  function selecionar(c: Cliente) {
+    onChange(c.id, c);
+    fechar();
+  }
+
+  function limpar() {
+    onChange("", null);
+    setBusca("");
+    setAberto(false);
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setFoco((f) => Math.min(f + 1, filtrados.length - 1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setFoco((f) => Math.max(f - 1, -1));
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      if (foco >= 0 && filtrados[foco]) selecionar(filtrados[foco]);
+      else if (filtrados.length === 1) selecionar(filtrados[0]);
+    } else if (e.key === "Escape") {
+      fechar();
+    }
+  }
+
+  // Rola o item focado para visível
+  useEffect(() => {
+    if (foco < 0 || !listaRef.current) return;
+    const item = listaRef.current.children[foco] as HTMLElement;
+    item?.scrollIntoView({ block: "nearest" });
+  }, [foco]);
+
   function handleClienteCriado(c: Cliente) {
     setClientes((prev) => [...prev, c].sort((a, b) => a.nome.localeCompare(b.nome)));
     onChange(c.id, c);
     setModalAberto(false);
+    fechar();
   }
-
-  const clienteSelecionado = clientes.find((c) => c.id === value) ?? null;
 
   return (
     <>
-      <div style={{ display: "flex", gap: 7 }}>
-        <select
-          value={value}
-          onChange={(e) => {
-            const c = clientes.find((c) => c.id === e.target.value) ?? null;
-            onChange(e.target.value, c);
-          }}
-          disabled={loading}
-          style={{ ...inputStyle, flex: 1 }}
-        >
-          <option value="">
-            {loading ? "Carregando clientes…" : "Selecionar cliente…"}
-          </option>
-          {clientes.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.nome}
-            </option>
-          ))}
-        </select>
+      <div style={{ display: "flex", gap: 7 }} ref={wrapperRef}>
+        {/* Combobox */}
+        <div style={{ flex: 1, position: "relative" }}>
+          {aberto ? (
+            /* Campo de busca */
+            <input
+              ref={inputRef}
+              type="text"
+              value={busca}
+              onChange={(e) => { setBusca(e.target.value); setFoco(-1); }}
+              onKeyDown={handleKeyDown}
+              placeholder="Digite para buscar…"
+              style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }}
+              autoComplete="off"
+            />
+          ) : (
+            /* Exibição do valor selecionado ou placeholder */
+            <button
+              type="button"
+              onClick={abrir}
+              disabled={loading}
+              style={{
+                ...inputStyle,
+                width: "100%", textAlign: "left", cursor: "pointer",
+                display: "flex", alignItems: "center", justifyContent: "space-between",
+                color: clienteSelecionado ? "var(--color-text-primary)" : "var(--color-text-secondary)",
+              }}
+            >
+              <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {loading ? "Carregando clientes…" : (clienteSelecionado?.nome ?? "Selecionar cliente…")}
+              </span>
+              <span style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0, marginLeft: 6 }}>
+                {clienteSelecionado && (
+                  <span
+                    role="button"
+                    onClick={(e) => { e.stopPropagation(); limpar(); }}
+                    style={{ fontSize: 14, color: "var(--color-text-secondary)", lineHeight: 1, padding: "0 2px" }}
+                    title="Remover cliente"
+                  >
+                    ×
+                  </span>
+                )}
+                <span style={{ fontSize: 10, color: "var(--color-text-secondary)" }}>▼</span>
+              </span>
+            </button>
+          )}
+
+          {/* Dropdown */}
+          {aberto && (
+            <div
+              ref={listaRef}
+              style={{
+                position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, zIndex: 40,
+                background: "var(--color-background-primary)",
+                border: "0.5px solid var(--color-border-secondary)",
+                borderRadius: 10, boxShadow: "0 4px 20px rgba(0,0,0,0.15)",
+                maxHeight: 220, overflowY: "auto",
+              }}
+            >
+              {filtrados.length === 0 ? (
+                <div style={{ padding: "12px 14px", fontSize: 13, color: "var(--color-text-secondary)" }}>
+                  {busca ? `Nenhum cliente encontrado para "${busca}"` : "Nenhum cliente cadastrado"}
+                </div>
+              ) : (
+                filtrados.map((c, i) => (
+                  <div
+                    key={c.id}
+                    onMouseDown={() => selecionar(c)}
+                    onMouseEnter={() => setFoco(i)}
+                    style={{
+                      padding: "10px 14px", cursor: "pointer", fontSize: 13,
+                      background: i === foco ? "var(--color-background-secondary)" : "transparent",
+                      borderBottom: i < filtrados.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none",
+                    }}
+                  >
+                    <div style={{ fontWeight: 500, color: "var(--color-text-primary)" }}>{c.nome}</div>
+                    {(c.email || c.telefone) && (
+                      <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 2 }}>
+                        {c.email && <span>{c.email}</span>}
+                        {c.email && c.telefone && <span> · </span>}
+                        {c.telefone && <span>{c.telefone}</span>}
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+        </div>
 
         <button
           type="button"
@@ -242,7 +382,7 @@ export function ClienteSelect({
       </div>
 
       {/* Info do cliente selecionado */}
-      {clienteSelecionado && (
+      {clienteSelecionado && !aberto && (
         <div style={{
           marginTop: 7, fontSize: 12, color: "var(--color-text-secondary)",
           display: "flex", gap: 12,
