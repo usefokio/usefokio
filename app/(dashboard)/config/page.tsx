@@ -439,12 +439,28 @@ const DEFS_TEMPLATE = [
     padrao: "Olá, {nomeCliente}!\n\nInformo que o acesso à galeria {titulo} foi temporariamente suspenso.\n\nCaso queira reativar o acesso, entre em contato comigo.\n\nAtenciosamente,\n{nomeEmpresa}",
   },
   {
-    id: "campanha",
-    nome: "Campanha de reativação",
-    icone: "📢",
-    quando: "Campanha para galerias suspensas — pergunta ao cliente se ainda precisa das fotos.",
+    id: "campanha_email1",
+    nome: "Campanha — 1º email",
+    icone: "📧",
+    quando: "Primeiro contato da campanha de reativação — enviado quando o fotógrafo inicia o funil.",
     variaveis: "{nomeCliente}, {titulo}, {respostaUrl}, {nomeEmpresa}",
-    padrao: "Olá, {nomeCliente}!\n\nEntramos em contato sobre as fotos de {titulo}.\n\nDevido ao aumento nos custos de armazenamento, precisamos entender se você ainda precisa das imagens.\n\nPor favor, acesse o link abaixo e nos diga:\n{respostaUrl}\n\n✅ Já tenho meus arquivos salvos\n🔄 Quero renovar meu acesso\n\nAtenciosamente,\n{nomeEmpresa}",
+    padrao: "Olá, {nomeCliente}!\n\nTudo bem? Passando para falar sobre as fotos de {titulo}.\n\nTemos sua galeria salva aqui, mas com o aumento dos custos de armazenamento, precisamos entender a situação antes de tomar uma decisão.\n\nPode nos dizer o que prefere?\n{respostaUrl}\n\n✅ Já tenho meus arquivos salvos — pode remover\n🔄 Ainda preciso acessar — quero renovar\n\nAté breve,\n{nomeEmpresa}",
+  },
+  {
+    id: "campanha_email2",
+    nome: "Campanha — 2º email",
+    icone: "📧",
+    quando: "Segundo contato da campanha (10 dias após o 1º email) — tom mais urgente.",
+    variaveis: "{nomeCliente}, {titulo}, {respostaUrl}, {nomeEmpresa}",
+    padrao: "Olá, {nomeCliente}!\n\nEnviamos um email há alguns dias sobre as fotos de {titulo} e ainda não recebemos sua resposta.\n\nPrecisamos de um posicionamento antes de tomar uma decisão sobre esses arquivos.\n\nPor favor, acesse o link e nos informe:\n{respostaUrl}\n\n✅ Já tenho meus arquivos — tudo certo\n🔄 Quero renovar meu acesso às fotos\n\nAguardamos seu retorno,\n{nomeEmpresa}",
+  },
+  {
+    id: "campanha_whatsapp",
+    nome: "Campanha — WhatsApp",
+    icone: "📱",
+    quando: "Mensagem de WhatsApp (4 dias após o 2º email) — menciona as tentativas anteriores por email.",
+    variaveis: "{nomeCliente}, {titulo}, {respostaUrl}, {nomeEmpresa}, {dataEmail1}, {dataEmail2}",
+    padrao: "Olá, {nomeCliente}! Tudo bem?\n\nSou {nomeEmpresa} e estou tentando falar com você sobre as fotos de {titulo}.\n\nEnviei emails nos dias {dataEmail1} e {dataEmail2}, mas ainda não recebi resposta. Caso não tenha recebido, verifique a pasta de spam.\n\nPreciso que você me diga o que prefere fazer com esses arquivos — é rapidinho:\n{respostaUrl}\n\n✅ Já tenho minhas fotos salvas\n🔄 Quero renovar o acesso\n\nObrigado!",
   },
 ] as const;
 
