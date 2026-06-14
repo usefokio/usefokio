@@ -162,7 +162,7 @@ export function ModalEmailCliente({ galeria, onFechar, templateInicial, onEstagi
     }
   }
 
-  async function avancarEstagio() {
+  async function avancarEstagio(opts?: { fecharDepois?: boolean }) {
     if (!tokenInfo || avancando) return;
     setAvancando(true);
     try {
@@ -171,18 +171,23 @@ export function ModalEmailCliente({ galeria, onFechar, templateInicial, onEstagi
       if (res.ok) {
         setTokenInfo((prev) => prev ? { ...prev, ...data } : prev);
         onEstagioAvancado?.(data);
+        if (opts?.fecharDepois) onFechar();
       }
     } finally {
       setAvancando(false);
     }
   }
 
-  function abrirNoEmail() {
+  async function abrirNoEmail() {
     if (!email || !templateId) return;
     const template = TEMPLATES.find((t) => t.id === templateId)!;
     const assunto  = template.assunto.replace("{titulo}", galeria.titulo);
-    const mailto   = `mailto:${email}?subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(mensagem)}`;
-    window.open(mailto);
+    window.open(`mailto:${email}?subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(mensagem)}`);
+    // Campanha: avança e fecha o modal ao abrir o email
+    if (templateId === "campanha" && tokenInfo &&
+        (tokenInfo.estagio === "nao_contatado" || tokenInfo.estagio === "email_1")) {
+      await avancarEstagio({ fecharDepois: true });
+    }
   }
 
   async function copiarMensagem() {
@@ -191,16 +196,19 @@ export function ModalEmailCliente({ galeria, onFechar, templateInicial, onEstagi
     setTimeout(() => setCopiado(false), 2000);
   }
 
-  function abrirWhatsApp() {
+  async function abrirWhatsApp() {
     if (!tokenInfo) return;
     const numero = galeria.clientes?.whatsapp ?? galeria.clientes?.telefone ?? null;
-    const texto  = mensagem;
     if (numero) {
       const numLimpo = numero.replace(/\D/g, "");
       const prefixo  = numLimpo.startsWith("55") ? numLimpo : `55${numLimpo}`;
-      window.open(`https://wa.me/${prefixo}?text=${encodeURIComponent(texto)}`);
+      window.open(`https://wa.me/${prefixo}?text=${encodeURIComponent(mensagem)}`);
+      // Campanha email_2: avança para whatsapp e fecha o modal
+      if (templateId === "campanha" && tokenInfo.estagio === "email_2") {
+        await avancarEstagio({ fecharDepois: true });
+      }
     } else {
-      navigator.clipboard.writeText(texto);
+      await navigator.clipboard.writeText(mensagem);
       setWhatsCopiado(true);
       setTimeout(() => setWhatsCopiado(false), 2000);
     }
@@ -401,12 +409,14 @@ export function ModalEmailCliente({ galeria, onFechar, templateInicial, onEstagi
                 );
               })()}
 
-              {/* Botão Marcar como enviado — só para campanha, esconde se encerrado ou respondeu */}
+              {/* Marcar como enviado — só aparece se não há email (fallback para copiar) ou no estágio whatsapp (encerrar) */}
               {templateId === "campanha" && tokenInfo && tokenInfo.estagio !== "encerrado" && !tokenInfo.resposta && (
+                tokenInfo.estagio === "whatsapp" || !email
+              ) && (
                 <BotaoAvancarEstagio
                   estagio={tokenInfo.estagio}
                   avancando={avancando}
-                  onClick={avancarEstagio}
+                  onClick={() => avancarEstagio({ fecharDepois: true })}
                 />
               )}
 
