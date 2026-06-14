@@ -253,20 +253,25 @@ export default function CampanhaPage() {
                         >
                           {/* Capa + título + remover */}
                           <div style={{ display: "flex", gap: 8, marginBottom: 8, alignItems: "flex-start" }}>
-                            {item.galeria.foto_capa_url ? (
-                              <img src={item.galeria.foto_capa_url} alt="" style={{ width: 32, height: 32, borderRadius: 6, objectFit: "cover", flexShrink: 0 }} />
-                            ) : (
-                              <div style={{ width: 32, height: 32, borderRadius: 6, background: corCapa, flexShrink: 0 }} />
-                            )}
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{ fontSize: 12, fontWeight: 600, color: "var(--color-text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                                {item.galeria.titulo}
-                              </div>
-                              {item.galeria.cliente_nome && (
-                                <div style={{ fontSize: 11, color: "var(--color-text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                                  {item.galeria.cliente_nome}
-                                </div>
+                            <div
+                              onClick={() => router.push(`/entrega/${item.galeria.id}`)}
+                              style={{ display: "flex", gap: 8, flex: 1, minWidth: 0, cursor: "pointer" }}
+                            >
+                              {item.galeria.foto_capa_url ? (
+                                <img src={item.galeria.foto_capa_url} alt="" style={{ width: 32, height: 32, borderRadius: 6, objectFit: "cover", flexShrink: 0 }} />
+                              ) : (
+                                <div style={{ width: 32, height: 32, borderRadius: 6, background: corCapa, flexShrink: 0 }} />
                               )}
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ fontSize: 12, fontWeight: 600, color: "var(--color-text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                  {item.galeria.titulo}
+                                </div>
+                                {item.galeria.cliente_nome && (
+                                  <div style={{ fontSize: 11, color: "var(--color-text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                    {item.galeria.cliente_nome}
+                                  </div>
+                                )}
+                              </div>
                             </div>
                             <button
                               onClick={() => removerDoFunil(item.galeria.id)}
