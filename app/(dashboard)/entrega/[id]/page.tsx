@@ -193,7 +193,7 @@ export default function EntregaDetailPage() {
   const [galeria,  setGaleria]  = useState<any>(null);
   const [fotos,    setFotos]    = useState<GaleriaEntregaFoto[]>([]);
   const [acessos,  setAcessos]  = useState<{ id: string; nome: string; email: string; acessado_em: string }[]>([]);
-  const [funilInfo, setFunilInfo] = useState<{ estagio: string; resposta: string | null; respondido_em: string | null; respondido_nome: string | null; email_1_em: string | null; email_2_em: string | null; whatsapp_em: string | null } | null | undefined>(undefined);
+  const [funilInfo, setFunilInfo] = useState<{ estagio: string; resposta: string | null; respondido_em: string | null; respondido_nome: string | null; email_1_em: string | null; email_2_em: string | null; whatsapp_em: string | null; ignorar_funil: boolean } | null | undefined>(undefined);
   const [loading,  setLoading]  = useState(true);
   const [copiado,  setCopiado]  = useState(false);
   const [modalLista, setModalLista] = useState(false);
@@ -223,10 +223,9 @@ export default function EntregaDetailPage() {
         .eq("galeria_id", id)
         .order("acessado_em", { ascending: false }),
       supabase.from("respostas_campanha")
-        .select("estagio, resposta, respondido_em, respondido_nome, email_1_em, email_2_em, whatsapp_em")
+        .select("estagio, resposta, respondido_em, respondido_nome, email_1_em, email_2_em, whatsapp_em, ignorar_funil")
         .eq("galeria_id", id)
         .eq("fotografo_id", fotografo.id)
-        .eq("ignorar_funil", false)
         .maybeSingle(),
     ]).then(([{ data: g }, f, { data: a }, { data: funil }]) => {
       if (!g) { router.replace("/entrega"); return; }
@@ -369,8 +368,28 @@ export default function EntregaDetailPage() {
         );
       })()}
 
-      {/* Funil de Campanha */}
-      {funilInfo !== undefined && funilInfo !== null && (() => {
+      {/* Funil de Campanha — removida */}
+      {funilInfo !== undefined && funilInfo !== null && funilInfo.ignorar_funil && (
+        <div style={{ background: "rgba(107,114,128,0.06)", border: "0.5px solid rgba(107,114,128,0.2)", borderRadius: 10, padding: "12px 18px", marginBottom: 14, display: "flex", alignItems: "center", gap: 12 }}>
+          <span style={{ fontSize: 16 }}>📢</span>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-secondary)" }}>Funil de campanha — removida</div>
+            <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 2 }}>Esta galeria foi removida do funil manualmente.</div>
+          </div>
+          <button
+            onClick={async () => {
+              await fetch(`/api/campanha/galeria/${id}/reativar`, { method: "POST" });
+              setFunilInfo((prev) => prev ? { ...prev, ignorar_funil: false } : prev);
+            }}
+            style={{ fontSize: 11, fontWeight: 600, color: "#2563EB", padding: "5px 14px", borderRadius: 7, border: "0.5px solid rgba(37,99,235,0.35)", background: "rgba(37,99,235,0.06)", cursor: "pointer", whiteSpace: "nowrap" }}
+          >
+            + Adicionar ao funil
+          </button>
+        </div>
+      )}
+
+      {/* Funil de Campanha — ativo */}
+      {funilInfo !== undefined && funilInfo !== null && !funilInfo.ignorar_funil && (() => {
         const ESTAGIO_INFO: Record<string, { label: string; icone: string; cor: string; bg: string; border: string }> = {
           nao_contatado: { label: "Sem contato",        icone: "⏳", cor: "#6B7280", bg: "rgba(107,114,128,0.07)", border: "rgba(107,114,128,0.25)" },
           email_1:       { label: "1º email enviado",   icone: "📧", cor: "#7C3AED", bg: "rgba(124,58,237,0.07)", border: "rgba(124,58,237,0.25)" },
@@ -412,7 +431,7 @@ export default function EntregaDetailPage() {
               <button
                 onClick={async () => {
                   await fetch(`/api/campanha/galeria/${id}`, { method: "DELETE" });
-                  setFunilInfo(null);
+                  setFunilInfo((prev) => prev ? { ...prev, ignorar_funil: true } : null);
                 }}
                 title="Remover do funil"
                 style={{ fontSize: 11, fontWeight: 600, color: "#EF4444", padding: "4px 10px", borderRadius: 7, border: "0.5px solid rgba(239,68,68,0.35)", background: "transparent", cursor: "pointer" }}
