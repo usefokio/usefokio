@@ -144,7 +144,7 @@ export default function EntregaPage() {
     const supabase = createClient();
     const { data } = await supabase
       .from("galerias_entrega")
-      .select("*, clientes(nome, email, telefone, whatsapp), respostas_campanha(token, resposta, respondido_em)")
+      .select("*, clientes(nome, email, telefone, whatsapp), respostas_campanha(token, estagio, resposta, respondido_em)")
       .eq("fotografo_id", fotografo.id)
       .eq("rascunho", false);
     setGalerias((data as GaleriaEntrega[]) ?? []);
@@ -395,16 +395,36 @@ export default function EntregaPage() {
                 <div style={{ flex: 1, minWidth: 0, cursor: "pointer" }} onClick={() => router.push(`/entrega/${g.id}`)}>
                   <div style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 6 }}>
                     <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{g.titulo}</span>
-                    {g.respostas_campanha?.[0]?.resposta === "tem_arquivos" && (
-                      <span title="Cliente confirmou: já tem os arquivos" style={{ flexShrink: 0, fontSize: 10, fontWeight: 600, padding: "2px 7px", borderRadius: 20, background: "rgba(16,185,129,0.12)", color: "#059669" }}>
-                        ✓ tem arquivos
-                      </span>
-                    )}
-                    {g.respostas_campanha?.[0]?.resposta === "renovar" && (
-                      <span title="Cliente quer renovar o acesso" style={{ flexShrink: 0, fontSize: 10, fontWeight: 600, padding: "2px 7px", borderRadius: 20, background: "rgba(37,99,235,0.10)", color: "#2563EB" }}>
-                        🔄 quer renovar
-                      </span>
-                    )}
+                    {(() => {
+                      const rc = g.respostas_campanha?.[0];
+                      if (!rc) return null;
+                      if (rc.resposta === "tem_arquivos") return (
+                        <span title="Cliente confirmou: já tem os arquivos" style={{ flexShrink: 0, fontSize: 10, fontWeight: 600, padding: "2px 7px", borderRadius: 20, background: "rgba(16,185,129,0.12)", color: "#059669" }}>
+                          ✓ tem arquivos
+                        </span>
+                      );
+                      if (rc.estagio === "encerrado") return (
+                        <span title="Encerrado sem resposta" style={{ flexShrink: 0, fontSize: 10, fontWeight: 600, padding: "2px 7px", borderRadius: 20, background: "rgba(107,114,128,0.10)", color: "#6B7280" }}>
+                          encerrado
+                        </span>
+                      );
+                      if (rc.estagio === "whatsapp") return (
+                        <span title="WhatsApp enviado — aguardando resposta" style={{ flexShrink: 0, fontSize: 10, fontWeight: 600, padding: "2px 7px", borderRadius: 20, background: "rgba(34,197,94,0.10)", color: "#15803D" }}>
+                          📱 whatsapp
+                        </span>
+                      );
+                      if (rc.estagio === "email_2") return (
+                        <span title="2 emails enviados — aguardando resposta" style={{ flexShrink: 0, fontSize: 10, fontWeight: 600, padding: "2px 7px", borderRadius: 20, background: "rgba(124,58,237,0.08)", color: "#7C3AED" }}>
+                          📧×2
+                        </span>
+                      );
+                      if (rc.estagio === "email_1") return (
+                        <span title="1 email enviado — aguardando resposta" style={{ flexShrink: 0, fontSize: 10, fontWeight: 600, padding: "2px 7px", borderRadius: 20, background: "rgba(124,58,237,0.08)", color: "#7C3AED" }}>
+                          📧×1
+                        </span>
+                      );
+                      return null;
+                    })()}
                   </div>
                   <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 1 }}>
                     {g.clientes ? g.clientes.nome : "Sem cliente"}

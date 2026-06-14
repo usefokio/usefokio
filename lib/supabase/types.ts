@@ -90,11 +90,17 @@ export type Categoria = {
   created_at: string;
 };
 
+export type EstagioFunil = "nao_contatado" | "email_1" | "email_2" | "whatsapp" | "encerrado";
+
 export type RespostaCampanha = {
   id: string;
   galeria_id: string;
   fotografo_id: string;
   token: string;
+  estagio: EstagioFunil;
+  email_1_em: string | null;
+  email_2_em: string | null;
+  whatsapp_em: string | null;
   resposta: "renovar" | "tem_arquivos" | null;
   respondido_em: string | null;
   respondido_nome: string | null;
@@ -130,7 +136,7 @@ export type GaleriaEntrega = {
   updated_at: string;
   // joined
   clientes?: { nome: string; email: string | null; telefone: string | null; whatsapp: string | null } | null;
-  respostas_campanha?: { token: string; resposta: "renovar" | "tem_arquivos" | null; respondido_em: string | null }[] | null;
+  respostas_campanha?: { token: string; estagio: EstagioFunil; resposta: "renovar" | "tem_arquivos" | null; respondido_em: string | null }[] | null;
 };
 
 export type Pagamento = {

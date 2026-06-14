@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useFotografo } from "@/lib/context/FotografoContext";
-import type { GaleriaEntrega } from "@/lib/supabase/types";
+import type { GaleriaEntrega, EstagioFunil } from "@/lib/supabase/types";
 
 type TemplateId = "link" | "pronta" | "expirando" | "suspensa" | "campanha";
 
@@ -74,19 +74,33 @@ const TEMPLATES: Template[] = [
 
 type TokenInfo = {
   token: string;
+  estagio: EstagioFunil;
+  email_1_em: string | null;
+  email_2_em: string | null;
+  whatsapp_em: string | null;
   resposta: "renovar" | "tem_arquivos" | null;
   respondido_em: string | null;
   respondido_nome: string | null;
 };
 
-export function ModalEmailCliente({ galeria, onFechar }: { galeria: GaleriaEntrega; onFechar: () => void }) {
+export function ModalEmailCliente({ galeria, onFechar, templateInicial }: { galeria: GaleriaEntrega; onFechar: () => void; templateInicial?: TemplateId }) {
   const { fotografo } = useFotografo();
-  const [templateId,   setTemplateId]   = useState<TemplateId | null>(null);
+  const [templateId,   setTemplateId]   = useState<TemplateId | null>(templateInicial ?? null);
   const [mensagem,     setMensagem]     = useState("");
   const [copiado,      setCopiado]      = useState(false);
   const [tokenInfo,    setTokenInfo]    = useState<TokenInfo | null>(null);
   const [loadingToken, setLoadingToken] = useState(false);
   const [whatsCopiado, setWhatsCopiado] = useState(false);
+  const [avancando,    setAvancando]    = useState(false);
+
+  // Quando abrir direto no template campanha, carregar o token automaticamente
+  useEffect(() => {
+    if (templateInicial === "campanha") {
+      const t = TEMPLATES.find((t) => t.id === "campanha")!;
+      selecionarTemplate(t);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const email        = galeria.clientes?.email ?? null;
   const nomeCliente  = galeria.clientes?.nome ?? "Cliente";
@@ -125,6 +139,18 @@ export function ModalEmailCliente({ galeria, onFechar }: { galeria: GaleriaEntre
     setMensagem("");
     setCopiado(false);
     setTokenInfo(null);
+  }
+
+  async function avancarEstagio() {
+    if (!tokenInfo || avancando) return;
+    setAvancando(true);
+    try {
+      const res = await fetch(`/api/campanha/galeria/${galeria.id}/estagio`, { method: "PATCH" });
+      const data = await res.json();
+      if (res.ok) setTokenInfo((prev) => prev ? { ...prev, ...data } : prev);
+    } finally {
+      setAvancando(false);
+    }
   }
 
   function abrirNoEmail() {
@@ -263,6 +289,12 @@ export function ModalEmailCliente({ galeria, onFechar }: { galeria: GaleriaEntre
         ) : (
           /* Tela 2: composição */
           <div style={{ padding: "16px 24px 24px" }}>
+
+            {/* Indicador de estágio — só para campanha */}
+            {templateId === "campanha" && tokenInfo && (
+              <EstagioIndicador estagio={tokenInfo.estagio} resposta={tokenInfo.resposta} />
+            )}
+
             {/* To: */}
             <div style={{ marginBottom: 14 }}>
               <div style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>Para</div>
@@ -319,29 +351,134 @@ export function ModalEmailCliente({ galeria, onFechar }: { galeria: GaleriaEntre
                 )}
               </div>
 
-              {/* Botão WhatsApp — só para template campanha */}
-              {templateId === "campanha" && (
-                <button
-                  onClick={abrirWhatsApp}
-                  style={{
-                    width: "100%", padding: "9px 0", borderRadius: 8, fontSize: 13, fontWeight: 600,
-                    border: "0.5px solid rgba(34,197,94,0.4)",
-                    background: whatsCopiado ? "rgba(34,197,94,0.10)" : "rgba(34,197,94,0.06)",
-                    color: whatsCopiado ? "#16A34A" : "#15803D",
-                    cursor: "pointer",
-                  }}
-                >
-                  {whatsCopiado
-                    ? "✓ Mensagem copiada!"
-                    : (galeria.clientes?.whatsapp ?? galeria.clientes?.telefone)
-                      ? "📱 Enviar via WhatsApp"
-                      : "📋 Copiar para WhatsApp"}
-                </button>
+              {/* Botão WhatsApp — só para template campanha, ativo só no estágio certo */}
+              {templateId === "campanha" && (() => {
+                const whatsHabilitado = tokenInfo?.estagio === "email_2";
+                const whatsLabel = whatsCopiado
+                  ? "✓ Mensagem copiada!"
+                  : (galeria.clientes?.whatsapp ?? galeria.clientes?.telefone)
+                    ? "📱 Enviar via WhatsApp"
+                    : "📋 Copiar para WhatsApp";
+                return (
+                  <button
+                    onClick={whatsHabilitado ? abrirWhatsApp : undefined}
+                    title={!whatsHabilitado ? "Disponível após enviar os 2 emails" : undefined}
+                    style={{
+                      width: "100%", padding: "9px 0", borderRadius: 8, fontSize: 13, fontWeight: 600,
+                      border: "0.5px solid rgba(34,197,94,0.4)",
+                      background: whatsCopiado ? "rgba(34,197,94,0.10)" : "rgba(34,197,94,0.06)",
+                      color: whatsCopiado ? "#16A34A" : "#15803D",
+                      cursor: whatsHabilitado ? "pointer" : "default",
+                      opacity: whatsHabilitado ? 1 : 0.4,
+                    }}
+                  >
+                    {whatsLabel}
+                  </button>
+                );
+              })()}
+
+              {/* Botão Marcar como enviado — só para campanha, esconde se encerrado ou respondeu */}
+              {templateId === "campanha" && tokenInfo && tokenInfo.estagio !== "encerrado" && !tokenInfo.resposta && (
+                <BotaoAvancarEstagio
+                  estagio={tokenInfo.estagio}
+                  avancando={avancando}
+                  onClick={avancarEstagio}
+                />
               )}
             </div>
           </div>
         )}
       </div>
     </div>
+  );
+}
+
+// ── Componentes auxiliares ────────────────────────────────────────────────────
+
+const PASSOS: { estagio: EstagioFunil; label: string; icone: string }[] = [
+  { estagio: "email_1",  label: "1º Email",  icone: "📧" },
+  { estagio: "email_2",  label: "2º Email",  icone: "📧" },
+  { estagio: "whatsapp", label: "WhatsApp",  icone: "📱" },
+  { estagio: "encerrado",label: "Encerrado", icone: "✓"  },
+];
+
+const ORDEM: EstagioFunil[] = ["nao_contatado", "email_1", "email_2", "whatsapp", "encerrado"];
+
+function EstagioIndicador({ estagio, resposta }: { estagio: EstagioFunil; resposta: "renovar" | "tem_arquivos" | null }) {
+  const idxAtual = ORDEM.indexOf(estagio);
+
+  if (resposta === "tem_arquivos") {
+    return (
+      <div style={{ marginBottom: 14, padding: "10px 12px", borderRadius: 8, background: "rgba(16,185,129,0.08)", border: "0.5px solid rgba(16,185,129,0.3)", fontSize: 12, color: "#059669", fontWeight: 600 }}>
+        ✅ Cliente confirmou: já tem os arquivos
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ marginBottom: 14, padding: "10px 12px", borderRadius: 8, background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-secondary)" }}>
+      <div style={{ fontSize: 10, fontWeight: 600, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>
+        Sequência de contato
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 0 }}>
+        {PASSOS.map((passo, i) => {
+          const idxPasso = ORDEM.indexOf(passo.estagio);
+          const concluido = idxAtual > idxPasso;
+          const atual     = idxAtual === idxPasso;
+          const futuro    = idxAtual < idxPasso;
+          return (
+            <div key={passo.estagio} style={{ display: "flex", alignItems: "center", flex: i < PASSOS.length - 1 ? 1 : undefined }}>
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
+                <div style={{
+                  width: 28, height: 28, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: 12, fontWeight: 700,
+                  background: concluido ? "#111" : atual ? "rgba(37,99,235,0.12)" : "transparent",
+                  border: concluido ? "none" : atual ? "2px solid #2563EB" : "1.5px solid var(--color-border-secondary)",
+                  color: concluido ? "#fff" : atual ? "#2563EB" : "var(--color-text-secondary)",
+                  opacity: futuro ? 0.45 : 1,
+                }}>
+                  {concluido ? "✓" : passo.icone}
+                </div>
+                <span style={{ fontSize: 9, color: atual ? "#2563EB" : "var(--color-text-secondary)", fontWeight: atual ? 700 : 400, whiteSpace: "nowrap" }}>
+                  {passo.label}
+                </span>
+              </div>
+              {i < PASSOS.length - 1 && (
+                <div style={{ flex: 1, height: 1.5, background: concluido ? "#111" : "var(--color-border-secondary)", margin: "0 4px", marginBottom: 16, opacity: futuro ? 0.3 : 1 }} />
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+const LABEL_BOTAO: Partial<Record<EstagioFunil, string>> = {
+  nao_contatado: "✓ Marcar 1º email como enviado",
+  email_1:       "✓ Marcar 2º email como enviado",
+  email_2:       "✓ Marcar WhatsApp como enviado",
+  whatsapp:      "✓ Encerrar — sem resposta do cliente",
+};
+
+function BotaoAvancarEstagio({ estagio, avancando, onClick }: { estagio: EstagioFunil; avancando: boolean; onClick: () => void }) {
+  const label = LABEL_BOTAO[estagio];
+  if (!label) return null;
+  const isEncerrar = estagio === "whatsapp";
+  return (
+    <button
+      onClick={onClick}
+      disabled={avancando}
+      style={{
+        width: "100%", padding: "9px 0", borderRadius: 8, fontSize: 12, fontWeight: 600,
+        border: `0.5px solid ${isEncerrar ? "rgba(107,114,128,0.4)" : "rgba(37,99,235,0.35)"}`,
+        background: isEncerrar ? "rgba(107,114,128,0.06)" : "rgba(37,99,235,0.06)",
+        color: isEncerrar ? "#6B7280" : "#2563EB",
+        cursor: avancando ? "default" : "pointer",
+        opacity: avancando ? 0.6 : 1,
+      }}
+    >
+      {avancando ? "Salvando…" : label}
+    </button>
   );
 }
