@@ -64,6 +64,7 @@ export default function CampanhaPage() {
   const [loading,        setLoading]        = useState(true);
   const [modalGaleriaId, setModalGaleriaId] = useState<string | null>(null);
   const [recarregarKey,  setRecarregarKey]  = useState(0);
+  const [movendoId,      setMovendoId]      = useState<string | null>(null);
 
   useEffect(() => {
     if (!fotografo) return;
@@ -115,6 +116,21 @@ export default function CampanhaPage() {
   // Atualiza o estágio do item diretamente no estado local (move o card imediatamente)
   function atualizarEstagio(galeriaId: string, patch: Partial<CampanhaItem>) {
     setItens((prev) => prev.map((i) => i.galeria.id === galeriaId ? { ...i, ...patch } : i));
+  }
+
+  async function moverCard(galeriaId: string, novoEstagio: EstagioFunil) {
+    setMovendoId(galeriaId);
+    try {
+      const res = await fetch(`/api/campanha/galeria/${galeriaId}/estagio`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ estagio: novoEstagio }),
+      });
+      const data = await res.json();
+      if (res.ok) atualizarEstagio(galeriaId, data);
+    } finally {
+      setMovendoId(null);
+    }
   }
 
   function fecharModal() {
@@ -257,6 +273,27 @@ export default function CampanhaPage() {
                               Ver galeria →
                             </button>
                           )}
+
+                          {/* Mover para outra coluna */}
+                          <select
+                            value={item.estagio}
+                            disabled={movendoId === item.galeria.id}
+                            onChange={(e) => moverCard(item.galeria.id, e.target.value as EstagioFunil)}
+                            style={{
+                              width: "100%", padding: "5px 6px", borderRadius: 7, fontSize: 10,
+                              border: "0.5px solid var(--color-border-secondary)",
+                              background: "var(--color-background-secondary)",
+                              color: "var(--color-text-secondary)",
+                              cursor: movendoId === item.galeria.id ? "default" : "pointer",
+                              marginTop: 4,
+                            }}
+                          >
+                            <option value="nao_contatado">⏳ Sem contato</option>
+                            <option value="email_1">📧 1º Email</option>
+                            <option value="email_2">📧 2º Email</option>
+                            <option value="whatsapp">📱 WhatsApp</option>
+                            <option value="encerrado">✓ Encerrado</option>
+                          </select>
                         </div>
                       );
                     })
