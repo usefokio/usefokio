@@ -92,6 +92,7 @@ export function ModalEmailCliente({ galeria, onFechar, templateInicial }: { gale
   const [loadingToken, setLoadingToken] = useState(false);
   const [whatsCopiado, setWhatsCopiado] = useState(false);
   const [avancando,    setAvancando]    = useState(false);
+  const [reiniciando,  setReiniciando]  = useState(false);
 
   // Quando abrir direto no template campanha, carregar o token automaticamente
   useEffect(() => {
@@ -139,6 +140,18 @@ export function ModalEmailCliente({ galeria, onFechar, templateInicial }: { gale
     setMensagem("");
     setCopiado(false);
     setTokenInfo(null);
+  }
+
+  async function reiniciarCiclo() {
+    if (!tokenInfo || reiniciando) return;
+    setReiniciando(true);
+    try {
+      const res = await fetch(`/api/campanha/galeria/${galeria.id}/reset`, { method: "POST" });
+      const data = await res.json();
+      if (res.ok) setTokenInfo((prev) => prev ? { ...prev, ...data } : prev);
+    } finally {
+      setReiniciando(false);
+    }
   }
 
   async function avancarEstagio() {
@@ -384,6 +397,24 @@ export function ModalEmailCliente({ galeria, onFechar, templateInicial }: { gale
                   avancando={avancando}
                   onClick={avancarEstagio}
                 />
+              )}
+
+              {/* Reiniciar ciclo — aparece quando já encerrado ou cliente já respondeu */}
+              {templateId === "campanha" && tokenInfo && (tokenInfo.resposta !== null || tokenInfo.estagio === "encerrado") && (
+                <button
+                  onClick={reiniciarCiclo}
+                  disabled={reiniciando}
+                  style={{
+                    width: "100%", padding: "9px 0", borderRadius: 8, fontSize: 12, fontWeight: 600,
+                    border: "0.5px solid rgba(107,114,128,0.35)",
+                    background: "transparent",
+                    color: "var(--color-text-secondary)",
+                    cursor: reiniciando ? "default" : "pointer",
+                    opacity: reiniciando ? 0.6 : 1,
+                  }}
+                >
+                  {reiniciando ? "Reiniciando…" : "🔄 Reiniciar ciclo de contato"}
+                </button>
               )}
             </div>
           </div>
