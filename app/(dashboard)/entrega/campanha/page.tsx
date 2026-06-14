@@ -60,49 +60,47 @@ const CORES_CAPA = ["#7C6E5A","#5A6E7C","#6E5A7C","#5A7C6E","#7C5A6E","#6E7C5A"]
 export default function CampanhaPage() {
   const router = useRouter();
   const { fotografo } = useFotografo();
-  const [itens,   setItens]   = useState<CampanhaItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [itens,          setItens]          = useState<CampanhaItem[]>([]);
+  const [loading,        setLoading]        = useState(true);
   const [modalGaleriaId, setModalGaleriaId] = useState<string | null>(null);
+  const [recarregarKey,  setRecarregarKey]  = useState(0);
 
-  async function carregar() {
+  useEffect(() => {
     if (!fotografo) return;
     const supabase = createClient();
-    const { data } = await supabase
+    supabase
       .from("respostas_campanha")
       .select("id, token, estagio, resposta, respondido_em, email_1_em, email_2_em, whatsapp_em, created_at, galerias_entrega(id, titulo, foto_capa_url, cover_color, data_evento, clientes(nome, email, telefone, whatsapp))")
       .eq("fotografo_id", fotografo.id)
-      .order("created_at", { ascending: false });
-
-    if (!data) { setLoading(false); return; }
-
-    const mapped: CampanhaItem[] = (data as any[]).map((r) => ({
-      id:           r.id,
-      token:        r.token,
-      estagio:      r.estagio as EstagioFunil,
-      resposta:     r.resposta,
-      respondido_em: r.respondido_em,
-      email_1_em:   r.email_1_em,
-      email_2_em:   r.email_2_em,
-      whatsapp_em:  r.whatsapp_em,
-      created_at:   r.created_at,
-      galeria: {
-        id:               r.galerias_entrega?.id ?? "",
-        titulo:           r.galerias_entrega?.titulo ?? "—",
-        foto_capa_url:    r.galerias_entrega?.foto_capa_url ?? null,
-        cover_color:      r.galerias_entrega?.cover_color ?? null,
-        data_evento:      r.galerias_entrega?.data_evento ?? null,
-        cliente_nome:     r.galerias_entrega?.clientes?.nome ?? null,
-        cliente_email:    r.galerias_entrega?.clientes?.email ?? null,
-        cliente_telefone: r.galerias_entrega?.clientes?.telefone ?? null,
-        cliente_whatsapp: r.galerias_entrega?.clientes?.whatsapp ?? null,
-      },
-    }));
-
-    setItens(mapped);
-    setLoading(false);
-  }
-
-  useEffect(() => { carregar(); }, [fotografo]);
+      .order("created_at", { ascending: false })
+      .then(({ data }) => {
+        if (!data) { setLoading(false); return; }
+        const mapped: CampanhaItem[] = (data as any[]).map((r) => ({
+          id:            r.id,
+          token:         r.token,
+          estagio:       r.estagio as EstagioFunil,
+          resposta:      r.resposta,
+          respondido_em: r.respondido_em,
+          email_1_em:    r.email_1_em,
+          email_2_em:    r.email_2_em,
+          whatsapp_em:   r.whatsapp_em,
+          created_at:    r.created_at,
+          galeria: {
+            id:               r.galerias_entrega?.id ?? "",
+            titulo:           r.galerias_entrega?.titulo ?? "—",
+            foto_capa_url:    r.galerias_entrega?.foto_capa_url ?? null,
+            cover_color:      r.galerias_entrega?.cover_color ?? null,
+            data_evento:      r.galerias_entrega?.data_evento ?? null,
+            cliente_nome:     r.galerias_entrega?.clientes?.nome ?? null,
+            cliente_email:    r.galerias_entrega?.clientes?.email ?? null,
+            cliente_telefone: r.galerias_entrega?.clientes?.telefone ?? null,
+            cliente_whatsapp: r.galerias_entrega?.clientes?.whatsapp ?? null,
+          },
+        }));
+        setItens(mapped);
+        setLoading(false);
+      });
+  }, [fotografo, recarregarKey]);
 
   function colunaDeItem(item: CampanhaItem): string {
     if (item.resposta === "tem_arquivos" || item.estagio === "encerrado") return "concluido";
@@ -114,14 +112,14 @@ export default function CampanhaPage() {
     return acc;
   }, {});
 
-  const galeriaParaModal = modalGaleriaId
-    ? ({ id: itens.find((i) => i.galeria.id === modalGaleriaId)?.galeria.id } as GaleriaEntrega)
-    : null;
+  // Atualiza o estágio do item diretamente no estado local (move o card imediatamente)
+  function atualizarEstagio(galeriaId: string, patch: Partial<CampanhaItem>) {
+    setItens((prev) => prev.map((i) => i.galeria.id === galeriaId ? { ...i, ...patch } : i));
+  }
 
-  // Quando o modal fecha, recarrega para atualizar estágios
   function fecharModal() {
     setModalGaleriaId(null);
-    carregar();
+    setRecarregarKey((k) => k + 1);
   }
 
   return (
@@ -295,6 +293,7 @@ export default function CampanhaPage() {
             galeria={galeriaFake}
             onFechar={fecharModal}
             templateInicial="campanha"
+            onEstagioAvancado={(patch) => atualizarEstagio(item.galeria.id, patch)}
           />
         );
       })()}

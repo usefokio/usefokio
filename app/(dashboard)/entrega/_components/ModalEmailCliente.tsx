@@ -83,7 +83,12 @@ type TokenInfo = {
   respondido_nome: string | null;
 };
 
-export function ModalEmailCliente({ galeria, onFechar, templateInicial }: { galeria: GaleriaEntrega; onFechar: () => void; templateInicial?: TemplateId }) {
+export function ModalEmailCliente({ galeria, onFechar, templateInicial, onEstagioAvancado }: {
+  galeria: GaleriaEntrega;
+  onFechar: () => void;
+  templateInicial?: TemplateId;
+  onEstagioAvancado?: (patch: { estagio: EstagioFunil; email_1_em: string | null; email_2_em: string | null; whatsapp_em: string | null; resposta: "renovar" | "tem_arquivos" | null }) => void;
+}) {
   const { fotografo } = useFotografo();
   const [templateId,   setTemplateId]   = useState<TemplateId | null>(templateInicial ?? null);
   const [mensagem,     setMensagem]     = useState("");
@@ -148,7 +153,10 @@ export function ModalEmailCliente({ galeria, onFechar, templateInicial }: { gale
     try {
       const res = await fetch(`/api/campanha/galeria/${galeria.id}/reset`, { method: "POST" });
       const data = await res.json();
-      if (res.ok) setTokenInfo((prev) => prev ? { ...prev, ...data } : prev);
+      if (res.ok) {
+        setTokenInfo((prev) => prev ? { ...prev, ...data } : prev);
+        onEstagioAvancado?.(data);
+      }
     } finally {
       setReiniciando(false);
     }
@@ -160,7 +168,10 @@ export function ModalEmailCliente({ galeria, onFechar, templateInicial }: { gale
     try {
       const res = await fetch(`/api/campanha/galeria/${galeria.id}/estagio`, { method: "PATCH" });
       const data = await res.json();
-      if (res.ok) setTokenInfo((prev) => prev ? { ...prev, ...data } : prev);
+      if (res.ok) {
+        setTokenInfo((prev) => prev ? { ...prev, ...data } : prev);
+        onEstagioAvancado?.(data);
+      }
     } finally {
       setAvancando(false);
     }
