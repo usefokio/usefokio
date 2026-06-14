@@ -16,6 +16,7 @@ type CampanhaItem = {
   email_1_em: string | null;
   email_2_em: string | null;
   whatsapp_em: string | null;
+  drive_revogado: boolean;
   created_at: string;
   galeria: {
     id: string;
@@ -23,6 +24,7 @@ type CampanhaItem = {
     foto_capa_url: string | null;
     cover_color: string | null;
     data_evento: string | null;
+    drive_link: string | null;
     cliente_nome: string | null;
     cliente_email: string | null;
     cliente_telefone: string | null;
@@ -69,38 +71,66 @@ export default function CampanhaPage() {
   useEffect(() => {
     if (!fotografo) return;
     const supabase = createClient();
-    supabase
-      .from("respostas_campanha")
-      .select("id, token, estagio, resposta, respondido_em, email_1_em, email_2_em, whatsapp_em, created_at, galerias_entrega(id, titulo, foto_capa_url, cover_color, data_evento, clientes(nome, email, telefone, whatsapp))")
-      .eq("fotografo_id", fotografo.id)
-      .order("created_at", { ascending: false })
-      .then(({ data }) => {
-        if (!data) { setLoading(false); return; }
-        const mapped: CampanhaItem[] = (data as any[]).map((r) => ({
-          id:            r.id,
-          token:         r.token,
-          estagio:       r.estagio as EstagioFunil,
-          resposta:      r.resposta,
-          respondido_em: r.respondido_em,
-          email_1_em:    r.email_1_em,
-          email_2_em:    r.email_2_em,
-          whatsapp_em:   r.whatsapp_em,
-          created_at:    r.created_at,
-          galeria: {
-            id:               r.galerias_entrega?.id ?? "",
-            titulo:           r.galerias_entrega?.titulo ?? "—",
-            foto_capa_url:    r.galerias_entrega?.foto_capa_url ?? null,
-            cover_color:      r.galerias_entrega?.cover_color ?? null,
-            data_evento:      r.galerias_entrega?.data_evento ?? null,
-            cliente_nome:     r.galerias_entrega?.clientes?.nome ?? null,
-            cliente_email:    r.galerias_entrega?.clientes?.email ?? null,
-            cliente_telefone: r.galerias_entrega?.clientes?.telefone ?? null,
-            cliente_whatsapp: r.galerias_entrega?.clientes?.whatsapp ?? null,
-          },
-        }));
-        setItens(mapped);
-        setLoading(false);
-      });
+
+    async function carregar() {
+      // 1. Auto-enroll suspended/expired galleries that aren't in the funnel yet
+      const { data: todasGalerias } = await supabase
+        .from("galerias_entrega")
+        .select("id, suspensa, expires_at, respostas_campanha(id)")
+        .eq("fotografo_id", fotografo!.id)
+        .eq("rascunho", false);
+
+      if (todasGalerias) {
+        const agora = new Date();
+        const semFunil = (todasGalerias as any[]).filter((g) => {
+          if (g.respostas_campanha && g.respostas_campanha.length > 0) return false;
+          const expirada = g.expires_at && new Date(g.expires_at) < agora;
+          return g.suspensa || expirada;
+        });
+        if (semFunil.length > 0) {
+          await Promise.all(
+            semFunil.map((g: any) => fetch(`/api/campanha/galeria/${g.id}`).catch(() => {}))
+          );
+        }
+      }
+
+      // 2. Load funnel records
+      const { data } = await supabase
+        .from("respostas_campanha")
+        .select("id, token, estagio, resposta, respondido_em, email_1_em, email_2_em, whatsapp_em, drive_revogado, created_at, galerias_entrega(id, titulo, foto_capa_url, cover_color, data_evento, drive_link, clientes(nome, email, telefone, whatsapp))")
+        .eq("fotografo_id", fotografo!.id)
+        .order("created_at", { ascending: false });
+
+      if (!data) { setLoading(false); return; }
+      const mapped: CampanhaItem[] = (data as any[]).map((r) => ({
+        id:            r.id,
+        token:         r.token,
+        estagio:       r.estagio as EstagioFunil,
+        resposta:      r.resposta,
+        respondido_em: r.respondido_em,
+        email_1_em:    r.email_1_em,
+        email_2_em:    r.email_2_em,
+        whatsapp_em:   r.whatsapp_em,
+        drive_revogado: r.drive_revogado ?? false,
+        created_at:    r.created_at,
+        galeria: {
+          id:               r.galerias_entrega?.id ?? "",
+          titulo:           r.galerias_entrega?.titulo ?? "—",
+          foto_capa_url:    r.galerias_entrega?.foto_capa_url ?? null,
+          cover_color:      r.galerias_entrega?.cover_color ?? null,
+          data_evento:      r.galerias_entrega?.data_evento ?? null,
+          drive_link:       r.galerias_entrega?.drive_link ?? null,
+          cliente_nome:     r.galerias_entrega?.clientes?.nome ?? null,
+          cliente_email:    r.galerias_entrega?.clientes?.email ?? null,
+          cliente_telefone: r.galerias_entrega?.clientes?.telefone ?? null,
+          cliente_whatsapp: r.galerias_entrega?.clientes?.whatsapp ?? null,
+        },
+      }));
+      setItens(mapped);
+      setLoading(false);
+    }
+
+    carregar();
   }, [fotografo, recarregarKey]);
 
   function colunaDeItem(item: CampanhaItem): string {
@@ -116,6 +146,16 @@ export default function CampanhaPage() {
   // Atualiza o estágio do item diretamente no estado local (move o card imediatamente)
   function atualizarEstagio(galeriaId: string, patch: Partial<CampanhaItem>) {
     setItens((prev) => prev.map((i) => i.galeria.id === galeriaId ? { ...i, ...patch } : i));
+  }
+
+  async function removerDoFunil(galeriaId: string) {
+    await fetch(`/api/campanha/galeria/${galeriaId}`, { method: "DELETE" });
+    setItens((prev) => prev.filter((i) => i.galeria.id !== galeriaId));
+  }
+
+  async function marcarDriveRevogado(galeriaId: string) {
+    await fetch(`/api/campanha/galeria/${galeriaId}/drive-ok`, { method: "POST" });
+    setItens((prev) => prev.map((i) => i.galeria.id === galeriaId ? { ...i, drive_revogado: true } : i));
   }
 
   async function moverCard(galeriaId: string, novoEstagio: EstagioFunil) {
@@ -211,7 +251,7 @@ export default function CampanhaPage() {
                             borderRadius: 10, padding: "10px 11px",
                           }}
                         >
-                          {/* Capa + título */}
+                          {/* Capa + título + remover */}
                           <div style={{ display: "flex", gap: 8, marginBottom: 8, alignItems: "flex-start" }}>
                             {item.galeria.foto_capa_url ? (
                               <img src={item.galeria.foto_capa_url} alt="" style={{ width: 32, height: 32, borderRadius: 6, objectFit: "cover", flexShrink: 0 }} />
@@ -228,6 +268,15 @@ export default function CampanhaPage() {
                                 </div>
                               )}
                             </div>
+                            <button
+                              onClick={() => removerDoFunil(item.galeria.id)}
+                              title="Remover do funil"
+                              style={{ flexShrink: 0, background: "none", border: "none", cursor: "pointer", color: "var(--color-text-secondary)", fontSize: 14, lineHeight: 1, padding: "0 2px", opacity: 0.4 }}
+                              onMouseEnter={(e) => { e.currentTarget.style.opacity = "1"; e.currentTarget.style.color = "#EF4444"; }}
+                              onMouseLeave={(e) => { e.currentTarget.style.opacity = "0.4"; e.currentTarget.style.color = "var(--color-text-secondary)"; }}
+                            >
+                              ×
+                            </button>
                           </div>
 
                           {/* Info */}
@@ -261,17 +310,39 @@ export default function CampanhaPage() {
                             </button>
                           )}
                           {col.id === "concluido" && (
-                            <button
-                              onClick={() => router.push(`/entrega/${item.galeria.id}`)}
-                              style={{
-                                width: "100%", padding: "6px 0", borderRadius: 7, fontSize: 11, fontWeight: 600,
-                                border: "0.5px solid var(--color-border-secondary)",
-                                background: "transparent",
-                                color: "var(--color-text-secondary)", cursor: "pointer",
-                              }}
-                            >
-                              Ver galeria →
-                            </button>
+                            <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                              {/* Tarefa de Drive */}
+                              {item.galeria.drive_link && (
+                                item.drive_revogado ? (
+                                  <div style={{ fontSize: 10, color: "#059669", fontWeight: 600, textAlign: "center", padding: "4px 0" }}>
+                                    ✓ Drive revogado
+                                  </div>
+                                ) : (
+                                  <button
+                                    onClick={() => marcarDriveRevogado(item.galeria.id)}
+                                    style={{
+                                      width: "100%", padding: "6px 0", borderRadius: 7, fontSize: 11, fontWeight: 600,
+                                      border: "0.5px solid rgba(220,38,38,0.4)",
+                                      background: "rgba(220,38,38,0.06)",
+                                      color: "#DC2626", cursor: "pointer",
+                                    }}
+                                  >
+                                    🔗 Revogar acesso Drive
+                                  </button>
+                                )
+                              )}
+                              <button
+                                onClick={() => router.push(`/entrega/${item.galeria.id}`)}
+                                style={{
+                                  width: "100%", padding: "6px 0", borderRadius: 7, fontSize: 11, fontWeight: 600,
+                                  border: "0.5px solid var(--color-border-secondary)",
+                                  background: "transparent",
+                                  color: "var(--color-text-secondary)", cursor: "pointer",
+                                }}
+                              >
+                                Ver galeria →
+                              </button>
+                            </div>
                           )}
 
                           {/* Mover para outra coluna */}

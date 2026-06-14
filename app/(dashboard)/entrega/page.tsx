@@ -137,6 +137,7 @@ export default function EntregaPage() {
   const [recarregarKey,  setRecarregarKey]  = useState(0);
   const [deletarId,      setDeletarId]      = useState<string | null>(null);
   const [deletando,      setDeletando]      = useState(false);
+  const [suspenderPendenteId, setSuspenderPendenteId] = useState<string | null>(null);
 
   const CORES = ["#7C6E5A","#5A6E7C","#6E5A7C","#5A7C6E","#7C5A6E","#6E7C5A"];
 
@@ -148,21 +149,46 @@ export default function EntregaPage() {
       .select("*, clientes(nome, email, telefone, whatsapp), respostas_campanha(token, estagio, resposta, respondido_em)")
       .eq("fotografo_id", fotografo.id)
       .eq("rascunho", false);
-    setGalerias((data as GaleriaEntrega[]) ?? []);
+    const lista = (data as GaleriaEntrega[]) ?? [];
+    setGalerias(lista);
     setLoading(false);
+    // Auto-enroll suspended or expired galleries that aren't in the funnel yet
+    const semFunil = lista.filter((g) => {
+      if (g.respostas_campanha && (g.respostas_campanha as any[]).length > 0) return false;
+      const ehSuspensa = g.suspensa;
+      const ehExpirada = !g.suspensa && g.expires_at && new Date(g.expires_at) < new Date();
+      return ehSuspensa || ehExpirada;
+    });
+    semFunil.forEach((g) => fetch(`/api/campanha/galeria/${g.id}`).catch(() => {}));
   }
 
   useEffect(() => { carregar(); }, [fotografo, recarregarKey]);
 
   async function toggleSuspender(id: string, suspensa: boolean, renovacao_dias: number) {
-    const supabase = createClient();
     if (suspensa) {
+      // Reativar: faz direto, sem modal
+      const supabase = createClient();
       const novaExpiracao = new Date(Date.now() + renovacao_dias * 86_400_000).toISOString();
       await supabase.from("galerias_entrega").update({ suspensa: false, expires_at: novaExpiracao }).eq("id", id);
       setGalerias((prev) => prev.map((g) => g.id === id ? { ...g, suspensa: false, expires_at: novaExpiracao } : g));
     } else {
-      await supabase.from("galerias_entrega").update({ suspensa: true, expires_at: null }).eq("id", id);
-      setGalerias((prev) => prev.map((g) => g.id === id ? { ...g, suspensa: true, expires_at: null } : g));
+      // Suspender: abre modal de confirmação
+      setSuspenderPendenteId(id);
+    }
+  }
+
+  async function confirmarSuspender(id: string, adicionarAoFunil: boolean) {
+    setSuspenderPendenteId(null);
+    const supabase = createClient();
+    await supabase.from("galerias_entrega").update({ suspensa: true, expires_at: null }).eq("id", id);
+    setGalerias((prev) => prev.map((g) => g.id === id ? { ...g, suspensa: true, expires_at: null } : g));
+    if (adicionarAoFunil) {
+      await fetch(`/api/campanha/galeria/${id}`).catch(() => {});
+      setGalerias((prev) => prev.map((g) =>
+        g.id === id && !(g.respostas_campanha as any[])?.length
+          ? { ...g, respostas_campanha: [{ token: "", estagio: "nao_contatado", resposta: null, respondido_em: null }] }
+          : g
+      ));
     }
   }
 
@@ -535,6 +561,47 @@ export default function EntregaPage() {
       {deletarId && (() => {
         const g = galerias.find((g) => g.id === deletarId);
         return g ? <ModalExcluir titulo={g.titulo} onConfirmar={() => deletar(g.id)} onFechar={() => setDeletarId(null)} deletando={deletando} /> : null;
+      })()}
+
+      {suspenderPendenteId && (() => {
+        const g = galerias.find((g) => g.id === suspenderPendenteId);
+        if (!g) return null;
+        const jaNoFunil = !!(g.respostas_campanha as any[])?.length;
+        return (
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50 }} onClick={() => setSuspenderPendenteId(null)}>
+            <div onClick={(e) => e.stopPropagation()} style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 14, padding: "26px 28px", width: 400, boxShadow: "0 8px 40px rgba(0,0,0,0.18)" }}>
+              <h3 style={{ margin: "0 0 6px", fontSize: 15, fontWeight: 700, color: "var(--color-text-primary)" }}>
+                Suspender galeria
+              </h3>
+              <p style={{ margin: "0 0 20px", fontSize: 13, color: "var(--color-text-secondary)", lineHeight: 1.6 }}>
+                O acesso de <strong style={{ color: "var(--color-text-primary)" }}>{g.titulo}</strong> será suspenso imediatamente.
+                {!jaNoFunil && " Deseja também adicionar esta galeria ao funil de campanha para acompanhar o contato com o cliente?"}
+              </p>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {!jaNoFunil && (
+                  <button
+                    onClick={() => confirmarSuspender(g.id, true)}
+                    style={{ width: "100%", padding: "10px", borderRadius: 8, border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}
+                  >
+                    📢 Suspender e adicionar ao funil
+                  </button>
+                )}
+                <button
+                  onClick={() => confirmarSuspender(g.id, false)}
+                  style={{ width: "100%", padding: "10px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "transparent", fontSize: 13, fontWeight: jaNoFunil ? 600 : 400, color: "var(--color-text-primary)", cursor: "pointer" }}
+                >
+                  {jaNoFunil ? "Suspender" : "Apenas suspender"}
+                </button>
+                <button
+                  onClick={() => setSuspenderPendenteId(null)}
+                  style={{ width: "100%", padding: "9px", borderRadius: 8, border: "none", background: "transparent", fontSize: 12, color: "var(--color-text-secondary)", cursor: "pointer" }}
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          </div>
+        );
       })()}
     </div>
   );

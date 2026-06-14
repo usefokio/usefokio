@@ -43,3 +43,21 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 
   return NextResponse.json(registro);
 }
+
+export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ erro: "Não autenticado." }, { status: 401 });
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("respostas_campanha")
+    .delete()
+    .eq("galeria_id", id)
+    .eq("fotografo_id", user.id);
+
+  if (error) return NextResponse.json({ erro: error.message }, { status: 500 });
+  return NextResponse.json({ ok: true });
+}

@@ -106,6 +106,7 @@ export type RespostaCampanha = {
   respondido_nome: string | null;
   respondido_email: string | null;
   notificado: boolean;
+  drive_revogado: boolean;
   created_at: string;
 };
 

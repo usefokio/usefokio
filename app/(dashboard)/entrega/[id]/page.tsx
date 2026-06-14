@@ -193,6 +193,7 @@ export default function EntregaDetailPage() {
   const [galeria,  setGaleria]  = useState<any>(null);
   const [fotos,    setFotos]    = useState<GaleriaEntregaFoto[]>([]);
   const [acessos,  setAcessos]  = useState<{ id: string; nome: string; email: string; acessado_em: string }[]>([]);
+  const [funilInfo, setFunilInfo] = useState<{ estagio: string; resposta: string | null; respondido_em: string | null; respondido_nome: string | null; email_1_em: string | null; email_2_em: string | null; whatsapp_em: string | null } | null | undefined>(undefined);
   const [loading,  setLoading]  = useState(true);
   const [copiado,  setCopiado]  = useState(false);
   const [modalLista, setModalLista] = useState(false);
@@ -221,11 +222,17 @@ export default function EntregaDetailPage() {
         .select("id, nome, email, acessado_em")
         .eq("galeria_id", id)
         .order("acessado_em", { ascending: false }),
-    ]).then(([{ data: g }, f, { data: a }]) => {
+      supabase.from("respostas_campanha")
+        .select("estagio, resposta, respondido_em, respondido_nome, email_1_em, email_2_em, whatsapp_em")
+        .eq("galeria_id", id)
+        .eq("fotografo_id", fotografo.id)
+        .maybeSingle(),
+    ]).then(([{ data: g }, f, { data: a }, { data: funil }]) => {
       if (!g) { router.replace("/entrega"); return; }
       setGaleria(g);
       setFotos(f ?? []);
       setAcessos((a as any[]) ?? []);
+      setFunilInfo(funil as any ?? null);
       setLoading(false);
     });
   }, [fotografo, id]);
@@ -357,6 +364,61 @@ export default function EntregaDetailPage() {
           <div style={{ background: cor.bg, border: `0.5px solid ${cor.border}`, borderRadius: 10, padding: "12px 18px", marginBottom: 14, display: "flex", alignItems: "center", gap: 10 }}>
             <span style={{ fontSize: 16 }}>⏳</span>
             <span style={{ fontSize: 14, fontWeight: 700, color: cor.txt }}>{texto}</span>
+          </div>
+        );
+      })()}
+
+      {/* Funil de Campanha */}
+      {funilInfo !== undefined && funilInfo !== null && (() => {
+        const ESTAGIO_INFO: Record<string, { label: string; icone: string; cor: string; bg: string; border: string }> = {
+          nao_contatado: { label: "Sem contato",        icone: "⏳", cor: "#6B7280", bg: "rgba(107,114,128,0.07)", border: "rgba(107,114,128,0.25)" },
+          email_1:       { label: "1º email enviado",   icone: "📧", cor: "#7C3AED", bg: "rgba(124,58,237,0.07)", border: "rgba(124,58,237,0.25)" },
+          email_2:       { label: "2º email enviado",   icone: "📧", cor: "#2563EB", bg: "rgba(37,99,235,0.07)",  border: "rgba(37,99,235,0.25)" },
+          whatsapp:      { label: "WhatsApp enviado",   icone: "📱", cor: "#15803D", bg: "rgba(34,197,94,0.07)",  border: "rgba(34,197,94,0.25)" },
+          encerrado:     { label: "Encerrado",          icone: "✓",  cor: "#059669", bg: "rgba(16,185,129,0.07)", border: "rgba(16,185,129,0.25)" },
+        };
+        const info = funilInfo.resposta === "tem_arquivos"
+          ? { label: "Cliente: já tem os arquivos", icone: "✓", cor: "#059669", bg: "rgba(16,185,129,0.07)", border: "rgba(16,185,129,0.25)" }
+          : funilInfo.resposta === "renovar"
+            ? { label: "Cliente: quer renovar", icone: "🔄", cor: "#2563EB", bg: "rgba(37,99,235,0.07)", border: "rgba(37,99,235,0.25)" }
+            : ESTAGIO_INFO[funilInfo.estagio] ?? ESTAGIO_INFO.nao_contatado;
+
+        const ultimoContato = funilInfo.whatsapp_em ?? funilInfo.email_2_em ?? funilInfo.email_1_em ?? null;
+        const fmtData = (iso: string) => new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
+
+        return (
+          <div style={{ background: info.bg, border: `0.5px solid ${info.border}`, borderRadius: 10, padding: "12px 18px", marginBottom: 14, display: "flex", alignItems: "center", gap: 12 }}>
+            <span style={{ fontSize: 16 }}>{info.icone}</span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: info.cor }}>
+                Funil de campanha — {info.label}
+              </div>
+              {funilInfo.respondido_em && (
+                <div style={{ fontSize: 11, color: info.cor, marginTop: 2 }}>
+                  Respondeu em {fmtData(funilInfo.respondido_em)}{funilInfo.respondido_nome ? ` · ${funilInfo.respondido_nome}` : ""}
+                </div>
+              )}
+              {!funilInfo.respondido_em && ultimoContato && (
+                <div style={{ fontSize: 11, color: info.cor, marginTop: 2 }}>
+                  Último contato em {fmtData(ultimoContato)}
+                </div>
+              )}
+            </div>
+            <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+              <Link href="/entrega/campanha" style={{ fontSize: 11, fontWeight: 600, color: info.cor, textDecoration: "none", whiteSpace: "nowrap", padding: "4px 12px", borderRadius: 7, border: `0.5px solid ${info.border}`, background: "transparent" }}>
+                Ver funil →
+              </Link>
+              <button
+                onClick={async () => {
+                  await fetch(`/api/campanha/galeria/${id}`, { method: "DELETE" });
+                  setFunilInfo(null);
+                }}
+                title="Remover do funil"
+                style={{ fontSize: 11, fontWeight: 600, color: "#EF4444", padding: "4px 10px", borderRadius: 7, border: "0.5px solid rgba(239,68,68,0.35)", background: "transparent", cursor: "pointer" }}
+              >
+                Remover
+              </button>
+            </div>
           </div>
         );
       })()}

@@ -69,11 +69,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
     return NextResponse.json({ ok: true, galeriaId: registro.galeria_id, jaRespondeu: true });
   }
 
-  // Registrar resposta
+  // Registrar resposta e avançar funil para encerrado
   await admin
     .from("respostas_campanha")
     .update({
       resposta,
+      estagio:          "encerrado",
       respondido_em:    new Date().toISOString(),
       respondido_nome:  nome?.trim() || null,
       respondido_email: email?.trim() || null,
