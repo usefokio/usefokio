@@ -23,23 +23,20 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 
   if (!galeria) return NextResponse.json({ erro: "Galeria não encontrada." }, { status: 404 });
 
-  // Buscar ou criar token de campanha para esta galeria
-  // Tenta inserir; se já existe (UNIQUE galeria_id), retorna o existente
-  const { error: insErr } = await admin
+  // Buscar ou criar token de campanha para esta galeria (upsert por galeria_id)
+  const { error: upsertErr } = await admin
     .from("respostas_campanha")
-    .insert({ galeria_id: id, fotografo_id: user.id })
-    .select()
-    .maybeSingle();
+    .upsert({ galeria_id: id, fotografo_id: user.id }, { onConflict: "galeria_id", ignoreDuplicates: true });
 
-  // Ignoramos erro de conflito (UNIQUE constraint) — buscamos logo abaixo
-  if (insErr && !insErr.message.includes("duplicate")) {
-    console.error("[campanha/galeria] insert error:", insErr.message);
+  if (upsertErr) {
+    console.error("[campanha/galeria] upsert error:", upsertErr.message);
   }
 
   const { data: registro } = await admin
     .from("respostas_campanha")
-    .select("token, resposta, respondido_em, respondido_nome")
+    .select("token, estagio, email_1_em, email_2_em, whatsapp_em, resposta, respondido_em, respondido_nome")
     .eq("galeria_id", id)
+    .eq("fotografo_id", user.id)
     .maybeSingle();
 
   if (!registro) return NextResponse.json({ erro: "Erro ao gerar token." }, { status: 500 });
