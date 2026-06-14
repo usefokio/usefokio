@@ -362,7 +362,7 @@ export default function EntregaPage() {
           )}
         </div>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
           {filtradas.map((g, i) => {
             const dias   = diasRestantes(g.expires_at);
             const status = g._status;
@@ -376,8 +376,8 @@ export default function EntregaPage() {
                 style={{
                   background: isAtencao ? "rgba(245,158,11,0.04)" : "var(--color-background-primary)",
                   border: `0.5px solid ${isAtencao ? "rgba(245,158,11,0.35)" : "var(--color-border-tertiary)"}`,
-                  borderRadius: 10, padding: "14px 18px",
-                  display: "flex", alignItems: "center", gap: 14,
+                  borderRadius: 8, padding: "9px 14px",
+                  display: "flex", alignItems: "center", gap: 10,
                   opacity: isExpirado ? 0.65 : 1,
                   transition: "border-color 0.15s",
                 }}
@@ -386,17 +386,17 @@ export default function EntregaPage() {
               >
                 {/* Capa */}
                 {g.foto_capa_url ? (
-                  <img src={g.foto_capa_url} alt="" style={{ width: 42, height: 42, borderRadius: 9, objectFit: "cover", flexShrink: 0 }} />
+                  <img src={g.foto_capa_url} alt="" style={{ width: 34, height: 34, borderRadius: 7, objectFit: "cover", flexShrink: 0 }} />
                 ) : (
-                  <div style={{ width: 42, height: 42, borderRadius: 9, background: cor, flexShrink: 0 }} />
+                  <div style={{ width: 34, height: 34, borderRadius: 7, background: cor, flexShrink: 0 }} />
                 )}
 
                 {/* Info principal */}
                 <div style={{ flex: 1, minWidth: 0, cursor: "pointer" }} onClick={() => router.push(`/entrega/${g.id}`)}>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: "var(--color-text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {g.titulo}
                   </div>
-                  <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginTop: 2 }}>
+                  <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 1 }}>
                     {g.clientes ? g.clientes.nome : "Sem cliente"}
                     {g.total_acessos > 0 && <span> · {g.total_acessos} acesso{g.total_acessos !== 1 ? "s" : ""}</span>}
                     {g.downloads > 0 && <span> · {g.downloads} download{g.downloads !== 1 ? "s" : ""}</span>}
@@ -407,29 +407,25 @@ export default function EntregaPage() {
                 {/* Status + prazo */}
                 <div style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 10 }}>
                   <div style={{ textAlign: "right" }}>
-                    <span style={{ display: "inline-block", padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 600, background: STATUS_COLOR[status], color: STATUS_TEXT[status] }}>
+                    <span style={{ display: "inline-block", padding: "2px 8px", borderRadius: 20, fontSize: 10, fontWeight: 600, background: STATUS_COLOR[status], color: STATUS_TEXT[status] }}>
                       {STATUS_LABEL[status]}
                     </span>
                     {status !== "suspensa" && (
-                      <div style={{ fontSize: 11, color: isAtencao ? "#B45309" : isExpirado ? "#EF4444" : "var(--color-text-secondary)", marginTop: 3 }}>
+                      <div style={{ fontSize: 10, color: isAtencao ? "#B45309" : isExpirado ? "#EF4444" : "var(--color-text-secondary)", marginTop: 2 }}>
                         {formatarExpiracao(dias)}
-                      </div>
-                    )}
-                    {status !== "suspensa" && g.expires_at && (
-                      <div style={{ fontSize: 11, fontWeight: 600, color: isAtencao ? "#B45309" : isExpirado ? "#EF4444" : "var(--color-text-primary)", marginTop: 1 }}>
-                        Encerra em {new Date(g.expires_at).toLocaleDateString("pt-BR")}
+                        {g.expires_at && <span style={{ fontWeight: 600 }}> · {new Date(g.expires_at).toLocaleDateString("pt-BR")}</span>}
                       </div>
                     )}
                   </div>
                 </div>
 
                 {/* Ações */}
-                <div style={{ flexShrink: 0, display: "flex", gap: 4 }} onClick={(e) => e.stopPropagation()}>
+                <div style={{ flexShrink: 0, display: "flex", gap: 3 }} onClick={(e) => e.stopPropagation()}>
 
                   <button
                     onClick={() => setEnviarAcessoId(g.id)}
                     title="Enviar acesso ao cliente"
-                    style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, borderRadius: 7, border: "0.5px solid rgba(37,99,235,0.4)", color: "#2563EB", background: "rgba(37,99,235,0.05)", cursor: "pointer" }}
+                    style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 26, height: 26, borderRadius: 6, border: "0.5px solid rgba(37,99,235,0.4)", color: "#2563EB", background: "rgba(37,99,235,0.05)", cursor: "pointer" }}
                     onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(37,99,235,0.12)")}
                     onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(37,99,235,0.05)")}
                   ><IcoSend /></button>
@@ -437,22 +433,19 @@ export default function EntregaPage() {
                   <button
                     onClick={() => setEmailClienteId(g.id)}
                     title="Enviar email ao cliente"
-                    style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, borderRadius: 7, border: "0.5px solid rgba(124,58,237,0.35)", color: "#7C3AED", background: "rgba(124,58,237,0.05)", cursor: "pointer" }}
+                    style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 26, height: 26, borderRadius: 6, border: "0.5px solid rgba(124,58,237,0.35)", color: "#7C3AED", background: "rgba(124,58,237,0.05)", cursor: "pointer" }}
                     onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(124,58,237,0.12)")}
                     onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(124,58,237,0.05)")}
                   ><IcoMail /></button>
 
-                  {/* Suspender / Reativar — verde = ativa, laranja = suspensa */}
                   <button
                     onClick={() => toggleSuspender(g.id, g.suspensa, g.renovacao_dias)}
                     title={g.suspensa ? "Reativar acesso" : "Suspender acesso"}
                     style={{
                       display: "flex", alignItems: "center", justifyContent: "center",
-                      width: 30, height: 30, borderRadius: 7, cursor: "pointer",
-                      border: g.suspensa
-                        ? "0.5px solid rgba(245,158,11,0.45)"
-                        : "0.5px solid rgba(16,185,129,0.45)",
-                      color:  g.suspensa ? "#D97706" : "#059669",
+                      width: 26, height: 26, borderRadius: 6, cursor: "pointer",
+                      border: g.suspensa ? "0.5px solid rgba(245,158,11,0.45)" : "0.5px solid rgba(16,185,129,0.45)",
+                      color: g.suspensa ? "#D97706" : "#059669",
                       background: g.suspensa ? "rgba(245,158,11,0.08)" : "rgba(16,185,129,0.08)",
                     }}
                     onMouseEnter={(e) => (e.currentTarget.style.background = g.suspensa ? "rgba(245,158,11,0.16)" : "rgba(16,185,129,0.16)")}
@@ -462,13 +455,13 @@ export default function EntregaPage() {
                   <button
                     onClick={() => router.push(`/entrega/${g.id}/editar`)}
                     title="Editar"
-                    style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, borderRadius: 7, border: "0.5px solid var(--color-border-secondary)", color: "var(--color-text-secondary)", background: "transparent", cursor: "pointer" }}
+                    style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 26, height: 26, borderRadius: 6, border: "0.5px solid var(--color-border-secondary)", color: "var(--color-text-secondary)", background: "transparent", cursor: "pointer" }}
                   ><IcoEdit /></button>
 
                   <button
                     onClick={() => setDeletarId(g.id)}
                     title="Excluir"
-                    style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, borderRadius: 7, border: "0.5px solid rgba(239,68,68,0.3)", color: "#EF4444", background: "transparent", cursor: "pointer", opacity: 0.6 }}
+                    style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 26, height: 26, borderRadius: 6, border: "0.5px solid rgba(239,68,68,0.3)", color: "#EF4444", background: "transparent", cursor: "pointer", opacity: 0.6 }}
                     onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
                     onMouseLeave={(e) => (e.currentTarget.style.opacity = "0.6")}
                   ><IcoTrash /></button>
