@@ -134,6 +134,7 @@ export default function EntregaPage() {
   const [ordenacao,      setOrdenacao]      = useState<Ordenacao>("evento");
   const [enviarAcessoId, setEnviarAcessoId] = useState<string | null>(null);
   const [emailClienteId, setEmailClienteId] = useState<string | null>(null);
+  const [recarregarKey,  setRecarregarKey]  = useState(0);
   const [deletarId,      setDeletarId]      = useState<string | null>(null);
   const [deletando,      setDeletando]      = useState(false);
 
@@ -151,7 +152,7 @@ export default function EntregaPage() {
     setLoading(false);
   }
 
-  useEffect(() => { carregar(); }, [fotografo]);
+  useEffect(() => { carregar(); }, [fotografo, recarregarKey]);
 
   async function toggleSuspender(id: string, suspensa: boolean, renovacao_dias: number) {
     const supabase = createClient();
@@ -426,7 +427,12 @@ export default function EntregaPage() {
                           📧×1
                         </span>
                       );
-                      return null;
+                      // nao_contatado: galeria está na campanha mas ainda sem contato feito
+                      return (
+                        <span title="Na campanha de reativação — sem contato ainda" style={{ flexShrink: 0, fontSize: 10, fontWeight: 600, padding: "2px 7px", borderRadius: 20, background: "rgba(245,158,11,0.10)", color: "#B45309" }}>
+                          📢 campanha
+                        </span>
+                      );
                     })()}
                   </div>
                   <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 1 }}>
@@ -513,7 +519,20 @@ export default function EntregaPage() {
 
       {emailClienteId && (() => {
         const g = galerias.find((g) => g.id === emailClienteId);
-        return g ? <ModalEmailCliente galeria={g} onFechar={() => setEmailClienteId(null)} /> : null;
+        if (!g) return null;
+        return (
+          <ModalEmailCliente
+            galeria={g}
+            onFechar={() => { setEmailClienteId(null); setRecarregarKey((k) => k + 1); }}
+            onEstagioAvancado={(patch) => {
+              setGalerias((prev) => prev.map((gl) =>
+                gl.id === emailClienteId
+                  ? { ...gl, respostas_campanha: [{ ...gl.respostas_campanha?.[0], ...patch } as any] }
+                  : gl
+              ));
+            }}
+          />
+        );
       })()}
 
       {deletarId && (() => {
