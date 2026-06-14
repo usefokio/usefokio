@@ -226,6 +226,7 @@ export default function EntregaDetailPage() {
         .select("estagio, resposta, respondido_em, respondido_nome, email_1_em, email_2_em, whatsapp_em")
         .eq("galeria_id", id)
         .eq("fotografo_id", fotografo.id)
+        .eq("ignorar_funil", false)
         .maybeSingle(),
     ]).then(([{ data: g }, f, { data: a }, { data: funil }]) => {
       if (!g) { router.replace("/entrega"); return; }

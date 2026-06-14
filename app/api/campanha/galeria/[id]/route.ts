@@ -52,9 +52,10 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   if (!user) return NextResponse.json({ erro: "Não autenticado." }, { status: 401 });
 
   const admin = createAdminClient();
+  // Marca como ignorado em vez de deletar — impede que a auto-inscrição reinscreva a galeria
   const { error } = await admin
     .from("respostas_campanha")
-    .delete()
+    .update({ ignorar_funil: true })
     .eq("galeria_id", id)
     .eq("fotografo_id", user.id);
 
