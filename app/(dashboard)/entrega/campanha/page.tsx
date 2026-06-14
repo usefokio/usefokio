@@ -276,9 +276,9 @@ export default function CampanhaPage() {
                             <button
                               onClick={() => removerDoFunil(item.galeria.id)}
                               title="Remover do funil"
-                              style={{ flexShrink: 0, background: "none", border: "none", cursor: "pointer", color: "var(--color-text-secondary)", fontSize: 14, lineHeight: 1, padding: "0 2px", opacity: 0.4 }}
-                              onMouseEnter={(e) => { e.currentTarget.style.opacity = "1"; e.currentTarget.style.color = "#EF4444"; }}
-                              onMouseLeave={(e) => { e.currentTarget.style.opacity = "0.4"; e.currentTarget.style.color = "var(--color-text-secondary)"; }}
+                              style={{ flexShrink: 0, background: "none", border: "0.5px solid rgba(239,68,68,0.3)", borderRadius: 5, cursor: "pointer", color: "#EF4444", fontSize: 13, lineHeight: 1, padding: "2px 5px" }}
+                              onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(239,68,68,0.08)"; }}
+                              onMouseLeave={(e) => { e.currentTarget.style.background = "none"; }}
                             >
                               ×
                             </button>
