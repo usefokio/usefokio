@@ -148,6 +148,105 @@ export function templateSelecaoEnviada(p: SelecaoEnviadaParams): { subject: stri
   };
 }
 
+// ─── 4. Campanha de reativação → cliente ─────────────────────────────────────
+export type CampanhaReativacaoParams = {
+  clienteNome:      string;
+  fotografoEmpresa: string;
+  galeriaTitulo:    string;
+  respostaUrl:      string;
+};
+
+export function templateCampanhaReativacao(p: CampanhaReativacaoParams): { subject: string; html: string } {
+  return {
+    subject: `Suas fotos de ${p.galeriaTitulo} — ação necessária`,
+    html: base(`
+      <h2 style="margin:0 0 8px; font-size:20px; color:#111; letter-spacing:-0.02em;">Sobre suas fotos 📷</h2>
+      <p style="color:#555; font-size:14px; line-height:1.6; margin:0 0 16px;">
+        Olá, <strong>${p.clienteNome}</strong>!
+      </p>
+      <p style="color:#555; font-size:14px; line-height:1.6; margin:0 0 16px;">
+        Entramos em contato porque temos uma galeria de fotos registrada para você: <strong>${p.galeriaTitulo}</strong>.
+      </p>
+      <p style="color:#555; font-size:14px; line-height:1.6; margin:0 0 20px;">
+        Devido ao aumento nos custos de armazenamento, precisamos entender a situação dos arquivos antes de tomar uma decisão sobre eles.
+      </p>
+      <div style="background:#f8f8f8; border:1px solid #e5e5e5; border-radius:10px; padding:20px 24px; margin-bottom:24px;">
+        <p style="margin:0 0 14px; font-size:14px; font-weight:700; color:#111;">Por favor, nos diga:</p>
+        <p style="margin:0 0 10px; font-size:14px; color:#333;">
+          🔄 <strong>Preciso renovar meu acesso</strong> — quero baixar as fotos novamente
+        </p>
+        <p style="margin:0; font-size:14px; color:#333;">
+          ✅ <strong>Já tenho meus arquivos</strong> — já fiz o download das fotos
+        </p>
+      </div>
+      <a href="${p.respostaUrl}" style="${BTN_STYLE("#111")}">
+        Responder agora →
+      </a>
+      <p style="font-size:12px; color:#aaa; margin:12px 0 0;">
+        Se o botão não funcionar, acesse: <a href="${p.respostaUrl}" style="color:#2563EB;">${p.respostaUrl}</a>
+      </p>
+      <p style="font-size:12px; color:#bbb; margin:16px 0 0; padding-top:12px; border-top:1px solid #eee;">
+        Enviado por <strong>${p.fotografoEmpresa}</strong> via UseFokio
+      </p>
+    `),
+  };
+}
+
+// ─── 5. Notificação ao fotógrafo: cliente respondeu ──────────────────────────
+export type RespostaCampanhaParams = {
+  fotografoNome:   string;
+  clienteNome:     string;
+  galeriaTitulo:   string;
+  resposta:        "renovar" | "tem_arquivos";
+  respondidoEm:    string;
+  respondidoNome:  string | null;
+  galeriaAdminUrl: string;
+};
+
+export function templateRespostaCampanha(p: RespostaCampanhaParams): { subject: string; html: string } {
+  const isTemArquivos = p.resposta === "tem_arquivos";
+  const respostaTexto = isTemArquivos
+    ? "Já tenho meus arquivos salvos"
+    : "Quero renovar meu acesso";
+  const corBadge = isTemArquivos ? "#059669" : "#2563EB";
+  const bgBadge  = isTemArquivos ? "#f0fdf4" : "#eff6ff";
+  const bdBadge  = isTemArquivos ? "#bbf7d0" : "#bfdbfe";
+  const nomeExibido = p.respondidoNome ?? p.clienteNome;
+
+  return {
+    subject: isTemArquivos
+      ? `${nomeExibido} confirmou que já tem os arquivos — ${p.galeriaTitulo}`
+      : `${nomeExibido} quer renovar o acesso — ${p.galeriaTitulo}`,
+    html: base(`
+      <h2 style="margin:0 0 8px; font-size:20px; color:#111; letter-spacing:-0.02em;">
+        ${isTemArquivos ? "Resposta recebida ✅" : "Cliente quer renovar acesso 🔄"}
+      </h2>
+      <p style="color:#555; font-size:14px; line-height:1.6; margin:0 0 20px;">
+        Olá, <strong>${p.fotografoNome}</strong>! Um cliente respondeu à sua campanha de reativação.
+      </p>
+      <div style="background:#f9f9f9; border:1px solid #e5e5e5; border-radius:10px; padding:18px 22px; margin-bottom:20px;">
+        <p style="margin:0 0 8px; font-size:14px; color:#333;">📷 Galeria: <strong>${p.galeriaTitulo}</strong></p>
+        <p style="margin:0 0 8px; font-size:14px; color:#333;">👤 Cliente: <strong>${nomeExibido}</strong></p>
+        <p style="margin:0 0 10px; font-size:14px; color:#999;">Respondido em: ${p.respondidoEm}</p>
+        <div style="background:${bgBadge}; border:1px solid ${bdBadge}; border-radius:8px; padding:10px 14px; font-size:14px; font-weight:700; color:${corBadge};">
+          ${isTemArquivos ? "✅" : "🔄"} ${respostaTexto}
+        </div>
+      </div>
+      ${isTemArquivos
+        ? `<p style="color:#555; font-size:14px; line-height:1.6; margin:0 0 20px;">
+             O cliente confirmou que já possui os arquivos. Você pode avaliar a remoção segura dessa galeria do armazenamento.
+           </p>`
+        : `<p style="color:#555; font-size:14px; line-height:1.6; margin:0 0 20px;">
+             O cliente iniciou o processo de renovação de acesso. Você pode acompanhar o pagamento no painel.
+           </p>`
+      }
+      <a href="${p.galeriaAdminUrl}" style="${BTN_STYLE("#111")}">
+        Ver galeria no painel →
+      </a>
+    `),
+  };
+}
+
 // ─── 3. Novo fotógrafo cadastrado → webmaster ─────────────────────────────────
 export type NovoCadastroParams = {
   nomeCompleto:  string;

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import type { GaleriaEntrega } from "@/lib/supabase/types";
 
-type TemplateId = "link" | "pronta" | "expirando" | "suspensa";
+type TemplateId = "link" | "pronta" | "expirando" | "suspensa" | "campanha";
 
 interface Template {
   id: TemplateId;
@@ -15,11 +15,12 @@ interface Template {
 }
 
 interface TemplateVars {
-  nomeCliente: string;
-  titulo: string;
-  link: string;
+  nomeCliente:  string;
+  titulo:       string;
+  link:         string;
+  respostaUrl:  string;
   diasRestantes: number | null;
-  nomeEmpresa: string;
+  nomeEmpresa:  string;
 }
 
 const TEMPLATES: Template[] = [
@@ -61,28 +62,61 @@ const TEMPLATES: Template[] = [
     corpo: ({ nomeCliente, titulo, nomeEmpresa }) =>
       `Olá, ${nomeCliente}!\n\nInformo que o acesso à galeria ${titulo} foi temporariamente suspenso.\n\nCaso queira reativar o acesso, entre em contato comigo.\n\nAtenciosamente,\n${nomeEmpresa}`,
   },
+  {
+    id: "campanha",
+    nome: "Campanha de reativação",
+    assunto: "Suas fotos de {titulo} — ação necessária",
+    icone: "📢",
+    corpo: ({ nomeCliente, titulo, respostaUrl, nomeEmpresa }) =>
+      `Olá, ${nomeCliente}!\n\nEntramos em contato sobre as fotos de ${titulo}.\n\nDevido ao aumento nos custos de armazenamento, precisamos entender se você ainda precisa das imagens.\n\nPor favor, acesse o link abaixo e nos diga:\n${respostaUrl}\n\n✅ Já tenho meus arquivos salvos\n🔄 Quero renovar meu acesso\n\nAtenciosamente,\n${nomeEmpresa}`,
+  },
 ];
+
+type TokenInfo = {
+  token: string;
+  resposta: "renovar" | "tem_arquivos" | null;
+  respondido_em: string | null;
+  respondido_nome: string | null;
+};
 
 export function ModalEmailCliente({ galeria, onFechar }: { galeria: GaleriaEntrega; onFechar: () => void }) {
   const { fotografo } = useFotografo();
-  const [templateId, setTemplateId] = useState<TemplateId | null>(null);
-  const [mensagem, setMensagem] = useState("");
-  const [copiado, setCopiado] = useState(false);
+  const [templateId,   setTemplateId]   = useState<TemplateId | null>(null);
+  const [mensagem,     setMensagem]     = useState("");
+  const [copiado,      setCopiado]      = useState(false);
+  const [tokenInfo,    setTokenInfo]    = useState<TokenInfo | null>(null);
+  const [loadingToken, setLoadingToken] = useState(false);
+  const [whatsCopiado, setWhatsCopiado] = useState(false);
 
-  const email = galeria.clientes?.email ?? null;
-  const nomeCliente = galeria.clientes?.nome ?? "Cliente";
-  const nomeEmpresa = fotografo?.nome_empresa ?? fotografo?.nome_completo ?? "";
-  const link = typeof window !== "undefined"
+  const email        = galeria.clientes?.email ?? null;
+  const nomeCliente  = galeria.clientes?.nome ?? "Cliente";
+  const nomeEmpresa  = fotografo?.nome_empresa ?? fotografo?.nome_completo ?? "";
+  const link         = typeof window !== "undefined"
     ? `${window.location.origin}/acesso/entrega/${galeria.id}`
     : `/acesso/entrega/${galeria.id}`;
-
   const diasRestantes = galeria.expires_at
     ? Math.round((new Date(galeria.expires_at).getTime() - Date.now()) / 86_400_000)
     : null;
 
-  function selecionarTemplate(t: Template) {
-    const vars: TemplateVars = { nomeCliente, titulo: galeria.titulo, link, diasRestantes, nomeEmpresa };
-    setMensagem(t.corpo(vars));
+  async function selecionarTemplate(t: Template) {
+    if (t.id === "campanha") {
+      setLoadingToken(true);
+      try {
+        const res = await fetch(`/api/campanha/galeria/${galeria.id}`);
+        const info: TokenInfo = await res.json();
+        setTokenInfo(info);
+        const respostaUrl = typeof window !== "undefined"
+          ? `${window.location.origin}/campanha/resposta/${info.token}`
+          : `/campanha/resposta/${info.token}`;
+        const vars: TemplateVars = { nomeCliente, titulo: galeria.titulo, link, respostaUrl, diasRestantes, nomeEmpresa };
+        setMensagem(t.corpo(vars));
+      } finally {
+        setLoadingToken(false);
+      }
+    } else {
+      const vars: TemplateVars = { nomeCliente, titulo: galeria.titulo, link, respostaUrl: "", diasRestantes, nomeEmpresa };
+      setMensagem(t.corpo(vars));
+    }
     setTemplateId(t.id);
   }
 
@@ -90,13 +124,14 @@ export function ModalEmailCliente({ galeria, onFechar }: { galeria: GaleriaEntre
     setTemplateId(null);
     setMensagem("");
     setCopiado(false);
+    setTokenInfo(null);
   }
 
   function abrirNoEmail() {
     if (!email || !templateId) return;
     const template = TEMPLATES.find((t) => t.id === templateId)!;
-    const assunto = template.assunto.replace("{titulo}", galeria.titulo);
-    const mailto = `mailto:${email}?subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(mensagem)}`;
+    const assunto  = template.assunto.replace("{titulo}", galeria.titulo);
+    const mailto   = `mailto:${email}?subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(mensagem)}`;
     window.open(mailto);
   }
 
@@ -104,6 +139,21 @@ export function ModalEmailCliente({ galeria, onFechar }: { galeria: GaleriaEntre
     await navigator.clipboard.writeText(mensagem);
     setCopiado(true);
     setTimeout(() => setCopiado(false), 2000);
+  }
+
+  function abrirWhatsApp() {
+    if (!tokenInfo) return;
+    const numero = galeria.clientes?.whatsapp ?? galeria.clientes?.telefone ?? null;
+    const texto  = mensagem;
+    if (numero) {
+      const numLimpo = numero.replace(/\D/g, "");
+      const prefixo  = numLimpo.startsWith("55") ? numLimpo : `55${numLimpo}`;
+      window.open(`https://wa.me/${prefixo}?text=${encodeURIComponent(texto)}`);
+    } else {
+      navigator.clipboard.writeText(texto);
+      setWhatsCopiado(true);
+      setTimeout(() => setWhatsCopiado(false), 2000);
+    }
   }
 
   const overlayStyle: React.CSSProperties = {
@@ -118,13 +168,19 @@ export function ModalEmailCliente({ galeria, onFechar }: { galeria: GaleriaEntre
     overflow: "hidden",
   };
 
+  const respostaBadge = tokenInfo?.resposta
+    ? tokenInfo.resposta === "tem_arquivos"
+      ? { texto: "✓ Já tem os arquivos", bg: "rgba(16,185,129,0.12)", cor: "#059669" }
+      : { texto: "✓ Quer renovar o acesso", bg: "rgba(37,99,235,0.10)", cor: "#2563EB" }
+    : null;
+
   return (
     <div style={overlayStyle} onClick={onFechar}>
       <div style={boxStyle} onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div style={{ padding: "20px 24px 16px", borderBottom: "0.5px solid var(--color-border-tertiary)" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <div>
+            <div style={{ flex: 1, minWidth: 0 }}>
               {templateId && (
                 <button
                   onClick={voltar}
@@ -140,12 +196,19 @@ export function ModalEmailCliente({ galeria, onFechar }: { galeria: GaleriaEntre
                 {galeria.titulo}
               </div>
             </div>
-            <button
-              onClick={onFechar}
-              style={{ background: "none", border: "none", cursor: "pointer", fontSize: 18, color: "var(--color-text-secondary)", lineHeight: 1, padding: "2px 4px" }}
-            >
-              ×
-            </button>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0, marginLeft: 12 }}>
+              {respostaBadge && (
+                <span style={{ fontSize: 11, fontWeight: 600, padding: "3px 10px", borderRadius: 20, background: respostaBadge.bg, color: respostaBadge.cor }}>
+                  {respostaBadge.texto}
+                </span>
+              )}
+              <button
+                onClick={onFechar}
+                style={{ background: "none", border: "none", cursor: "pointer", fontSize: 18, color: "var(--color-text-secondary)", lineHeight: 1, padding: "2px 4px" }}
+              >
+                ×
+              </button>
+            </div>
           </div>
         </div>
 
@@ -162,27 +225,40 @@ export function ModalEmailCliente({ galeria, onFechar }: { galeria: GaleriaEntre
                 <button
                   key={t.id}
                   onClick={() => selecionarTemplate(t)}
+                  disabled={loadingToken}
                   style={{
-                    background: "var(--color-background-secondary)",
-                    border: "0.5px solid var(--color-border-secondary)",
+                    background: t.id === "campanha" ? "rgba(37,99,235,0.04)" : "var(--color-background-secondary)",
+                    border: `0.5px solid ${t.id === "campanha" ? "rgba(37,99,235,0.25)" : "var(--color-border-secondary)"}`,
                     borderRadius: 10, padding: "16px 14px",
-                    cursor: "pointer", textAlign: "left",
+                    cursor: loadingToken ? "default" : "pointer", textAlign: "left",
                     transition: "border-color 0.15s, background 0.15s",
+                    gridColumn: t.id === "campanha" ? "1 / -1" : undefined,
                   }}
                   onMouseEnter={(e) => {
-                    (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--color-text-primary)";
-                    (e.currentTarget as HTMLButtonElement).style.background = "var(--color-background-primary)";
+                    if (!loadingToken) {
+                      (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--color-text-primary)";
+                      (e.currentTarget as HTMLButtonElement).style.background = "var(--color-background-primary)";
+                    }
                   }}
                   onMouseLeave={(e) => {
-                    (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--color-border-secondary)";
-                    (e.currentTarget as HTMLButtonElement).style.background = "var(--color-background-secondary)";
+                    (e.currentTarget as HTMLButtonElement).style.borderColor = t.id === "campanha" ? "rgba(37,99,235,0.25)" : "var(--color-border-secondary)";
+                    (e.currentTarget as HTMLButtonElement).style.background = t.id === "campanha" ? "rgba(37,99,235,0.04)" : "var(--color-background-secondary)";
                   }}
                 >
                   <div style={{ fontSize: 22, marginBottom: 8 }}>{t.icone}</div>
                   <div style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)", lineHeight: 1.3 }}>{t.nome}</div>
+                  {t.id === "campanha" && (
+                    <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 4 }}>
+                      Gera link de rastreamento · rastreia resposta do cliente
+                    </div>
+                  )}
                 </button>
               ))}
             </div>
+          </div>
+        ) : loadingToken ? (
+          <div style={{ padding: "40px 24px", textAlign: "center", fontSize: 13, color: "var(--color-text-secondary)" }}>
+            Gerando link de campanha…
           </div>
         ) : (
           /* Tela 2: composição */
@@ -201,7 +277,7 @@ export function ModalEmailCliente({ galeria, onFechar }: { galeria: GaleriaEntre
               <textarea
                 value={mensagem}
                 onChange={(e) => setMensagem(e.target.value)}
-                rows={10}
+                rows={templateId === "campanha" ? 12 : 10}
                 style={{
                   width: "100%", boxSizing: "border-box",
                   padding: "10px 12px", borderRadius: 8,
@@ -215,29 +291,51 @@ export function ModalEmailCliente({ galeria, onFechar }: { galeria: GaleriaEntre
             </div>
 
             {/* Botões */}
-            <div style={{ display: "flex", gap: 8 }}>
-              <button
-                onClick={copiarMensagem}
-                style={{
-                  flex: 1, padding: "9px 0", borderRadius: 8, fontSize: 13, fontWeight: 600,
-                  border: "0.5px solid var(--color-border-secondary)",
-                  background: copiado ? "rgba(16,185,129,0.08)" : "transparent",
-                  color: copiado ? "#059669" : "var(--color-text-secondary)",
-                  cursor: "pointer", transition: "all 0.15s",
-                }}
-              >
-                {copiado ? "✓ Copiado!" : "Copiar mensagem"}
-              </button>
-              {email && (
+            <div style={{ display: "flex", gap: 8, flexDirection: "column" }}>
+              <div style={{ display: "flex", gap: 8 }}>
                 <button
-                  onClick={abrirNoEmail}
+                  onClick={copiarMensagem}
                   style={{
                     flex: 1, padding: "9px 0", borderRadius: 8, fontSize: 13, fontWeight: 600,
-                    border: "none", background: "var(--color-text-primary)",
-                    color: "var(--color-background-primary)", cursor: "pointer",
+                    border: "0.5px solid var(--color-border-secondary)",
+                    background: copiado ? "rgba(16,185,129,0.08)" : "transparent",
+                    color: copiado ? "#059669" : "var(--color-text-secondary)",
+                    cursor: "pointer", transition: "all 0.15s",
                   }}
                 >
-                  Abrir no email
+                  {copiado ? "✓ Copiado!" : "Copiar mensagem"}
+                </button>
+                {email && (
+                  <button
+                    onClick={abrirNoEmail}
+                    style={{
+                      flex: 1, padding: "9px 0", borderRadius: 8, fontSize: 13, fontWeight: 600,
+                      border: "none", background: "var(--color-text-primary)",
+                      color: "var(--color-background-primary)", cursor: "pointer",
+                    }}
+                  >
+                    Abrir no email
+                  </button>
+                )}
+              </div>
+
+              {/* Botão WhatsApp — só para template campanha */}
+              {templateId === "campanha" && (
+                <button
+                  onClick={abrirWhatsApp}
+                  style={{
+                    width: "100%", padding: "9px 0", borderRadius: 8, fontSize: 13, fontWeight: 600,
+                    border: "0.5px solid rgba(34,197,94,0.4)",
+                    background: whatsCopiado ? "rgba(34,197,94,0.10)" : "rgba(34,197,94,0.06)",
+                    color: whatsCopiado ? "#16A34A" : "#15803D",
+                    cursor: "pointer",
+                  }}
+                >
+                  {whatsCopiado
+                    ? "✓ Mensagem copiada!"
+                    : (galeria.clientes?.whatsapp ?? galeria.clientes?.telefone)
+                      ? "📱 Enviar via WhatsApp"
+                      : "📋 Copiar para WhatsApp"}
                 </button>
               )}
             </div>

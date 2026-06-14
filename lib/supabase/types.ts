@@ -90,6 +90,19 @@ export type Categoria = {
   created_at: string;
 };
 
+export type RespostaCampanha = {
+  id: string;
+  galeria_id: string;
+  fotografo_id: string;
+  token: string;
+  resposta: "renovar" | "tem_arquivos" | null;
+  respondido_em: string | null;
+  respondido_nome: string | null;
+  respondido_email: string | null;
+  notificado: boolean;
+  created_at: string;
+};
+
 export type GaleriaEntrega = {
   id: string;
   fotografo_id: string;
@@ -117,6 +130,7 @@ export type GaleriaEntrega = {
   updated_at: string;
   // joined
   clientes?: { nome: string; email: string | null; telefone: string | null; whatsapp: string | null } | null;
+  respostas_campanha?: { token: string; resposta: "renovar" | "tem_arquivos" | null; respondido_em: string | null } | null;
 };
 
 export type Pagamento = {
