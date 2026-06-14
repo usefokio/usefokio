@@ -252,9 +252,6 @@ export default function EntregaPage() {
               <option value="criado">Data de criação</option>
             </select>
           </div>
-          <Link href="/entrega/campanha" style={{ padding: "9px 16px", borderRadius: 8, background: "transparent", color: "var(--color-text-primary)", fontSize: 13, fontWeight: 600, textDecoration: "none", display: "flex", alignItems: "center", gap: 6, border: "0.5px solid var(--color-border-secondary)" }}>
-            📢 Campanha
-          </Link>
           <Link href="/entrega/nova" style={{ padding: "9px 18px", borderRadius: 8, background: "var(--color-text-primary)", color: "var(--color-background-primary)", fontSize: 13, fontWeight: 600, textDecoration: "none", display: "flex", alignItems: "center", gap: 6 }}>
             + Nova entrega
           </Link>

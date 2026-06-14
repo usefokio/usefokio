@@ -203,34 +203,63 @@ export function Sidebar() {
         }).map((item) => {
           const active = isActive(item.href);
           return (
-            <Link
-              key={item.href}
-              href={item.href}
-              title={collapsed ? item.label : undefined}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: collapsed ? "center" : "flex-start",
-                gap: 9,
-                padding: collapsed ? "8px 0" : "7px 10px",
-                borderRadius: 7,
-                marginBottom: 1,
-                background: active ? "var(--color-background-secondary)" : "transparent",
-                color: active ? "var(--color-text-primary)" : "var(--color-text-secondary)",
-                fontSize: 12,
-                fontWeight: active ? 500 : 400,
-                textDecoration: "none",
-              }}
-              onMouseEnter={(e) => {
-                if (!active) e.currentTarget.style.background = "var(--color-background-secondary)";
-              }}
-              onMouseLeave={(e) => {
-                if (!active) e.currentTarget.style.background = "transparent";
-              }}
-            >
-              <span style={{ opacity: active ? 1 : 0.5, flexShrink: 0 }}>{item.icon}</span>
-              {!collapsed && <span style={{ lineHeight: 1.3, whiteSpace: "nowrap", overflow: "hidden" }}>{item.label}</span>}
-            </Link>
+            <div key={item.href}>
+              <Link
+                href={item.href}
+                title={collapsed ? item.label : undefined}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: collapsed ? "center" : "flex-start",
+                  gap: 9,
+                  padding: collapsed ? "8px 0" : "7px 10px",
+                  borderRadius: 7,
+                  marginBottom: 1,
+                  background: active ? "var(--color-background-secondary)" : "transparent",
+                  color: active ? "var(--color-text-primary)" : "var(--color-text-secondary)",
+                  fontSize: 12,
+                  fontWeight: active ? 500 : 400,
+                  textDecoration: "none",
+                }}
+                onMouseEnter={(e) => {
+                  if (!active) e.currentTarget.style.background = "var(--color-background-secondary)";
+                }}
+                onMouseLeave={(e) => {
+                  if (!active) e.currentTarget.style.background = "transparent";
+                }}
+              >
+                <span style={{ opacity: active ? 1 : 0.5, flexShrink: 0 }}>{item.icon}</span>
+                {!collapsed && <span style={{ lineHeight: 1.3, whiteSpace: "nowrap", overflow: "hidden" }}>{item.label}</span>}
+              </Link>
+
+              {/* Sub-item: Funil de Campanha (só para Galerias de Entrega, expandido) */}
+              {item.href === "/entrega" && !collapsed && (() => {
+                const subActive = pathname === "/entrega/campanha";
+                return (
+                  <Link
+                    href="/entrega/campanha"
+                    style={{
+                      display: "flex", alignItems: "center", gap: 7,
+                      padding: "5px 10px 5px 28px",
+                      borderRadius: 7, marginBottom: 1,
+                      background: subActive ? "var(--color-background-secondary)" : "transparent",
+                      color: subActive ? "var(--color-text-primary)" : "var(--color-text-secondary)",
+                      fontSize: 11, fontWeight: subActive ? 500 : 400,
+                      textDecoration: "none",
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!subActive) e.currentTarget.style.background = "var(--color-background-secondary)";
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!subActive) e.currentTarget.style.background = "transparent";
+                    }}
+                  >
+                    <span style={{ opacity: subActive ? 1 : 0.5, fontSize: 11 }}>📢</span>
+                    <span style={{ whiteSpace: "nowrap" }}>Funil de Campanha</span>
+                  </Link>
+                );
+              })()}
+            </div>
           );
         })}
       </nav>
