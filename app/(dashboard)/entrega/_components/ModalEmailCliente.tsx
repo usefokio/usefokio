@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import type { GaleriaEntrega, EstagioFunil } from "@/lib/supabase/types";
 
-type TemplateId = "link" | "pronta" | "expirando" | "suspensa" | "campanha";
+type TemplateId = "link" | "expirando" | "suspensa" | "campanha";
 
 interface Template {
   id: TemplateId;
@@ -31,14 +31,6 @@ const TEMPLATES: Template[] = [
     icone: "🔗",
     corpo: ({ nomeCliente, titulo, link, nomeEmpresa }) =>
       `Olá, ${nomeCliente}!\n\nSuas fotos de ${titulo} estão disponíveis para acesso.\n\nClique no link abaixo para visualizar e baixar:\n${link}\n\nQualquer dúvida, estou à disposição.\n\nAtenciosamente,\n${nomeEmpresa}`,
-  },
-  {
-    id: "pronta",
-    nome: "Galeria pronta",
-    assunto: "Suas fotos estão prontas! — {titulo}",
-    icone: "📸",
-    corpo: ({ nomeCliente, titulo, link, nomeEmpresa }) =>
-      `Olá, ${nomeCliente}!\n\nTenho uma ótima notícia: as fotos de ${titulo} estão prontas!\n\nAcesse sua galeria pelo link abaixo:\n${link}\n\nFoi um prazer fotografar esse momento especial. Espero que você curta muito as imagens!\n\nAtenciosamente,\n${nomeEmpresa}`,
   },
   {
     id: "expirando",

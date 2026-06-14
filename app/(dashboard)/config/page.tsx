@@ -423,14 +423,6 @@ const DEFS_TEMPLATE = [
     padrao: "Olá, {nomeCliente}!\n\nSuas fotos de {titulo} estão disponíveis para acesso.\n\nClique no link abaixo para visualizar e baixar:\n{link}\n\nQualquer dúvida, estou à disposição.\n\nAtenciosamente,\n{nomeEmpresa}",
   },
   {
-    id: "pronta",
-    nome: "Galeria pronta",
-    icone: "📸",
-    quando: "Quando as fotos ficam prontas e o fotógrafo quer notificar o cliente.",
-    variaveis: "{nomeCliente}, {titulo}, {link}, {nomeEmpresa}",
-    padrao: "Olá, {nomeCliente}!\n\nTenho uma ótima notícia: as fotos de {titulo} estão prontas!\n\nAcesse sua galeria pelo link abaixo:\n{link}\n\nFoi um prazer fotografar esse momento especial. Espero que você curta muito as imagens!\n\nAtenciosamente,\n{nomeEmpresa}",
-  },
-  {
     id: "expirando",
     nome: "Prazo expirando",
     icone: "⏰",
