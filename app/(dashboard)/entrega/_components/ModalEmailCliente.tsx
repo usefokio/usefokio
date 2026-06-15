@@ -79,7 +79,7 @@ function substituirVars(texto: string, vars: TemplateVars & { prazo: string; dat
 
 function formatarDataContato(iso: string | null): string {
   if (!iso) return "—";
-  return new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" });
+  return new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
 function sugerirProximoContato(isoBase: string | null, diasDepois: number): string {
