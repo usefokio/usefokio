@@ -6,7 +6,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { fetchAllRows } from "@/lib/supabase/fetchAll";
 import { useFotografo } from "@/lib/context/FotografoContext";
-import type { GaleriaEntrega, GaleriaEntregaFoto, ContatoCategoria } from "@/lib/supabase/types";
+import type { GaleriaEntrega, GaleriaEntregaFoto, ContatoCategoria, Pagamento } from "@/lib/supabase/types";
 import { ModalEnviarAcesso } from "../_components/ModalEnviarAcesso";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -194,6 +194,7 @@ export default function EntregaDetailPage() {
   const [fotos,    setFotos]    = useState<GaleriaEntregaFoto[]>([]);
   const [acessos,  setAcessos]  = useState<{ id: string; nome: string; email: string; acessado_em: string }[]>([]);
   const [funilInfo, setFunilInfo] = useState<{ estagio: string; resposta: string | null; respondido_em: string | null; respondido_nome: string | null; email_1_em: string | null; email_2_em: string | null; whatsapp_em: string | null; ignorar_funil: boolean } | null | undefined>(undefined);
+  const [pagamentos, setPagamentos] = useState<Pick<Pagamento, "id" | "valor" | "paid_at" | "pagador_nome" | "pagador_email" | "dias_liberados">[]>([]);
   const [loading,  setLoading]  = useState(true);
   const [copiado,  setCopiado]  = useState(false);
   const [modalLista, setModalLista] = useState(false);
@@ -227,12 +228,19 @@ export default function EntregaDetailPage() {
         .eq("galeria_id", id)
         .eq("fotografo_id", fotografo.id)
         .maybeSingle(),
-    ]).then(([{ data: g }, f, { data: a }, { data: funil }]) => {
+      supabase.from("pagamentos")
+        .select("id, valor, paid_at, pagador_nome, pagador_email, dias_liberados")
+        .eq("galeria_id", id)
+        .eq("tipo", "renovacao")
+        .eq("status", "pago")
+        .order("paid_at", { ascending: false }),
+    ]).then(([{ data: g }, f, { data: a }, { data: funil }, { data: pags }]) => {
       if (!g) { router.replace("/entrega"); return; }
       setGaleria(g);
       setFotos(f ?? []);
       setAcessos((a as any[]) ?? []);
       setFunilInfo(funil as any ?? null);
+      setPagamentos((pags as any[]) ?? []);
       setLoading(false);
     });
   }, [fotografo, id]);
@@ -367,6 +375,24 @@ export default function EntregaDetailPage() {
           </div>
         );
       })()}
+
+      {/* Avisos de renovação paga */}
+      {pagamentos.length > 0 && (
+        <div style={{ background: "rgba(37,99,235,0.06)", border: "0.5px solid rgba(37,99,235,0.25)", borderRadius: 10, padding: "12px 18px", marginBottom: 14 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "#2563EB", marginBottom: pagamentos.length > 1 ? 8 : 0 }}>
+            💳 Acesso renovado via pagamento {pagamentos.length > 1 ? `(${pagamentos.length}x)` : ""}
+          </div>
+          {pagamentos.map((p, i) => (
+            <div key={p.id} style={{ fontSize: 12, color: "#2563EB", marginTop: i === 0 ? 4 : 6, lineHeight: 1.5, paddingTop: i > 0 ? 6 : 0, borderTop: i > 0 ? "0.5px solid rgba(37,99,235,0.15)" : "none" }}>
+              <span style={{ fontWeight: 600 }}>R$ {p.valor.toFixed(2).replace(".", ",")}</span>
+              {p.dias_liberados && <span> · +{p.dias_liberados} dias</span>}
+              {p.pagador_nome && <span> · {p.pagador_nome}</span>}
+              {p.pagador_email && <span style={{ opacity: 0.8 }}> ({p.pagador_email})</span>}
+              {p.paid_at && <span style={{ opacity: 0.7 }}> · {formatarData(p.paid_at)}</span>}
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Funil de Campanha — removida */}
       {funilInfo !== undefined && funilInfo !== null && funilInfo.ignorar_funil && (
