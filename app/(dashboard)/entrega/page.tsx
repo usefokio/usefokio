@@ -449,7 +449,13 @@ export default function EntregaPage() {
                     <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{g.titulo}</span>
                     {(() => {
                       const rc = g.respostas_campanha?.[0] as any;
-                      if (!rc) return null;
+                      const elegivel = g.suspensa || (!g.suspensa && g.expires_at && new Date(g.expires_at) < new Date());
+                      if (!rc && !elegivel) return null;
+                      if (!rc) return (
+                        <span title="Na campanha de reativação — sem contato ainda" style={{ flexShrink: 0, fontSize: 10, fontWeight: 600, padding: "2px 7px", borderRadius: 20, background: "rgba(245,158,11,0.10)", color: "#B45309" }}>
+                          📢 campanha
+                        </span>
+                      );
                       const diasDesde = (iso: string) => Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
 
                       if (rc.resposta === "tem_arquivos") return (
