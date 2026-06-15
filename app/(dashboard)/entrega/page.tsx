@@ -458,7 +458,6 @@ export default function EntregaPage() {
                           </span>
                         );
                       }
-                      );
                       // nao_contatado: galeria está na campanha mas ainda sem contato feito
                       return (
                         <span title="Na campanha de reativação — sem contato ainda" style={{ flexShrink: 0, fontSize: 10, fontWeight: 600, padding: "2px 7px", borderRadius: 20, background: "rgba(245,158,11,0.10)", color: "#B45309" }}>
