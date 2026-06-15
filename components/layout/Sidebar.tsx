@@ -333,6 +333,13 @@ export function Sidebar() {
             </>
           )}
         </div>
+
+        {!collapsed && (
+          <div style={{ padding: "6px 13px 10px", display: "flex", gap: 10 }}>
+            <Link href="/termos" target="_blank" style={{ fontSize: 10, color: "var(--color-text-secondary)", textDecoration: "none", opacity: 0.6 }}>Termos</Link>
+            <Link href="/privacidade" target="_blank" style={{ fontSize: 10, color: "var(--color-text-secondary)", textDecoration: "none", opacity: 0.6 }}>Privacidade</Link>
+          </div>
+        )}
       </div>
     </aside>
   );

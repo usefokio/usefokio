@@ -190,7 +190,12 @@ export default function CadastroPage() {
       }
     }
 
-    // 3. Notifica webmaster sobre novo cadastro (fire-and-forget, não bloqueia)
+    // 3. Registra aceite dos termos (fire-and-forget)
+    if (authData.session) {
+      fetch("/api/termos/aceitar", { method: "POST" }).catch(() => {});
+    }
+
+    // 4. Notifica webmaster sobre novo cadastro (fire-and-forget, não bloqueia)
     fetch("/api/email/novo-fotografo", {
       method:  "POST",
       headers: { "Content-Type": "application/json" },
@@ -201,7 +206,7 @@ export default function CadastroPage() {
       }),
     }).catch(() => { /* silencioso — não impede o fluxo */ });
 
-    // 4. Redireciona — para confirmação de email quando ativa, senão para aguardando aprovação
+    // 5. Redireciona — para confirmação de email quando ativa, senão para aguardando aprovação
     const emailPendente = authData.user?.identities?.[0]?.identity_data?.email_verified === false;
     if (emailPendente) {
       router.push("/cadastro/confirmar-email?email=" + encodeURIComponent(form.email));
@@ -356,7 +361,7 @@ export default function CadastroPage() {
               <Checkbox
                 checked={form.aceitaTermos}
                 onChange={() => upd("aceitaTermos", !form.aceitaTermos)}
-                label={<>Li e aceito os <a href="#" style={{ color: "#2563EB", textDecoration: "none", fontWeight: 500 }}>Termos de Uso</a> e a <a href="#" style={{ color: "#2563EB", textDecoration: "none", fontWeight: 500 }}>Política de Privacidade</a> *</>}
+                label={<>Li e aceito os <a href="/termos" target="_blank" rel="noopener noreferrer" style={{ color: "#2563EB", textDecoration: "none", fontWeight: 500 }}>Termos de Uso</a> e a <a href="/privacidade" target="_blank" rel="noopener noreferrer" style={{ color: "#2563EB", textDecoration: "none", fontWeight: 500 }}>Política de Privacidade</a> *</>}
               />
               {errors.aceitaTermos && (
                 <span style={{ fontSize: 11, color: "#EF4444", marginTop: -4 }}>{errors.aceitaTermos}</span>
@@ -367,8 +372,8 @@ export default function CadastroPage() {
           <div style={{ marginTop: 28, display: "flex", flexDirection: "column", gap: 12 }}>
             <button
               onClick={handleSubmit}
-              disabled={loading}
-              style={{ width: "100%", padding: "12px", borderRadius: 9, background: loading ? "#93C5FD" : "#2563EB", color: "#fff", border: "none", fontSize: 14, fontWeight: 700, cursor: loading ? "not-allowed" : "pointer", letterSpacing: "-0.01em" }}
+              disabled={loading || !form.aceitaTermos}
+              style={{ width: "100%", padding: "12px", borderRadius: 9, background: loading || !form.aceitaTermos ? "#93C5FD" : "#2563EB", color: "#fff", border: "none", fontSize: 14, fontWeight: 700, cursor: loading || !form.aceitaTermos ? "not-allowed" : "pointer", letterSpacing: "-0.01em" }}
             >
               {loading ? "Criando conta…" : "Criar minha conta →"}
             </button>
