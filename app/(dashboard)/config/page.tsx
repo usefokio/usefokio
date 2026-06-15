@@ -10,7 +10,7 @@ import { inputStyle } from "@/lib/styles";
 import { mascaraMoeda, parseMoeda, formatarMoeda } from "@/lib/moeda";
 import { DoacaoDev } from "../_components/DoacaoDev";
 
-type Tab = "categorias" | "venda" | "entrega" | "identidade" | "pagamentos" | "seguranca" | "mensagens";
+type Tab = "categorias" | "venda" | "entrega" | "identidade" | "pagamentos" | "seguranca" | "mensagens" | "agenda";
 
 // ── Gerenciador de categorias ────────────────────────────────────────────────
 function Categorias() {
@@ -1091,6 +1091,81 @@ function AlterarSenha() {
   );
 }
 
+// ── Agenda (iCal) ────────────────────────────────────────────────────────────
+function AgendaConfig() {
+  const { fotografo } = useFotografo();
+  const [url, setUrl]         = useState(fotografo?.ical_url ?? "");
+  const [salvando, setSalvando] = useState(false);
+  const [ok, setOk]           = useState(false);
+  const [erro, setErro]       = useState("");
+
+  useEffect(() => { setUrl(fotografo?.ical_url ?? ""); }, [fotografo]);
+
+  async function salvar() {
+    setSalvando(true); setOk(false); setErro("");
+    const supabase = createClient();
+    const { error } = await supabase
+      .from("fotografos")
+      .update({ ical_url: url.trim() || null })
+      .eq("id", fotografo!.id);
+    if (error) setErro(error.message);
+    else setOk(true);
+    setSalvando(false);
+  }
+
+  return (
+    <div>
+      <p style={{ fontSize: 13, color: "var(--color-text-secondary)", marginTop: 0, marginBottom: 20, lineHeight: 1.6 }}>
+        Cole o link iCal do AlboomCRM, Google Calendar ou qualquer sistema compatível para ver seus eventos na agenda do UseFokio.
+      </p>
+
+      <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "var(--color-text-secondary)", marginBottom: 6 }}>
+        Link iCal
+      </label>
+      <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+        <input
+          type="url"
+          value={url}
+          onChange={(e) => { setUrl(e.target.value); setOk(false); }}
+          placeholder="https://…/calendar.ics"
+          style={{ ...inputStyle, flex: 1, fontSize: 13 }}
+        />
+        <button
+          onClick={salvar}
+          disabled={salvando}
+          style={{
+            padding: "0 20px", borderRadius: 8, border: "none", cursor: salvando ? "not-allowed" : "pointer",
+            background: salvando ? "#93C5FD" : "#2563EB", color: "#fff", fontSize: 13, fontWeight: 700,
+            whiteSpace: "nowrap",
+          }}
+        >
+          {salvando ? "Salvando…" : "Salvar"}
+        </button>
+      </div>
+
+      {ok && (
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <span style={{ fontSize: 13, color: "#059669", fontWeight: 600 }}>✓ Link salvo!</span>
+          <a href="/agenda" style={{ fontSize: 13, color: "#2563EB", textDecoration: "none", fontWeight: 600 }}>
+            Ver agenda →
+          </a>
+        </div>
+      )}
+      {erro && <p style={{ fontSize: 13, color: "#DC2626", margin: 0 }}>{erro}</p>}
+
+      <div style={{
+        marginTop: 20, padding: "14px 16px",
+        background: "var(--color-background-secondary)",
+        border: "0.5px solid var(--color-border-tertiary)",
+        borderRadius: 9, fontSize: 12, color: "var(--color-text-secondary)", lineHeight: 1.7,
+      }}>
+        <strong style={{ color: "var(--color-text-primary)" }}>Como obter o link no AlboomCRM:</strong><br />
+        Acesse o AlboomCRM → Agenda → clique no ícone de integração/exportar → copie o <em>link iCal</em> e cole acima.
+      </div>
+    </div>
+  );
+}
+
 // ── Página principal ─────────────────────────────────────────────────────────
 export default function ConfigPage() {
   const [tab, setTab] = useState<Tab>("categorias");
@@ -1101,6 +1176,7 @@ export default function ConfigPage() {
     { id: "venda",       label: "Venda de fotos extras",  icon: "💰" },
     { id: "entrega",     label: "Galerias de entrega",    icon: "📦" },
     { id: "mensagens",   label: "Modelos de mensagem",   icon: "✉️" },
+    { id: "agenda",      label: "Agenda (iCal)",          icon: "📅" },
     { id: "pagamentos",  label: "Pagamentos (Asaas)",     icon: "💳" },
     { id: "seguranca",   label: "Segurança",              icon: "🔐" },
   ];
@@ -1168,6 +1244,7 @@ export default function ConfigPage() {
           {tab === "venda"       && <VendaFotos />}
           {tab === "entrega"     && <ConfigEntrega />}
           {tab === "mensagens"   && <MensagensConfig />}
+          {tab === "agenda"      && <AgendaConfig />}
           {tab === "pagamentos"  && <ConfigPagamentos />}
           {tab === "seguranca"   && <AlterarSenha />}
         </div>

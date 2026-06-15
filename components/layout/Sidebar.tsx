@@ -22,6 +22,20 @@ const NAV_ITEMS = [
     ),
   },
   {
+    href: "/agenda",
+    label: "Agenda",
+    icon: (
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+        <rect x="1" y="2" width="14" height="12" rx="2" stroke="currentColor" strokeWidth="1.3" fill="none" opacity=".8" />
+        <path d="M1 6h14" stroke="currentColor" strokeWidth="1.3" opacity=".5" />
+        <path d="M5 1v2M11 1v2" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" opacity=".7" />
+        <rect x="4" y="9" width="2" height="2" rx=".4" fill="currentColor" opacity=".7" />
+        <rect x="7" y="9" width="2" height="2" rx=".4" fill="currentColor" opacity=".5" />
+        <rect x="10" y="9" width="2" height="2" rx=".4" fill="currentColor" opacity=".4" />
+      </svg>
+    ),
+  },
+  {
     href: "/clientes",
     label: "Clientes",
     icon: (

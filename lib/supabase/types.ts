@@ -40,6 +40,7 @@ export type Fotografo = {
   recursos: RecursosFotografo;
   logo_url: string | null;
   watermark_url: string | null;
+  ical_url: string | null;
   created_at: string;
   updated_at: string;
 };
