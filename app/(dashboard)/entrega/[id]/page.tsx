@@ -431,40 +431,65 @@ export default function EntregaDetailPage() {
 
         const ultimoContato = funilInfo.whatsapp_em ?? funilInfo.email_2_em ?? funilInfo.email_1_em ?? null;
         const fmtData = (iso: string) => new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
+        const diasDesde = (iso: string) => Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
+
+        // Calcula alerta de ação pendente (sem resposta do cliente)
+        let alertaAcao: { texto: string; proxima: string } | null = null;
+        if (!funilInfo.resposta) {
+          if (funilInfo.estagio === "email_1" && funilInfo.email_1_em) {
+            const d = diasDesde(funilInfo.email_1_em);
+            if (d >= 10) alertaAcao = { texto: `1º email enviado há ${d} dias — hora do 2º email`, proxima: "Enviar 2º email" };
+          } else if (funilInfo.estagio === "email_2" && funilInfo.email_2_em) {
+            const d = diasDesde(funilInfo.email_2_em);
+            if (d >= 4) alertaAcao = { texto: `2º email enviado há ${d} dias — hora do WhatsApp`, proxima: "Enviar WhatsApp" };
+          }
+        }
 
         return (
-          <div style={{ background: info.bg, border: `0.5px solid ${info.border}`, borderRadius: 10, padding: "12px 18px", marginBottom: 14, display: "flex", alignItems: "center", gap: 12 }}>
-            <span style={{ fontSize: 16 }}>{info.icone}</span>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 14, fontWeight: 700, color: info.cor }}>
-                Funil de campanha — {info.label}
+          <div style={{ marginBottom: 14 }}>
+            <div style={{ background: alertaAcao ? "rgba(245,158,11,0.08)" : info.bg, border: `0.5px solid ${alertaAcao ? "rgba(245,158,11,0.4)" : info.border}`, borderRadius: alertaAcao ? "10px 10px 0 0" : 10, padding: "12px 18px", display: "flex", alignItems: "center", gap: 12 }}>
+              <span style={{ fontSize: 16 }}>{alertaAcao ? "⚠️" : info.icone}</span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: alertaAcao ? "#B45309" : info.cor }}>
+                  Funil de campanha — {info.label}
+                </div>
+                {funilInfo.respondido_em && (
+                  <div style={{ fontSize: 11, color: info.cor, marginTop: 2 }}>
+                    Respondeu em {fmtData(funilInfo.respondido_em)}{funilInfo.respondido_nome ? ` · ${funilInfo.respondido_nome}` : ""}
+                  </div>
+                )}
+                {!funilInfo.respondido_em && ultimoContato && (
+                  <div style={{ fontSize: 11, color: alertaAcao ? "#B45309" : info.cor, marginTop: 2 }}>
+                    Último contato em {fmtData(ultimoContato)}
+                  </div>
+                )}
               </div>
-              {funilInfo.respondido_em && (
-                <div style={{ fontSize: 11, color: info.cor, marginTop: 2 }}>
-                  Respondeu em {fmtData(funilInfo.respondido_em)}{funilInfo.respondido_nome ? ` · ${funilInfo.respondido_nome}` : ""}
-                </div>
-              )}
-              {!funilInfo.respondido_em && ultimoContato && (
-                <div style={{ fontSize: 11, color: info.cor, marginTop: 2 }}>
-                  Último contato em {fmtData(ultimoContato)}
-                </div>
-              )}
+              <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                <Link href="/entrega/campanha" style={{ fontSize: 11, fontWeight: 600, color: alertaAcao ? "#B45309" : info.cor, textDecoration: "none", whiteSpace: "nowrap", padding: "4px 12px", borderRadius: 7, border: `0.5px solid ${alertaAcao ? "rgba(245,158,11,0.4)" : info.border}`, background: "transparent" }}>
+                  Ver funil →
+                </Link>
+                <button
+                  onClick={async () => {
+                    await fetch(`/api/campanha/galeria/${id}`, { method: "DELETE" });
+                    setFunilInfo((prev) => prev ? { ...prev, ignorar_funil: true } : null);
+                  }}
+                  title="Remover do funil"
+                  style={{ fontSize: 11, fontWeight: 600, color: "#EF4444", padding: "4px 10px", borderRadius: 7, border: "0.5px solid rgba(239,68,68,0.35)", background: "transparent", cursor: "pointer" }}
+                >
+                  Remover
+                </button>
+              </div>
             </div>
-            <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-              <Link href="/entrega/campanha" style={{ fontSize: 11, fontWeight: 600, color: info.cor, textDecoration: "none", whiteSpace: "nowrap", padding: "4px 12px", borderRadius: 7, border: `0.5px solid ${info.border}`, background: "transparent" }}>
-                Ver funil →
-              </Link>
-              <button
-                onClick={async () => {
-                  await fetch(`/api/campanha/galeria/${id}`, { method: "DELETE" });
-                  setFunilInfo((prev) => prev ? { ...prev, ignorar_funil: true } : null);
-                }}
-                title="Remover do funil"
-                style={{ fontSize: 11, fontWeight: 600, color: "#EF4444", padding: "4px 10px", borderRadius: 7, border: "0.5px solid rgba(239,68,68,0.35)", background: "transparent", cursor: "pointer" }}
-              >
-                Remover
-              </button>
-            </div>
+            {alertaAcao && (
+              <div style={{ background: "rgba(245,158,11,0.12)", border: "0.5px solid rgba(245,158,11,0.4)", borderTop: "none", borderRadius: "0 0 10px 10px", padding: "10px 18px", display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ fontSize: 12, fontWeight: 700, color: "#92400E", flex: 1 }}>
+                  {alertaAcao.texto}
+                </span>
+                <Link href="/entrega/campanha" style={{ fontSize: 11, fontWeight: 700, color: "#fff", background: "#B45309", padding: "5px 14px", borderRadius: 7, textDecoration: "none", whiteSpace: "nowrap" }}>
+                  {alertaAcao.proxima} →
+                </Link>
+              </div>
+            )}
           </div>
         );
       })()}

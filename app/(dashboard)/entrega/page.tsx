@@ -146,7 +146,7 @@ export default function EntregaPage() {
     const supabase = createClient();
     const { data } = await supabase
       .from("galerias_entrega")
-      .select("*, clientes(nome, email, telefone, whatsapp), respostas_campanha(token, estagio, resposta, respondido_em)")
+      .select("*, clientes(nome, email, telefone, whatsapp), respostas_campanha(token, estagio, resposta, respondido_em, email_1_em, email_2_em)")
       .eq("fotografo_id", fotografo.id)
       .eq("rascunho", false);
     const lista = (data as GaleriaEntrega[]) ?? [];
@@ -423,8 +423,10 @@ export default function EntregaPage() {
                   <div style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 6 }}>
                     <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{g.titulo}</span>
                     {(() => {
-                      const rc = g.respostas_campanha?.[0];
+                      const rc = g.respostas_campanha?.[0] as any;
                       if (!rc) return null;
+                      const diasDesde = (iso: string) => Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
+
                       if (rc.resposta === "tem_arquivos") return (
                         <span title="Cliente confirmou: já tem os arquivos" style={{ flexShrink: 0, fontSize: 10, fontWeight: 600, padding: "2px 7px", borderRadius: 20, background: "rgba(16,185,129,0.12)", color: "#059669" }}>
                           ✓ tem arquivos
@@ -440,15 +442,22 @@ export default function EntregaPage() {
                           📱 whatsapp
                         </span>
                       );
-                      if (rc.estagio === "email_2") return (
-                        <span title="2 emails enviados — aguardando resposta" style={{ flexShrink: 0, fontSize: 10, fontWeight: 600, padding: "2px 7px", borderRadius: 20, background: "rgba(124,58,237,0.08)", color: "#7C3AED" }}>
-                          📧×2
-                        </span>
-                      );
-                      if (rc.estagio === "email_1") return (
-                        <span title="1 email enviado — aguardando resposta" style={{ flexShrink: 0, fontSize: 10, fontWeight: 600, padding: "2px 7px", borderRadius: 20, background: "rgba(124,58,237,0.08)", color: "#7C3AED" }}>
-                          📧×1
-                        </span>
+                      if (rc.estagio === "email_2") {
+                        const atrasado = rc.email_2_em && diasDesde(rc.email_2_em) >= 4;
+                        return (
+                          <span title={atrasado ? `2º email enviado há ${diasDesde(rc.email_2_em)} dias — envie o WhatsApp!` : "2 emails enviados — aguardando resposta"} style={{ flexShrink: 0, fontSize: 10, fontWeight: 600, padding: "2px 7px", borderRadius: 20, background: atrasado ? "rgba(245,158,11,0.15)" : "rgba(124,58,237,0.08)", color: atrasado ? "#B45309" : "#7C3AED" }}>
+                            {atrasado ? "⚠️ WhatsApp" : "📧×2"}
+                          </span>
+                        );
+                      }
+                      if (rc.estagio === "email_1") {
+                        const atrasado = rc.email_1_em && diasDesde(rc.email_1_em) >= 10;
+                        return (
+                          <span title={atrasado ? `1º email enviado há ${diasDesde(rc.email_1_em)} dias — envie o 2º email!` : "1 email enviado — aguardando resposta"} style={{ flexShrink: 0, fontSize: 10, fontWeight: 600, padding: "2px 7px", borderRadius: 20, background: atrasado ? "rgba(245,158,11,0.15)" : "rgba(124,58,237,0.08)", color: atrasado ? "#B45309" : "#7C3AED" }}>
+                            {atrasado ? "⚠️ 2º email" : "📧×1"}
+                          </span>
+                        );
+                      }
                       );
                       // nao_contatado: galeria está na campanha mas ainda sem contato feito
                       return (
