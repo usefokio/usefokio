@@ -132,6 +132,7 @@ export default function EntregaPage() {
   const [filtro,         setFiltro]         = useState<Filtro>("todas");
   const [anoFiltro,      setAnoFiltro]      = useState<number | null>(null);
   const [ordenacao,      setOrdenacao]      = useState<Ordenacao>("evento");
+  const [busca,          setBusca]          = useState("");
   const [enviarAcessoId, setEnviarAcessoId] = useState<string | null>(null);
   const [emailClienteId, setEmailClienteId] = useState<string | null>(null);
   const [recarregarKey,  setRecarregarKey]  = useState(0);
@@ -238,8 +239,13 @@ export default function EntregaPage() {
     ? porAno
     : porAno.filter((g) => g._status === filtro);
 
+  // Aplicar busca por nome
+  const porBusca = busca.trim()
+    ? porAnoEStatus.filter((g) => g.titulo.toLowerCase().includes(busca.trim().toLowerCase()))
+    : porAnoEStatus;
+
   // Ordenação
-  const filtradas = [...porAnoEStatus].sort((a, b) => {
+  const filtradas = [...porBusca].sort((a, b) => {
     if (ordenacao === "evento") {
       if (!a.data_evento && !b.data_evento) return 0;
       if (!a.data_evento) return 1;
@@ -261,6 +267,25 @@ export default function EntregaPage() {
           </p>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          {/* Busca */}
+          <div style={{ position: "relative" }}>
+            <span style={{ position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)", fontSize: 12, color: "var(--color-text-secondary)", pointerEvents: "none" }}>🔍</span>
+            <input
+              type="text"
+              placeholder="Buscar galeria…"
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+              style={{
+                fontSize: 12, padding: "5px 10px 5px 28px", borderRadius: 7, width: 180,
+                border: "0.5px solid var(--color-border-secondary)",
+                background: "var(--color-background-secondary)",
+                color: "var(--color-text-primary)", outline: "none",
+              }}
+            />
+            {busca && (
+              <button onClick={() => setBusca("")} style={{ position: "absolute", right: 7, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", fontSize: 12, color: "var(--color-text-secondary)", padding: 0, lineHeight: 1 }}>✕</button>
+            )}
+          </div>
           {/* Ordenação */}
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <span style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>Ordenar:</span>
