@@ -64,6 +64,12 @@ export async function POST(_request: NextRequest, { params }: { params: Promise<
         paid_at: new Date().toISOString(),
       }).eq("id", p.id);
 
+      // Marca a resposta da campanha como "renovar" para exibir a tag na listagem
+      await admin.from("respostas_campanha")
+        .update({ resposta: "renovar", estagio: "encerrado", respondido_em: new Date().toISOString() })
+        .eq("galeria_id", id)
+        .is("resposta", null);
+
       return NextResponse.json({ liberado: true, novaData: novaData.toISOString() });
     } catch {
       // erro de consulta individual não bloqueia os demais

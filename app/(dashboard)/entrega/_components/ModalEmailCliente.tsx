@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import type { GaleriaEntrega, EstagioFunil } from "@/lib/supabase/types";
 
-type TemplateId = "link" | "expirando" | "suspensa" | "campanha";
+type TemplateId = "link" | "expirando" | "suspensa" | "renovacao" | "campanha";
 
 interface Template {
   id: TemplateId;
@@ -53,6 +53,19 @@ const TEMPLATES: Template[] = [
     icone: "🔒",
     corpo: ({ nomeCliente, titulo, nomeEmpresa }) =>
       `Olá, ${nomeCliente}!\n\nInformo que o acesso à galeria ${titulo} foi temporariamente suspenso.\n\nCaso queira reativar o acesso, entre em contato comigo.\n\nAtenciosamente,\n${nomeEmpresa}`,
+  },
+  {
+    id: "renovacao",
+    nome: "Renovação confirmada",
+    assunto: "Seu acesso foi renovado — {titulo}",
+    icone: "✅",
+    corpo: ({ nomeCliente, titulo, link, nomeEmpresa, diasRestantes }) => {
+      const dataExpiracao = diasRestantes !== null && diasRestantes > 0
+        ? new Date(Date.now() + diasRestantes * 86_400_000).toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" })
+        : null;
+      const prazoFmt = dataExpiracao ? `até ${dataExpiracao}` : "por tempo limitado";
+      return `Olá, ${nomeCliente}!\n\nSeu acesso às fotos de ${titulo} foi renovado com sucesso! 🎉\n\nVocê tem acesso disponível ${prazoFmt}. Aproveite para visualizar e baixar suas fotos:\n${link}\n\nApós esse prazo, o acesso será novamente suspenso. Se precisar de mais tempo, entre em contato comigo.\n\nObrigado pela confiança!\n\n${nomeEmpresa}`;
+    },
   },
   {
     id: "campanha",
