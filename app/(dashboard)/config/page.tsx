@@ -496,7 +496,12 @@ function MensagensConfig() {
     if (!fotografo) return;
     setSaving(true);
     const supabase = createClient();
-    const payload = Object.fromEntries(Object.entries(templates).filter(([, v]) => v.trim()));
+    const payload = Object.fromEntries(
+      Object.entries(templates).filter(([id, v]) => {
+        const def = (DEFS_TEMPLATE as readonly { id: string; padrao: string }[]).find((d) => d.id === id);
+        return v.trim() && v.trim() !== (def?.padrao ?? "").trim();
+      })
+    );
     await supabase
       .from("fotografos")
       .update({ templates_mensagem: Object.keys(payload).length ? payload : null })
@@ -541,7 +546,7 @@ function MensagensConfig() {
               <div style={{ padding: "14px 16px" }}>
                 <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: "0 0 10px", lineHeight: 1.5 }}>{def.quando}</p>
                 <textarea
-                  value={templates[def.id] ?? ""}
+                  value={templates[def.id] ?? def.padrao}
                   onChange={(e) => setTemplates((t) => ({ ...t, [def.id]: e.target.value }))}
                   placeholder={def.padrao}
                   rows={7}

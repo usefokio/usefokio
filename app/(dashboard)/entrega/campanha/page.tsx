@@ -26,6 +26,7 @@ type CampanhaItem = {
     cover_color: string | null;
     data_evento: string | null;
     drive_link: string | null;
+    expires_at: string | null;
     cliente_nome: string | null;
     cliente_email: string | null;
     cliente_telefone: string | null;
@@ -101,7 +102,7 @@ export default function CampanhaPage() {
       // 2. Load funnel records
       const { data } = await supabase
         .from("respostas_campanha")
-        .select("id, token, estagio, resposta, respondido_em, email_1_em, email_2_em, whatsapp_em, agradecimento_em, drive_revogado, created_at, galerias_entrega(id, titulo, foto_capa_url, cover_color, data_evento, drive_link, clientes(nome, email, telefone, whatsapp))")
+        .select("id, token, estagio, resposta, respondido_em, email_1_em, email_2_em, whatsapp_em, agradecimento_em, drive_revogado, created_at, galerias_entrega(id, titulo, foto_capa_url, cover_color, data_evento, drive_link, expires_at, clientes(nome, email, telefone, whatsapp))")
         .eq("fotografo_id", fotografo!.id)
         .or("ignorar_funil.eq.false,and(resposta.eq.tem_arquivos,agradecimento_em.is.null)")
         .order("created_at", { ascending: false });
@@ -148,6 +149,7 @@ export default function CampanhaPage() {
           cover_color:      r.galerias_entrega?.cover_color ?? null,
           data_evento:      r.galerias_entrega?.data_evento ?? null,
           drive_link:       r.galerias_entrega?.drive_link ?? null,
+          expires_at:       r.galerias_entrega?.expires_at ?? null,
           cliente_nome:     r.galerias_entrega?.clientes?.nome ?? null,
           cliente_email:    r.galerias_entrega?.clientes?.email ?? null,
           cliente_telefone: r.galerias_entrega?.clientes?.telefone ?? null,
@@ -439,7 +441,7 @@ export default function CampanhaPage() {
           foto_capa_url: item.galeria.foto_capa_url,
           cover_color: item.galeria.cover_color,
           data_evento: item.galeria.data_evento,
-          expires_at: null,
+          expires_at: item.galeria.expires_at,
           clientes: item.galeria.cliente_nome
             ? {
                 nome: item.galeria.cliente_nome,
