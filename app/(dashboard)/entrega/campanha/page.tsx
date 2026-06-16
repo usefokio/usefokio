@@ -100,7 +100,7 @@ export default function CampanhaPage() {
         .from("respostas_campanha")
         .select("id, token, estagio, resposta, respondido_em, email_1_em, email_2_em, whatsapp_em, agradecimento_em, drive_revogado, created_at, galerias_entrega(id, titulo, foto_capa_url, cover_color, data_evento, drive_link, clientes(nome, email, telefone, whatsapp))")
         .eq("fotografo_id", fotografo!.id)
-        .or("ignorar_funil.eq.false,resposta.eq.tem_arquivos")
+        .or("ignorar_funil.eq.false,and(resposta.eq.tem_arquivos,agradecimento_em.is.null)")
         .order("created_at", { ascending: false });
 
       if (!data) { setLoading(false); return; }
