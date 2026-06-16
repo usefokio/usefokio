@@ -66,6 +66,7 @@ export default function CampanhaPage() {
   const [itens,          setItens]          = useState<CampanhaItem[]>([]);
   const [loading,        setLoading]        = useState(true);
   const [modalGaleriaId, setModalGaleriaId] = useState<string | null>(null);
+  const [modalTemplate,  setModalTemplate]  = useState<"campanha" | "renovacao">("campanha");
   const [recarregarKey,  setRecarregarKey]  = useState(0);
   const [movendoId,      setMovendoId]      = useState<string | null>(null);
 
@@ -295,6 +296,12 @@ export default function CampanhaPage() {
                             {item.resposta === "tem_arquivos" && !item.agradecimento_em && (
                               <span style={{ color: "#059669", fontWeight: 600 }}>✅ Confirmou que tem os arquivos</span>
                             )}
+                            {item.resposta === "renovar" && item.respondido_em && (
+                              <span style={{ color: "#2563EB", fontWeight: 600 }}>💳 Pagamento confirmado {diasDesde(item.respondido_em)}</span>
+                            )}
+                            {item.resposta === "renovar" && !item.respondido_em && (
+                              <span style={{ color: "#2563EB", fontWeight: 600 }}>💳 Acesso renovado via pagamento</span>
+                            )}
                             {item.estagio === "encerrado" && !item.resposta && (
                               <span style={{ color: "#6B7280" }}>Encerrado sem resposta</span>
                             )}
@@ -309,7 +316,7 @@ export default function CampanhaPage() {
                           {/* Ação rápida */}
                           {col.id !== "concluido" && (
                             <button
-                              onClick={() => setModalGaleriaId(item.galeria.id)}
+                              onClick={() => { setModalTemplate("campanha"); setModalGaleriaId(item.galeria.id); }}
                               style={{
                                 width: "100%", padding: "6px 0", borderRadius: 7, fontSize: 11, fontWeight: 600,
                                 border: `0.5px solid ${col.cor}55`,
@@ -322,7 +329,7 @@ export default function CampanhaPage() {
                           )}
                           {col.id === "concluido" && item.resposta === "tem_arquivos" && !item.agradecimento_em && (
                             <button
-                              onClick={() => setModalGaleriaId(item.galeria.id)}
+                              onClick={() => { setModalTemplate("campanha"); setModalGaleriaId(item.galeria.id); }}
                               style={{
                                 width: "100%", padding: "6px 0", borderRadius: 7, fontSize: 11, fontWeight: 600,
                                 border: "0.5px solid rgba(16,185,129,0.4)",
@@ -333,7 +340,20 @@ export default function CampanhaPage() {
                               💌 Enviar agradecimento
                             </button>
                           )}
-                          {col.id === "concluido" && !(item.resposta === "tem_arquivos" && !item.agradecimento_em) && (
+                          {col.id === "concluido" && item.resposta === "renovar" && (
+                            <button
+                              onClick={() => { setModalTemplate("renovacao"); setModalGaleriaId(item.galeria.id); }}
+                              style={{
+                                width: "100%", padding: "6px 0", borderRadius: 7, fontSize: 11, fontWeight: 600,
+                                border: "0.5px solid rgba(37,99,235,0.35)",
+                                background: "rgba(37,99,235,0.07)",
+                                color: "#2563EB", cursor: "pointer",
+                              }}
+                            >
+                              💌 Enviar email de renovação
+                            </button>
+                          )}
+                          {col.id === "concluido" && item.resposta !== "tem_arquivos" && item.resposta !== "renovar" && (
                             <button
                               onClick={() => router.push(`/entrega/${item.galeria.id}`)}
                               style={{
@@ -402,7 +422,7 @@ export default function CampanhaPage() {
           <ModalEmailCliente
             galeria={galeriaFake}
             onFechar={fecharModal}
-            templateInicial="campanha"
+            templateInicial={modalTemplate}
             onEstagioAvancado={(patch) => atualizarEstagio(item.galeria.id, patch)}
           />
         );

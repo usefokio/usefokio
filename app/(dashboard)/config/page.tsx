@@ -463,6 +463,14 @@ const DEFS_TEMPLATE = [
     padrao: "Olá, {nomeCliente}! Tudo bem?\n\nSou {nomeEmpresa} e estou tentando falar com você sobre as fotos de {titulo}.\n\nEnviei emails nos dias {dataEmail1} e {dataEmail2}, mas ainda não recebi resposta. Caso não tenha recebido, verifique a pasta de spam.\n\nPreciso que você me diga o que prefere fazer com esses arquivos — é rapidinho:\n{respostaUrl}\n\n✅ Já tenho minhas fotos salvas\n🔄 Quero renovar o acesso\n\nObrigado!",
   },
   {
+    id: "renovacao",
+    nome: "Renovação confirmada",
+    icone: "✅",
+    quando: "Enviado ao cliente após confirmação de pagamento de renovação de acesso.",
+    variaveis: "{nomeCliente}, {titulo}, {link}, {nomeEmpresa}, {prazo}",
+    padrao: "Olá, {nomeCliente}!\n\nSeu acesso às fotos de {titulo} foi renovado com sucesso! 🎉\n\nVocê tem acesso disponível {prazo}. Aproveite para visualizar e baixar suas fotos:\n{link}\n\nApós esse prazo, o acesso será novamente suspenso. Se precisar de mais tempo, entre em contato comigo.\n\nObrigado pela confiança!\n\n{nomeEmpresa}",
+  },
+  {
     id: "campanha_agradecimento",
     nome: "Campanha — Agradecimento",
     icone: "💌",
