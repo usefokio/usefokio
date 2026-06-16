@@ -147,7 +147,7 @@ export default function EntregaPage() {
     const supabase = createClient();
     const { data } = await supabase
       .from("galerias_entrega")
-      .select("*, clientes(nome, email, telefone, whatsapp), respostas_campanha(token, estagio, resposta, respondido_em, email_1_em, email_2_em)")
+      .select("*, clientes(id, nome, email, telefone, whatsapp), respostas_campanha(token, estagio, resposta, respondido_em, email_1_em, email_2_em)")
       .eq("fotografo_id", fotografo.id)
       .eq("rascunho", false);
     const lista = (data as GaleriaEntrega[]) ?? [];
@@ -498,7 +498,7 @@ export default function EntregaPage() {
                     })()}
                   </div>
                   <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 1 }}>
-                    {g.clientes ? g.clientes.nome : "Sem cliente"}
+                    {g.clientes ? <Link href={`/clientes/${g.clientes.id}`} style={{ color: "inherit", textDecoration: "none" }} onMouseEnter={e => (e.currentTarget.style.textDecoration = "underline")} onMouseLeave={e => (e.currentTarget.style.textDecoration = "none")}>{g.clientes.nome}</Link> : "Sem cliente"}
                     {g.total_acessos > 0 && <span> · {g.total_acessos} acesso{g.total_acessos !== 1 ? "s" : ""}</span>}
                     {g.downloads > 0 && <span> · {g.downloads} download{g.downloads !== 1 ? "s" : ""}</span>}
                     {g.data_evento && <span> · {new Date(g.data_evento + "T12:00:00").toLocaleDateString("pt-BR")}</span>}

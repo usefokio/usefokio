@@ -42,7 +42,7 @@ export async function POST(request: Request) {
     // Fotógrafo
     const { data: fotografo } = await supabase
       .from("fotografos")
-      .select("nome_completo, nome_empresa")
+      .select("nome_completo, nome_empresa, email, site")
       .eq("id", session.user.id)
       .single();
 
@@ -70,6 +70,8 @@ export async function POST(request: Request) {
       clienteNome:      cliente.nome,
       fotografoNome:    fotografo?.nome_completo ?? "",
       fotografoEmpresa: fotografo?.nome_empresa ?? "Fotógrafo",
+      fotografoEmail:   fotografo?.email ?? null,
+      fotografoSite:    fotografo?.site ?? null,
       galeriaTitulo:    galeria.titulo,
       galeriaUrl,
       senhaAcesso:      cliente.senha_acesso,

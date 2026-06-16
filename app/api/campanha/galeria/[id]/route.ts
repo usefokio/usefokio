@@ -34,7 +34,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 
   const { data: registro } = await admin
     .from("respostas_campanha")
-    .select("token, estagio, email_1_em, email_2_em, whatsapp_em, resposta, respondido_em, respondido_nome")
+    .select("token, estagio, email_1_em, email_2_em, whatsapp_em, resposta, respondido_em, respondido_nome, agradecimento_em")
     .eq("galeria_id", id)
     .eq("fotografo_id", user.id)
     .maybeSingle();

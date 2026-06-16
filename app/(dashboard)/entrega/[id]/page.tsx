@@ -214,7 +214,7 @@ export default function EntregaDetailPage() {
     const supabase = createClient();
     Promise.all([
       supabase.from("galerias_entrega")
-        .select("*, clientes(nome, email, whatsapp, telefone)")
+        .select("*, clientes(id, nome, email, whatsapp, telefone)")
         .eq("id", id)
         .eq("fotografo_id", fotografo.id)
         .maybeSingle(),
@@ -224,7 +224,7 @@ export default function EntregaDetailPage() {
         .eq("galeria_id", id)
         .order("acessado_em", { ascending: false }),
       supabase.from("respostas_campanha")
-        .select("estagio, resposta, respondido_em, respondido_nome, email_1_em, email_2_em, whatsapp_em, ignorar_funil")
+        .select("estagio, resposta, respondido_em, respondido_nome, email_1_em, email_2_em, whatsapp_em, ignorar_funil, agradecimento_em")
         .eq("galeria_id", id)
         .eq("fotografo_id", fotografo.id)
         .maybeSingle(),
@@ -338,7 +338,7 @@ export default function EntregaDetailPage() {
             <h1 style={{ fontSize: 18, fontWeight: 700, color: "var(--color-text-primary)", margin: 0, letterSpacing: "-0.01em" }}>{g.titulo}</h1>
             <StatusBadge galeria={g} />
           </div>
-          {g.clientes && <div style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>Cliente: <strong style={{ color: "var(--color-text-primary)" }}>{g.clientes.nome}</strong></div>}
+          {g.clientes && <div style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>Cliente: <Link href={`/clientes/${g.clientes.id}`} style={{ color: "var(--color-text-primary)", fontWeight: 600, textDecoration: "none" }} onMouseEnter={e => (e.currentTarget.style.textDecoration = "underline")} onMouseLeave={e => (e.currentTarget.style.textDecoration = "none")}>{g.clientes.nome}</Link></div>}
           {g.data_evento && <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginTop: 2 }}>Evento: {formatarData(g.data_evento)}</div>}
         </div>
         <div style={{ display: "flex", gap: 8, flexShrink: 0, flexWrap: "wrap" }}>
@@ -445,19 +445,34 @@ export default function EntregaDetailPage() {
           }
         }
 
+        // Monta timeline de eventos
+        const eventos: { data: string; texto: string; icone: string; cor: string }[] = [];
+        if (funilInfo.email_1_em) eventos.push({ data: fmtData(funilInfo.email_1_em), texto: "1º email enviado", icone: "📧", cor: "#7C3AED" });
+        if (funilInfo.email_2_em) eventos.push({ data: fmtData(funilInfo.email_2_em), texto: "2º email enviado", icone: "📧", cor: "#2563EB" });
+        if (funilInfo.whatsapp_em) eventos.push({ data: fmtData(funilInfo.whatsapp_em), texto: "WhatsApp enviado", icone: "📱", cor: "#15803D" });
+        if (funilInfo.respondido_em) eventos.push({
+          data: fmtData(funilInfo.respondido_em),
+          texto: funilInfo.resposta === "tem_arquivos"
+            ? `Cliente confirmou: já tem os arquivos${funilInfo.respondido_nome ? ` (${funilInfo.respondido_nome})` : ""}`
+            : `Cliente respondeu: quer renovar${funilInfo.respondido_nome ? ` (${funilInfo.respondido_nome})` : ""}`,
+          icone: funilInfo.resposta === "tem_arquivos" ? "✅" : "🔄",
+          cor: funilInfo.resposta === "tem_arquivos" ? "#059669" : "#2563EB",
+        });
+        if ((funilInfo as any).agradecimento_em) eventos.push({
+          data: fmtData((funilInfo as any).agradecimento_em),
+          texto: "Email de agradecimento enviado",
+          icone: "💌",
+          cor: "#059669",
+        });
+
         return (
           <div style={{ marginBottom: 14 }}>
-            <div style={{ background: alertaAcao ? "rgba(245,158,11,0.08)" : info.bg, border: `0.5px solid ${alertaAcao ? "rgba(245,158,11,0.4)" : info.border}`, borderRadius: alertaAcao ? "10px 10px 0 0" : 10, padding: "12px 18px", display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{ background: alertaAcao ? "rgba(245,158,11,0.08)" : info.bg, border: `0.5px solid ${alertaAcao ? "rgba(245,158,11,0.4)" : info.border}`, borderRadius: eventos.length > 0 ? "10px 10px 0 0" : alertaAcao ? "10px 10px 0 0" : 10, padding: "12px 18px", display: "flex", alignItems: "center", gap: 12 }}>
               <span style={{ fontSize: 16 }}>{alertaAcao ? "⚠️" : info.icone}</span>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 14, fontWeight: 700, color: alertaAcao ? "#B45309" : info.cor }}>
                   Funil de campanha — {info.label}
                 </div>
-                {funilInfo.respondido_em && (
-                  <div style={{ fontSize: 11, color: info.cor, marginTop: 2 }}>
-                    Respondeu em {fmtData(funilInfo.respondido_em)}{funilInfo.respondido_nome ? ` · ${funilInfo.respondido_nome}` : ""}
-                  </div>
-                )}
                 {!funilInfo.respondido_em && ultimoContato && (
                   <div style={{ fontSize: 11, color: alertaAcao ? "#B45309" : info.cor, marginTop: 2 }}>
                     Último contato em {fmtData(ultimoContato)}
@@ -465,9 +480,11 @@ export default function EntregaDetailPage() {
                 )}
               </div>
               <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-                <Link href="/entrega/campanha" style={{ fontSize: 11, fontWeight: 600, color: alertaAcao ? "#B45309" : info.cor, textDecoration: "none", whiteSpace: "nowrap", padding: "4px 12px", borderRadius: 7, border: `0.5px solid ${alertaAcao ? "rgba(245,158,11,0.4)" : info.border}`, background: "transparent" }}>
-                  Ver funil →
-                </Link>
+                {!funilInfo.respondido_em && (
+                  <Link href="/entrega/campanha" style={{ fontSize: 11, fontWeight: 600, color: alertaAcao ? "#B45309" : info.cor, textDecoration: "none", whiteSpace: "nowrap", padding: "4px 12px", borderRadius: 7, border: `0.5px solid ${alertaAcao ? "rgba(245,158,11,0.4)" : info.border}`, background: "transparent" }}>
+                    Ver funil →
+                  </Link>
+                )}
                 <button
                   onClick={async () => {
                     await fetch(`/api/campanha/galeria/${id}`, { method: "DELETE" });
@@ -480,11 +497,28 @@ export default function EntregaDetailPage() {
                 </button>
               </div>
             </div>
+
+            {/* Timeline de andamento */}
+            {eventos.length > 0 && (
+              <div style={{ background: "var(--color-background-primary)", border: `0.5px solid ${alertaAcao ? "rgba(245,158,11,0.4)" : info.border}`, borderTop: "none", borderRadius: alertaAcao ? "0" : "0 0 10px 10px", padding: "12px 18px 14px" }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>Histórico</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {eventos.map((ev, i) => (
+                    <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+                      <span style={{ fontSize: 13, lineHeight: 1, marginTop: 1 }}>{ev.icone}</span>
+                      <div style={{ flex: 1 }}>
+                        <span style={{ fontSize: 12, fontWeight: 600, color: ev.cor }}>{ev.texto}</span>
+                        <span style={{ fontSize: 11, color: "var(--color-text-secondary)", marginLeft: 6 }}>· {ev.data}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {alertaAcao && (
               <div style={{ background: "rgba(245,158,11,0.12)", border: "0.5px solid rgba(245,158,11,0.4)", borderTop: "none", borderRadius: "0 0 10px 10px", padding: "10px 18px", display: "flex", alignItems: "center", gap: 10 }}>
-                <span style={{ fontSize: 12, fontWeight: 700, color: "#92400E", flex: 1 }}>
-                  {alertaAcao.texto}
-                </span>
+                <span style={{ fontSize: 12, fontWeight: 700, color: "#92400E", flex: 1 }}>{alertaAcao.texto}</span>
                 <Link href="/entrega/campanha" style={{ fontSize: 11, fontWeight: 700, color: "#fff", background: "#B45309", padding: "5px 14px", borderRadius: 7, textDecoration: "none", whiteSpace: "nowrap" }}>
                   {alertaAcao.proxima} →
                 </Link>

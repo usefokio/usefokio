@@ -33,7 +33,7 @@ export type Fotografo = {
   aprovado: boolean;
   mensagem_padrao_entrega: string | null;
   renewal_fee_padrao: number | null;
-  templates_mensagem: { link?: string; pronta?: string; expirando?: string; suspensa?: string; campanha?: string; campanha_email1?: string; campanha_email2?: string; campanha_whatsapp?: string } | null;
+  templates_mensagem: { link?: string; pronta?: string; expirando?: string; suspensa?: string; campanha?: string; campanha_email1?: string; campanha_email2?: string; campanha_whatsapp?: string; campanha_agradecimento?: string } | null;
   asaas_api_key_enc: string | null;
   asaas_ambiente: "producao" | "sandbox";
   asaas_ativo: boolean;
@@ -116,6 +116,7 @@ export type RespostaCampanha = {
   notificado: boolean;
   drive_revogado: boolean;
   ignorar_funil: boolean;
+  agradecimento_em: string | null;
   created_at: string;
 };
 
@@ -145,7 +146,7 @@ export type GaleriaEntrega = {
   created_at: string;
   updated_at: string;
   // joined
-  clientes?: { nome: string; email: string | null; telefone: string | null; whatsapp: string | null } | null;
+  clientes?: { id: string; nome: string; email: string | null; telefone: string | null; whatsapp: string | null } | null;
   respostas_campanha?: { token: string; estagio: EstagioFunil; resposta: "renovar" | "tem_arquivos" | null; respondido_em: string | null }[] | null;
 };
 
@@ -284,7 +285,7 @@ export type AlbumSelecao = {
   created_at: string;
   updated_at: string;
   // joined
-  clientes?: { nome: string; email: string | null; telefone: string | null } | null;
+  clientes?: { id: string; nome: string; email: string | null; telefone: string | null } | null;
 };
 
 export type AlbumLamina = {

@@ -16,6 +16,7 @@ type CampanhaItem = {
   email_1_em: string | null;
   email_2_em: string | null;
   whatsapp_em: string | null;
+  agradecimento_em: string | null;
   drive_revogado: boolean;
   created_at: string;
   galeria: {
@@ -97,9 +98,9 @@ export default function CampanhaPage() {
       // 2. Load funnel records
       const { data } = await supabase
         .from("respostas_campanha")
-        .select("id, token, estagio, resposta, respondido_em, email_1_em, email_2_em, whatsapp_em, drive_revogado, created_at, galerias_entrega(id, titulo, foto_capa_url, cover_color, data_evento, drive_link, clientes(nome, email, telefone, whatsapp))")
+        .select("id, token, estagio, resposta, respondido_em, email_1_em, email_2_em, whatsapp_em, agradecimento_em, drive_revogado, created_at, galerias_entrega(id, titulo, foto_capa_url, cover_color, data_evento, drive_link, clientes(nome, email, telefone, whatsapp))")
         .eq("fotografo_id", fotografo!.id)
-        .eq("ignorar_funil", false)
+        .or("ignorar_funil.eq.false,resposta.eq.tem_arquivos")
         .order("created_at", { ascending: false });
 
       if (!data) { setLoading(false); return; }
@@ -111,7 +112,8 @@ export default function CampanhaPage() {
         respondido_em: r.respondido_em,
         email_1_em:    r.email_1_em,
         email_2_em:    r.email_2_em,
-        whatsapp_em:   r.whatsapp_em,
+        whatsapp_em:    r.whatsapp_em,
+        agradecimento_em: r.agradecimento_em ?? null,
         drive_revogado: r.drive_revogado ?? false,
         created_at:    r.created_at,
         galeria: {
@@ -287,7 +289,10 @@ export default function CampanhaPage() {
 
                           {/* Info */}
                           <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginBottom: 8 }}>
-                            {item.resposta === "tem_arquivos" && (
+                            {item.resposta === "tem_arquivos" && item.agradecimento_em && (
+                              <span style={{ color: "#059669", fontWeight: 600 }}>✅ Agradecimento enviado</span>
+                            )}
+                            {item.resposta === "tem_arquivos" && !item.agradecimento_em && (
                               <span style={{ color: "#059669", fontWeight: 600 }}>✅ Confirmou que tem os arquivos</span>
                             )}
                             {item.estagio === "encerrado" && !item.resposta && (
@@ -315,7 +320,20 @@ export default function CampanhaPage() {
                               Enviar contato →
                             </button>
                           )}
-                          {col.id === "concluido" && (
+                          {col.id === "concluido" && item.resposta === "tem_arquivos" && !item.agradecimento_em && (
+                            <button
+                              onClick={() => setModalGaleriaId(item.galeria.id)}
+                              style={{
+                                width: "100%", padding: "6px 0", borderRadius: 7, fontSize: 11, fontWeight: 600,
+                                border: "0.5px solid rgba(16,185,129,0.4)",
+                                background: "rgba(16,185,129,0.08)",
+                                color: "#059669", cursor: "pointer",
+                              }}
+                            >
+                              💌 Enviar agradecimento
+                            </button>
+                          )}
+                          {col.id === "concluido" && !(item.resposta === "tem_arquivos" && !item.agradecimento_em) && (
                             <button
                               onClick={() => router.push(`/entrega/${item.galeria.id}`)}
                               style={{
@@ -329,8 +347,8 @@ export default function CampanhaPage() {
                             </button>
                           )}
 
-                          {/* Mover para outra coluna */}
-                          <select
+                          {/* Mover para outra coluna — oculto para itens já resolvidos */}
+                          {item.resposta !== "tem_arquivos" && <select
                             value={item.estagio}
                             disabled={movendoId === item.galeria.id}
                             onChange={(e) => moverCard(item.galeria.id, e.target.value as EstagioFunil)}
@@ -348,7 +366,7 @@ export default function CampanhaPage() {
                             <option value="email_2">📧 2º Email</option>
                             <option value="whatsapp">📱 WhatsApp</option>
                             <option value="encerrado">✓ Encerrado</option>
-                          </select>
+                          </select>}
                         </div>
                       );
                     })

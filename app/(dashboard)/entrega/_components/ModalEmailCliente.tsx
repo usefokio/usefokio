@@ -136,6 +136,13 @@ Essa é nossa última tentativa de contato antes da exclusão definitiva dos arq
 
 Sem uma resposta, as fotos serão excluídas permanentemente e não poderão ser recuperadas.`;
 
+const CAMPANHA_AGRADECIMENTO_DEFAULT = `Oi, {nomeCliente}! Ficamos felizes em saber que você já tem suas fotos de {titulo} salvas.
+
+Obrigado pela confiança ao longo de todo esse processo. Qualquer dúvida ou necessidade futura, estou à disposição.
+
+Um abraço,
+{nomeEmpresa}`;
+
 const CAMPANHA_POR_ESTAGIO: Record<string, { key: string; default: string; assunto: string }> = {
   nao_contatado: { key: "campanha_email1",   default: CAMPANHA_EMAIL1_DEFAULT,   assunto: "Suas fotos de {titulo} — precisamos conversar" },
   email_1:       { key: "campanha_email2",   default: CAMPANHA_EMAIL2_DEFAULT,   assunto: "Lembrete: suas fotos de {titulo} aguardam sua resposta" },
@@ -153,6 +160,7 @@ type TokenInfo = {
   resposta: "renovar" | "tem_arquivos" | null;
   respondido_em: string | null;
   respondido_nome: string | null;
+  agradecimento_em: string | null;
 };
 
 export function ModalEmailCliente({ galeria, onFechar, templateInicial, onEstagioAvancado }: {
@@ -170,6 +178,7 @@ export function ModalEmailCliente({ galeria, onFechar, templateInicial, onEstagi
   const [whatsCopiado, setWhatsCopiado] = useState(false);
   const [avancando,    setAvancando]    = useState(false);
   const [reiniciando,  setReiniciando]  = useState(false);
+  const [agradecimentoMarcando, setAgradecimentoMarcando] = useState(false);
 
   // Quando abrir direto no template campanha, carregar o token automaticamente
   useEffect(() => {
@@ -206,12 +215,17 @@ export function ModalEmailCliente({ galeria, onFechar, templateInicial, onEstagi
         const respostaUrl = typeof window !== "undefined"
           ? `${window.location.origin}/campanha/resposta/${info.token}`
           : `/campanha/resposta/${info.token}`;
-        const cfg        = CAMPANHA_POR_ESTAGIO[info.estagio] ?? CAMPANHA_POR_ESTAGIO.nao_contatado;
-        const customText = tpls?.[cfg.key] ?? tpls?.["campanha"];
-        const dataEmail1 = formatarDataContato(info.email_1_em);
-        const dataEmail2 = formatarDataContato(info.email_2_em);
         const vars: TemplateVars = { nomeCliente, titulo: galeria.titulo, link, respostaUrl, diasRestantes, nomeEmpresa };
-        setMensagem(substituirVars(customText ?? cfg.default, { ...vars, prazo, dataEmail1, dataEmail2 }));
+        if (info.resposta === "tem_arquivos" && !info.agradecimento_em) {
+          const customAgradecimento = tpls?.["campanha_agradecimento"];
+          setMensagem(substituirVars(customAgradecimento ?? CAMPANHA_AGRADECIMENTO_DEFAULT, { ...vars, prazo }));
+        } else {
+          const cfg        = CAMPANHA_POR_ESTAGIO[info.estagio] ?? CAMPANHA_POR_ESTAGIO.nao_contatado;
+          const customText = tpls?.[cfg.key] ?? tpls?.["campanha"];
+          const dataEmail1 = formatarDataContato(info.email_1_em);
+          const dataEmail2 = formatarDataContato(info.email_2_em);
+          setMensagem(substituirVars(customText ?? cfg.default, { ...vars, prazo, dataEmail1, dataEmail2 }));
+        }
       } finally {
         setLoadingToken(false);
       }
@@ -245,6 +259,22 @@ export function ModalEmailCliente({ galeria, onFechar, templateInicial, onEstagi
     }
   }
 
+  async function marcarAgradecimento() {
+    if (!tokenInfo || agradecimentoMarcando) return;
+    setAgradecimentoMarcando(true);
+    try {
+      const res = await fetch(`/api/campanha/galeria/${galeria.id}/agradecimento`, { method: "PATCH" });
+      const data = await res.json();
+      if (res.ok) {
+        setTokenInfo((prev) => prev ? { ...prev, agradecimento_em: data.agradecimento_em, ignorar_funil: data.ignorar_funil } : prev);
+        onEstagioAvancado?.({ estagio: tokenInfo.estagio, email_1_em: tokenInfo.email_1_em, email_2_em: tokenInfo.email_2_em, whatsapp_em: tokenInfo.whatsapp_em, resposta: tokenInfo.resposta });
+        onFechar();
+      }
+    } finally {
+      setAgradecimentoMarcando(false);
+    }
+  }
+
   async function avancarEstagio(opts?: { fecharDepois?: boolean }) {
     if (!tokenInfo || avancando) return;
     setAvancando(true);
@@ -265,16 +295,23 @@ export function ModalEmailCliente({ galeria, onFechar, templateInicial, onEstagi
     if (!email || !templateId) return;
     let assunto: string;
     if (templateId === "campanha" && tokenInfo) {
-      const cfg = CAMPANHA_POR_ESTAGIO[tokenInfo.estagio] ?? CAMPANHA_POR_ESTAGIO.nao_contatado;
-      assunto = cfg.assunto.replace("{titulo}", galeria.titulo);
+      if (tokenInfo.resposta === "tem_arquivos") {
+        assunto = `Obrigado pela confirmação — ${galeria.titulo}`;
+      } else {
+        const cfg = CAMPANHA_POR_ESTAGIO[tokenInfo.estagio] ?? CAMPANHA_POR_ESTAGIO.nao_contatado;
+        assunto = cfg.assunto.replace("{titulo}", galeria.titulo);
+      }
     } else {
       const template = TEMPLATES.find((t) => t.id === templateId)!;
       assunto = template.assunto.replace("{titulo}", galeria.titulo);
     }
     window.open(`mailto:${email}?subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(mensagem)}`);
-    if (templateId === "campanha" && tokenInfo &&
-        (tokenInfo.estagio === "nao_contatado" || tokenInfo.estagio === "email_1")) {
-      await avancarEstagio({ fecharDepois: true });
+    if (templateId === "campanha" && tokenInfo) {
+      if (tokenInfo.resposta === "tem_arquivos" && !tokenInfo.agradecimento_em) {
+        await marcarAgradecimento();
+      } else if (tokenInfo.estagio === "nao_contatado" || tokenInfo.estagio === "email_1") {
+        await avancarEstagio({ fecharDepois: true });
+      }
     }
   }
 
@@ -336,7 +373,10 @@ export function ModalEmailCliente({ galeria, onFechar, templateInicial, onEstagi
                 </button>
               )}
               <div style={{ fontSize: 15, fontWeight: 700, color: "var(--color-text-primary)" }}>
-                {templateId ? TEMPLATES.find((t) => t.id === templateId)?.nome : "Enviar email ao cliente"}
+                {templateId === "campanha" && tokenInfo?.resposta === "tem_arquivos"
+                  ? "Email de agradecimento"
+                  : templateId ? TEMPLATES.find((t) => t.id === templateId)?.nome
+                  : "Enviar email ao cliente"}
               </div>
               <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginTop: 2 }}>
                 {galeria.titulo}
@@ -412,7 +452,7 @@ export function ModalEmailCliente({ galeria, onFechar, templateInicial, onEstagi
 
             {/* Indicador de estágio — só para campanha */}
             {templateId === "campanha" && tokenInfo && (
-              <EstagioIndicador estagio={tokenInfo.estagio} resposta={tokenInfo.resposta} email1Em={tokenInfo.email_1_em} email2Em={tokenInfo.email_2_em} />
+              <EstagioIndicador estagio={tokenInfo.estagio} resposta={tokenInfo.resposta} email1Em={tokenInfo.email_1_em} email2Em={tokenInfo.email_2_em} agradecimentoEm={tokenInfo.agradecimento_em} />
             )}
 
             {/* To: */}
@@ -508,6 +548,31 @@ export function ModalEmailCliente({ galeria, onFechar, templateInicial, onEstagi
                 />
               )}
 
+              {/* Agradecimento — fallback quando não há email cadastrado */}
+              {templateId === "campanha" && tokenInfo?.resposta === "tem_arquivos" && !tokenInfo.agradecimento_em && !email && (
+                <button
+                  onClick={marcarAgradecimento}
+                  disabled={agradecimentoMarcando}
+                  style={{
+                    width: "100%", padding: "9px 0", borderRadius: 8, fontSize: 12, fontWeight: 600,
+                    border: "0.5px solid rgba(16,185,129,0.4)",
+                    background: "rgba(16,185,129,0.08)",
+                    color: "#059669",
+                    cursor: agradecimentoMarcando ? "default" : "pointer",
+                    opacity: agradecimentoMarcando ? 0.6 : 1,
+                  }}
+                >
+                  {agradecimentoMarcando ? "Marcando…" : "💌 Marcar agradecimento como enviado"}
+                </button>
+              )}
+
+              {/* Agradecimento já enviado */}
+              {templateId === "campanha" && tokenInfo?.agradecimento_em && (
+                <div style={{ textAlign: "center", fontSize: 12, color: "#059669", fontWeight: 600, padding: "6px 0" }}>
+                  ✓ Agradecimento enviado em {formatarDataContato(tokenInfo.agradecimento_em)}
+                </div>
+              )}
+
               {/* Reiniciar ciclo — aparece quando já encerrado ou cliente já respondeu */}
               {templateId === "campanha" && tokenInfo && (tokenInfo.resposta !== null || tokenInfo.estagio === "encerrado") && (
                 <button
@@ -544,18 +609,21 @@ const PASSOS: { estagio: EstagioFunil; label: string; icone: string }[] = [
 
 const ORDEM: EstagioFunil[] = ["nao_contatado", "email_1", "email_2", "whatsapp", "encerrado"];
 
-function EstagioIndicador({ estagio, resposta, email1Em, email2Em }: {
+function EstagioIndicador({ estagio, resposta, email1Em, email2Em, agradecimentoEm }: {
   estagio: EstagioFunil;
   resposta: "renovar" | "tem_arquivos" | null;
   email1Em: string | null;
   email2Em: string | null;
+  agradecimentoEm?: string | null;
 }) {
   const idxAtual = ORDEM.indexOf(estagio);
 
   if (resposta === "tem_arquivos") {
     return (
       <div style={{ marginBottom: 14, padding: "10px 12px", borderRadius: 8, background: "rgba(16,185,129,0.08)", border: "0.5px solid rgba(16,185,129,0.3)", fontSize: 12, color: "#059669", fontWeight: 600 }}>
-        ✅ Cliente confirmou: já tem os arquivos
+        {agradecimentoEm
+          ? `✅ Agradecimento enviado — galeria saiu do funil`
+          : "✅ Cliente confirmou: já tem os arquivos · Envie o agradecimento abaixo"}
       </div>
     );
   }

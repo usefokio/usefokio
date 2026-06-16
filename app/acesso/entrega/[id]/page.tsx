@@ -130,6 +130,8 @@ export default function AcessoEntregaPage() {
 
   // Modal de identificação antes do download via Drive
   const [modalDrive, setModalDrive] = useState(false);
+  // Modal de orientação Drive (quando há fotos na galeria + drive_link)
+  const [modalOrientacaoDrive, setModalOrientacaoDrive] = useState(false);
 
   // Renovação de acesso (pagamento via Asaas do fotógrafo)
   const [renovFormAberto,  setRenovFormAberto]  = useState(false);
@@ -684,6 +686,12 @@ export default function AcessoEntregaPage() {
           <a
             href={galeria.drive_link} target="_blank" rel="noopener noreferrer"
             onClick={(e) => {
+              // Se há fotos na galeria, mostrar orientação antes de ir ao Drive
+              if (fotos.length > 0) {
+                e.preventDefault();
+                setModalOrientacaoDrive(true);
+                return;
+              }
               if (!galeria.drive_apenas_identificado || identificacao) {
                 fetch(`/api/entrega/${id}/download?tipo=drive`, { method: "POST" }).catch(() => {});
                 return;
@@ -881,6 +889,61 @@ export default function AcessoEntregaPage() {
           apenaZip={galeria?.apenas_zip}
           galeriaId={id}
         />
+      )}
+
+      {/* Modal: orientação Drive (galeria com fotos + drive_link) */}
+      {modalOrientacaoDrive && galeria?.drive_link && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 200, padding: 20 }} onClick={() => setModalOrientacaoDrive(false)}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: "#fff", borderRadius: 20, padding: "32px 28px", width: 420, maxWidth: "100%", boxShadow: "0 12px 48px rgba(0,0,0,0.3)" }}>
+            <div style={{ fontSize: 36, textAlign: "center", marginBottom: 16 }}>☁️</div>
+            <h3 style={{ margin: "0 0 8px", fontSize: 17, fontWeight: 800, color: "#111", letterSpacing: "-0.01em", textAlign: "center" }}>
+              Baixar pelo Google Drive
+            </h3>
+            <p style={{ margin: "0 0 24px", fontSize: 13, color: "#666", lineHeight: 1.6, textAlign: "center" }}>
+              As fotos serão abertas no Google Drive. Siga os passos abaixo para baixar:
+            </p>
+            <div style={{ background: "#f9f9f9", border: "1px solid #eee", borderRadius: 14, padding: "18px 20px", marginBottom: 24 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 12 }}>
+                Como baixar
+              </div>
+              <ol style={{ margin: 0, padding: "0 0 0 18px", display: "flex", flexDirection: "column", gap: 10 }}>
+                {[
+                  "Clique em \"Abrir no Google Drive\" abaixo",
+                  "O Google Drive pode exibir uma mensagem dizendo que o arquivo não pode ser visualizado — isso é normal",
+                  "Clique no botão azul \"Download\" para baixar o arquivo .zip",
+                  "Após o download, extraia o arquivo .zip para acessar todas as imagens",
+                ].map((passo, i) => (
+                  <li key={i} style={{ fontSize: 13, color: "#555", lineHeight: 1.5 }}>{passo}</li>
+                ))}
+              </ol>
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                onClick={() => setModalOrientacaoDrive(false)}
+                style={{ flex: 1, padding: "12px", borderRadius: 10, border: "1px solid #ddd", background: "transparent", fontSize: 13, color: "#666", cursor: "pointer" }}
+              >
+                Voltar
+              </button>
+              <a
+                href={galeria.drive_link}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => {
+                  setModalOrientacaoDrive(false);
+                  if (!galeria.drive_apenas_identificado || identificacao || temCliente) {
+                    fetch(`/api/entrega/${id}/download?tipo=drive`, { method: "POST" }).catch(() => {});
+                  } else {
+                    setTimeout(() => { setFormErro(""); setModalDrive(true); }, 100);
+                  }
+                }}
+                style={{ flex: 1.4, padding: "12px", borderRadius: 10, border: "none", background: "#111", color: "#fff", fontSize: 13, fontWeight: 700, textDecoration: "none", textAlign: "center", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Abrir no Google Drive
+              </a>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Modal: identificação antes do download via Drive */}

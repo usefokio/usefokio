@@ -29,7 +29,7 @@ const BODY_STYLE = `
 `;
 
 const FOOTER_STYLE = `
-  padding: 20px 32px;
+  padding: 24px 32px;
   background: #f9f9f9;
   border-top: 1px solid #eee;
   font-size: 12px;
@@ -49,7 +49,36 @@ const BTN_STYLE = (cor = "#111") => `
   margin: 20px 0 8px;
 `;
 
-function base(conteudo: string): string {
+type BaseOpts = {
+  /** Substitui o bloco de assinatura no footer. Usar em emails que vão ao cliente. */
+  assinatura?: {
+    nome: string;
+    empresa?: string | null;
+    email?: string | null;
+    site?: string | null;
+  };
+};
+
+function base(conteudo: string, opts?: BaseOpts): string {
+  const ass = opts?.assinatura;
+
+  const footerConteudo = ass
+    ? `
+        <div style="margin-bottom:14px;">
+          <div style="font-size:14px; font-weight:700; color:#333; margin-bottom:2px;">${ass.empresa ?? ass.nome}</div>
+          ${ass.nome && ass.empresa ? `<div style="font-size:12px; color:#888; margin-bottom:2px;">${ass.nome}</div>` : ""}
+          ${ass.email ? `<div style="margin-top:4px;"><a href="mailto:${ass.email}" style="color:#555; font-size:12px; text-decoration:none;">${ass.email}</a></div>` : ""}
+          ${ass.site ? `<div style="margin-top:2px;"><a href="${ass.site}" style="color:#2563EB; font-size:12px; text-decoration:none;">${ass.site.replace(/^https?:\/\//, "")}</a></div>` : ""}
+        </div>
+        <div style="border-top:1px solid #e8e8e8; padding-top:12px; font-size:11px; color:#bbb;">
+          Enviado via <a href="https://usefokio.com.br" style="color:#bbb; text-decoration:none;">UseFokio</a> · Este é um email automático, não responda.
+        </div>`
+    : `
+        <div style="font-size:12px; color:#aaa; margin-bottom:4px;">
+          <strong style="color:#888;">UseFokio</strong> · Plataforma para fotógrafos
+        </div>
+        <div style="font-size:11px; color:#bbb;">Este é um email automático, não responda.</div>`;
+
   return `
 <!DOCTYPE html>
 <html>
@@ -63,8 +92,7 @@ function base(conteudo: string): string {
       ${conteudo}
     </div>
     <div style="${FOOTER_STYLE}">
-      UseFokio · Plataforma para fotógrafos<br>
-      Este é um email automático, não responda.
+      ${footerConteudo}
     </div>
   </div>
 </body>
@@ -74,14 +102,16 @@ function base(conteudo: string): string {
 
 // ─── 1. Galeria criada → cliente ──────────────────────────────────────────────
 export type GaleriaCriadaParams = {
-  clienteNome:      string;
-  fotografoNome:    string;
-  fotografoEmpresa: string;
-  galeriaTitulo:    string;
-  galeriaUrl:       string;
-  senhaAcesso:      string | null;
-  totalFotos:       number;
-  dataEvento:       string | null;
+  clienteNome:       string;
+  fotografoNome:     string;
+  fotografoEmpresa:  string;
+  fotografoEmail?:   string | null;
+  fotografoSite?:    string | null;
+  galeriaTitulo:     string;
+  galeriaUrl:        string;
+  senhaAcesso:       string | null;
+  totalFotos:        number;
+  dataEvento:        string | null;
 };
 
 export function templateGaleriaCriada(p: GaleriaCriadaParams): { subject: string; html: string } {
@@ -112,11 +142,46 @@ export function templateGaleriaCriada(p: GaleriaCriadaParams): { subject: string
       <p style="font-size:12px; color:#aaa; margin:12px 0 0;">
         Se o botão não funcionar, acesse: <a href="${p.galeriaUrl}" style="color:#2563EB;">${p.galeriaUrl}</a>
       </p>
-    `),
+    `, { assinatura: { nome: p.fotografoNome, empresa: p.fotografoEmpresa, email: p.fotografoEmail, site: p.fotografoSite } }),
   };
 }
 
-// ─── 2. Seleção finalizada → fotógrafo ───────────────────────────────────────
+// ─── 2. Agradecimento ao cliente que confirmou arquivos ──────────────────────
+export type AgradecimentoCampanhaParams = {
+  clienteNome:      string;
+  fotografoNome:    string;
+  fotografoEmpresa: string;
+  fotografoEmail?:  string | null;
+  fotografoSite?:   string | null;
+  galeriaTitulo:    string;
+};
+
+export function templateAgradecimentoCampanha(p: AgradecimentoCampanhaParams): { subject: string; html: string } {
+  return {
+    subject: `Obrigado pela confirmação — ${p.galeriaTitulo}`,
+    html: base(`
+      <h2 style="margin:0 0 8px; font-size:20px; color:#111; letter-spacing:-0.02em;">Obrigado pela confirmação! ✅</h2>
+      <p style="color:#555; font-size:14px; line-height:1.6; margin:0 0 20px;">
+        Olá, <strong>${p.clienteNome}</strong>!<br><br>
+        Recebemos sua confirmação de que você já possui os arquivos de <strong>${p.galeriaTitulo}</strong>.
+        Fico feliz em saber que suas fotos estão guardadas com segurança.
+      </p>
+      <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:10px; padding:18px 22px; margin-bottom:20px;">
+        <p style="margin:0; font-size:14px; color:#059669; font-weight:600;">
+          ✓ Confirmação registrada com sucesso
+        </p>
+        <p style="margin:6px 0 0; font-size:13px; color:#555;">
+          Galeria: <strong>${p.galeriaTitulo}</strong>
+        </p>
+      </div>
+      <p style="color:#777; font-size:13px; line-height:1.6; margin:0 0 8px;">
+        Se precisar de algo no futuro, estarei à disposição. Foi um prazer registrar esse momento especial para você!
+      </p>
+    `, { assinatura: { nome: p.fotografoNome, empresa: p.fotografoEmpresa, email: p.fotografoEmail, site: p.fotografoSite } }),
+  };
+}
+
+// ─── 3. Seleção finalizada → fotógrafo ───────────────────────────────────────
 export type SelecaoEnviadaParams = {
   fotografoNome:  string;
   clienteNome:    string;
@@ -151,7 +216,10 @@ export function templateSelecaoEnviada(p: SelecaoEnviadaParams): { subject: stri
 // ─── 4. Campanha de reativação → cliente ─────────────────────────────────────
 export type CampanhaReativacaoParams = {
   clienteNome:      string;
+  fotografoNome:    string;
   fotografoEmpresa: string;
+  fotografoEmail?:  string | null;
+  fotografoSite?:   string | null;
   galeriaTitulo:    string;
   respostaUrl:      string;
 };
@@ -185,10 +253,7 @@ export function templateCampanhaReativacao(p: CampanhaReativacaoParams): { subje
       <p style="font-size:12px; color:#aaa; margin:12px 0 0;">
         Se o botão não funcionar, acesse: <a href="${p.respostaUrl}" style="color:#2563EB;">${p.respostaUrl}</a>
       </p>
-      <p style="font-size:12px; color:#bbb; margin:16px 0 0; padding-top:12px; border-top:1px solid #eee;">
-        Enviado por <strong>${p.fotografoEmpresa}</strong> via UseFokio
-      </p>
-    `),
+    `, { assinatura: { nome: p.fotografoNome, empresa: p.fotografoEmpresa, email: p.fotografoEmail, site: p.fotografoSite } }),
   };
 }
 

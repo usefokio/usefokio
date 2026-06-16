@@ -462,6 +462,14 @@ const DEFS_TEMPLATE = [
     variaveis: "{nomeCliente}, {titulo}, {respostaUrl}, {nomeEmpresa}, {dataEmail1}, {dataEmail2}",
     padrao: "Olá, {nomeCliente}! Tudo bem?\n\nSou {nomeEmpresa} e estou tentando falar com você sobre as fotos de {titulo}.\n\nEnviei emails nos dias {dataEmail1} e {dataEmail2}, mas ainda não recebi resposta. Caso não tenha recebido, verifique a pasta de spam.\n\nPreciso que você me diga o que prefere fazer com esses arquivos — é rapidinho:\n{respostaUrl}\n\n✅ Já tenho minhas fotos salvas\n🔄 Quero renovar o acesso\n\nObrigado!",
   },
+  {
+    id: "campanha_agradecimento",
+    nome: "Campanha — Agradecimento",
+    icone: "💌",
+    quando: "Enviado ao cliente que confirmou que já tem os arquivos — encerra o funil.",
+    variaveis: "{nomeCliente}, {titulo}, {nomeEmpresa}",
+    padrao: "Oi, {nomeCliente}! Ficamos felizes em saber que você já tem suas fotos de {titulo} salvas.\n\nObrigado pela confiança ao longo de todo esse processo. Qualquer dúvida ou necessidade futura, estou à disposição.\n\nUm abraço,\n{nomeEmpresa}",
+  },
 ] as const;
 
 function MensagensConfig() {
@@ -671,12 +679,32 @@ function IdentidadeVisual() {
   const logoInputRef      = useRef<HTMLInputElement>(null);
   const watermarkInputRef = useRef<HTMLInputElement>(null);
 
+  // Assinatura de email
+  const [assiEmail,   setAssiEmail]   = useState("");
+  const [assiSite,    setAssiSite]    = useState("");
+  const [assiSaving,  setAssiSaving]  = useState(false);
+  const [assiSaved,   setAssiSaved]   = useState(false);
+
   useEffect(() => {
     if (fotografo) {
       setLogoUrl(fotografo.logo_url ?? null);
       setWatermarkUrl(fotografo.watermark_url ?? null);
+      setAssiEmail(fotografo.email ?? "");
+      setAssiSite(fotografo.site ?? "");
     }
   }, [fotografo]);
+
+  async function salvarAssinatura() {
+    if (!fotografo) return;
+    setAssiSaving(true);
+    await createClient().from("fotografos").update({
+      email: assiEmail.trim() || null,
+      site:  assiSite.trim()  || null,
+    }).eq("id", fotografo.id);
+    setAssiSaving(false);
+    setAssiSaved(true);
+    setTimeout(() => setAssiSaved(false), 3000);
+  }
 
   async function uploadImagem(
     file: File,
@@ -798,6 +826,82 @@ function IdentidadeVisual() {
           inputRef={watermarkInputRef}
         />
       </div>
+
+      {/* Assinatura de email */}
+      <div style={{ marginTop: 28 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: "var(--color-text-primary)", marginBottom: 4 }}>
+          Assinatura de email
+        </div>
+        <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginBottom: 18, lineHeight: 1.5 }}>
+          Aparece no rodapé dos emails enviados aos seus clientes. O nome da empresa e seu nome são herdados do seu perfil.
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+          {/* Campos */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <div>
+              <label style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6, display: "block" }}>
+                Email de contato
+              </label>
+              <input
+                type="email"
+                value={assiEmail}
+                onChange={(e) => setAssiEmail(e.target.value)}
+                placeholder="seuemail@exemplo.com"
+                style={{ width: "100%", padding: "9px 12px", borderRadius: 8, background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-secondary)", color: "var(--color-text-primary)", fontSize: 13, outline: "none", boxSizing: "border-box" }}
+              />
+            </div>
+            <div>
+              <label style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6, display: "block" }}>
+                Site
+              </label>
+              <input
+                type="url"
+                value={assiSite}
+                onChange={(e) => setAssiSite(e.target.value)}
+                placeholder="https://seusite.com.br"
+                style={{ width: "100%", padding: "9px 12px", borderRadius: 8, background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-secondary)", color: "var(--color-text-primary)", fontSize: 13, outline: "none", boxSizing: "border-box" }}
+              />
+            </div>
+          </div>
+
+          {/* Preview */}
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 10 }}>
+              Preview do rodapé
+            </div>
+            <div style={{ background: "#f9f9f9", border: "1px solid #eee", borderRadius: 10, padding: "18px 20px", fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: "#333", marginBottom: 2 }}>
+                  {fotografo?.nome_empresa || fotografo?.nome_completo || "Nome da empresa"}
+                </div>
+                {fotografo?.nome_empresa && fotografo?.nome_completo && (
+                  <div style={{ fontSize: 12, color: "#888", marginBottom: 2 }}>{fotografo.nome_completo}</div>
+                )}
+                {assiEmail && (
+                  <div style={{ marginTop: 4, fontSize: 12, color: "#555" }}>{assiEmail}</div>
+                )}
+                {assiSite && (
+                  <div style={{ marginTop: 2, fontSize: 12, color: "#2563EB" }}>
+                    {assiSite.replace(/^https?:\/\//, "")}
+                  </div>
+                )}
+              </div>
+              <div style={{ borderTop: "1px solid #e8e8e8", paddingTop: 10, fontSize: 11, color: "#bbb" }}>
+                Enviado via UseFokio · Este é um email automático, não responda.
+              </div>
+            </div>
+          </div>
+
+          <button
+            onClick={salvarAssinatura}
+            disabled={assiSaving}
+            style={{ alignSelf: "flex-start", padding: "9px 22px", borderRadius: 9, border: "none", background: assiSaved ? "#10B981" : "#111", color: "#fff", fontSize: 13, fontWeight: 700, cursor: assiSaving ? "default" : "pointer", transition: "background 0.2s" }}
+          >
+            {assiSaving ? "Salvando…" : assiSaved ? "✓ Salvo!" : "Salvar assinatura"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -900,12 +1004,15 @@ const FORCA_CONFIG = {
 
 // ── Alterar senha ─────────────────────────────────────────────────────────────
 function AlterarSenha() {
+  const [senhaAtual,     setSenhaAtual]     = useState("");
   const [novaSenha,      setNovaSenha]      = useState("");
   const [confirmarSenha, setConfirmarSenha] = useState("");
   const [salvando,       setSalvando]       = useState(false);
   const [erro,           setErro]           = useState("");
   const [salvo,          setSalvo]          = useState(false);
   const [provedor,       setProvedor]       = useState<string | null>(null);
+  const [userEmail,      setUserEmail]      = useState<string | null>(null);
+  const [mostrarAtual,   setMostrarAtual]   = useState(false);
   const [mostrarSenha,   setMostrarSenha]   = useState(false);
   const [mostrarConfirm, setMostrarConfirm] = useState(false);
 
@@ -920,19 +1027,33 @@ function AlterarSenha() {
       const temGoogle = identities.some((i) => i.provider === "google");
       if (temGoogle && !temEmail) setProvedor("google");
       else setProvedor("email");
+      setUserEmail(data.user?.email ?? null);
     });
   }, []);
 
   async function salvar() {
+    if (!senhaAtual)                   { setErro("Informe sua senha atual."); return; }
     if (!novaSenha)                    { setErro("Informe a nova senha."); return; }
     if (!todosCumpridos)               { setErro("A senha não atende todos os requisitos."); return; }
     if (novaSenha !== confirmarSenha)  { setErro("As senhas não coincidem."); return; }
 
     setSalvando(true); setErro("");
+
+    // Validar senha atual via re-autenticação
+    const { error: erroLogin } = await createClient().auth.signInWithPassword({
+      email: userEmail ?? "",
+      password: senhaAtual,
+    });
+    if (erroLogin) {
+      setSalvando(false);
+      setErro("Senha atual incorreta.");
+      return;
+    }
+
     const { error } = await createClient().auth.updateUser({ password: novaSenha });
     setSalvando(false);
     if (error) { setErro(error.message); return; }
-    setNovaSenha(""); setConfirmarSenha("");
+    setSenhaAtual(""); setNovaSenha(""); setConfirmarSenha("");
     setSalvo(true); setTimeout(() => setSalvo(false), 3000);
   }
 
@@ -969,6 +1090,28 @@ function AlterarSenha() {
       )}
 
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        {/* Campo senha atual */}
+        <div>
+          <label style={lbl}>SENHA ATUAL</label>
+          <div style={{ position: "relative" }}>
+            <input
+              type={mostrarAtual ? "text" : "password"}
+              value={senhaAtual}
+              onChange={(e) => { setSenhaAtual(e.target.value); setErro(""); }}
+              placeholder="Digite sua senha atual"
+              style={inp}
+            />
+            <button
+              type="button"
+              onClick={() => setMostrarAtual((v) => !v)}
+              style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "var(--color-text-secondary)", padding: 2 }}
+              title={mostrarAtual ? "Ocultar senha" : "Mostrar senha"}
+            >
+              {mostrarAtual ? "🙈" : "👁"}
+            </button>
+          </div>
+        </div>
+
         {/* Campo nova senha */}
         <div>
           <label style={lbl}>NOVA SENHA</label>
