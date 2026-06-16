@@ -194,7 +194,7 @@ export default function EntregaDetailPage() {
   const [fotos,    setFotos]    = useState<GaleriaEntregaFoto[]>([]);
   const [acessos,  setAcessos]  = useState<{ id: string; nome: string; email: string; acessado_em: string }[]>([]);
   const [funilInfo, setFunilInfo] = useState<{ estagio: string; resposta: string | null; respondido_em: string | null; respondido_nome: string | null; email_1_em: string | null; email_2_em: string | null; whatsapp_em: string | null; ignorar_funil: boolean } | null | undefined>(undefined);
-  const [pagamentos, setPagamentos] = useState<Pick<Pagamento, "id" | "valor" | "paid_at" | "pagador_nome" | "pagador_email" | "dias_liberados">[]>([]);
+  const [pagamentos, setPagamentos] = useState<Pick<Pagamento, "id" | "valor" | "status" | "paid_at" | "pagador_nome" | "pagador_email" | "dias_liberados">[]>([]);
   const [loading,  setLoading]  = useState(true);
   const [copiado,  setCopiado]  = useState(false);
   const [modalLista, setModalLista] = useState(false);
@@ -229,11 +229,11 @@ export default function EntregaDetailPage() {
         .eq("fotografo_id", fotografo.id)
         .maybeSingle(),
       supabase.from("pagamentos")
-        .select("id, valor, paid_at, pagador_nome, pagador_email, dias_liberados")
+        .select("id, valor, status, paid_at, pagador_nome, pagador_email, dias_liberados")
         .eq("galeria_id", id)
         .eq("tipo", "renovacao")
-        .eq("status", "pago")
-        .order("paid_at", { ascending: false }),
+        .in("status", ["pago", "pendente"])
+        .order("created_at", { ascending: false }),
     ]).then(([{ data: g }, f, { data: a }, { data: funil }, { data: pags }]) => {
       if (!g) { router.replace("/entrega"); return; }
       setGaleria(g);
@@ -376,23 +376,46 @@ export default function EntregaDetailPage() {
         );
       })()}
 
-      {/* Avisos de renovação paga */}
-      {pagamentos.length > 0 && (
-        <div style={{ background: "rgba(37,99,235,0.06)", border: "0.5px solid rgba(37,99,235,0.25)", borderRadius: 10, padding: "12px 18px", marginBottom: 14 }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: "#2563EB", marginBottom: pagamentos.length > 1 ? 8 : 0 }}>
-            💳 Acesso renovado via pagamento {pagamentos.length > 1 ? `(${pagamentos.length}x)` : ""}
-          </div>
-          {pagamentos.map((p, i) => (
-            <div key={p.id} style={{ fontSize: 12, color: "#2563EB", marginTop: i === 0 ? 4 : 6, lineHeight: 1.5, paddingTop: i > 0 ? 6 : 0, borderTop: i > 0 ? "0.5px solid rgba(37,99,235,0.15)" : "none" }}>
-              <span style={{ fontWeight: 600 }}>R$ {p.valor.toFixed(2).replace(".", ",")}</span>
-              {p.dias_liberados && <span> · +{p.dias_liberados} dias</span>}
-              {p.pagador_nome && <span> · {p.pagador_nome}</span>}
-              {p.pagador_email && <span style={{ opacity: 0.8 }}> ({p.pagador_email})</span>}
-              {p.paid_at && <span style={{ opacity: 0.7 }}> · {formatarData(p.paid_at)}</span>}
+      {/* Aviso de pagamento pendente */}
+      {pagamentos.some(p => p.status === "pendente") && (() => {
+        const pendentes = pagamentos.filter(p => p.status === "pendente");
+        return (
+          <div style={{ background: "rgba(245,158,11,0.08)", border: "0.5px solid rgba(245,158,11,0.4)", borderRadius: 10, padding: "12px 18px", marginBottom: 14 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "#B45309", marginBottom: 4 }}>
+              ⏳ Aguardando pagamento
             </div>
-          ))}
-        </div>
-      )}
+            {pendentes.map((p) => (
+              <div key={p.id} style={{ fontSize: 12, color: "#92400E", lineHeight: 1.5 }}>
+                <span style={{ fontWeight: 600 }}>R$ {p.valor.toFixed(2).replace(".", ",")}</span>
+                {p.dias_liberados && <span> · +{p.dias_liberados} dias</span>}
+                {p.pagador_nome && <span> · {p.pagador_nome}</span>}
+                {p.pagador_email && <span style={{ opacity: 0.8 }}> ({p.pagador_email})</span>}
+              </div>
+            ))}
+          </div>
+        );
+      })()}
+
+      {/* Avisos de renovação paga */}
+      {pagamentos.some(p => p.status === "pago") && (() => {
+        const pagos = pagamentos.filter(p => p.status === "pago");
+        return (
+          <div style={{ background: "rgba(37,99,235,0.06)", border: "0.5px solid rgba(37,99,235,0.25)", borderRadius: 10, padding: "12px 18px", marginBottom: 14 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "#2563EB", marginBottom: pagos.length > 1 ? 8 : 0 }}>
+              💳 Acesso renovado via pagamento {pagos.length > 1 ? `(${pagos.length}x)` : ""}
+            </div>
+            {pagos.map((p, i) => (
+              <div key={p.id} style={{ fontSize: 12, color: "#2563EB", marginTop: i === 0 ? 4 : 6, lineHeight: 1.5, paddingTop: i > 0 ? 6 : 0, borderTop: i > 0 ? "0.5px solid rgba(37,99,235,0.15)" : "none" }}>
+                <span style={{ fontWeight: 600 }}>R$ {p.valor.toFixed(2).replace(".", ",")}</span>
+                {p.dias_liberados && <span> · +{p.dias_liberados} dias</span>}
+                {p.pagador_nome && <span> · {p.pagador_nome}</span>}
+                {p.pagador_email && <span style={{ opacity: 0.8 }}> ({p.pagador_email})</span>}
+                {p.paid_at && <span style={{ opacity: 0.7 }}> · {formatarData(p.paid_at)}</span>}
+              </div>
+            ))}
+          </div>
+        );
+      })()}
 
       {/* Funil de Campanha — sempre exibe quando há registro */}
       {funilInfo !== undefined && funilInfo !== null && (() => {
