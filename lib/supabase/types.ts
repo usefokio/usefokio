@@ -386,6 +386,16 @@ export type CrmOpportunity = {
   data_evento: string | null;
   status: "em_aberto" | "venda_efetuada" | "perdido" | "abandonado" | "suspensa";
   observacoes: string | null;
+  // campos de evento
+  nome_noiva: string | null;
+  nome_noivo: string | null;
+  local_cerimonia: string | null;
+  local_recepcao: string | null;
+  local_evento: string | null;
+  cidade_evento: string | null;
+  estado_evento: string | null;
+  convidados: number | null;
+  legacy_id: number | null;
   created_at: string;
   updated_at: string;
 };
@@ -403,11 +413,20 @@ export type CrmOrder = {
   oportunidade_id: string | null;
   cliente_id: string | null;
   numero: string | null;
-  status: "aguardando_sinal" | "em_producao" | "entregue" | "cancelado";
+  unique_id: string | null;
+  nome: string | null;
+  status: "aguardando_sinal" | "em_producao" | "entregue" | "cancelado" | "concluido";
   total: number;
+  other_expenses: number;
+  discount: number;
+  payment_method: string | null;
+  categoria: string | null;
+  data_evento: string | null;
+  data_entrega: string | null;
   observacoes: string | null;
   plano_parcelas: Record<string, unknown> | null;
   galeria_entrega_id: string | null;
+  legacy_id: number | null;
   created_at: string;
   updated_at: string;
 };
@@ -433,6 +452,10 @@ export type CrmFinancialEntry = {
   pago_em: string | null;
   conta_id: string | null;
   status: "pendente" | "pago" | "cancelado";
+  parcela: string | null;
+  document_type_id: number | null;
+  internal_account_type: "direto" | "pedido";
+  legacy_id: number | null;
   created_at: string;
 };
 
