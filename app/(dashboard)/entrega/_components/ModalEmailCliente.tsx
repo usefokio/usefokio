@@ -11,7 +11,7 @@ interface Template {
   nome: string;
   assunto: string;
   icone: string;
-  corpo: (vars: TemplateVars) => string;
+  padrao: string;
 }
 
 interface TemplateVars {
@@ -29,51 +29,35 @@ const TEMPLATES: Template[] = [
     nome: "Enviar link de acesso",
     assunto: "Acesso à sua galeria — {titulo}",
     icone: "🔗",
-    corpo: ({ nomeCliente, titulo, link, nomeEmpresa }) =>
-      `Olá, ${nomeCliente}!\n\nSuas fotos de ${titulo} estão disponíveis para acesso.\n\nClique no link abaixo para visualizar e baixar:\n${link}\n\nQualquer dúvida, estou à disposição.\n\nAtenciosamente,\n${nomeEmpresa}`,
+    padrao: "Olá, {nomeCliente}!\n\nSuas fotos de {titulo} estão disponíveis para acesso.\n\nClique no link abaixo para visualizar e baixar:\n{link}\n\nQualquer dúvida, estou à disposição.\n\nAtenciosamente,\n{nomeEmpresa}",
   },
   {
     id: "expirando",
     nome: "Prazo expirando",
     assunto: "Seu acesso expira em breve — {titulo}",
     icone: "⏰",
-    corpo: ({ nomeCliente, titulo, link, diasRestantes, nomeEmpresa }) => {
-      const prazo = diasRestantes !== null
-        ? diasRestantes === 0 ? "hoje"
-          : diasRestantes === 1 ? "amanhã"
-          : `em ${diasRestantes} dias`
-        : "em breve";
-      return `Olá, ${nomeCliente}!\n\nPassando para avisar que seu acesso à galeria ${titulo} expira ${prazo}.\n\nAproveite para baixar suas fotos antes que o prazo encerre:\n${link}\n\nSe precisar de mais tempo, entre em contato comigo.\n\nAtenciosamente,\n${nomeEmpresa}`;
-    },
+    padrao: "Olá, {nomeCliente}!\n\nPassando para avisar que seu acesso à galeria {titulo} expira {prazo}.\n\nAproveite para baixar suas fotos antes que o prazo encerre:\n{link}\n\nSe precisar de mais tempo, entre em contato comigo.\n\nAtenciosamente,\n{nomeEmpresa}",
   },
   {
     id: "suspensa",
     nome: "Galeria suspensa",
     assunto: "Acesso suspenso — {titulo}",
     icone: "🔒",
-    corpo: ({ nomeCliente, titulo, nomeEmpresa }) =>
-      `Olá, ${nomeCliente}!\n\nInformo que o acesso à galeria ${titulo} foi temporariamente suspenso.\n\nCaso queira reativar o acesso, entre em contato comigo.\n\nAtenciosamente,\n${nomeEmpresa}`,
+    padrao: "Olá, {nomeCliente}!\n\nInformo que o acesso à galeria {titulo} foi temporariamente suspenso.\n\nCaso queira reativar o acesso, entre em contato comigo.\n\nAtenciosamente,\n{nomeEmpresa}",
   },
   {
     id: "renovacao",
     nome: "Renovação confirmada",
     assunto: "Seu acesso foi renovado — {titulo}",
     icone: "✅",
-    corpo: ({ nomeCliente, titulo, link, nomeEmpresa, diasRestantes }) => {
-      const dataExpiracao = diasRestantes !== null && diasRestantes > 0
-        ? new Date(Date.now() + diasRestantes * 86_400_000).toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" })
-        : null;
-      const prazoFmt = dataExpiracao ? `até ${dataExpiracao}` : "em breve";
-      return `Oi, ${nomeCliente}! Tudo certo — o acesso à galeria ${titulo} foi reativado e o prazo renovado ${prazoFmt}.\n\nAgora é o momento de garantir o download de todos os arquivos e salvá-los em um local seguro, como o seu computador ou um serviço de nuvem pessoal. Ter os arquivos salvos localmente é a única garantia de que essas memórias vão ficar com você independente de qualquer coisa.\n\nQuando o prazo estiver se encerrando, você receberá um novo e-mail. Por lá será possível confirmar que já tem tudo salvo ou renovar o acesso mais uma vez.\n\n${nomeEmpresa}`;
-    },
+    padrao: "Oi, {nomeCliente}! Tudo certo — o acesso à galeria {titulo} foi reativado e o prazo renovado {prazo}.\n\nAgora é o momento de garantir o download de todos os arquivos e salvá-los em um local seguro, como o seu computador ou um serviço de nuvem pessoal. Ter os arquivos salvos localmente é a única garantia de que essas memórias vão ficar com você independente de qualquer coisa.\n\nQuando o prazo estiver se encerrando, você receberá um novo e-mail. Por lá será possível confirmar que já tem tudo salvo ou renovar o acesso mais uma vez.\n\n{nomeEmpresa}",
   },
   {
     id: "campanha",
     nome: "Campanha de reativação",
     assunto: "Suas fotos de {titulo} — ação necessária",
     icone: "📢",
-    corpo: ({ nomeCliente, titulo, respostaUrl, nomeEmpresa }) =>
-      `Olá, ${nomeCliente}!\n\nEntramos em contato sobre as fotos de ${titulo}.\n\nDevido ao aumento nos custos de armazenamento, precisamos entender se você ainda precisa das imagens.\n\nPor favor, acesse o link abaixo e nos diga:\n${respostaUrl}\n\n✅ Já tenho meus arquivos salvos\n🔄 Quero renovar meu acesso\n\nAtenciosamente,\n${nomeEmpresa}`,
+    padrao: "Olá, {nomeCliente}!\n\nEntramos em contato sobre as fotos de {titulo}.\n\nDevido ao aumento nos custos de armazenamento, precisamos entender se você ainda precisa das imagens.\n\nPor favor, acesse o link abaixo e nos diga:\n{respostaUrl}\n\n✅ Já tenho meus arquivos salvos\n🔄 Quero renovar meu acesso\n\nAtenciosamente,\n{nomeEmpresa}",
   },
 ];
 
@@ -245,7 +229,11 @@ export function ModalEmailCliente({ galeria, onFechar, templateInicial, onEstagi
     } else {
       const customText = tpls?.[t.id];
       const vars: TemplateVars = { nomeCliente, titulo: galeria.titulo, link, respostaUrl: "", diasRestantes, nomeEmpresa };
-      setMensagem(customText ? substituirVars(customText, { ...vars, prazo }) : t.corpo(vars));
+      // renovacao usa prazo como data absoluta ("até DD de mês de AAAA")
+      const prazoEfetivo = t.id === "renovacao" && diasRestantes !== null && diasRestantes > 0
+        ? `até ${new Date(Date.now() + diasRestantes * 86_400_000).toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" })}`
+        : prazo;
+      setMensagem(substituirVars(customText ?? t.padrao, { ...vars, prazo: prazoEfetivo }));
     }
     setTemplateId(t.id);
   }
