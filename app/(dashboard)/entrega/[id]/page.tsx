@@ -394,8 +394,8 @@ export default function EntregaDetailPage() {
         </div>
       )}
 
-      {/* Funil de Campanha — removida */}
-      {funilInfo !== undefined && funilInfo !== null && funilInfo.ignorar_funil && (
+      {/* Funil de Campanha — removida manualmente (sem resposta do cliente) */}
+      {funilInfo !== undefined && funilInfo !== null && funilInfo.ignorar_funil && !funilInfo.resposta && (
         <div style={{ background: "rgba(107,114,128,0.06)", border: "0.5px solid rgba(107,114,128,0.2)", borderRadius: 10, padding: "12px 18px", marginBottom: 14, display: "flex", alignItems: "center", gap: 12 }}>
           <span style={{ fontSize: 16 }}>📢</span>
           <div style={{ flex: 1 }}>
@@ -414,8 +414,8 @@ export default function EntregaDetailPage() {
         </div>
       )}
 
-      {/* Funil de Campanha — ativo */}
-      {funilInfo !== undefined && funilInfo !== null && !funilInfo.ignorar_funil && (() => {
+      {/* Funil de Campanha — ativo ou encerrado com histórico */}
+      {funilInfo !== undefined && funilInfo !== null && (!funilInfo.ignorar_funil || funilInfo.resposta) && (() => {
         const ESTAGIO_INFO: Record<string, { label: string; icone: string; cor: string; bg: string; border: string }> = {
           nao_contatado: { label: "Sem contato",        icone: "⏳", cor: "#6B7280", bg: "rgba(107,114,128,0.07)", border: "rgba(107,114,128,0.25)" },
           email_1:       { label: "1º email enviado",   icone: "📧", cor: "#7C3AED", bg: "rgba(124,58,237,0.07)", border: "rgba(124,58,237,0.25)" },
