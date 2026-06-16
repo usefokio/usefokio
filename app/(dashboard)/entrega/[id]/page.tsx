@@ -394,28 +394,8 @@ export default function EntregaDetailPage() {
         </div>
       )}
 
-      {/* Funil de Campanha — removida manualmente (sem resposta do cliente) */}
-      {funilInfo !== undefined && funilInfo !== null && funilInfo.ignorar_funil && !funilInfo.resposta && (
-        <div style={{ background: "rgba(107,114,128,0.06)", border: "0.5px solid rgba(107,114,128,0.2)", borderRadius: 10, padding: "12px 18px", marginBottom: 14, display: "flex", alignItems: "center", gap: 12 }}>
-          <span style={{ fontSize: 16 }}>📢</span>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-secondary)" }}>Funil de campanha — removida</div>
-            <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 2 }}>Esta galeria foi removida do funil manualmente.</div>
-          </div>
-          <button
-            onClick={async () => {
-              await fetch(`/api/campanha/galeria/${id}/reativar`, { method: "POST" });
-              setFunilInfo((prev) => prev ? { ...prev, ignorar_funil: false } : prev);
-            }}
-            style={{ fontSize: 11, fontWeight: 600, color: "#2563EB", padding: "5px 14px", borderRadius: 7, border: "0.5px solid rgba(37,99,235,0.35)", background: "rgba(37,99,235,0.06)", cursor: "pointer", whiteSpace: "nowrap" }}
-          >
-            + Adicionar ao funil
-          </button>
-        </div>
-      )}
-
-      {/* Funil de Campanha — ativo ou encerrado com histórico */}
-      {funilInfo !== undefined && funilInfo !== null && (!funilInfo.ignorar_funil || funilInfo.resposta) && (() => {
+      {/* Funil de Campanha — sempre exibe quando há registro */}
+      {funilInfo !== undefined && funilInfo !== null && (() => {
         const ESTAGIO_INFO: Record<string, { label: string; icone: string; cor: string; bg: string; border: string }> = {
           nao_contatado: { label: "Sem contato",        icone: "⏳", cor: "#6B7280", bg: "rgba(107,114,128,0.07)", border: "rgba(107,114,128,0.25)" },
           email_1:       { label: "1º email enviado",   icone: "📧", cor: "#7C3AED", bg: "rgba(124,58,237,0.07)", border: "rgba(124,58,237,0.25)" },
@@ -480,21 +460,33 @@ export default function EntregaDetailPage() {
                 )}
               </div>
               <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-                {!funilInfo.respondido_em && (
+                {!funilInfo.respondido_em && !funilInfo.ignorar_funil && (
                   <Link href="/entrega/campanha" style={{ fontSize: 11, fontWeight: 600, color: alertaAcao ? "#B45309" : info.cor, textDecoration: "none", whiteSpace: "nowrap", padding: "4px 12px", borderRadius: 7, border: `0.5px solid ${alertaAcao ? "rgba(245,158,11,0.4)" : info.border}`, background: "transparent" }}>
                     Ver funil →
                   </Link>
                 )}
-                <button
-                  onClick={async () => {
-                    await fetch(`/api/campanha/galeria/${id}`, { method: "DELETE" });
-                    setFunilInfo((prev) => prev ? { ...prev, ignorar_funil: true } : null);
-                  }}
-                  title="Remover do funil"
-                  style={{ fontSize: 11, fontWeight: 600, color: "#EF4444", padding: "4px 10px", borderRadius: 7, border: "0.5px solid rgba(239,68,68,0.35)", background: "transparent", cursor: "pointer" }}
-                >
-                  Remover
-                </button>
+                {funilInfo.ignorar_funil && !funilInfo.resposta ? (
+                  <button
+                    onClick={async () => {
+                      await fetch(`/api/campanha/galeria/${id}/reativar`, { method: "POST" });
+                      setFunilInfo((prev) => prev ? { ...prev, ignorar_funil: false } : prev);
+                    }}
+                    style={{ fontSize: 11, fontWeight: 600, color: "#2563EB", padding: "4px 10px", borderRadius: 7, border: "0.5px solid rgba(37,99,235,0.35)", background: "transparent", cursor: "pointer" }}
+                  >
+                    + Reativar funil
+                  </button>
+                ) : !funilInfo.ignorar_funil && (
+                  <button
+                    onClick={async () => {
+                      await fetch(`/api/campanha/galeria/${id}`, { method: "DELETE" });
+                      setFunilInfo((prev) => prev ? { ...prev, ignorar_funil: true } : null);
+                    }}
+                    title="Remover do funil"
+                    style={{ fontSize: 11, fontWeight: 600, color: "#EF4444", padding: "4px 10px", borderRadius: 7, border: "0.5px solid rgba(239,68,68,0.35)", background: "transparent", cursor: "pointer" }}
+                  >
+                    Remover
+                  </button>
+                )}
               </div>
             </div>
 
