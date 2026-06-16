@@ -4,9 +4,8 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
-import type { CrmProduct, CrmChartOfAccount } from "@/lib/supabase/types";
+import type { CrmProduct, CrmChartOfAccount, CrmProductCategory } from "@/lib/supabase/types";
 
-const CATEGORIAS = ["Evento","Ensaio","Album/Livro","Ampliações","DVD/Mídia","Produtos","Curso","Estúdio","Produção Áudio Visual","Outro"];
 type Tab = "info" | "precos";
 
 interface Props { produto?: CrmProduct; }
@@ -20,6 +19,7 @@ export function FormProduto({ produto }: Props) {
   const [saving, setSaving]             = useState(false);
   const [erro, setErro]                 = useState("");
   const [contasVendas, setContasVendas] = useState<CrmChartOfAccount[]>([]);
+  const [categorias, setCategorias]     = useState<CrmProductCategory[]>([]);
 
   // Campos
   const [categoria,     setCategoria]     = useState(produto?.categoria     ?? "");
@@ -34,13 +34,20 @@ export function FormProduto({ produto }: Props) {
   const [listaPrecos,   setListaPrecos]   = useState(produto?.lista_precos  ?? false);
 
   useEffect(() => {
-    createClient()
-      .from("crm_chart_of_accounts")
+    if (!fotografo) return;
+    const sb = createClient();
+    sb.from("crm_chart_of_accounts")
       .select("*")
       .eq("tipo", "receita")
-      .or("fotografo_id.is.null,fotografo_id.eq." + (fotografo?.id ?? "00000000-0000-0000-0000-000000000000"))
+      .or("fotografo_id.is.null,fotografo_id.eq." + fotografo.id)
       .order("codigo")
       .then(({ data }) => setContasVendas((data ?? []) as CrmChartOfAccount[]));
+    sb.from("crm_product_categories")
+      .select("*")
+      .eq("fotografo_id", fotografo.id)
+      .eq("ativo", true)
+      .order("ordem")
+      .then(({ data }) => setCategorias((data ?? []) as CrmProductCategory[]));
   }, [fotografo]);
 
   const precoNum = () => parseFloat(preco.replace(/\./g, "").replace(",", ".")) || 0;
@@ -151,7 +158,7 @@ export function FormProduto({ produto }: Props) {
               <label style={labelStyle}>CATEGORIA *</label>
               <select value={categoria} onChange={(e) => setCategoria(e.target.value)} style={inputStyle}>
                 <option value="">Selecione…</option>
-                {CATEGORIAS.map((c) => <option key={c}>{c}</option>)}
+                {categorias.map((c) => <option key={c.id} value={c.nome}>{c.nome}</option>)}
               </select>
             </div>
             <div>

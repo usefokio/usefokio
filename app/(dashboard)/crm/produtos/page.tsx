@@ -4,14 +4,13 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
-import type { CrmProduct } from "@/lib/supabase/types";
-
-const CATEGORIAS = ["Evento","Ensaio","Album/Livro","Ampliações","DVD/Mídia","Produtos","Curso","Estúdio","Produção Áudio Visual","Outro"];
+import type { CrmProduct, CrmProductCategory } from "@/lib/supabase/types";
 
 export default function ProdutosPage() {
   const router                              = useRouter();
   const { fotografo }                       = useFotografo();
   const [produtos, setProdutos]             = useState<CrmProduct[]>([]);
+  const [categorias, setCategorias]         = useState<CrmProductCategory[]>([]);
   const [loading, setLoading]               = useState(true);
   const [busca, setBusca]                   = useState("");
   const [categFiltro, setCategFiltro]       = useState("");
@@ -23,8 +22,12 @@ export default function ProdutosPage() {
     const sb = createClient();
     let q = sb.from("crm_products").select("*").eq("fotografo_id", fotografo.id).order("nome");
     if (somenteAtivos) q = q.eq("ativo", true);
-    const { data } = await q;
+    const [{ data }, { data: cats }] = await Promise.all([
+      q,
+      sb.from("crm_product_categories").select("*").eq("fotografo_id", fotografo.id).eq("ativo", true).order("ordem"),
+    ]);
     setProdutos(data ?? []);
+    setCategorias((cats ?? []) as CrmProductCategory[]);
     setLoading(false);
   }, [fotografo, somenteAtivos]);
 
@@ -80,7 +83,7 @@ export default function ProdutosPage() {
           style={{ padding: "8px 12px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-secondary)", fontSize: 13, color: "var(--color-text-primary)", cursor: "pointer", outline: "none" }}
         >
           <option value="">Todas as categorias</option>
-          {CATEGORIAS.map((c) => <option key={c}>{c}</option>)}
+          {categorias.map((c) => <option key={c.id} value={c.nome}>{c.nome}</option>)}
         </select>
         <label style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 13, color: "var(--color-text-secondary)", cursor: "pointer", userSelect: "none" }}>
           <input type="checkbox" checked={somenteAtivos} onChange={(e) => setSomenteAtivos(e.target.checked)} />

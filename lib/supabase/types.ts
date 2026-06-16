@@ -315,6 +315,15 @@ export type AlbumComentario = {
 
 // ── CRM ──────────────────────────────────────────────────────────────────────
 
+export type CrmProductCategory = {
+  id: string;
+  fotografo_id: string;
+  nome: string;
+  ativo: boolean;
+  ordem: number;
+  created_at: string;
+};
+
 export type CrmFunnel = {
   id: string;
   fotografo_id: string;
