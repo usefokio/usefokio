@@ -65,6 +65,7 @@ export default function CampanhaPage() {
   const { fotografo } = useFotografo();
   const [itens,            setItens]            = useState<CampanhaItem[]>([]);
   const [pendentes,        setPendentes]        = useState<Set<string>>(new Set());
+  const [pagosEm,          setPagosEm]          = useState<Record<string, string>>({});
   const [loading,          setLoading]          = useState(true);
   const [modalGaleriaId,   setModalGaleriaId]   = useState<string | null>(null);
   const [modalTemplate,  setModalTemplate]  = useState<"campanha" | "renovacao">("campanha");
@@ -107,16 +108,25 @@ export default function CampanhaPage() {
 
       if (!data) { setLoading(false); return; }
 
-      // 3. Fetch pending payments for all galleries in the funnel
+      // 3. Fetch payments (pendente + pago) for all galleries in the funnel
       const galeriaIds = (data as any[]).map((r) => r.galerias_entrega?.id).filter(Boolean);
       if (galeriaIds.length > 0) {
         const { data: pgts } = await supabase
           .from("pagamentos")
-          .select("galeria_id")
+          .select("galeria_id, status, paid_at")
           .in("galeria_id", galeriaIds)
           .eq("tipo", "renovacao")
-          .eq("status", "pendente");
-        if (pgts) setPendentes(new Set(pgts.map((p: any) => p.galeria_id)));
+          .in("status", ["pendente", "pago"]);
+        if (pgts) {
+          const novoPendentes = new Set<string>();
+          const novoPagos: Record<string, string> = {};
+          for (const p of pgts as any[]) {
+            if (p.status === "pendente") novoPendentes.add(p.galeria_id);
+            if (p.status === "pago") novoPagos[p.galeria_id] = p.paid_at;
+          }
+          setPendentes(novoPendentes);
+          setPagosEm(novoPagos);
+        }
       }
 
       const mapped: CampanhaItem[] = (data as any[]).map((r) => ({
@@ -317,11 +327,11 @@ export default function CampanhaPage() {
                             {item.resposta === "tem_arquivos" && !item.agradecimento_em && (
                               <span style={{ color: "#059669", fontWeight: 600 }}>✅ Confirmou que tem os arquivos</span>
                             )}
-                            {item.resposta === "renovar" && item.respondido_em && (
-                              <span style={{ color: "#2563EB", fontWeight: 600 }}>💳 Pagamento confirmado {diasDesde(item.respondido_em)}</span>
+                            {item.resposta === "renovar" && pagosEm[item.galeria.id] && (
+                              <span style={{ color: "#2563EB", fontWeight: 600 }}>💳 Pagamento confirmado {diasDesde(pagosEm[item.galeria.id])}</span>
                             )}
-                            {item.resposta === "renovar" && !item.respondido_em && (
-                              <span style={{ color: "#2563EB", fontWeight: 600 }}>💳 Acesso renovado via pagamento</span>
+                            {item.resposta === "renovar" && !pagosEm[item.galeria.id] && (
+                              <span style={{ color: "#2563EB", fontWeight: 600 }}>🔄 Cliente solicitou renovação</span>
                             )}
                             {item.estagio === "encerrado" && !item.resposta && (
                               <span style={{ color: "#6B7280" }}>Encerrado sem resposta</span>
