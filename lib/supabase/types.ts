@@ -79,6 +79,11 @@ export type Cliente = {
   bairro: string | null;
   cidade: string | null;
   estado: string | null;
+  // CRM
+  tipo_contato: "cliente" | "lead" | "parceiro" | "fornecedor";
+  empresa: string | null;
+  cargo: string | null;
+  crm_ativo: boolean;
   created_at: string;
   updated_at: string;
 };
@@ -305,4 +310,127 @@ export type AlbumComentario = {
   resolvido: boolean;
   created_at: string;
   updated_at: string;
+};
+
+// ── CRM ──────────────────────────────────────────────────────────────────────
+
+export type CrmFunnel = {
+  id: string;
+  fotografo_id: string;
+  nome: string;
+  descricao: string | null;
+  ativo: boolean;
+  created_at: string;
+};
+
+export type CrmFunnelStage = {
+  id: string;
+  funil_id: string;
+  nome: string;
+  ordem: number;
+  cor: string | null;
+  created_at: string;
+};
+
+export type CrmChartOfAccount = {
+  id: string;
+  fotografo_id: string | null;
+  codigo: string;
+  nome: string;
+  tipo: "receita" | "despesa" | "ativo" | "passivo" | "patrimonio";
+  categoria: string | null;
+  pai_id: string | null;
+  padrao: boolean;
+  ativo: boolean;
+  created_at: string;
+};
+
+export type CrmProduct = {
+  id: string;
+  fotografo_id: string;
+  nome: string;
+  descricao: string | null;
+  categoria: string | null;
+  preco: number;
+  unidade: string;
+  conta_vendas_id: string | null;
+  ativo: boolean;
+  created_at: string;
+};
+
+export type CrmOpportunity = {
+  id: string;
+  fotografo_id: string;
+  cliente_id: string | null;
+  titulo: string;
+  canal_origem: string | null;
+  categoria: string | null;
+  funil_id: string | null;
+  etapa_id: string | null;
+  prioridade: "baixa" | "media" | "alta";
+  valor_estimado: number | null;
+  data_evento: string | null;
+  status: "aberta" | "ganha" | "perdida" | "cancelada";
+  observacoes: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type CrmOpportunityField = {
+  id: string;
+  oportunidade_id: string;
+  chave: string;
+  valor: string | null;
+};
+
+export type CrmOrder = {
+  id: string;
+  fotografo_id: string;
+  oportunidade_id: string | null;
+  cliente_id: string | null;
+  numero: string | null;
+  status: "rascunho" | "enviado" | "aprovado" | "cancelado";
+  total: number;
+  observacoes: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type CrmOrderItem = {
+  id: string;
+  pedido_id: string;
+  produto_id: string | null;
+  descricao: string;
+  quantidade: number;
+  preco_unit: number;
+  total: number;
+};
+
+export type CrmFinancialEntry = {
+  id: string;
+  fotografo_id: string;
+  pedido_id: string | null;
+  tipo: "receita" | "despesa";
+  descricao: string;
+  valor: number;
+  vencimento: string;
+  pago_em: string | null;
+  conta_id: string | null;
+  status: "pendente" | "pago" | "cancelado";
+  created_at: string;
+};
+
+export type CrmSchedule = {
+  id: string;
+  fotografo_id: string;
+  oportunidade_id: string | null;
+  cliente_id: string | null;
+  titulo: string;
+  descricao: string | null;
+  inicio: string;
+  fim: string | null;
+  dia_todo: boolean;
+  local: string | null;
+  tipo: string;
+  created_at: string;
 };
