@@ -468,7 +468,7 @@ const DEFS_TEMPLATE = [
     icone: "✅",
     quando: "Enviado ao cliente após confirmação de pagamento de renovação de acesso.",
     variaveis: "{nomeCliente}, {titulo}, {link}, {nomeEmpresa}, {prazo}",
-    padrao: "Olá, {nomeCliente}!\n\nSeu acesso às fotos de {titulo} foi renovado com sucesso! 🎉\n\nVocê tem acesso disponível {prazo}. Aproveite para visualizar e baixar suas fotos:\n{link}\n\nApós esse prazo, o acesso será novamente suspenso. Se precisar de mais tempo, entre em contato comigo.\n\nObrigado pela confiança!\n\n{nomeEmpresa}",
+    padrao: "Oi, {nomeCliente}! Tudo certo — o acesso à galeria {titulo} foi reativado e o prazo renovado {prazo}.\n\nAgora é o momento de garantir o download de todos os arquivos e salvá-los em um local seguro, como o seu computador ou um serviço de nuvem pessoal. Ter os arquivos salvos localmente é a única garantia de que essas memórias vão ficar com você independente de qualquer coisa.\n\nQuando o prazo estiver se encerrando, você receberá um novo e-mail. Por lá será possível confirmar que já tem tudo salvo ou renovar o acesso mais uma vez.\n\n{nomeEmpresa}",
   },
   {
     id: "campanha_agradecimento",

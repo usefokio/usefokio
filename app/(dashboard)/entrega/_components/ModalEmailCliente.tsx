@@ -63,8 +63,8 @@ const TEMPLATES: Template[] = [
       const dataExpiracao = diasRestantes !== null && diasRestantes > 0
         ? new Date(Date.now() + diasRestantes * 86_400_000).toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" })
         : null;
-      const prazoFmt = dataExpiracao ? `até ${dataExpiracao}` : "por tempo limitado";
-      return `Olá, ${nomeCliente}!\n\nSeu acesso às fotos de ${titulo} foi renovado com sucesso! 🎉\n\nVocê tem acesso disponível ${prazoFmt}. Aproveite para visualizar e baixar suas fotos:\n${link}\n\nApós esse prazo, o acesso será novamente suspenso. Se precisar de mais tempo, entre em contato comigo.\n\nObrigado pela confiança!\n\n${nomeEmpresa}`;
+      const prazoFmt = dataExpiracao ? `até ${dataExpiracao}` : "em breve";
+      return `Oi, ${nomeCliente}! Tudo certo — o acesso à galeria ${titulo} foi reativado e o prazo renovado ${prazoFmt}.\n\nAgora é o momento de garantir o download de todos os arquivos e salvá-los em um local seguro, como o seu computador ou um serviço de nuvem pessoal. Ter os arquivos salvos localmente é a única garantia de que essas memórias vão ficar com você independente de qualquer coisa.\n\nQuando o prazo estiver se encerrando, você receberá um novo e-mail. Por lá será possível confirmar que já tem tudo salvo ou renovar o acesso mais uma vez.\n\n${nomeEmpresa}`;
     },
   },
   {

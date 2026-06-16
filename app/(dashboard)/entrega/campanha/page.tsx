@@ -371,7 +371,7 @@ export default function CampanhaPage() {
                               💌 Enviar agradecimento
                             </button>
                           )}
-                          {col.id === "concluido" && item.resposta === "renovar" && (
+                          {col.id === "concluido" && pagosEm[item.galeria.id] && (
                             <button
                               onClick={() => { setModalTemplate("renovacao"); setModalGaleriaId(item.galeria.id); }}
                               style={{
@@ -381,10 +381,10 @@ export default function CampanhaPage() {
                                 color: "#2563EB", cursor: "pointer",
                               }}
                             >
-                              💌 Enviar email de renovação
+                              💌 Avisar cliente sobre renovação
                             </button>
                           )}
-                          {col.id === "concluido" && item.resposta !== "tem_arquivos" && item.resposta !== "renovar" && (
+                          {col.id === "concluido" && item.resposta !== "tem_arquivos" && !pagosEm[item.galeria.id] && (
                             <button
                               onClick={() => router.push(`/entrega/${item.galeria.id}`)}
                               style={{
