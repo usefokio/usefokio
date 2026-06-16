@@ -193,11 +193,11 @@ export function ModalEmailCliente({ galeria, onFechar, templateInicial, onEstagi
   const [reiniciando,  setReiniciando]  = useState(false);
   const [agradecimentoMarcando, setAgradecimentoMarcando] = useState(false);
 
-  // Quando abrir direto no template campanha, carregar o token automaticamente
+  // Quando abrir com template pré-selecionado, carregar a mensagem automaticamente
   useEffect(() => {
-    if (templateInicial === "campanha") {
-      const t = TEMPLATES.find((t) => t.id === "campanha")!;
-      selecionarTemplate(t);
+    if (templateInicial) {
+      const t = TEMPLATES.find((t) => t.id === templateInicial);
+      if (t) selecionarTemplate(t);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
