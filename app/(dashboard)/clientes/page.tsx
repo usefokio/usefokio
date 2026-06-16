@@ -15,11 +15,28 @@ function avatarColor(nome: string) {
   return colors[nome.charCodeAt(0) % colors.length];
 }
 
+const TIPO_LABELS: Record<string, string> = {
+  oportunidade: "Lead",
+  cliente: "Cliente",
+  parceiro: "Parceiro",
+  fornecedor: "Fornecedor",
+};
+
+const TIPO_COLORS: Record<string, { color: string; bg: string }> = {
+  oportunidade: { color: "#7C3AED", bg: "rgba(124,58,237,0.08)" },
+  cliente:      { color: "#059669", bg: "rgba(16,185,129,0.08)" },
+  parceiro:     { color: "#2563EB", bg: "rgba(37,99,235,0.08)" },
+  fornecedor:   { color: "#D97706", bg: "rgba(217,119,6,0.08)" },
+};
+
+type TipoFiltro = "" | "oportunidade" | "cliente" | "parceiro" | "fornecedor";
+
 export default function ClientesPage() {
   const router = useRouter();
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [loading, setLoading]   = useState(true);
   const [busca, setBusca]       = useState("");
+  const [tipoFiltro, setTipoFiltro] = useState<TipoFiltro>("");
 
   useEffect(() => {
     async function load() {
@@ -34,22 +51,39 @@ export default function ClientesPage() {
     load();
   }, []);
 
-  const filtrados = clientes.filter((c) =>
-    c.nome.toLowerCase().includes(busca.toLowerCase()) ||
-    (c.email ?? "").toLowerCase().includes(busca.toLowerCase())
-  );
+  const filtrados = clientes.filter((c) => {
+    const okBusca = busca === "" ||
+      c.nome.toLowerCase().includes(busca.toLowerCase()) ||
+      (c.email ?? "").toLowerCase().includes(busca.toLowerCase()) ||
+      (c.empresa ?? "").toLowerCase().includes(busca.toLowerCase());
+    const okTipo = tipoFiltro === "" || c.tipo_contato === tipoFiltro;
+    return okBusca && okTipo;
+  });
+
+  const contagens: Record<string, number> = {};
+  for (const c of clientes) {
+    contagens[c.tipo_contato ?? "cliente"] = (contagens[c.tipo_contato ?? "cliente"] ?? 0) + 1;
+  }
+
+  const TIPOS: { id: TipoFiltro; label: string }[] = [
+    { id: "",           label: `Todos (${clientes.length})` },
+    { id: "cliente",    label: `Clientes (${contagens.cliente ?? 0})` },
+    { id: "oportunidade", label: `Leads (${contagens.oportunidade ?? 0})` },
+    { id: "parceiro",   label: `Parceiros (${contagens.parceiro ?? 0})` },
+    { id: "fornecedor", label: `Fornecedores (${contagens.fornecedor ?? 0})` },
+  ];
 
   return (
-    <div style={{ padding: "26px 30px", maxWidth: 900 }}>
+    <div style={{ padding: "26px 30px", maxWidth: 960 }}>
 
       {/* Header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 22 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
         <div>
           <h1 style={{ fontSize: 19, fontWeight: 600, color: "var(--color-text-primary)", margin: "0 0 3px", letterSpacing: "-0.02em" }}>
             Clientes
           </h1>
           <p style={{ fontSize: 13, color: "var(--color-text-secondary)", margin: 0 }}>
-            {loading ? "Carregando…" : `${clientes.length} cliente${clientes.length !== 1 ? "s" : ""} cadastrado${clientes.length !== 1 ? "s" : ""}`}
+            {loading ? "Carregando…" : `${clientes.length} contato${clientes.length !== 1 ? "s" : ""} cadastrado${clientes.length !== 1 ? "s" : ""}`}
           </p>
         </div>
         <Link
@@ -63,8 +97,28 @@ export default function ClientesPage() {
             display: "flex", alignItems: "center", gap: 6,
           }}
         >
-          + Novo cliente
+          + Novo contato
         </Link>
+      </div>
+
+      {/* Filtros de tipo */}
+      <div style={{ display: "flex", gap: 6, marginBottom: 12, flexWrap: "wrap" }}>
+        {TIPOS.map((t) => (
+          <button
+            key={t.id}
+            onClick={() => setTipoFiltro(t.id)}
+            style={{
+              padding: "5px 14px", borderRadius: 20, fontSize: 12, fontWeight: tipoFiltro === t.id ? 700 : 500,
+              cursor: "pointer", border: "0.5px solid",
+              borderColor: tipoFiltro === t.id ? "var(--color-text-primary)" : "var(--color-border-secondary)",
+              background: tipoFiltro === t.id ? "var(--color-text-primary)" : "transparent",
+              color: tipoFiltro === t.id ? "var(--color-background-primary)" : "var(--color-text-secondary)",
+              transition: "all 0.1s",
+            }}
+          >
+            {t.label}
+          </button>
+        ))}
       </div>
 
       {/* Busca */}
@@ -81,7 +135,7 @@ export default function ClientesPage() {
         <input
           value={busca}
           onChange={(e) => setBusca(e.target.value)}
-          placeholder="Buscar por nome ou email…"
+          placeholder="Buscar por nome, email ou empresa…"
           style={{ flex: 1, border: "none", background: "transparent", fontSize: 13, color: "var(--color-text-primary)", outline: "none" }}
         />
         {busca && (
@@ -101,10 +155,10 @@ export default function ClientesPage() {
           {clientes.length === 0 ? (
             <>
               <div style={{ fontSize: 40, marginBottom: 12 }}>👥</div>
-              <div style={{ fontSize: 15, fontWeight: 600, color: "var(--color-text-primary)", marginBottom: 6 }}>Nenhum cliente ainda</div>
+              <div style={{ fontSize: 15, fontWeight: 600, color: "var(--color-text-primary)", marginBottom: 6 }}>Nenhum contato ainda</div>
               <div style={{ fontSize: 13, color: "var(--color-text-secondary)", marginBottom: 22 }}>Cadastre seu primeiro cliente para começar a criar galerias.</div>
               <Link href="/clientes/novo" style={{ padding: "10px 22px", borderRadius: 8, background: "#2563EB", color: "#fff", fontSize: 13, fontWeight: 600, textDecoration: "none" }}>
-                + Cadastrar cliente
+                + Cadastrar contato
               </Link>
             </>
           ) : (
@@ -117,58 +171,66 @@ export default function ClientesPage() {
         <div style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 12, overflow: "hidden" }}>
           {/* Cabeçalho */}
           <div style={{
-            display: "grid", gridTemplateColumns: "1fr 200px 150px 60px",
+            display: "grid", gridTemplateColumns: "1fr 180px 160px 120px 60px",
             padding: "8px 18px",
             borderBottom: "0.5px solid var(--color-border-tertiary)",
             background: "var(--color-background-secondary)",
           }}>
-            {["Cliente", "Email", "Telefone", ""].map((h) => (
+            {["Contato", "Email", "Telefone", "Tipo", ""].map((h) => (
               <span key={h} style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em" }}>{h}</span>
             ))}
           </div>
 
-          {filtrados.map((c, i) => (
-            <div
-              key={c.id}
-              onClick={() => router.push(`/clientes/${c.id}`)}
-              style={{
-                display: "grid", gridTemplateColumns: "1fr 200px 150px 60px",
-                padding: "12px 18px",
-                borderBottom: i < filtrados.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none",
-                cursor: "pointer", transition: "background 0.1s",
-              }}
-              onMouseEnter={(e) => (e.currentTarget.style.background = "var(--color-background-secondary)")}
-              onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <div style={{
-                  width: 32, height: 32, borderRadius: "50%",
-                  background: avatarColor(c.nome),
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: 12, fontWeight: 700, color: "#fff", flexShrink: 0,
-                }}>
-                  {initials(c.nome)}
-                </div>
-                <div>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)" }}>{c.nome}</div>
-                  <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 1 }}>
-                    desde {new Date(c.created_at).toLocaleDateString("pt-BR")}
+          {filtrados.map((c, i) => {
+            const tipo = TIPO_COLORS[c.tipo_contato ?? "cliente"] ?? TIPO_COLORS.cliente;
+            return (
+              <div
+                key={c.id}
+                onClick={() => router.push(`/clientes/${c.id}`)}
+                style={{
+                  display: "grid", gridTemplateColumns: "1fr 180px 160px 120px 60px",
+                  padding: "11px 18px",
+                  borderBottom: i < filtrados.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none",
+                  cursor: "pointer", transition: "background 0.1s",
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = "var(--color-background-secondary)")}
+                onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <div style={{
+                    width: 32, height: 32, borderRadius: "50%",
+                    background: avatarColor(c.nome),
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    fontSize: 12, fontWeight: 700, color: "#fff", flexShrink: 0,
+                  }}>
+                    {initials(c.nome)}
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)" }}>{c.nome}</div>
+                    {c.empresa && (
+                      <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 1 }}>{c.empresa}</div>
+                    )}
                   </div>
                 </div>
+                <div style={{ display: "flex", alignItems: "center" }}>
+                  <span style={{ fontSize: 12, color: "var(--color-text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {c.email ?? "—"}
+                  </span>
+                </div>
+                <div style={{ display: "flex", alignItems: "center" }}>
+                  <span style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>{c.telefone ?? c.whatsapp ?? "—"}</span>
+                </div>
+                <div style={{ display: "flex", alignItems: "center" }}>
+                  <span style={{ fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 10, background: tipo.bg, color: tipo.color, whiteSpace: "nowrap" }}>
+                    {TIPO_LABELS[c.tipo_contato ?? "cliente"]}
+                  </span>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end" }}>
+                  <span style={{ fontSize: 12, color: "#2563EB", fontWeight: 500 }}>Ver →</span>
+                </div>
               </div>
-              <div style={{ display: "flex", alignItems: "center" }}>
-                <span style={{ fontSize: 13, color: "var(--color-text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {c.email ?? "—"}
-                </span>
-              </div>
-              <div style={{ display: "flex", alignItems: "center" }}>
-                <span style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>{c.telefone ?? "—"}</span>
-              </div>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end" }}>
-                <span style={{ fontSize: 12, color: "#2563EB", fontWeight: 500 }}>Ver →</span>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

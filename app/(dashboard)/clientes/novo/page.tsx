@@ -20,6 +20,7 @@ type Draft = {
   dataNascimento: string; rg: string; sexo: string;
   cep: string; logradouro: string; numero: string; complemento: string;
   bairro: string; cidade: string; estado: string;
+  tipoContato: string; empresa: string; cargo: string;
 };
 
 // Lazy initializer — só executa no cliente, nunca no SSR
@@ -56,15 +57,18 @@ export default function NovoClientePage() {
   const [cidade, setCidade]                 = useState(draftOr("cidade", ""));
   const [estado, setEstado]                 = useState(draftOr("estado", ""));
   const [buscandoCep, setBuscandoCep]       = useState(false);
+  const [tipoContato, setTipoContato]       = useState(draftOr("tipoContato", "cliente"));
+  const [empresa, setEmpresa]               = useState(draftOr("empresa", ""));
+  const [cargo, setCargo]                   = useState(draftOr("cargo", ""));
 
   useEffect(() => {
     sessionStorage.setItem(DRAFT_KEY, JSON.stringify({
       nome, email, telefone, cpf, senha,
       dataNascimento, rg, sexo, cep, logradouro, numero,
-      complemento, bairro, cidade, estado,
+      complemento, bairro, cidade, estado, tipoContato, empresa, cargo,
     }));
   }, [nome, email, telefone, cpf, senha, dataNascimento, rg, sexo,
-      cep, logradouro, numero, complemento, bairro, cidade, estado]);
+      cep, logradouro, numero, complemento, bairro, cidade, estado, tipoContato, empresa, cargo]);
 
   const buscarCep = async (v: string) => {
     setCep(v);
@@ -111,6 +115,9 @@ export default function NovoClientePage() {
         bairro:          bairro.trim()         || null,
         cidade:          cidade.trim()         || null,
         estado:          estado                || null,
+        tipo_contato:    tipoContato           || "cliente",
+        empresa:         empresa.trim()        || null,
+        cargo:           cargo.trim()          || null,
       })
       .select()
       .single();
@@ -235,6 +242,29 @@ export default function NovoClientePage() {
                   <option value="">UF</option>
                   {ESTADOS_BR.map((uf) => <option key={uf} value={uf}>{uf}</option>)}
                 </select>
+              </Field>
+            </div>
+          </div>
+        </div>
+
+        {/* ── CRM ── */}
+        <div style={{ marginTop: 24, borderTop: "0.5px solid var(--color-border-tertiary)", paddingTop: 20 }}>
+          {secaoHeader("CRM")}
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <Field label="Tipo de contato">
+              <select value={tipoContato} onChange={(e) => setTipoContato(e.target.value)} style={inputStyle}>
+                <option value="cliente">Cliente</option>
+                <option value="oportunidade">Lead</option>
+                <option value="parceiro">Parceiro</option>
+                <option value="fornecedor">Fornecedor</option>
+              </select>
+            </Field>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+              <Field label="Empresa">
+                <input value={empresa} onChange={(e) => setEmpresa(e.target.value)} placeholder="Nome da empresa" style={inputStyle} />
+              </Field>
+              <Field label="Cargo">
+                <input value={cargo} onChange={(e) => setCargo(e.target.value)} placeholder="Cargo ou função" style={inputStyle} />
               </Field>
             </div>
           </div>

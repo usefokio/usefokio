@@ -9,7 +9,7 @@ import type { Cliente } from "@/lib/supabase/types";
 import { Field } from "@/components/ui/Field";
 import { inputStyle } from "@/lib/styles";
 
-type TabId = "perfil" | "galerias";
+type TabId = "perfil" | "crm" | "galerias";
 
 const ESTADOS_BR = [
   "AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG",
@@ -23,6 +23,155 @@ const SEXO_LABELS: Record<string, string> = {
 type GaleriaSelecaoMin = { id: string; titulo: string; status: string; total_fotos: number; created_at: string };
 type GaleriaEntregaMin = { id: string; titulo: string; expires_at: string | null; downloads: number; suspensa: boolean; created_at: string };
 type AlbumMin          = { id: string; titulo: string; status: string; created_at: string };
+
+const TIPO_LABELS: Record<string, string> = {
+  oportunidade: "Lead", cliente: "Cliente", parceiro: "Parceiro", fornecedor: "Fornecedor",
+};
+const TIPO_COLORS: Record<string, { color: string; bg: string }> = {
+  oportunidade: { color: "#7C3AED", bg: "rgba(124,58,237,0.08)" },
+  cliente:      { color: "#059669", bg: "rgba(16,185,129,0.08)" },
+  parceiro:     { color: "#2563EB", bg: "rgba(37,99,235,0.08)" },
+  fornecedor:   { color: "#D97706", bg: "rgba(217,119,6,0.08)" },
+};
+
+// ─── Aba CRM ──────────────────────────────────────────────────────────────────
+type PedidoMin      = { id: string; nome: string | null; numero: string | null; total: number; status: string; data_evento: string | null; created_at: string };
+type OportunidadeMin = { id: string; titulo: string; status: string; valor_estimado: number | null; data_evento: string | null; created_at: string };
+
+function TabCRM({ clienteId }: { clienteId: string }) {
+  const [pedidos,     setPedidos]     = useState<PedidoMin[]>([]);
+  const [opps,        setOpps]        = useState<OportunidadeMin[]>([]);
+  const [loading,     setLoading]     = useState(true);
+
+  useEffect(() => {
+    const sb = createClient();
+    Promise.all([
+      sb.from("crm_orders").select("id, nome, numero, total, status, data_evento, created_at").eq("cliente_id", clienteId).order("created_at", { ascending: false }),
+      sb.from("crm_opportunities").select("id, titulo, status, valor_estimado, data_evento, created_at").eq("cliente_id", clienteId).order("created_at", { ascending: false }),
+    ]).then(([{ data: p }, { data: o }]) => {
+      setPedidos((p as PedidoMin[]) ?? []);
+      setOpps((o as OportunidadeMin[]) ?? []);
+      setLoading(false);
+    });
+  }, [clienteId]);
+
+  const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  const fmtData = (s: string) => new Date(s).toLocaleDateString("pt-BR");
+
+  const totalPedidos = pedidos.reduce((acc, p) => acc + (p.total ?? 0), 0);
+
+  const STATUS_PEDIDO: Record<string, { label: string; color: string; bg: string }> = {
+    aguardando_sinal: { label: "Ag. sinal",  color: "#D97706", bg: "rgba(217,119,6,0.08)" },
+    em_producao:      { label: "Produção",   color: "#2563EB", bg: "rgba(37,99,235,0.08)" },
+    entregue:         { label: "Entregue",   color: "#059669", bg: "rgba(16,185,129,0.08)" },
+    cancelado:        { label: "Cancelado",  color: "#EF4444", bg: "rgba(239,68,68,0.08)" },
+    concluido:        { label: "Concluído",  color: "#059669", bg: "rgba(16,185,129,0.08)" },
+  };
+  const STATUS_OPP: Record<string, { label: string; color: string; bg: string }> = {
+    em_aberto:      { label: "Em aberto",  color: "#2563EB", bg: "rgba(37,99,235,0.08)" },
+    venda_efetuada: { label: "Efetivada",  color: "#059669", bg: "rgba(16,185,129,0.08)" },
+    perdido:        { label: "Perdida",    color: "#EF4444", bg: "rgba(239,68,68,0.08)" },
+    abandonado:     { label: "Desistência",color: "#6B7280", bg: "rgba(107,114,128,0.08)" },
+    suspensa:       { label: "Suspensa",   color: "#D97706", bg: "rgba(217,119,6,0.08)" },
+  };
+
+  const badge = (label: string, color: string, bg: string) => (
+    <span style={{ fontSize: 11, fontWeight: 600, color, background: bg, padding: "2px 8px", borderRadius: 10, whiteSpace: "nowrap" }}>{label}</span>
+  );
+
+  if (loading) return <div style={{ padding: "32px 0", textAlign: "center", fontSize: 13, color: "var(--color-text-secondary)" }}>Carregando…</div>;
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+
+      {/* Resumo stats */}
+      {(pedidos.length > 0 || opps.length > 0) && (
+        <div style={{ display: "flex", gap: 10 }}>
+          {pedidos.length > 0 && (
+            <div style={{ flex: 1, padding: "14px 16px", borderRadius: 10, border: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-primary)" }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>Pedidos</div>
+              <div style={{ fontSize: 20, fontWeight: 800, color: "var(--color-text-primary)", letterSpacing: "-0.02em" }}>{pedidos.length}</div>
+              <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginTop: 2 }}>{fmt(totalPedidos)} total</div>
+            </div>
+          )}
+          {opps.length > 0 && (
+            <div style={{ flex: 1, padding: "14px 16px", borderRadius: 10, border: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-primary)" }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>Oportunidades</div>
+              <div style={{ fontSize: 20, fontWeight: 800, color: "var(--color-text-primary)", letterSpacing: "-0.02em" }}>{opps.length}</div>
+              <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginTop: 2 }}>
+                {opps.filter(o => o.status === "venda_efetuada").length} efetivada{opps.filter(o => o.status === "venda_efetuada").length !== 1 ? "s" : ""}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Pedidos */}
+      <div>
+        <div style={{ fontSize: 12, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>
+          Pedidos ({pedidos.length})
+        </div>
+        {pedidos.length === 0 ? (
+          <div style={{ fontSize: 13, color: "var(--color-text-secondary)", padding: "12px 16px", borderRadius: 9, border: "0.5px dashed var(--color-border-secondary)" }}>
+            Nenhum pedido vinculado.
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {pedidos.map((p) => {
+              const st = STATUS_PEDIDO[p.status] ?? { label: p.status, color: "#6B7280", bg: "rgba(107,114,128,0.08)" };
+              return (
+                <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 16px", borderRadius: 9, border: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-primary)" }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {p.nome ?? p.numero ?? `Pedido ${p.id.slice(0,8)}`}
+                    </div>
+                    <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 2 }}>
+                      {p.data_evento ? fmtData(p.data_evento) : fmtData(p.created_at)}
+                    </div>
+                  </div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "var(--color-text-primary)", whiteSpace: "nowrap" }}>{fmt(p.total)}</div>
+                  {badge(st.label, st.color, st.bg)}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Oportunidades */}
+      <div>
+        <div style={{ fontSize: 12, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>
+          Oportunidades ({opps.length})
+        </div>
+        {opps.length === 0 ? (
+          <div style={{ fontSize: 13, color: "var(--color-text-secondary)", padding: "12px 16px", borderRadius: 9, border: "0.5px dashed var(--color-border-secondary)" }}>
+            Nenhuma oportunidade vinculada.
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {opps.map((o) => {
+              const st = STATUS_OPP[o.status] ?? { label: o.status, color: "#6B7280", bg: "rgba(107,114,128,0.08)" };
+              return (
+                <div key={o.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 16px", borderRadius: 9, border: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-primary)" }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{o.titulo}</div>
+                    <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 2 }}>
+                      {o.data_evento ? fmtData(o.data_evento) : fmtData(o.created_at)}
+                    </div>
+                  </div>
+                  {o.valor_estimado != null && (
+                    <div style={{ fontSize: 13, fontWeight: 700, color: "var(--color-text-primary)", whiteSpace: "nowrap" }}>{fmt(o.valor_estimado)}</div>
+                  )}
+                  {badge(st.label, st.color, st.bg)}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 // ─── Aba Galerias ─────────────────────────────────────────────────────────────
 function TabGalerias({ clienteId, clienteNome }: { clienteId: string; clienteNome: string }) {
@@ -399,6 +548,9 @@ export default function ClienteDetailPage() {
         bairro:          form.bairro?.trim()        || null,
         cidade:          form.cidade?.trim()        || null,
         estado:          form.estado               || null,
+        tipo_contato:    form.tipo_contato         ?? "cliente",
+        empresa:         form.empresa?.trim()      || null,
+        cargo:           form.cargo?.trim()        || null,
         updated_at:      new Date().toISOString(),
       })
       .eq("id", id)
@@ -457,7 +609,15 @@ export default function ClienteDetailPage() {
           {initials(cliente.nome)}
         </div>
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 17, fontWeight: 700, color: "var(--color-text-primary)", letterSpacing: "-0.01em" }}>{cliente.nome}</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ fontSize: 17, fontWeight: 700, color: "var(--color-text-primary)", letterSpacing: "-0.01em" }}>{cliente.nome}</div>
+            {(() => {
+              const tc = { oportunidade: { color: "#7C3AED", bg: "rgba(124,58,237,0.08)" }, cliente: { color: "#059669", bg: "rgba(16,185,129,0.08)" }, parceiro: { color: "#2563EB", bg: "rgba(37,99,235,0.08)" }, fornecedor: { color: "#D97706", bg: "rgba(217,119,6,0.08)" } }[cliente.tipo_contato ?? "cliente"] ?? { color: "#059669", bg: "rgba(16,185,129,0.08)" };
+              const labels: Record<string, string> = { oportunidade: "Lead", cliente: "Cliente", parceiro: "Parceiro", fornecedor: "Fornecedor" };
+              return <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 10, background: tc.bg, color: tc.color }}>{labels[cliente.tipo_contato ?? "cliente"]}</span>;
+            })()}
+          </div>
+          {cliente.empresa  && <div style={{ fontSize: 13, color: "var(--color-text-secondary)", marginTop: 2 }}>{cliente.empresa}{cliente.cargo ? ` · ${cliente.cargo}` : ""}</div>}
           {cliente.email    && <div style={{ fontSize: 13, color: "var(--color-text-secondary)", marginTop: 2 }}>{cliente.email}</div>}
           {cliente.telefone && <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginTop: 2 }}>{cliente.telefone}</div>}
         </div>
@@ -481,7 +641,7 @@ export default function ClienteDetailPage() {
 
       {/* Tabs */}
       <div style={{ display: "flex", gap: 2, borderBottom: "0.5px solid var(--color-border-tertiary)", marginBottom: 16 }}>
-        {(["perfil", "galerias"] as TabId[]).map((t) => (
+        {(["perfil", "crm", "galerias"] as TabId[]).map((t) => (
           <button key={t} onClick={() => setTab(t)} style={{
             padding: "8px 16px", background: "none", border: "none", cursor: "pointer",
             fontSize: 13, fontWeight: tab === t ? 600 : 400,
@@ -489,7 +649,7 @@ export default function ClienteDetailPage() {
             borderBottom: tab === t ? "2px solid var(--color-text-primary)" : "2px solid transparent",
             marginBottom: -1,
           }}>
-            {t === "perfil" ? "Dados do cliente" : "Galerias"}
+            {t === "perfil" ? "Dados" : t === "crm" ? "CRM" : "Galerias"}
           </button>
         ))}
       </div>
@@ -695,6 +855,78 @@ export default function ClienteDetailPage() {
 
           </div>
         )
+      )}
+
+      {/* ── Tab: CRM ── */}
+      {tab === "crm" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+
+          {/* Tipo + empresa + cargo — visualização */}
+          <div style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 12, overflow: "hidden" }}>
+            <div style={{ padding: "9px 20px", borderBottom: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-secondary)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.06em" }}>Dados CRM</span>
+              {!editing && (
+                <button onClick={() => setEditing(true)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, color: "#2563EB", fontWeight: 600, padding: 0 }}>Editar</button>
+              )}
+            </div>
+            {editing ? (
+              <div style={{ padding: "18px 20px", display: "flex", flexDirection: "column", gap: 14 }}>
+                <Field label="Tipo de contato">
+                  <select value={form.tipo_contato ?? "cliente"} onChange={(e) => setForm((f) => ({ ...f, tipo_contato: e.target.value as Cliente["tipo_contato"] }))} style={inputStyle}>
+                    <option value="cliente">Cliente</option>
+                    <option value="oportunidade">Lead</option>
+                    <option value="parceiro">Parceiro</option>
+                    <option value="fornecedor">Fornecedor</option>
+                  </select>
+                </Field>
+                <Field label="Empresa">
+                  <input value={form.empresa ?? ""} onChange={(e) => setForm((f) => ({ ...f, empresa: e.target.value }))} placeholder="Nome da empresa" style={inputStyle} />
+                </Field>
+                <Field label="Cargo">
+                  <input value={form.cargo ?? ""} onChange={(e) => setForm((f) => ({ ...f, cargo: e.target.value }))} placeholder="Cargo ou função" style={inputStyle} />
+                </Field>
+                <div style={{ display: "flex", gap: 10 }}>
+                  <button onClick={handleSave} disabled={saving} style={{ padding: "8px 20px", borderRadius: 8, background: saving ? "#93C5FD" : "#2563EB", color: "#fff", border: "none", fontSize: 13, fontWeight: 700, cursor: saving ? "not-allowed" : "pointer" }}>
+                    {saving ? "Salvando…" : "Salvar"}
+                  </button>
+                  <button onClick={() => { setEditing(false); setForm(cliente); }} style={{ padding: "8px 16px", borderRadius: 8, background: "transparent", color: "var(--color-text-secondary)", border: "0.5px solid var(--color-border-secondary)", fontSize: 13, cursor: "pointer" }}>
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div>
+                {[
+                  { label: "Tipo",    value: TIPO_LABELS[cliente.tipo_contato ?? "cliente"] },
+                  { label: "Empresa", value: cliente.empresa },
+                  { label: "Cargo",   value: cliente.cargo },
+                ].filter(r => r.value).map((row, i, arr) => {
+                  const isFirst = i === 0;
+                  const tc = TIPO_COLORS[cliente.tipo_contato ?? "cliente"];
+                  return (
+                    <div key={row.label} style={{ display: "flex", padding: "11px 20px", borderBottom: i < arr.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none" }}>
+                      <span style={{ fontSize: 13, color: "var(--color-text-secondary)", width: 120, flexShrink: 0 }}>{row.label}</span>
+                      {isFirst ? (
+                        <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 10px", borderRadius: 10, background: tc.bg, color: tc.color }}>{row.value}</span>
+                      ) : (
+                        <span style={{ fontSize: 13, color: "var(--color-text-primary)", fontWeight: 500 }}>{row.value}</span>
+                      )}
+                    </div>
+                  );
+                })}
+                {!cliente.empresa && !cliente.cargo && (
+                  <div style={{ padding: "14px 20px", fontSize: 13, color: "var(--color-text-secondary)" }}>
+                    Nenhuma informação CRM cadastrada.{" "}
+                    <button onClick={() => setEditing(true)} style={{ color: "#2563EB", background: "none", border: "none", cursor: "pointer", fontSize: 13 }}>Adicionar</button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Pedidos e Oportunidades */}
+          <TabCRM clienteId={cliente.id} />
+        </div>
       )}
 
       {/* ── Tab: Galerias ── */}
