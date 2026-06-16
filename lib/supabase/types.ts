@@ -4,6 +4,7 @@ export type RecursosFotografo = {
   album: boolean;
   contatos: boolean;
   pagamentos: boolean;
+  crm: boolean;
 };
 
 export type Fotografo = {
@@ -80,7 +81,7 @@ export type Cliente = {
   cidade: string | null;
   estado: string | null;
   // CRM
-  tipo_contato: "cliente" | "lead" | "parceiro" | "fornecedor";
+  tipo_contato: "oportunidade" | "cliente" | "parceiro" | "fornecedor";
   empresa: string | null;
   cargo: string | null;
   crm_ativo: boolean;
@@ -354,6 +355,10 @@ export type CrmProduct = {
   preco: number;
   unidade: string;
   conta_vendas_id: string | null;
+  codigo: string | null;
+  tags: string[];
+  pacote: boolean;
+  lista_precos: boolean;
   ativo: boolean;
   created_at: string;
 };
@@ -370,7 +375,7 @@ export type CrmOpportunity = {
   prioridade: "baixa" | "media" | "alta";
   valor_estimado: number | null;
   data_evento: string | null;
-  status: "aberta" | "ganha" | "perdida" | "cancelada";
+  status: "em_aberto" | "venda_efetuada" | "perdido" | "abandonado" | "suspensa";
   observacoes: string | null;
   created_at: string;
   updated_at: string;
@@ -389,9 +394,11 @@ export type CrmOrder = {
   oportunidade_id: string | null;
   cliente_id: string | null;
   numero: string | null;
-  status: "rascunho" | "enviado" | "aprovado" | "cancelado";
+  status: "aguardando_sinal" | "em_producao" | "entregue" | "cancelado";
   total: number;
   observacoes: string | null;
+  plano_parcelas: Record<string, unknown> | null;
+  galeria_entrega_id: string | null;
   created_at: string;
   updated_at: string;
 };

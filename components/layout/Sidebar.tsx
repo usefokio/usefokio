@@ -101,6 +101,17 @@ const NAV_ITEMS = [
     ),
   },
   {
+    href: "/crm",
+    label: "CRM",
+    icon: (
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+        <path d="M2 4h12M2 8h8M2 12h5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" opacity=".8" />
+        <circle cx="13" cy="11" r="2.5" stroke="currentColor" strokeWidth="1.2" fill="none" opacity=".8" />
+        <path d="M15 13l1.2 1.2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" opacity=".7" />
+      </svg>
+    ),
+  },
+  {
     href: "/config",
     label: "Configurações",
     icon: (
@@ -209,7 +220,7 @@ export function Sidebar() {
         {NAV_ITEMS.filter((item) => {
           // Oculta itens cujo recurso foi desativado pelo webmaster para este fotógrafo
           const recursoPorRota: Record<string, keyof NonNullable<typeof fotografo>["recursos"]> = {
-            "/selecao": "selecao", "/entrega": "entrega", "/album": "album", "/contatos": "contatos",
+            "/selecao": "selecao", "/entrega": "entrega", "/album": "album", "/contatos": "contatos", "/crm": "crm",
           };
           const chave = recursoPorRota[item.href];
           if (!chave || !fotografo?.recursos) return true;
@@ -245,6 +256,44 @@ export function Sidebar() {
                 <span style={{ opacity: active ? 1 : 0.5, flexShrink: 0 }}>{item.icon}</span>
                 {!collapsed && <span style={{ lineHeight: 1.3, whiteSpace: "nowrap", overflow: "hidden" }}>{item.label}</span>}
               </Link>
+
+              {/* Sub-itens do CRM */}
+              {item.href === "/crm" && !collapsed && pathname.startsWith("/crm") && (() => {
+                const crmSubs = [
+                  { href: "/crm/oportunidades", label: "Oportunidades" },
+                  { href: "/crm/pedidos",        label: "Pedidos" },
+                  { href: "/crm/produtos",       label: "Produtos" },
+                  { href: "/crm/financeiro",     label: "Financeiro" },
+                  { href: "/crm/resultados",     label: "Resultados" },
+                  { href: "/crm/config",         label: "Config. CRM" },
+                ];
+                return (
+                  <>
+                    {crmSubs.map((sub) => {
+                      const subActive = pathname === sub.href || pathname.startsWith(sub.href + "/");
+                      return (
+                        <Link
+                          key={sub.href}
+                          href={sub.href}
+                          style={{
+                            display: "flex", alignItems: "center", gap: 7,
+                            padding: "5px 10px 5px 28px",
+                            borderRadius: 7, marginBottom: 1,
+                            background: subActive ? "var(--color-background-secondary)" : "transparent",
+                            color: subActive ? "var(--color-text-primary)" : "var(--color-text-secondary)",
+                            fontSize: 11, fontWeight: subActive ? 500 : 400,
+                            textDecoration: "none",
+                          }}
+                          onMouseEnter={(e) => { if (!subActive) e.currentTarget.style.background = "var(--color-background-secondary)"; }}
+                          onMouseLeave={(e) => { if (!subActive) e.currentTarget.style.background = "transparent"; }}
+                        >
+                          <span style={{ whiteSpace: "nowrap" }}>{sub.label}</span>
+                        </Link>
+                      );
+                    })}
+                  </>
+                );
+              })()}
 
               {/* Sub-item: Funil de Campanha (só para Galerias de Entrega, expandido) */}
               {item.href === "/entrega" && !collapsed && (() => {

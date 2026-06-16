@@ -29,6 +29,8 @@ export function FotografoProvider({ children }: { children: ReactNode }) {
     if (!firstLoadDone.current) setLoading(true);
     try {
       const supabase = createClient();
+
+
       const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
 
       if (sessionError || !sessionData.session?.user?.id) {
