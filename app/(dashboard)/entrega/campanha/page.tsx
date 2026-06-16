@@ -63,9 +63,10 @@ const CORES_CAPA = ["#7C6E5A","#5A6E7C","#6E5A7C","#5A7C6E","#7C5A6E","#6E7C5A"]
 export default function CampanhaPage() {
   const router = useRouter();
   const { fotografo } = useFotografo();
-  const [itens,          setItens]          = useState<CampanhaItem[]>([]);
-  const [loading,        setLoading]        = useState(true);
-  const [modalGaleriaId, setModalGaleriaId] = useState<string | null>(null);
+  const [itens,            setItens]            = useState<CampanhaItem[]>([]);
+  const [pendentes,        setPendentes]        = useState<Set<string>>(new Set());
+  const [loading,          setLoading]          = useState(true);
+  const [modalGaleriaId,   setModalGaleriaId]   = useState<string | null>(null);
   const [modalTemplate,  setModalTemplate]  = useState<"campanha" | "renovacao">("campanha");
   const [recarregarKey,  setRecarregarKey]  = useState(0);
   const [movendoId,      setMovendoId]      = useState<string | null>(null);
@@ -105,6 +106,19 @@ export default function CampanhaPage() {
         .order("created_at", { ascending: false });
 
       if (!data) { setLoading(false); return; }
+
+      // 3. Fetch pending payments for all galleries in the funnel
+      const galeriaIds = (data as any[]).map((r) => r.galerias_entrega?.id).filter(Boolean);
+      if (galeriaIds.length > 0) {
+        const { data: pgts } = await supabase
+          .from("pagamentos")
+          .select("galeria_id")
+          .in("galeria_id", galeriaIds)
+          .eq("tipo", "renovacao")
+          .eq("status", "pendente");
+        if (pgts) setPendentes(new Set(pgts.map((p: any) => p.galeria_id)));
+      }
+
       const mapped: CampanhaItem[] = (data as any[]).map((r) => ({
         id:            r.id,
         token:         r.token,
@@ -287,6 +301,13 @@ export default function CampanhaPage() {
                               ×
                             </button>
                           </div>
+
+                          {/* Aviso pagamento pendente */}
+                          {pendentes.has(item.galeria.id) && (
+                            <div style={{ fontSize: 11, fontWeight: 600, color: "#B45309", background: "rgba(245,158,11,0.09)", border: "0.5px solid rgba(245,158,11,0.35)", borderRadius: 6, padding: "4px 8px", marginBottom: 6 }}>
+                              ⏳ Aguardando pagamento
+                            </div>
+                          )}
 
                           {/* Info */}
                           <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginBottom: 8 }}>
