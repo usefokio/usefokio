@@ -460,7 +460,12 @@ export default function EntregaPage() {
 
                       if (rc.resposta === "tem_arquivos") return (
                         <span title="Cliente confirmou: já tem os arquivos" style={{ flexShrink: 0, fontSize: 10, fontWeight: 600, padding: "2px 7px", borderRadius: 20, background: "rgba(16,185,129,0.12)", color: "#059669" }}>
-                          ✓ tem arquivos
+                          ✓ já tem os arquivos
+                        </span>
+                      );
+                      if (rc.resposta === "renovar") return (
+                        <span title="Cliente renovou o acesso via pagamento" style={{ flexShrink: 0, fontSize: 10, fontWeight: 600, padding: "2px 7px", borderRadius: 20, background: "rgba(37,99,235,0.10)", color: "#2563EB" }}>
+                          ✓ acesso reativado
                         </span>
                       );
                       if (rc.estagio === "encerrado") return (
