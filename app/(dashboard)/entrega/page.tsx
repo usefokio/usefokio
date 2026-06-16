@@ -145,17 +145,34 @@ export default function EntregaPage() {
   async function carregar() {
     if (!fotografo) return;
     const supabase = createClient();
-    const { data } = await supabase
-      .from("galerias_entrega")
-      .select("*, clientes(id, nome, email, telefone, whatsapp), respostas_campanha(token, estagio, resposta, respondido_em, email_1_em, email_2_em)")
-      .eq("fotografo_id", fotografo.id)
-      .eq("rascunho", false);
-    const lista = (data as GaleriaEntrega[]) ?? [];
+
+    const [{ data }, { data: rcData }] = await Promise.all([
+      supabase
+        .from("galerias_entrega")
+        .select("*, clientes(id, nome, email, telefone, whatsapp)")
+        .eq("fotografo_id", fotografo.id)
+        .eq("rascunho", false),
+      supabase
+        .from("respostas_campanha")
+        .select("galeria_id, token, estagio, resposta, respondido_em, email_1_em, email_2_em")
+        .eq("fotografo_id", fotografo.id),
+    ]);
+
+    // Indexar respostas por galeria_id para merge O(1)
+    const rcPorGaleria: Record<string, any> = {};
+    for (const rc of (rcData ?? [])) rcPorGaleria[(rc as any).galeria_id] = rc;
+
+    const lista = ((data ?? []) as any[]).map((g) => ({
+      ...g,
+      respostas_campanha: rcPorGaleria[g.id] ? [rcPorGaleria[g.id]] : [],
+    })) as GaleriaEntrega[];
+
     setGalerias(lista);
     setLoading(false);
+
     // Auto-enroll suspended or expired galleries that aren't in the funnel yet
     const semFunil = lista.filter((g) => {
-      if (g.respostas_campanha && (g.respostas_campanha as any[]).length > 0) return false;
+      if ((g.respostas_campanha as any[]).length > 0) return false;
       const ehSuspensa = g.suspensa;
       const ehExpirada = !g.suspensa && g.expires_at && new Date(g.expires_at) < new Date();
       return ehSuspensa || ehExpirada;
