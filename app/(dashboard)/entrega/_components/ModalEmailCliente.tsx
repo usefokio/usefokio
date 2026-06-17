@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import type { GaleriaEntrega, EstagioFunil } from "@/lib/supabase/types";
 
-type TemplateId = "link" | "expirando" | "suspensa" | "renovacao" | "campanha";
+type TemplateId = "link" | "expirando" | "suspensa" | "renovacao" | "lembrete_renovacao" | "campanha";
 
 interface Template {
   id: TemplateId;
@@ -51,6 +51,13 @@ const TEMPLATES: Template[] = [
     assunto: "Seu acesso foi renovado — {titulo}",
     icone: "✅",
     padrao: "Oi, {nomeCliente}! Tudo certo — o acesso à galeria {titulo} foi reativado e o prazo renovado {prazo}.\n\nAgora é o momento de garantir o download de todos os arquivos e salvá-los em um local seguro, como o seu computador ou um serviço de nuvem pessoal. Ter os arquivos salvos localmente é a única garantia de que essas memórias vão ficar com você independente de qualquer coisa.\n\nQuando o prazo estiver se encerrando, você receberá um novo e-mail. Por lá será possível confirmar que já tem tudo salvo ou renovar o acesso mais uma vez.\n\n{nomeEmpresa}",
+  },
+  {
+    id: "lembrete_renovacao",
+    nome: "Lembrete de renovação",
+    assunto: "Suas fotos de {titulo} — finalize a renovação",
+    icone: "⏳",
+    padrao: "Oi, {nomeCliente}!\n\nVi que você demonstrou interesse em renovar o acesso à galeria {titulo}, mas o pagamento ainda não foi confirmado.\n\nPara garantir o acesso às suas fotos, acesse o link abaixo e finalize a renovação:\n{link}\n\nSe tiver qualquer dúvida, é só me chamar!\n\n{nomeEmpresa}",
   },
   {
     id: "campanha",

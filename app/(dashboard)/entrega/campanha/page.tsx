@@ -69,7 +69,7 @@ export default function CampanhaPage() {
   const [pagosEm,          setPagosEm]          = useState<Record<string, string>>({});
   const [loading,          setLoading]          = useState(true);
   const [modalGaleriaId,   setModalGaleriaId]   = useState<string | null>(null);
-  const [modalTemplate,  setModalTemplate]  = useState<"campanha" | "renovacao">("campanha");
+  const [modalTemplate,  setModalTemplate]  = useState<"campanha" | "renovacao" | "lembrete_renovacao">("campanha");
   const [recarregarKey,  setRecarregarKey]  = useState(0);
   const [movendoId,      setMovendoId]      = useState<string | null>(null);
 
@@ -316,8 +316,8 @@ export default function CampanhaPage() {
                             </button>
                           </div>
 
-                          {/* Aviso pagamento pendente */}
-                          {pendentes.has(item.galeria.id) && (
+                          {/* Aviso pagamento pendente — ocultar quando o badge de "renovar" já cobre essa info */}
+                          {pendentes.has(item.galeria.id) && item.resposta !== "renovar" && (
                             <div style={{ fontSize: 11, fontWeight: 600, color: "#B45309", background: "rgba(245,158,11,0.09)", border: "0.5px solid rgba(245,158,11,0.35)", borderRadius: 6, padding: "4px 8px", marginBottom: 6 }}>
                               ⏳ Aguardando pagamento
                             </div>
@@ -365,7 +365,7 @@ export default function CampanhaPage() {
                           {item.resposta === "renovar" && !pagosEm[item.galeria.id] && (
                             <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
                               <button
-                                onClick={() => { setModalTemplate("renovacao"); setModalGaleriaId(item.galeria.id); }}
+                                onClick={() => { setModalTemplate("lembrete_renovacao"); setModalGaleriaId(item.galeria.id); }}
                                 style={{
                                   width: "100%", padding: "6px 0", borderRadius: 7, fontSize: 11, fontWeight: 600,
                                   border: "0.5px solid rgba(217,119,6,0.4)",
