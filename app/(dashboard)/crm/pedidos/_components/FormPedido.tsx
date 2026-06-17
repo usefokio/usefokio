@@ -205,7 +205,9 @@ export default function FormPedido({ inicial, onSalvo }: Props) {
   // ── Planos de pagamento ─────────────────────────────────────────────────────
   const abrirNovoPlano = () => {
     const hoje = new Date().toISOString().slice(0, 10);
-    setModalPlano({ ...EMPTY_PLANO, tmpId: gerarId(), dataPrazo: hoje, editIdx: null });
+    const valorDefault = valorRestante > 0 ? valorRestante.toFixed(2) : "";
+    const pctDefault   = valorDefault && liquido > 0 ? (parseFloat(valorDefault) * 100 / liquido).toFixed(1) : "";
+    setModalPlano({ ...EMPTY_PLANO, tmpId: gerarId(), dataPrazo: hoje, valor: valorDefault, percentual: pctDefault, editIdx: null });
   };
 
   const abrirEditarPlano = (idx: number) => {
