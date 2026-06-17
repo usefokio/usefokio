@@ -69,6 +69,10 @@ export default function FormOportunidade({ inicial, onSalvo }: Props) {
   const [categorias, setCategorias] = useState<string[]>(CATEGORIAS_PADRAO);
   const [buscaCliente, setBuscaCliente] = useState("");
   const [clienteNomeSelecionado, setClienteNomeSelecionado] = useState("");
+  const [modalNovoCliente, setModalNovoCliente] = useState(false);
+  const [novoCliente, setNovoCliente] = useState({ nome: "", email: "", telefone: "" });
+  const [salvandoCliente, setSalvandoCliente] = useState(false);
+  const [erroCliente, setErroCliente] = useState("");
 
   const isEditing = !!inicial?.id;
   const isCasamento = form.categoria.toLowerCase().includes("casamento");
@@ -141,6 +145,29 @@ export default function FormOportunidade({ inicial, onSalvo }: Props) {
 
     setSaving(false);
     onSalvo ? onSalvo(id!) : router.push(`/crm/oportunidades/${id}`);
+  };
+
+  const criarCliente = async () => {
+    if (!novoCliente.nome.trim()) { setErroCliente("Nome é obrigatório."); return; }
+    if (!fotografo) return;
+    setSalvandoCliente(true);
+    setErroCliente("");
+    const sb = createClient();
+    const { data, error: err } = await sb.from("clientes").insert({
+      fotografo_id: fotografo.id,
+      nome: novoCliente.nome.trim(),
+      email: novoCliente.email.trim() || null,
+      telefone: novoCliente.telefone.trim() || null,
+      whatsapp: novoCliente.telefone.trim() || null,
+    }).select("id, nome").single();
+    setSalvandoCliente(false);
+    if (err) { setErroCliente(err.message); return; }
+    const c = data as Pick<Cliente, "id" | "nome">;
+    setClientes(prev => [...prev, c].sort((a, b) => a.nome.localeCompare(b.nome)));
+    upd("cliente_id", c.id);
+    setClienteNomeSelecionado(c.nome);
+    setModalNovoCliente(false);
+    setNovoCliente({ nome: "", email: "", telefone: "" });
   };
 
   const sec = (label: string) => (
@@ -242,7 +269,7 @@ export default function FormOportunidade({ inicial, onSalvo }: Props) {
             )}
           </Field>
           <button
-            onClick={() => router.push("/clientes/novo")}
+            onClick={() => { setNovoCliente({ nome: "", email: "", telefone: "" }); setErroCliente(""); setModalNovoCliente(true); }}
             style={{ padding: "9px 14px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "transparent", fontSize: 12, color: "var(--color-text-secondary)", cursor: "pointer", whiteSpace: "nowrap", marginBottom: 1 }}
           >
             + Novo cliente
@@ -316,5 +343,75 @@ export default function FormOportunidade({ inicial, onSalvo }: Props) {
         </button>
       </div>
     </div>
+
+    {/* Modal rápido — novo cliente */}
+    {modalNovoCliente && (
+      <div
+        style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center" }}
+        onClick={(e) => e.target === e.currentTarget && setModalNovoCliente(false)}
+      >
+        <div style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 14, padding: "28px 32px", width: 440, boxShadow: "0 24px 64px rgba(0,0,0,0.2)" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: "var(--color-text-primary)" }}>Novo cliente</div>
+            <button onClick={() => setModalNovoCliente(false)} style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: "var(--color-text-secondary)", lineHeight: 1 }}>×</button>
+          </div>
+
+          {erroCliente && (
+            <div style={{ background: "rgba(239,68,68,0.08)", border: "0.5px solid rgba(239,68,68,0.3)", borderRadius: 8, padding: "9px 14px", marginBottom: 16, fontSize: 12, color: "#EF4444" }}>
+              {erroCliente}
+            </div>
+          )}
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <Field label="Nome *">
+              <input
+                value={novoCliente.nome}
+                onChange={(e) => setNovoCliente(p => ({ ...p, nome: e.target.value }))}
+                placeholder="Nome completo"
+                style={inputStyle}
+                autoFocus
+                onKeyDown={(e) => e.key === "Enter" && criarCliente()}
+              />
+            </Field>
+            <Field label="Email">
+              <input
+                value={novoCliente.email}
+                onChange={(e) => setNovoCliente(p => ({ ...p, email: e.target.value }))}
+                placeholder="email@exemplo.com"
+                type="email"
+                style={inputStyle}
+                onKeyDown={(e) => e.key === "Enter" && criarCliente()}
+              />
+            </Field>
+            <Field label="Telefone / WhatsApp">
+              <input
+                value={novoCliente.telefone}
+                onChange={(e) => setNovoCliente(p => ({ ...p, telefone: e.target.value }))}
+                placeholder="(00) 00000-0000"
+                type="tel"
+                style={inputStyle}
+                onKeyDown={(e) => e.key === "Enter" && criarCliente()}
+              />
+            </Field>
+          </div>
+
+          <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 24 }}>
+            <button
+              onClick={() => setModalNovoCliente(false)}
+              style={{ padding: "9px 18px", borderRadius: 8, background: "transparent", border: "0.5px solid var(--color-border-secondary)", fontSize: 13, color: "var(--color-text-secondary)", cursor: "pointer" }}
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={criarCliente}
+              disabled={salvandoCliente}
+              style={{ padding: "9px 20px", borderRadius: 8, background: "var(--color-text-primary)", border: "none", fontSize: 13, color: "var(--color-background-primary)", fontWeight: 600, cursor: salvandoCliente ? "not-allowed" : "pointer", opacity: salvandoCliente ? 0.6 : 1 }}
+            >
+              {salvandoCliente ? "Criando…" : "Criar cliente"}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
   );
 }
