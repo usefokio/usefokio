@@ -72,15 +72,21 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
   const agora = new Date().toISOString();
 
   // Registrar resposta e encerrar funil
+  const updatePayload: Record<string, unknown> = {
+    resposta,
+    respondido_em:    agora,
+    respondido_nome:  nome?.trim() || null,
+    respondido_email: email?.trim() || null,
+  };
+  // Only close the funnel stage when the client actually confirms they have the files.
+  // For "renovar", the stage stays open until payment is confirmed via /renovar/verificar.
+  if (resposta === "tem_arquivos") {
+    updatePayload.estagio = "encerrado";
+  }
+
   await admin
     .from("respostas_campanha")
-    .update({
-      resposta,
-      estagio:          "encerrado",
-      respondido_em:    agora,
-      respondido_nome:  nome?.trim() || null,
-      respondido_email: email?.trim() || null,
-    })
+    .update(updatePayload)
     .eq("token", token);
 
   if (resposta === "tem_arquivos") {

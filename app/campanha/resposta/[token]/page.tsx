@@ -24,6 +24,7 @@ export default function RespostaCampanhaPage() {
   const [dados,  setDados]  = useState<DadosCampanha | null>(null);
   const [nome,   setNome]   = useState("");
   const [email,  setEmail]  = useState("");
+  const [cpf,    setCpf]    = useState("");
   const [salvando, setSalvando] = useState(false);
   const [erro,   setErro]   = useState("");
 
@@ -44,6 +45,34 @@ export default function RespostaCampanhaPage() {
     setSalvando(true);
     setErro("");
 
+    if (resposta === "renovar" && dados.asaasAtivo && dados.renewalFee > 0) {
+      // Validate required fields for payment
+      if (!nome.trim()) { setErro("Informe seu nome para continuar."); setSalvando(false); return; }
+      const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRe.test(email.trim())) { setErro("Informe um e-mail válido para continuar."); setSalvando(false); return; }
+
+      // Generate charge via Asaas
+      const r = await fetch(`/api/entrega/${dados.galeriaId}/renovar`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nome: nome.trim(), email: email.trim(), cpf: cpf.trim() || undefined }),
+      });
+      const j = await r.json();
+      if (!r.ok) { setErro(j.erro ?? "Erro ao gerar cobrança."); setSalvando(false); return; }
+
+      // Register intent in the campaign funnel (non-blocking)
+      await fetch(`/api/campanha/resposta/${token}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ resposta: "renovar", nome: nome.trim(), email: email.trim() }),
+      });
+
+      // Redirect to payment page
+      window.location.href = j.invoiceUrl;
+      return;
+    }
+
+    // No Asaas / no fee: just record response
     const res = await fetch(`/api/campanha/resposta/${token}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -203,22 +232,28 @@ export default function RespostaCampanhaPage() {
               🔄 Renovar acesso — confirme seus dados
             </div>
 
+            {dados.asaasAtivo && dados.renewalFee > 0 && (
+              <div style={{ background: "#EFF6FF", border: "1px solid #BFDBFE", borderRadius: 8, padding: "10px 14px", marginBottom: 16, fontSize: 13, color: "#1D4ED8" }}>
+                Taxa de renovação: <strong>R$ {dados.renewalFee.toFixed(2).replace(".", ",")}</strong>
+              </div>
+            )}
+
             <div style={{ marginBottom: 14 }}>
               <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#555", marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.04em" }}>
-                Nome (opcional)
+                Nome {dados.asaasAtivo && dados.renewalFee > 0 ? "*" : "(opcional)"}
               </label>
               <input
                 type="text"
                 value={nome}
                 onChange={(e) => setNome(e.target.value)}
-                placeholder="Seu nome"
+                placeholder="Seu nome completo"
                 style={inputStyle}
               />
             </div>
 
-            <div style={{ marginBottom: 20 }}>
+            <div style={{ marginBottom: 14 }}>
               <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#555", marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.04em" }}>
-                E-mail (opcional)
+                E-mail {dados.asaasAtivo && dados.renewalFee > 0 ? "*" : "(opcional)"}
               </label>
               <input
                 type="email"
@@ -228,6 +263,23 @@ export default function RespostaCampanhaPage() {
                 style={inputStyle}
               />
             </div>
+
+            {dados.asaasAtivo && dados.renewalFee > 0 && (
+              <div style={{ marginBottom: 20 }}>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#555", marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                  CPF (opcional)
+                </label>
+                <input
+                  type="text"
+                  value={cpf}
+                  onChange={(e) => setCpf(e.target.value)}
+                  placeholder="000.000.000-00"
+                  style={inputStyle}
+                />
+              </div>
+            )}
+
+            {!dados.asaasAtivo && <div style={{ marginBottom: 20 }} />}
 
             {erro && (
               <div style={{ fontSize: 13, color: "#EF4444", marginBottom: 14, padding: "10px 14px", background: "rgba(239,68,68,0.07)", borderRadius: 8 }}>
@@ -245,7 +297,7 @@ export default function RespostaCampanhaPage() {
                 marginBottom: 10,
               }}
             >
-              {salvando ? "Aguarde…" : "Continuar para o pagamento →"}
+              {salvando ? "Aguarde…" : dados.asaasAtivo && dados.renewalFee > 0 ? "Ir para pagamento →" : "Confirmar →"}
             </button>
 
             <button

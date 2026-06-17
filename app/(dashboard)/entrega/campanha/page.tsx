@@ -164,7 +164,9 @@ export default function CampanhaPage() {
   }, [fotografo, recarregarKey]);
 
   function colunaDeItem(item: CampanhaItem): string {
-    if (item.resposta === "tem_arquivos" || item.estagio === "encerrado") return "concluido";
+    if (item.resposta === "tem_arquivos") return "concluido";
+    if (item.resposta === "renovar" && pagosEm[item.galeria.id]) return "concluido";
+    if (item.estagio === "encerrado") return "concluido";
     return COLUNAS.find((c) => c.estagios.includes(item.estagio))?.id ?? "sem_contato";
   }
 
@@ -333,7 +335,7 @@ export default function CampanhaPage() {
                               <span style={{ color: "#2563EB", fontWeight: 600 }}>💳 Pagamento confirmado {diasDesde(pagosEm[item.galeria.id])}</span>
                             )}
                             {item.resposta === "renovar" && !pagosEm[item.galeria.id] && (
-                              <span style={{ color: "#2563EB", fontWeight: 600 }}>🔄 Cliente solicitou renovação</span>
+                              <span style={{ color: "#D97706", fontWeight: 600 }}>⏳ Aguardando pagamento</span>
                             )}
                             {item.estagio === "encerrado" && !item.resposta && (
                               <span style={{ color: "#6B7280" }}>Encerrado sem resposta</span>
@@ -347,7 +349,7 @@ export default function CampanhaPage() {
                           </div>
 
                           {/* Ação rápida */}
-                          {col.id !== "concluido" && (
+                          {col.id !== "concluido" && item.resposta !== "renovar" && (
                             <button
                               onClick={() => { setModalTemplate("campanha"); setModalGaleriaId(item.galeria.id); }}
                               style={{
@@ -359,6 +361,34 @@ export default function CampanhaPage() {
                             >
                               Enviar contato →
                             </button>
+                          )}
+                          {item.resposta === "renovar" && !pagosEm[item.galeria.id] && (
+                            <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                              <button
+                                onClick={() => { setModalTemplate("renovacao"); setModalGaleriaId(item.galeria.id); }}
+                                style={{
+                                  width: "100%", padding: "6px 0", borderRadius: 7, fontSize: 11, fontWeight: 600,
+                                  border: "0.5px solid rgba(217,119,6,0.4)",
+                                  background: "rgba(217,119,6,0.07)",
+                                  color: "#B45309", cursor: "pointer",
+                                }}
+                              >
+                                💌 Enviar lembrete
+                              </button>
+                              <button
+                                onClick={() => {
+                                  navigator.clipboard.writeText(`${window.location.origin}/acesso/entrega/${item.galeria.id}`);
+                                }}
+                                style={{
+                                  width: "100%", padding: "6px 0", borderRadius: 7, fontSize: 11, fontWeight: 600,
+                                  border: "0.5px solid var(--color-border-secondary)",
+                                  background: "transparent",
+                                  color: "var(--color-text-secondary)", cursor: "pointer",
+                                }}
+                              >
+                                🔗 Copiar link da galeria
+                              </button>
+                            </div>
                           )}
                           {col.id === "concluido" && item.resposta === "tem_arquivos" && !item.agradecimento_em && (
                             <button
