@@ -222,12 +222,13 @@ function SecaoPagamentos() {
 }
 
 // ── Recursos disponíveis por fotógrafo (checkboxes) ──────────────────────────
-const RECURSOS_LABELS: { chave: string; label: string }[] = [
-  { chave: "album",      label: "Álbum" },
-  { chave: "contatos",   label: "Contatos" },
-  { chave: "entrega",    label: "Entrega" },
-  { chave: "pagamentos", label: "Pagamentos" },
-  { chave: "selecao",    label: "Seleção" },
+const RECURSOS_LABELS: { chave: string; label: string; padrao?: boolean }[] = [
+  { chave: "album",      label: "Álbum",      padrao: true  },
+  { chave: "contatos",   label: "Contatos",   padrao: true  },
+  { chave: "crm",        label: "CRM",        padrao: false },
+  { chave: "entrega",    label: "Entrega",    padrao: true  },
+  { chave: "pagamentos", label: "Pagamentos", padrao: true  },
+  { chave: "selecao",    label: "Seleção",    padrao: true  },
 ];
 
 function RecursosCell({ fotografoId }: { fotografoId: string }) {
@@ -239,7 +240,8 @@ function RecursosCell({ fotografoId }: { fotografoId: string }) {
     if (!aberto && !recursos) {
       const supabase = createClient();
       const { data } = await supabase.from("fotografos").select("recursos").eq("id", fotografoId).maybeSingle();
-      setRecursos((data?.recursos as Record<string, boolean>) ?? { selecao: true, entrega: true, album: true, contatos: true, pagamentos: true });
+      const defaults = Object.fromEntries(RECURSOS_LABELS.map((r) => [r.chave, r.padrao ?? true]));
+      setRecursos((data?.recursos as Record<string, boolean>) ?? defaults);
     }
     setAberto(!aberto);
   }
@@ -270,7 +272,7 @@ function RecursosCell({ fotografoId }: { fotografoId: string }) {
             <label key={r.chave} style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 0", cursor: "pointer", fontSize: 12, color: "var(--color-text-primary)" }}>
               <input
                 type="checkbox"
-                checked={recursos[r.chave] !== false}
+                checked={r.chave in recursos ? recursos[r.chave] !== false : (r.padrao ?? true)}
                 onChange={() => alternar(r.chave)}
                 style={{ width: 14, height: 14, accentColor: "#2563EB", cursor: "pointer" }}
               />
