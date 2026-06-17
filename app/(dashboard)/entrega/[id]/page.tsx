@@ -417,6 +417,26 @@ export default function EntregaDetailPage() {
         );
       })()}
 
+      {/* Funil de Campanha — adicionar quando não há registro */}
+      {funilInfo === null && (
+        <div style={{ border: "0.5px solid var(--color-border-secondary)", borderRadius: 10, padding: "14px 18px", marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>Esta galeria não está no funil de campanha.</span>
+          <button
+            onClick={async () => {
+              await fetch(`/api/campanha/galeria/${id}`);
+              const sb = createClient();
+              const { data } = await sb.from("respostas_campanha")
+                .select("estagio, resposta, respondido_em, respondido_nome, email_1_em, email_2_em, whatsapp_em, ignorar_funil, agradecimento_em")
+                .eq("galeria_id", id).eq("fotografo_id", fotografo!.id).maybeSingle();
+              setFunilInfo(data ?? null);
+            }}
+            style={{ fontSize: 11, fontWeight: 600, color: "#2563EB", padding: "4px 10px", borderRadius: 7, border: "0.5px solid rgba(37,99,235,0.35)", background: "transparent", cursor: "pointer" }}
+          >
+            + Adicionar ao funil
+          </button>
+        </div>
+      )}
+
       {/* Funil de Campanha — sempre exibe quando há registro */}
       {funilInfo !== undefined && funilInfo !== null && (() => {
         const ESTAGIO_INFO: Record<string, { label: string; icone: string; cor: string; bg: string; border: string }> = {
@@ -488,7 +508,7 @@ export default function EntregaDetailPage() {
                     Ver funil →
                   </Link>
                 )}
-                {funilInfo.ignorar_funil && !funilInfo.resposta ? (
+                {funilInfo.ignorar_funil ? (
                   <button
                     onClick={async () => {
                       await fetch(`/api/campanha/galeria/${id}/reativar`, { method: "POST" });
