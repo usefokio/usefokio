@@ -129,3 +129,35 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
 
   return NextResponse.json({ ok: true, galeriaId: registro.galeria_id });
 }
+
+// DELETE — desfaz resposta "tem_arquivos" (cliente clicou errado)
+export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ token: string }> }) {
+  const { token } = await params;
+  const admin = createAdminClient();
+
+  const { data: registro } = await admin
+    .from("respostas_campanha")
+    .select("id, galeria_id, resposta")
+    .eq("token", token)
+    .maybeSingle();
+
+  if (!registro) return NextResponse.json({ erro: "Link inválido." }, { status: 404 });
+  if (registro.resposta !== "tem_arquivos") {
+    return NextResponse.json({ erro: "Apenas respostas 'tem_arquivos' podem ser desfeitas." }, { status: 400 });
+  }
+
+  const { error } = await admin
+    .from("respostas_campanha")
+    .update({
+      resposta:         null,
+      respondido_em:    null,
+      respondido_nome:  null,
+      respondido_email: null,
+      estagio:          "nao_contatado",
+      notificado:       false,
+    })
+    .eq("token", token);
+
+  if (error) return NextResponse.json({ erro: error.message }, { status: 500 });
+  return NextResponse.json({ ok: true });
+}

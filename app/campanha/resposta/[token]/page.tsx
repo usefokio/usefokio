@@ -289,12 +289,35 @@ export default function RespostaCampanhaPage() {
   if (tela === "confirmado") {
     return (
       <Wrap>
-        <div style={{ textAlign: "center", padding: "20px 0 10px" }}>
+        <div style={{ textAlign: "center", padding: "20px 0 16px" }}>
           <div style={{ fontSize: 40, marginBottom: 12 }}>✅</div>
-          <div style={{ fontSize: 16, fontWeight: 700, color: "#111", marginBottom: 8 }}>Confirmação registrada!</div>
-          <div style={{ fontSize: 14, color: "#555", lineHeight: 1.6 }}>
-            Obrigado por confirmar. O fotógrafo foi notificado e tomará as decisões necessárias sobre o armazenamento.
+          <div style={{ fontSize: 16, fontWeight: 700, color: "#111", marginBottom: 8 }}>Recebemos sua confirmação!</div>
+          <div style={{ fontSize: 14, color: "#555", lineHeight: 1.7, marginBottom: 24 }}>
+            Você confirmou que já possui seus arquivos. O fotógrafo foi notificado e poderá remover os arquivos do armazenamento em breve.
           </div>
+        </div>
+        <div style={{ borderTop: "1px solid #F3F4F6", paddingTop: 20 }}>
+          <div style={{ fontSize: 13, color: "#6B7280", marginBottom: 12, textAlign: "center" }}>
+            Clicou por engano? Você ainda pode reverter essa confirmação.
+          </div>
+          <button
+            onClick={async (e) => {
+              const btn = e.currentTarget;
+              btn.textContent = "Revertendo…";
+              btn.setAttribute("disabled", "true");
+              const res = await fetch(`/api/campanha/resposta/${token}`, { method: "DELETE" });
+              if (!res.ok) {
+                btn.textContent = "Erro — tente novamente";
+                btn.removeAttribute("disabled");
+                return;
+              }
+              setTela("opcoes");
+              setDados((prev) => prev ? { ...prev, resposta: null } : prev);
+            }}
+            style={{ width: "100%", padding: "12px 20px", borderRadius: 10, border: "1.5px solid #E5E7EB", background: "transparent", color: "#374151", fontSize: 14, fontWeight: 600, cursor: "pointer" }}
+          >
+            ↩ Desfazer — ainda preciso do acesso
+          </button>
         </div>
       </Wrap>
     );
