@@ -101,7 +101,7 @@ function calcParcelas(plano: PlanoItem): ParcelaPreview[] {
 // ── Props ─────────────────────────────────────────────────────────────────────
 
 type Props = {
-  inicial?: Partial<FormData & { id: string }>;
+  inicial?: Partial<FormData & { id: string; oportunidade_id: string }>;
   onSalvo?: (id: string) => void;
 };
 
@@ -283,19 +283,20 @@ export default function FormPedido({ inicial, onSalvo }: Props) {
 
     const sb = createClient();
     const payload = {
-      fotografo_id:   fotografo.id,
-      nome:           form.nome.trim(),
-      cliente_id:     form.cliente_id || null,
-      categoria:      form.categoria || null,
-      status:         form.status,
-      total:          itens.length > 0 ? totalItens : parseMoney(form.total),
-      discount:       parseMoney(form.discount),
-      other_expenses: parseMoney(form.other_expenses),
-      payment_method: planos.length > 0 ? (planos[0].forma || null) : null,
-      data_evento:    form.data_evento || null,
-      data_entrega:   null,
-      observacoes:    form.observacoes.trim() || null,
-      updated_at:     new Date().toISOString(),
+      fotografo_id:    fotografo.id,
+      nome:            form.nome.trim(),
+      cliente_id:      form.cliente_id || null,
+      oportunidade_id: inicial?.oportunidade_id ?? null,
+      categoria:       form.categoria || null,
+      status:          form.status,
+      total:           itens.length > 0 ? totalItens : parseMoney(form.total),
+      discount:        parseMoney(form.discount),
+      other_expenses:  parseMoney(form.other_expenses),
+      payment_method:  planos.length > 0 ? (planos[0].forma || null) : null,
+      data_evento:     form.data_evento || null,
+      data_entrega:    null,
+      observacoes:     form.observacoes.trim() || null,
+      updated_at:      new Date().toISOString(),
     };
 
     let id = inicial?.id;

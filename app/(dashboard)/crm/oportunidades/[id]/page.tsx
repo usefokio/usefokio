@@ -99,38 +99,17 @@ export default function OportunidadeDetailPage() {
     router.push("/crm/oportunidades");
   };
 
-  const handleGerarPedido = async () => {
+  const handleGerarPedido = () => {
     if (!opp) return;
-    const sb = createClient();
-    const { data } = await sb
-      .from("crm_orders")
-      .insert({
-        fotografo_id:    opp.fotografo_id,
-        oportunidade_id: opp.id,
-        cliente_id:      opp.cliente_id,
-        nome:            opp.titulo,
-        categoria:       opp.categoria,
-        data_evento:     opp.data_evento,
-        status:          "aguardando_sinal",
-        total:           opp.valor_estimado ?? 0,
-        updated_at:      new Date().toISOString(),
-      })
-      .select("id")
-      .single();
-
-    // Mover funil para a última etapa
-    if (etapas.length > 0) {
-      const ultimaEtapa = etapas[etapas.length - 1];
-      const funilId = opp.funil_id ?? funis[0]?.id;
-      await sb.from("crm_opportunities").update({ etapa_id: ultimaEtapa.id, funil_id: funilId }).eq("id", id);
-      await sb.from("crm_funnel_progress").insert({
-        oportunidade_id: id,
-        etapa_id:        ultimaEtapa.id,
-        observacao:      "Pedido gerado",
-      });
-    }
-
-    if (data) router.push(`/crm/pedidos/${(data as { id: string }).id}`);
+    const params = new URLSearchParams();
+    params.set("oportunidade_id", opp.id);
+    if (opp.cliente_id)      params.set("cliente_id",  opp.cliente_id);
+    if (opp.titulo)          params.set("nome",         opp.titulo);
+    if (opp.categoria)       params.set("categoria",    opp.categoria);
+    if (opp.data_evento)     params.set("data_evento",  opp.data_evento);
+    if (opp.valor_estimado)  params.set("total",        String(opp.valor_estimado));
+    if (opp.observacoes)     params.set("observacoes",  opp.observacoes);
+    router.push(`/crm/pedidos/novo?${params.toString()}`);
   };
 
   const etapaAtualIdx = opp?.etapa_id ? etapas.findIndex(e => e.id === opp.etapa_id) : -1;

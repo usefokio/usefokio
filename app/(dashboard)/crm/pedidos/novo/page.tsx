@@ -1,10 +1,28 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense } from "react";
 import FormPedido from "../_components/FormPedido";
 
-export default function NovoPedidoPage() {
+function NovoPedidoForm() {
   const router = useRouter();
+  const params = useSearchParams();
+
+  const inicial = {
+    oportunidade_id: params.get("oportunidade_id") ?? undefined,
+    cliente_id:      params.get("cliente_id")      ?? undefined,
+    nome:            params.get("nome")             ?? undefined,
+    categoria:       params.get("categoria")        ?? undefined,
+    data_evento:     params.get("data_evento")      ?? undefined,
+    total:           params.get("total")            ?? undefined,
+    observacoes:     params.get("observacoes")      ?? undefined,
+  };
+
+  // Remove undefined keys so FormPedido spread doesn't overwrite defaults
+  const inicialLimpo = Object.fromEntries(
+    Object.entries(inicial).filter(([, v]) => v !== undefined)
+  ) as Parameters<typeof FormPedido>[0]["inicial"];
+
   return (
     <div style={{ padding: "28px 32px", maxWidth: 820, fontFamily: "var(--font-sans)" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 24 }}>
@@ -14,7 +32,15 @@ export default function NovoPedidoPage() {
         <span style={{ color: "var(--color-border-secondary)" }}>/</span>
         <span style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)" }}>Novo pedido</span>
       </div>
-      <FormPedido />
+      <FormPedido inicial={inicialLimpo} />
     </div>
+  );
+}
+
+export default function NovoPedidoPage() {
+  return (
+    <Suspense fallback={<div style={{ padding: 32, color: "var(--color-text-secondary)" }}>Carregando…</div>}>
+      <NovoPedidoForm />
+    </Suspense>
   );
 }
