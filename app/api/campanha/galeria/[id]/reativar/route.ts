@@ -13,7 +13,17 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
   const admin = createAdminClient();
   const { error } = await admin
     .from("respostas_campanha")
-    .update({ ignorar_funil: false })
+    .update({
+      ignorar_funil:    false,
+      estagio:          "nao_contatado",
+      email_1_em:       null,
+      email_2_em:       null,
+      whatsapp_em:      null,
+      resposta:         null,
+      respondido_em:    null,
+      respondido_nome:  null,
+      respondido_email: null,
+    })
     .eq("galeria_id", id)
     .eq("fotografo_id", user.id);
 

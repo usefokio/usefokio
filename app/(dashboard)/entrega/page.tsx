@@ -195,15 +195,20 @@ export default function EntregaPage() {
     }
   }
 
-  async function confirmarSuspender(id: string, adicionarAoFunil: boolean) {
+  async function confirmarSuspender(id: string, adicionarAoFunil: boolean, jaNoFunil: boolean) {
     setSuspenderPendenteId(null);
     const supabase = createClient();
     await supabase.from("galerias_entrega").update({ suspensa: true, expires_at: null }).eq("id", id);
     setGalerias((prev) => prev.map((g) => g.id === id ? { ...g, suspensa: true, expires_at: null } : g));
     if (adicionarAoFunil) {
-      await fetch(`/api/campanha/galeria/${id}`).catch(() => {});
+      if (jaNoFunil) {
+        // Já tem registro — reativar reseta para nao_contatado do início
+        await fetch(`/api/campanha/galeria/${id}/reativar`, { method: "POST" }).catch(() => {});
+      } else {
+        await fetch(`/api/campanha/galeria/${id}`).catch(() => {});
+      }
       setGalerias((prev) => prev.map((g) =>
-        g.id === id && !(g.respostas_campanha as any[])?.length
+        g.id === id
           ? { ...g, respostas_campanha: [{ token: "", estagio: "nao_contatado", resposta: null, respondido_em: null }] }
           : g
       ));
@@ -636,22 +641,20 @@ export default function EntregaPage() {
               </h3>
               <p style={{ margin: "0 0 20px", fontSize: 13, color: "var(--color-text-secondary)", lineHeight: 1.6 }}>
                 O acesso de <strong style={{ color: "var(--color-text-primary)" }}>{g.titulo}</strong> será suspenso imediatamente.
-                {!jaNoFunil && " Deseja também adicionar esta galeria ao funil de campanha para acompanhar o contato com o cliente?"}
+                {" "}{jaNoFunil ? "Deseja reiniciar esta galeria no início do funil de campanha?" : "Deseja também adicionar esta galeria ao funil de campanha para acompanhar o contato com o cliente?"}
               </p>
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {!jaNoFunil && (
-                  <button
-                    onClick={() => confirmarSuspender(g.id, true)}
-                    style={{ width: "100%", padding: "10px", borderRadius: 8, border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}
-                  >
-                    📢 Suspender e adicionar ao funil
-                  </button>
-                )}
                 <button
-                  onClick={() => confirmarSuspender(g.id, false)}
-                  style={{ width: "100%", padding: "10px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "transparent", fontSize: 13, fontWeight: jaNoFunil ? 600 : 400, color: "var(--color-text-primary)", cursor: "pointer" }}
+                  onClick={() => confirmarSuspender(g.id, true, jaNoFunil)}
+                  style={{ width: "100%", padding: "10px", borderRadius: 8, border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}
                 >
-                  {jaNoFunil ? "Suspender" : "Apenas suspender"}
+                  {jaNoFunil ? "📢 Suspender e reiniciar no funil" : "📢 Suspender e adicionar ao funil"}
+                </button>
+                <button
+                  onClick={() => confirmarSuspender(g.id, false, jaNoFunil)}
+                  style={{ width: "100%", padding: "10px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "transparent", fontSize: 13, fontWeight: 400, color: "var(--color-text-primary)", cursor: "pointer" }}
+                >
+                  Apenas suspender
                 </button>
                 <button
                   onClick={() => setSuspenderPendenteId(null)}
