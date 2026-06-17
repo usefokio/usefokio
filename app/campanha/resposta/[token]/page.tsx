@@ -255,9 +255,9 @@ export default function RespostaCampanhaPage() {
         <Wrap>
           <div style={{ textAlign: "center", padding: "20px 0 16px" }}>
             <div style={{ fontSize: 40, marginBottom: 12 }}>✅</div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: "#111", marginBottom: 8 }}>Já recebemos sua resposta</div>
-            <div style={{ fontSize: 14, color: "#555", marginBottom: 8 }}>
-              Você confirmou: <strong>Já tenho meus arquivos</strong>
+            <div style={{ fontSize: 16, fontWeight: 700, color: "#111", marginBottom: 8 }}>Recebemos sua confirmação!</div>
+            <div style={{ fontSize: 14, color: "#555", lineHeight: 1.7, marginBottom: 8 }}>
+              Você confirmou que já possui seus arquivos. O fotógrafo foi notificado e poderá remover os arquivos do armazenamento em breve.
             </div>
             {dados.respondidoEm && (
               <div style={{ fontSize: 12, color: "#999", marginBottom: 20 }}>
@@ -265,19 +265,37 @@ export default function RespostaCampanhaPage() {
               </div>
             )}
           </div>
-          {dados.asaasAtivo && dados.renewalFee > 0 && (
-            <div style={{ borderTop: "1px solid #F3F4F6", paddingTop: 20 }}>
-              <div style={{ fontSize: 13, color: "#6B7280", marginBottom: 12, textAlign: "center" }}>
-                Cometeu um engano? Ainda é possível renovar o acesso à galeria.
-              </div>
+          <div style={{ borderTop: "1px solid #F3F4F6", paddingTop: 20, display: "flex", flexDirection: "column", gap: 10 }}>
+            <div style={{ fontSize: 13, color: "#6B7280", marginBottom: 4, textAlign: "center" }}>
+              Clicou por engano? Você ainda pode reverter essa confirmação.
+            </div>
+            <button
+              onClick={async (e) => {
+                const btn = e.currentTarget;
+                btn.textContent = "Revertendo…";
+                btn.setAttribute("disabled", "true");
+                const res = await fetch(`/api/campanha/resposta/${token}`, { method: "DELETE" });
+                if (!res.ok) {
+                  btn.textContent = "Erro — tente novamente";
+                  btn.removeAttribute("disabled");
+                  return;
+                }
+                setTela("opcoes");
+                setDados((prev) => prev ? { ...prev, resposta: null, respondidoEm: null } : prev);
+              }}
+              style={{ width: "100%", padding: "12px 20px", borderRadius: 10, border: "1.5px solid #E5E7EB", background: "transparent", color: "#374151", fontSize: 14, fontWeight: 600, cursor: "pointer" }}
+            >
+              ↩ Desfazer — ainda preciso do acesso
+            </button>
+            {dados.asaasAtivo && dados.renewalFee > 0 && (
               <button
                 onClick={() => setCorrigindo(true)}
                 style={{ width: "100%", padding: "12px 20px", borderRadius: 10, border: "1.5px solid #2563EB", background: "transparent", color: "#2563EB", fontSize: 14, fontWeight: 600, cursor: "pointer" }}
               >
                 🔄 Quero renovar meu acesso
               </button>
-            </div>
-          )}
+            )}
+          </div>
         </Wrap>
       );
     }
