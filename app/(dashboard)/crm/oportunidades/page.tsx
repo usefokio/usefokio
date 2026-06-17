@@ -6,8 +6,9 @@ import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import type { CrmOpportunity } from "@/lib/supabase/types";
 
-type OppWithCliente = CrmOpportunity & {
+type OppWithRelations = CrmOpportunity & {
   clientes?: { nome: string } | null;
+  etapa?: { nome: string; ordem: number } | null;
 };
 
 type StatusFiltro = "" | "em_aberto" | "venda_efetuada" | "perdido" | "abandonado";
@@ -20,16 +21,58 @@ const STATUS_MAP: Record<string, { label: string; color: string; bg: string }> =
   suspensa:       { label: "Suspensa",    color: "#D97706", bg: "rgba(217,119,6,0.08)"  },
 };
 
+const IcoEdit = () => (
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+  </svg>
+);
+
+const IcoTrash = () => (
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+    <path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
+  </svg>
+);
+
+const IcoOpen = () => (
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+    <polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+  </svg>
+);
+
+function ModalExcluir({ titulo, onConfirmar, onFechar, deletando }: { titulo: string; onConfirmar: () => void; onFechar: () => void; deletando: boolean }) {
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50 }} onClick={onFechar}>
+      <div onClick={(e) => e.stopPropagation()} style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 14, padding: "28px 30px", width: 380, boxShadow: "0 8px 40px rgba(0,0,0,0.18)" }}>
+        <h3 style={{ margin: "0 0 10px", fontSize: 15, fontWeight: 700, color: "#EF4444" }}>Excluir oportunidade</h3>
+        <p style={{ margin: "0 0 22px", fontSize: 13, color: "var(--color-text-secondary)", lineHeight: 1.6 }}>
+          Tem certeza que deseja excluir <strong style={{ color: "var(--color-text-primary)" }}>{titulo}</strong>?<br />Esta ação não pode ser desfeita.
+        </p>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={onFechar} style={{ flex: 1, padding: "9px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "transparent", fontSize: 13, color: "var(--color-text-secondary)", cursor: "pointer" }}>Cancelar</button>
+          <button onClick={onConfirmar} disabled={deletando} style={{ flex: 1, padding: "9px", borderRadius: 8, border: "none", background: "#EF4444", color: "#fff", fontSize: 13, fontWeight: 600, cursor: deletando ? "default" : "pointer" }}>
+            {deletando ? "Excluindo…" : "Excluir"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function OportunidadesPage() {
-  const router       = useRouter();
+  const router        = useRouter();
   const { fotografo } = useFotografo();
 
-  const [opps,    setOpps]    = useState<OppWithCliente[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [busca,   setBusca]   = useState("");
-  const [status,  setStatus]  = useState<StatusFiltro>("");
+  const [opps,      setOpps]      = useState<OppWithRelations[]>([]);
+  const [loading,   setLoading]   = useState(true);
+  const [busca,     setBusca]     = useState("");
+  const [status,    setStatus]    = useState<StatusFiltro>("");
   const [catFiltro, setCatFiltro] = useState("");
   const [categorias, setCategorias] = useState<string[]>([]);
+  const [deletarId,  setDeletarId]  = useState<string | null>(null);
+  const [deletando,  setDeletando]  = useState(false);
 
   const carregar = useCallback(async () => {
     if (!fotografo) return;
@@ -37,15 +80,14 @@ export default function OportunidadesPage() {
     const sb = createClient();
     let q = sb
       .from("crm_opportunities")
-      .select("*, clientes!cliente_id(nome)")
+      .select("*, clientes!cliente_id(nome), etapa:crm_funnel_stages!etapa_id(nome, ordem)")
       .eq("fotografo_id", fotografo.id)
       .order("created_at", { ascending: false });
     if (status)    q = q.eq("status", status);
     if (catFiltro) q = q.eq("categoria", catFiltro);
     const { data } = await q;
-    const items = (data ?? []) as OppWithCliente[];
+    const items = (data ?? []) as OppWithRelations[];
     setOpps(items);
-    // extrair categorias únicas
     const cats = [...new Set(items.map(o => o.categoria).filter(Boolean) as string[])].sort();
     setCategorias(cats);
     setLoading(false);
@@ -59,6 +101,14 @@ export default function OportunidadesPage() {
     (o.clientes?.nome ?? "").toLowerCase().includes(busca.toLowerCase()) ||
     (o.cidade_evento ?? "").toLowerCase().includes(busca.toLowerCase())
   );
+
+  async function excluir(id: string) {
+    setDeletando(true);
+    await createClient().from("crm_opportunities").delete().eq("id", id);
+    setOpps(prev => prev.filter(o => o.id !== id));
+    setDeletarId(null);
+    setDeletando(false);
+  }
 
   const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
   const fmtData = (s: string) => new Date(s + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" });
@@ -74,8 +124,10 @@ export default function OportunidadesPage() {
     { id: "abandonado",     label: `Desistências (${contagens.abandonado ?? 0})` },
   ];
 
+  const oppParaDeletar = opps.find(o => o.id === deletarId);
+
   return (
-    <div style={{ padding: "28px 32px", maxWidth: 1100, fontFamily: "var(--font-sans)" }}>
+    <div style={{ padding: "28px 32px", maxWidth: 1200, fontFamily: "var(--font-sans)" }}>
 
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
@@ -160,8 +212,8 @@ export default function OportunidadesPage() {
         </div>
       ) : (
         <div style={{ border: "0.5px solid var(--color-border-tertiary)", borderRadius: 12, overflow: "hidden" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 160px 130px 120px 110px 48px", padding: "8px 16px", borderBottom: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-secondary)" }}>
-            {["Oportunidade", "Cliente", "Evento", "Valor", "Status", ""].map((h) => (
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 150px 120px 120px 130px 110px 90px", padding: "8px 16px", borderBottom: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-secondary)" }}>
+            {["Oportunidade", "Cliente", "Evento", "Valor", "Etapa do Funil", "Status", ""].map((h) => (
               <span key={h} style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.04em" }}>{h}</span>
             ))}
           </div>
@@ -170,38 +222,81 @@ export default function OportunidadesPage() {
             return (
               <div
                 key={o.id}
-                onClick={() => router.push(`/crm/oportunidades/${o.id}`)}
-                style={{ display: "grid", gridTemplateColumns: "1fr 160px 130px 120px 110px 48px", padding: "12px 16px", borderBottom: i < filtradas.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", cursor: "pointer", background: "var(--color-background-primary)", transition: "background 0.1s" }}
+                style={{ display: "grid", gridTemplateColumns: "1fr 150px 120px 120px 130px 110px 90px", padding: "12px 16px", borderBottom: i < filtradas.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", background: "var(--color-background-primary)", transition: "background 0.1s" }}
                 onMouseEnter={(e) => (e.currentTarget.style.background = "var(--color-background-secondary)")}
                 onMouseLeave={(e) => (e.currentTarget.style.background = "var(--color-background-primary)")}
               >
-                <div>
+                {/* Título */}
+                <div style={{ cursor: "pointer" }} onClick={() => router.push(`/crm/oportunidades/${o.id}`)}>
                   <div style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{o.titulo}</div>
                   {o.categoria && <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 2 }}>{o.categoria}</div>}
                 </div>
+
+                {/* Cliente */}
                 <div style={{ display: "flex", alignItems: "center" }}>
                   <span style={{ fontSize: 13, color: "var(--color-text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{o.clientes?.nome ?? "—"}</span>
                 </div>
+
+                {/* Evento */}
                 <div style={{ display: "flex", alignItems: "center" }}>
-                  <span style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>
-                    {o.data_evento ? fmtData(o.data_evento) : "—"}
-                  </span>
+                  <span style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>{o.data_evento ? fmtData(o.data_evento) : "—"}</span>
                 </div>
+
+                {/* Valor */}
                 <div style={{ display: "flex", alignItems: "center" }}>
-                  <span style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)" }}>
-                    {o.valor_estimado != null ? fmt(o.valor_estimado) : "—"}
-                  </span>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)" }}>{o.valor_estimado != null ? fmt(o.valor_estimado) : "—"}</span>
                 </div>
+
+                {/* Etapa do funil */}
+                <div style={{ display: "flex", alignItems: "center" }}>
+                  {o.etapa ? (
+                    <span style={{ fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 8, background: "rgba(37,99,235,0.07)", color: "#2563EB", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 120 }}>
+                      {o.etapa.nome}
+                    </span>
+                  ) : (
+                    <span style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>—</span>
+                  )}
+                </div>
+
+                {/* Status */}
                 <div style={{ display: "flex", alignItems: "center" }}>
                   <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 8px", borderRadius: 10, background: st.bg, color: st.color, whiteSpace: "nowrap" }}>{st.label}</span>
                 </div>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end" }}>
-                  <span style={{ fontSize: 12, color: "#2563EB" }}>→</span>
+
+                {/* Ações */}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 5 }}>
+                  <button
+                    onClick={() => router.push(`/crm/oportunidades/${o.id}`)}
+                    title="Abrir"
+                    style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 26, height: 26, borderRadius: 6, border: "0.5px solid var(--color-border-secondary)", color: "#2563EB", background: "transparent", cursor: "pointer" }}
+                  ><IcoOpen /></button>
+                  <button
+                    onClick={() => router.push(`/crm/oportunidades/${o.id}?editar=1`)}
+                    title="Editar"
+                    style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 26, height: 26, borderRadius: 6, border: "0.5px solid var(--color-border-secondary)", color: "var(--color-text-secondary)", background: "transparent", cursor: "pointer" }}
+                  ><IcoEdit /></button>
+                  <button
+                    onClick={() => setDeletarId(o.id)}
+                    title="Excluir"
+                    style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 26, height: 26, borderRadius: 6, border: "0.5px solid rgba(239,68,68,0.3)", color: "#EF4444", background: "transparent", cursor: "pointer", opacity: 0.6 }}
+                    onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
+                    onMouseLeave={(e) => (e.currentTarget.style.opacity = "0.6")}
+                  ><IcoTrash /></button>
                 </div>
               </div>
             );
           })}
         </div>
+      )}
+
+      {/* Modal excluir */}
+      {deletarId && oppParaDeletar && (
+        <ModalExcluir
+          titulo={oppParaDeletar.titulo}
+          onConfirmar={() => excluir(deletarId)}
+          onFechar={() => setDeletarId(null)}
+          deletando={deletando}
+        />
       )}
     </div>
   );

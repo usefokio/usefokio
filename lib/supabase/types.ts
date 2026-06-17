@@ -340,6 +340,15 @@ export type CrmFunnelStage = {
   nome: string;
   ordem: number;
   cor: string | null;
+  prazo_dias: number | null;
+  created_at: string;
+};
+
+export type CrmFunnelProgress = {
+  id: string;
+  oportunidade_id: string;
+  etapa_id: string;
+  observacao: string | null;
   created_at: string;
 };
 

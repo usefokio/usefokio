@@ -3,9 +3,9 @@
 import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
-import type { CrmProductCategory, CrmChartOfAccount, CrmOportunidadeStatus } from "@/lib/supabase/types";
+import type { CrmProductCategory, CrmChartOfAccount, CrmOportunidadeStatus, CrmFunnel, CrmFunnelStage } from "@/lib/supabase/types";
 
-type Tab = "produtos" | "plano" | "canais" | "opp_cats" | "status";
+type Tab = "produtos" | "plano" | "canais" | "opp_cats" | "status" | "funis";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -304,6 +304,226 @@ function AbaStatus({ fotografoId }: { fotografoId: string }) {
   );
 }
 
+// ── Aba Funis ─────────────────────────────────────────────────────────────────
+
+const FUNIL_SEED_ETAPAS = [
+  { nome: "Primeiro Contato",    ordem: 0, prazo_dias: 1    },
+  { nome: "Proposta Enviada",    ordem: 1, prazo_dias: 7    },
+  { nome: "Follow Up 1",         ordem: 2, prazo_dias: 7    },
+  { nome: "Follow Up 2",         ordem: 3, prazo_dias: 7    },
+  { nome: "Follow Up 3",         ordem: 4, prazo_dias: 7    },
+  { nome: "Reunião",             ordem: 5, prazo_dias: 10   },
+  { nome: "Aguardando Resposta", ordem: 6, prazo_dias: 3    },
+  { nome: "Pedido Concluído",    ordem: 7, prazo_dias: null },
+];
+
+function AbaFunis({ fotografoId }: { fotografoId: string }) {
+  const [funis,    setFunis]    = useState<CrmFunnel[]>([]);
+  const [etapas,   setEtapas]   = useState<Record<string, CrmFunnelStage[]>>({});
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const [loading,  setLoading]  = useState(true);
+
+  // estados de edição
+  const [novoFunil, setNovoFunil]     = useState("");
+  const [editFunilId, setEditFunilId] = useState<string | null>(null);
+  const [editFunilNome, setEditFunilNome] = useState("");
+
+  const [novaEtapa,    setNovaEtapa]    = useState<Record<string, { nome: string; prazo: string }>>({});
+  const [editEtapaId,  setEditEtapaId]  = useState<string | null>(null);
+  const [editEtapaDados, setEditEtapaDados] = useState({ nome: "", prazo: "" });
+  const [saving, setSaving] = useState(false);
+
+  const sb = createClient();
+
+  const carregarFunis = useCallback(async () => {
+    setLoading(true);
+    const { data } = await sb.from("crm_funnels").select("*").eq("fotografo_id", fotografoId).order("created_at");
+    const lista = (data ?? []) as CrmFunnel[];
+    if (lista.length === 0) {
+      // seed funil padrão via RPC
+      await sb.rpc("criar_funil_padrao", { p_fotografo_id: fotografoId });
+      const { data: after } = await sb.from("crm_funnels").select("*").eq("fotografo_id", fotografoId).order("created_at");
+      setFunis((after ?? []) as CrmFunnel[]);
+      setExpanded((after as CrmFunnel[] | null)?.[0]?.id ?? null);
+    } else {
+      setFunis(lista);
+      if (!expanded && lista.length > 0) setExpanded(lista[0].id);
+    }
+    setLoading(false);
+  }, [fotografoId]);
+
+  useEffect(() => { carregarFunis(); }, [carregarFunis]);
+
+  const carregarEtapas = useCallback(async (funilId: string) => {
+    const { data } = await sb.from("crm_funnel_stages").select("*").eq("funil_id", funilId).order("ordem");
+    setEtapas(prev => ({ ...prev, [funilId]: (data ?? []) as CrmFunnelStage[] }));
+  }, []);
+
+  useEffect(() => {
+    if (expanded) carregarEtapas(expanded);
+  }, [expanded, carregarEtapas]);
+
+  async function adicionarFunil() {
+    if (!novoFunil.trim()) return;
+    setSaving(true);
+    const { data } = await sb.from("crm_funnels").insert({ fotografo_id: fotografoId, nome: novoFunil.trim(), ativo: true }).select("id").single();
+    if (data) {
+      // seed etapas padrão
+      const rows = FUNIL_SEED_ETAPAS.map(e => ({ funil_id: (data as { id: string }).id, ...e }));
+      await sb.from("crm_funnel_stages").insert(rows);
+    }
+    setNovoFunil("");
+    setSaving(false);
+    carregarFunis();
+  }
+
+  async function salvarFunil(id: string) {
+    if (!editFunilNome.trim()) return;
+    await sb.from("crm_funnels").update({ nome: editFunilNome.trim() }).eq("id", id);
+    setEditFunilId(null);
+    carregarFunis();
+  }
+
+  async function excluirFunil(id: string) {
+    if (!confirm("Excluir este funil e todas as suas etapas?")) return;
+    await sb.from("crm_funnels").delete().eq("id", id);
+    carregarFunis();
+  }
+
+  async function adicionarEtapa(funilId: string) {
+    const d = novaEtapa[funilId];
+    if (!d?.nome?.trim()) return;
+    setSaving(true);
+    const lista = etapas[funilId] ?? [];
+    await sb.from("crm_funnel_stages").insert({ funil_id: funilId, nome: d.nome.trim(), ordem: lista.length, prazo_dias: d.prazo ? parseInt(d.prazo) : null });
+    setNovaEtapa(prev => ({ ...prev, [funilId]: { nome: "", prazo: "" } }));
+    setSaving(false);
+    carregarEtapas(funilId);
+  }
+
+  async function salvarEtapa(etapaId: string, funilId: string) {
+    if (!editEtapaDados.nome.trim()) return;
+    await sb.from("crm_funnel_stages").update({ nome: editEtapaDados.nome.trim(), prazo_dias: editEtapaDados.prazo ? parseInt(editEtapaDados.prazo) : null }).eq("id", etapaId);
+    setEditEtapaId(null);
+    carregarEtapas(funilId);
+  }
+
+  async function excluirEtapa(etapaId: string, funilId: string) {
+    if (!confirm("Excluir esta etapa?")) return;
+    await sb.from("crm_funnel_stages").delete().eq("id", etapaId);
+    carregarEtapas(funilId);
+  }
+
+  async function reordenarEtapa(etapaId: string, funilId: string, dir: "up" | "down") {
+    const lista = etapas[funilId] ?? [];
+    const idx = lista.findIndex(e => e.id === etapaId);
+    if (dir === "up" && idx === 0) return;
+    if (dir === "down" && idx === lista.length - 1) return;
+    const outro = lista[dir === "up" ? idx - 1 : idx + 1];
+    await Promise.all([
+      sb.from("crm_funnel_stages").update({ ordem: outro.ordem }).eq("id", etapaId),
+      sb.from("crm_funnel_stages").update({ ordem: lista[idx].ordem }).eq("id", outro.id),
+    ]);
+    carregarEtapas(funilId);
+  }
+
+  if (loading) return <div style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>Carregando…</div>;
+
+  return (
+    <div>
+      <p style={{ fontSize: 13, color: "var(--color-text-secondary)", marginBottom: 20 }}>
+        Crie e gerencie os funis de negociação. Cada funil tem etapas com prazo sugerido em dias.
+      </p>
+
+      {/* Adicionar funil */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
+        <input value={novoFunil} onChange={(e) => setNovoFunil(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") adicionarFunil(); }} placeholder="Nome do novo funil…" style={{ ...inputSt, flex: 1 }} />
+        <button onClick={adicionarFunil} disabled={saving || !novoFunil.trim()} style={{ ...btnPrimary, opacity: !novoFunil.trim() ? 0.5 : 1 }}>+ Adicionar funil</button>
+      </div>
+
+      {funis.map((funil) => (
+        <div key={funil.id} style={{ border: "0.5px solid var(--color-border-tertiary)", borderRadius: 10, overflow: "hidden", marginBottom: 12 }}>
+          {/* Header do funil */}
+          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", background: "var(--color-background-secondary)", cursor: "pointer" }} onClick={() => setExpanded(expanded === funil.id ? null : funil.id)}>
+            <span style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>{expanded === funil.id ? "▾" : "▸"}</span>
+            {editFunilId === funil.id ? (
+              <div style={{ display: "flex", gap: 8, flex: 1 }} onClick={(e) => e.stopPropagation()}>
+                <input value={editFunilNome} onChange={(e) => setEditFunilNome(e.target.value)} style={{ ...inputSt, flex: 1 }} autoFocus onKeyDown={(e) => { if (e.key === "Enter") salvarFunil(funil.id); if (e.key === "Escape") setEditFunilId(null); }} />
+                <button onClick={() => salvarFunil(funil.id)} style={{ ...btnPrimary, padding: "5px 12px", fontSize: 12 }}>✓ Salvar</button>
+                <button onClick={() => setEditFunilId(null)} style={btnGhost}>Cancelar</button>
+              </div>
+            ) : (
+              <>
+                <span style={{ flex: 1, fontSize: 14, fontWeight: 700, color: "var(--color-text-primary)" }}>{funil.nome}</span>
+                <span style={{ fontSize: 11, color: "var(--color-text-secondary)" }}>{(etapas[funil.id] ?? []).length} etapas</span>
+                <button onClick={(e) => { e.stopPropagation(); setEditFunilId(funil.id); setEditFunilNome(funil.nome); }} style={btnGhost}>Editar</button>
+                <button onClick={(e) => { e.stopPropagation(); excluirFunil(funil.id); }} style={{ ...btnGhost, color: "#ef4444", borderColor: "#fca5a5" }}>✕</button>
+              </>
+            )}
+          </div>
+
+          {/* Etapas */}
+          {expanded === funil.id && (
+            <div>
+              {(etapas[funil.id] ?? []).map((etapa, idx) => {
+                const lista = etapas[funil.id] ?? [];
+                return (
+                  <div key={etapa.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 16px", borderTop: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-primary)" }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = "var(--color-background-secondary)"; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = "var(--color-background-primary)"; }}
+                  >
+                    <div style={{ display: "flex", flexDirection: "column", gap: 1, flexShrink: 0 }}>
+                      <button onClick={() => reordenarEtapa(etapa.id, funil.id, "up")} disabled={idx === 0} style={{ background: "none", border: "none", cursor: idx === 0 ? "default" : "pointer", fontSize: 10, color: "var(--color-text-secondary)", lineHeight: 1, padding: "1px 3px", opacity: idx === 0 ? 0.3 : 1 }}>▲</button>
+                      <button onClick={() => reordenarEtapa(etapa.id, funil.id, "down")} disabled={idx === lista.length - 1} style={{ background: "none", border: "none", cursor: idx === lista.length - 1 ? "default" : "pointer", fontSize: 10, color: "var(--color-text-secondary)", lineHeight: 1, padding: "1px 3px", opacity: idx === lista.length - 1 ? 0.3 : 1 }}>▼</button>
+                    </div>
+                    <span style={{ fontSize: 11, color: "var(--color-text-secondary)", width: 22, textAlign: "right", flexShrink: 0 }}>{idx + 1}.</span>
+                    {editEtapaId === etapa.id ? (
+                      <div style={{ display: "flex", gap: 8, flex: 1, alignItems: "center" }}>
+                        <input value={editEtapaDados.nome} onChange={(e) => setEditEtapaDados(p => ({ ...p, nome: e.target.value }))} placeholder="Nome da etapa" style={{ ...inputSt, flex: 1 }} autoFocus onKeyDown={(e) => { if (e.key === "Enter") salvarEtapa(etapa.id, funil.id); if (e.key === "Escape") setEditEtapaId(null); }} />
+                        <input value={editEtapaDados.prazo} onChange={(e) => setEditEtapaDados(p => ({ ...p, prazo: e.target.value }))} placeholder="Prazo (dias)" type="number" min="1" style={{ ...inputSt, width: 110 }} />
+                        <button onClick={() => salvarEtapa(etapa.id, funil.id)} style={{ ...btnPrimary, padding: "5px 12px", fontSize: 12 }}>✓ Salvar</button>
+                        <button onClick={() => setEditEtapaId(null)} style={btnGhost}>Cancelar</button>
+                      </div>
+                    ) : (
+                      <>
+                        <span style={{ flex: 1, fontSize: 13, color: "var(--color-text-primary)" }}>{etapa.nome}</span>
+                        <span style={{ fontSize: 11, color: "var(--color-text-secondary)", minWidth: 60, textAlign: "right" }}>
+                          {etapa.prazo_dias ? `${etapa.prazo_dias} dias` : "sem prazo"}
+                        </span>
+                        <button onClick={() => { setEditEtapaId(etapa.id); setEditEtapaDados({ nome: etapa.nome, prazo: etapa.prazo_dias ? String(etapa.prazo_dias) : "" }); }} style={btnGhost}>Editar</button>
+                        <button onClick={() => excluirEtapa(etapa.id, funil.id)} style={{ ...btnGhost, color: "#ef4444", borderColor: "#fca5a5" }}>✕</button>
+                      </>
+                    )}
+                  </div>
+                );
+              })}
+
+              {/* Nova etapa */}
+              <div style={{ display: "flex", gap: 8, padding: "10px 16px", borderTop: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-secondary)" }}>
+                <input
+                  value={novaEtapa[funil.id]?.nome ?? ""}
+                  onChange={(e) => setNovaEtapa(prev => ({ ...prev, [funil.id]: { ...prev[funil.id], nome: e.target.value } }))}
+                  onKeyDown={(e) => { if (e.key === "Enter") adicionarEtapa(funil.id); }}
+                  placeholder="Nome da etapa…"
+                  style={{ ...inputSt, flex: 1 }}
+                />
+                <input
+                  value={novaEtapa[funil.id]?.prazo ?? ""}
+                  onChange={(e) => setNovaEtapa(prev => ({ ...prev, [funil.id]: { ...prev[funil.id], prazo: e.target.value } }))}
+                  placeholder="Prazo (dias)"
+                  type="number" min="1"
+                  style={{ ...inputSt, width: 110 }}
+                />
+                <button onClick={() => adicionarEtapa(funil.id)} disabled={saving || !novaEtapa[funil.id]?.nome?.trim()} style={{ ...btnPrimary, opacity: !novaEtapa[funil.id]?.nome?.trim() ? 0.5 : 1, whiteSpace: "nowrap" }}>+ Etapa</button>
+              </div>
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // ── Plano de Contas tree ──────────────────────────────────────────────────────
 
 type ContaNode = CrmChartOfAccount & { filhos: ContaNode[]; sistema: boolean };
@@ -556,12 +776,18 @@ export default function CrmConfigPage() {
 
       {/* Tabs */}
       <div style={{ display: "flex", gap: 4, marginBottom: 28, background: "var(--color-background-secondary)", borderRadius: 9, padding: 4, width: "fit-content" }}>
+        <button style={TAB_ST(tab === "funis")} onClick={() => setTab("funis")}>🔀 Funis</button>
         <button style={TAB_ST(tab === "opp_cats")} onClick={() => setTab("opp_cats")}>🎯 Categorias</button>
         <button style={TAB_ST(tab === "canais")} onClick={() => setTab("canais")}>📍 Canais de Origem</button>
         <button style={TAB_ST(tab === "status")} onClick={() => setTab("status")}>📋 Status</button>
         <button style={TAB_ST(tab === "produtos")} onClick={() => setTab("produtos")}>🏷 Cat. Produtos</button>
         <button style={TAB_ST(tab === "plano")} onClick={() => setTab("plano")}>📊 Plano de Contas</button>
       </div>
+
+      {/* ── Funis ── */}
+      {tab === "funis" && fotografo && (
+        <AbaFunis fotografoId={fotografo.id} />
+      )}
 
       {/* ── Categorias de Oportunidade ── */}
       {tab === "opp_cats" && fotografo && (
