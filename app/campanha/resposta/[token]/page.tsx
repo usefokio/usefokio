@@ -75,20 +75,26 @@ export default function RespostaCampanhaPage() {
     }
 
     // No Asaas / no fee: just record response
-    const res = await fetch(`/api/campanha/resposta/${token}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ resposta, nome: nome.trim() || null, email: email.trim() || null }),
-    });
-    const json = await res.json();
-    setSalvando(false);
+    try {
+      const res = await fetch(`/api/campanha/resposta/${token}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ resposta, nome: nome.trim() || null, email: email.trim() || null }),
+      });
+      const json = await res.json().catch(() => ({}));
+      setSalvando(false);
 
-    if (!res.ok) { setErro(json.erro ?? "Erro ao registrar resposta."); return; }
+      if (!res.ok) { setErro((json as any).erro ?? "Erro ao registrar resposta."); return; }
 
-    if (resposta === "renovar") {
-      router.push(`/acesso/entrega/${dados.galeriaId}`);
-    } else {
-      setTela("confirmado");
+      if (resposta === "renovar") {
+        router.push(`/acesso/entrega/${dados.galeriaId}`);
+      } else {
+        setDados((prev) => prev ? { ...prev, resposta: "tem_arquivos", respondidoEm: new Date().toISOString() } : prev);
+        setTela("confirmado");
+      }
+    } catch {
+      setSalvando(false);
+      setErro("Erro de conexão. Tente novamente.");
     }
   }
 
@@ -330,8 +336,7 @@ export default function RespostaCampanhaPage() {
             {salvando ? "Registrando…" : "✅ Confirmar — já tenho meus arquivos"}
           </button>
           <button
-            onClick={() => { setTela("opcoes"); setErro(""); }}
-            disabled={salvando}
+            onClick={() => { setSalvando(false); setTela("opcoes"); setErro(""); }}
             style={{ width: "100%", padding: "11px 20px", borderRadius: 10, border: "1.5px solid #E5E7EB", background: "transparent", color: "#6B7280", fontSize: 14, fontWeight: 600, cursor: "pointer" }}
           >
             ← Voltar
