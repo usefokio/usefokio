@@ -385,7 +385,7 @@ export type CrmOpportunity = {
   prioridade: "baixa" | "media" | "alta";
   valor_estimado: number | null;
   data_evento: string | null;
-  status: "em_aberto" | "venda_efetuada" | "perdido" | "abandonado" | "suspensa";
+  status: string;
   observacoes: string | null;
   // campos de evento
   nome_noiva: string | null;
@@ -396,9 +396,36 @@ export type CrmOpportunity = {
   cidade_evento: string | null;
   estado_evento: string | null;
   convidados: number | null;
+  indicado_por_id: string | null;
+  indicado_por_nome: string | null;
   legacy_id: number | null;
   created_at: string;
   updated_at: string;
+};
+
+export type CrmCanalOrigem = {
+  id: string;
+  fotografo_id: string;
+  nome: string;
+  ordem: number;
+  ativo: boolean;
+};
+
+export type CrmOportunidadeCategoria = {
+  id: string;
+  fotografo_id: string;
+  nome: string;
+  ordem: number;
+  ativo: boolean;
+};
+
+export type CrmOportunidadeStatus = {
+  id: string;
+  fotografo_id: string;
+  chave: string;
+  label: string;
+  ordem: number;
+  ativo: boolean;
 };
 
 export type CrmOpportunityField = {
