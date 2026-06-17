@@ -35,7 +35,6 @@ export default function OportunidadeDetailPage() {
   const [progress, setProgress] = useState<ProgressWithStage[]>([]);
   const [avancando, setAvancando] = useState(false);
   const [obsTexto,  setObsTexto]  = useState("");
-  const [showObsInput, setShowObsInput] = useState(false);
 
   const carregarOpp = useCallback(async () => {
     const { data } = await createClient().from("crm_opportunities").select("*").eq("id", id).single();
@@ -278,28 +277,17 @@ export default function OportunidadeDetailPage() {
                   )}
                 </div>
                 {proximaEtapa && (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 6, flexShrink: 0 }}>
-                    {showObsInput ? (
-                      <>
-                        <textarea
-                          value={obsTexto}
-                          onChange={(e) => setObsTexto(e.target.value)}
-                          placeholder="Observação (opcional)…"
-                          rows={2}
-                          style={{ width: 220, padding: "7px 10px", borderRadius: 7, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", fontSize: 12, color: "var(--color-text-primary)", outline: "none", resize: "none", fontFamily: "inherit" }}
-                        />
-                        <div style={{ display: "flex", gap: 6 }}>
-                          <button onClick={handleAvancar} disabled={avancando} style={{ flex: 1, padding: "7px", borderRadius: 7, border: "none", background: "#2563EB", color: "#fff", fontSize: 12, fontWeight: 600, cursor: avancando ? "default" : "pointer" }}>
-                            {avancando ? "…" : `→ ${proximaEtapa.nome}`}
-                          </button>
-                          <button onClick={() => setShowObsInput(false)} style={{ padding: "7px 10px", borderRadius: 7, border: "0.5px solid var(--color-border-secondary)", background: "transparent", fontSize: 12, color: "var(--color-text-secondary)", cursor: "pointer" }}>✕</button>
-                        </div>
-                      </>
-                    ) : (
-                      <button onClick={() => setShowObsInput(true)} style={{ padding: "8px 16px", borderRadius: 8, border: "none", background: "#2563EB", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}>
-                        Avançar etapa →
-                      </button>
-                    )}
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6, flexShrink: 0, minWidth: 220 }}>
+                    <textarea
+                      value={obsTexto}
+                      onChange={(e) => setObsTexto(e.target.value)}
+                      placeholder="Observação (opcional)…"
+                      rows={2}
+                      style={{ width: "100%", padding: "7px 10px", borderRadius: 7, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", fontSize: 12, color: "var(--color-text-primary)", outline: "none", resize: "none", fontFamily: "inherit", boxSizing: "border-box" }}
+                    />
+                    <button onClick={handleAvancar} disabled={avancando} style={{ padding: "8px", borderRadius: 7, border: "none", background: "#2563EB", color: "#fff", fontSize: 12, fontWeight: 600, cursor: avancando ? "default" : "pointer", opacity: avancando ? 0.7 : 1 }}>
+                      {avancando ? "Avançando…" : `Avançar → ${proximaEtapa.nome}`}
+                    </button>
                   </div>
                 )}
                 {!proximaEtapa && etapaAtual && (
