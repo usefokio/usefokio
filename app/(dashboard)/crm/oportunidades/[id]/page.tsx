@@ -222,40 +222,29 @@ export default function OportunidadeDetailPage() {
 
         {/* Grid de informações */}
         {!editing && (() => {
-          const Campo = ({ label, valor }: { label: string; valor?: string | number | null }) =>
-            valor != null && valor !== "" ? (
-              <div>
-                <div style={{ fontSize: 10, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 3 }}>{label}</div>
-                <div style={{ fontSize: 13, color: "var(--color-text-primary)" }}>{valor}</div>
-              </div>
-            ) : null;
-
           const fmtDate = (s: string) => new Date(s + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" });
           const localEvento = [opp.local_evento, opp.cidade_evento, opp.estado_evento].filter(Boolean).join(", ");
-          const localCerimonia = opp.local_cerimonia;
-          const localRecepcao = opp.local_recepcao;
           const casal = [opp.nome_noiva, opp.nome_noivo].filter(Boolean).join(" & ");
-
-          const campos = [
-            clienteNome            && { label: "Cliente",            valor: clienteNome },
-            opp.categoria          && { label: "Categoria",          valor: opp.categoria },
-            opp.canal_origem       && { label: "Canal de origem",    valor: opp.canal_origem },
-            opp.valor_estimado != null && { label: "Valor estimado", valor: fmt(opp.valor_estimado) },
-            opp.data_evento        && { label: "Data do evento",     valor: fmtDate(opp.data_evento) },
-            localEvento            && { label: "Local do evento",    valor: localEvento },
-            localCerimonia         && { label: "Local da cerimônia", valor: localCerimonia },
-            localRecepcao          && { label: "Local da recepção",  valor: localRecepcao },
-            casal                  && { label: "Casal",              valor: casal },
-            opp.convidados != null && { label: "Convidados",         valor: `${opp.convidados} pessoas` },
-            (opp.indicado_por_nome || opp.indicado_por_id) && { label: "Indicado por", valor: opp.indicado_por_nome ?? "—" },
-          ].filter(Boolean) as { label: string; valor: string | number }[];
-
+          const campos: { label: string; valor: string }[] = [];
+          if (clienteNome)                  campos.push({ label: "Cliente",            valor: clienteNome });
+          if (opp.categoria)                campos.push({ label: "Categoria",          valor: opp.categoria });
+          if (opp.canal_origem)             campos.push({ label: "Canal de origem",    valor: opp.canal_origem });
+          if (opp.valor_estimado != null)   campos.push({ label: "Valor estimado",     valor: fmt(opp.valor_estimado) });
+          if (opp.data_evento)              campos.push({ label: "Data do evento",     valor: fmtDate(opp.data_evento) });
+          if (localEvento)                  campos.push({ label: "Local do evento",    valor: localEvento });
+          if (opp.local_cerimonia)          campos.push({ label: "Local da cerimônia", valor: opp.local_cerimonia });
+          if (opp.local_recepcao)           campos.push({ label: "Local da recepção",  valor: opp.local_recepcao });
+          if (casal)                        campos.push({ label: "Casal",              valor: casal });
+          if (opp.convidados != null)       campos.push({ label: "Convidados",         valor: `${opp.convidados} pessoas` });
+          if (opp.indicado_por_nome)        campos.push({ label: "Indicado por",       valor: opp.indicado_por_nome });
           if (campos.length === 0) return null;
-
           return (
             <div style={{ padding: "16px 22px", display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: "14px 24px" }}>
               {campos.map(({ label, valor }) => (
-                <Campo key={label} label={label} valor={valor} />
+                <div key={label}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 3 }}>{label}</div>
+                  <div style={{ fontSize: 13, color: "var(--color-text-primary)" }}>{valor}</div>
+                </div>
               ))}
             </div>
           );
