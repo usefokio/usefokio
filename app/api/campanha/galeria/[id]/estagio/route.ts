@@ -74,7 +74,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
   const { data: registro } = await admin
     .from("respostas_campanha")
-    .select("id")
+    .select("id, resposta")
     .eq("galeria_id", id)
     .eq("fotografo_id", user.id)
     .maybeSingle();
@@ -86,11 +86,29 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   const campoTs = TIMESTAMP_CAMPO[novoEstagio];
   if (campoTs) campos[campoTs] = new Date().toISOString();
 
+  // Se o card tinha "renovar" sem pagamento confirmado, zerar resposta para o cliente poder responder novamente
+  if (registro.resposta === "renovar") {
+    const { data: pgtoConfirmado } = await admin
+      .from("pagamentos")
+      .select("id")
+      .eq("galeria_id", id)
+      .eq("tipo", "renovacao")
+      .eq("status", "pago")
+      .limit(1)
+      .maybeSingle();
+    if (!pgtoConfirmado) {
+      campos.resposta = null;
+      campos.respondido_em = null;
+      campos.respondido_nome = null;
+      campos.respondido_email = null;
+    }
+  }
+
   const { data: atualizado, error } = await admin
     .from("respostas_campanha")
     .update(campos)
     .eq("id", registro.id)
-    .select("estagio, email_1_em, email_2_em, whatsapp_em")
+    .select("estagio, resposta, email_1_em, email_2_em, whatsapp_em")
     .single();
 
   if (error) return NextResponse.json({ erro: error.message }, { status: 500 });
