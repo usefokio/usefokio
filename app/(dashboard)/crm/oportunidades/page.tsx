@@ -37,7 +37,7 @@ export default function OportunidadesPage() {
     const sb = createClient();
     let q = sb
       .from("crm_opportunities")
-      .select("*, clientes(nome)")
+      .select("*, clientes!cliente_id(nome)")
       .eq("fotografo_id", fotografo.id)
       .order("created_at", { ascending: false });
     if (status)    q = q.eq("status", status);
