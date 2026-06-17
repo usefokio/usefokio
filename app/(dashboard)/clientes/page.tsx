@@ -79,12 +79,21 @@ export default function ClientesPage() {
   useEffect(() => {
     async function load() {
       const supabase = createClient();
-      const { data, error } = await supabase
-        .from("clientes")
-        .select("*")
-        .order("nome")
-        .limit(5000);
-      if (!error) setClientes(data ?? []);
+      const LOTE = 1000;
+      let todos: Cliente[] = [];
+      let from = 0;
+      while (true) {
+        const { data, error } = await supabase
+          .from("clientes")
+          .select("*")
+          .order("nome")
+          .range(from, from + LOTE - 1);
+        if (error || !data || data.length === 0) break;
+        todos = todos.concat(data);
+        if (data.length < LOTE) break;
+        from += LOTE;
+      }
+      setClientes(todos);
       setLoading(false);
     }
     load();
