@@ -223,11 +223,11 @@ function SecaoPagamentos() {
 
 // ── Recursos disponíveis por fotógrafo (checkboxes) ──────────────────────────
 const RECURSOS_LABELS: { chave: string; label: string }[] = [
-  { chave: "selecao",    label: "Seleção" },
-  { chave: "entrega",    label: "Entrega" },
   { chave: "album",      label: "Álbum" },
   { chave: "contatos",   label: "Contatos" },
+  { chave: "entrega",    label: "Entrega" },
   { chave: "pagamentos", label: "Pagamentos" },
+  { chave: "selecao",    label: "Seleção" },
 ];
 
 function RecursosCell({ fotografoId }: { fotografoId: string }) {

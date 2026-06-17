@@ -418,17 +418,17 @@ export default function EditarEntregaPage() {
               </div>
             </label>
             <label style={{ display: "flex", alignItems: "flex-start", gap: 12, cursor: "pointer" }}>
-              <input type="checkbox" checked={driveApenasIdentif} onChange={(e) => setDriveApenasIdentif(e.target.checked)} style={{ marginTop: 2, width: 16, height: 16, accentColor: "var(--color-text-primary)", cursor: "pointer", flexShrink: 0 }} />
-              <div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)", marginBottom: 3 }}>Link do Drive somente após identificação</div>
-                <div style={{ fontSize: 12, color: "var(--color-text-secondary)", lineHeight: 1.5 }}>Oculta o botão "Baixar todas" até o cliente se identificar. Funciona apenas se houver Drive configurado.</div>
-              </div>
-            </label>
-            <label style={{ display: "flex", alignItems: "flex-start", gap: 12, cursor: "pointer" }}>
               <input type="checkbox" checked={apenaZip} onChange={(e) => setApenaZip(e.target.checked)} style={{ marginTop: 2, width: 16, height: 16, accentColor: "var(--color-text-primary)", cursor: "pointer", flexShrink: 0 }} />
               <div>
                 <div style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)", marginBottom: 3 }}>Galeria somente visualização</div>
                 <div style={{ fontSize: 12, color: "var(--color-text-secondary)", lineHeight: 1.5 }}>Desativa o download individual de fotos. O cliente pode visualizar, mas só baixa pelo link do Drive (se configurado).</div>
+              </div>
+            </label>
+            <label style={{ display: "flex", alignItems: "flex-start", gap: 12, cursor: "pointer" }}>
+              <input type="checkbox" checked={driveApenasIdentif} onChange={(e) => setDriveApenasIdentif(e.target.checked)} style={{ marginTop: 2, width: 16, height: 16, accentColor: "var(--color-text-primary)", cursor: "pointer", flexShrink: 0 }} />
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)", marginBottom: 3 }}>Link do Drive somente após identificação</div>
+                <div style={{ fontSize: 12, color: "var(--color-text-secondary)", lineHeight: 1.5 }}>Oculta o botão "Baixar todas" até o cliente se identificar. Funciona apenas se houver Drive configurado.</div>
               </div>
             </label>
             <div>
