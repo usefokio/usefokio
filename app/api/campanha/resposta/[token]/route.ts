@@ -103,13 +103,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
         fotografos: { nome_completo: string; nome_empresa: string; email: string; site: string | null } | null;
       } | null };
 
-    const resend = getResend();
-    const respondidoEm = new Date(agora).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
-    const clienteNome = galeria?.clientes?.nome ?? (nome?.trim() || "Cliente");
+    // Notificar fotógrafo (falha silenciosa — resposta já foi gravada)
+    try {
+      const resend = getResend();
+      const respondidoEm = new Date(agora).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+      const clienteNome = galeria?.clientes?.nome ?? (nome?.trim() || "Cliente");
 
-    // Notificar fotógrafo
-    if (galeria?.fotografos?.email) {
-      try {
+      if (galeria?.fotografos?.email) {
         const { subject, html } = templateRespostaCampanha({
           fotografoNome:   galeria.fotografos.nome_empresa ?? galeria.fotografos.nome_completo,
           clienteNome,
@@ -121,9 +121,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
         });
         await resend.emails.send({ from: FROM_DEFAULT, to: galeria.fotografos.email, subject, html });
         await admin.from("respostas_campanha").update({ notificado: true }).eq("token", token);
-      } catch (err) {
-        console.error("[campanha/resposta] notificacao error:", err);
       }
+    } catch (err) {
+      console.error("[campanha/resposta] notificacao error:", err);
     }
   }
 
