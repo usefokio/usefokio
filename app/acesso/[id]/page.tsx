@@ -153,25 +153,34 @@ function GaleriaFotos({ fotos, galeriaId }: { fotos: GaleriaEntregaFoto[]; galer
           return (
             <div
               key={foto.id}
-              style={{ position: "relative", aspectRatio: "1", borderRadius: 8, overflow: "hidden", cursor: "pointer", border: `2px solid ${sel ? "#2563EB" : "transparent"}`, transition: "border-color 0.15s", background: "#F3F4F6" }}
+              onClick={() => toggleSelecao(foto.id)}
+              style={{ position: "relative", aspectRatio: "1", borderRadius: 8, overflow: "hidden", cursor: "pointer", border: `2.5px solid ${sel ? "#2563EB" : "transparent"}`, transition: "border-color 0.15s", background: "#F3F4F6" }}
             >
               <img
                 src={foto.url_publica}
                 alt={foto.nome_arquivo ?? ""}
                 loading="lazy"
-                style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-                onClick={() => setLightbox(foto)}
+                style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", transition: "opacity 0.15s", opacity: sel ? 0.82 : 1 }}
               />
+              {/* Círculo de seleção — aparece no canto superior esquerdo ao selecionar */}
               <div
-                onClick={(e) => { e.stopPropagation(); toggleSelecao(foto.id); }}
-                style={{ position: "absolute", top: 6, left: 6, width: 20, height: 20, borderRadius: 5, background: sel ? "#2563EB" : "rgba(255,255,255,0.85)", border: `2px solid ${sel ? "#2563EB" : "rgba(0,0,0,0.2)"}`, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", transition: "all 0.15s" }}
+                style={{ position: "absolute", top: 7, left: 7, width: 24, height: 24, borderRadius: "50%", background: sel ? "#2563EB" : "rgba(255,255,255,0.75)", border: `2px solid ${sel ? "#2563EB" : "rgba(0,0,0,0.25)"}`, display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.15s", boxShadow: sel ? "0 0 0 2px rgba(37,99,235,0.25)" : "none" }}
               >
-                {sel && <svg width="10" height="10" viewBox="0 0 12 12" fill="none"><polyline points="2 6 5 9 10 3" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                {sel && <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><polyline points="2 6 5 9 10 3" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
               </div>
+              <button
+                onClick={(e) => { e.stopPropagation(); setLightbox(foto); }}
+                title="Ver foto"
+                style={{ position: "absolute", bottom: 5, left: 5, width: 26, height: 26, borderRadius: 6, background: "rgba(0,0,0,0.45)", border: "none", color: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
+              >
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                </svg>
+              </button>
               <button
                 onClick={(e) => { e.stopPropagation(); baixarFotos([foto]); }}
                 title="Baixar esta foto"
-                style={{ position: "absolute", bottom: 5, right: 5, width: 26, height: 26, borderRadius: 6, background: "rgba(0,0,0,0.55)", border: "none", color: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
+                style={{ position: "absolute", bottom: 5, right: 5, width: 26, height: 26, borderRadius: 6, background: "rgba(0,0,0,0.45)", border: "none", color: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
               >
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
