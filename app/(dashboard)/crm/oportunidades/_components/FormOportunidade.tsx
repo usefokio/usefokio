@@ -116,7 +116,7 @@ export default function FormOportunidade({ inicial, onSalvo }: Props) {
       if (!cats || cats.length === 0) {
         const rows = CATEGORIAS_SEED.map((nome, i) => ({ fotografo_id: fotografo.id, nome, ordem: i, ativo: true }));
         const { data: seeded } = await sb.from("crm_oportunidade_categorias").insert(rows).select("nome").order("ordem");
-        setCategorias((seeded ?? []).map((r: { nome: string }) => r.nome));
+        setCategorias(seeded && seeded.length > 0 ? seeded.map((r: { nome: string }) => r.nome) : CATEGORIAS_SEED);
       } else {
         setCategorias((cats as { nome: string }[]).map(c => c.nome));
       }
@@ -125,7 +125,7 @@ export default function FormOportunidade({ inicial, onSalvo }: Props) {
       if (!cans || cans.length === 0) {
         const rows = CANAIS_SEED.map((nome, i) => ({ fotografo_id: fotografo.id, nome, ordem: i, ativo: true }));
         const { data: seeded } = await sb.from("crm_canais_origem").insert(rows).select("nome").order("ordem");
-        setCanais((seeded ?? []).map((r: { nome: string }) => r.nome));
+        setCanais(seeded && seeded.length > 0 ? seeded.map((r: { nome: string }) => r.nome) : CANAIS_SEED);
       } else {
         setCanais((cans as { nome: string }[]).map(c => c.nome));
       }

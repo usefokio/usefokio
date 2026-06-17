@@ -153,6 +153,8 @@ export default function OportunidadeDetailPage() {
             cidade_evento:   opp.cidade_evento ?? "",
             estado_evento:   opp.estado_evento ?? "",
             convidados:      opp.convidados != null ? String(opp.convidados) : "",
+            indicado_por_id:   opp.indicado_por_id ?? "",
+            indicado_por_nome: opp.indicado_por_nome ?? "",
             observacoes:     opp.observacoes ?? "",
           }}
           onSalvo={() => {
