@@ -722,9 +722,6 @@ export default function GaleriaClientePage() {
                 {/* Overlay de selecionada */}
                 {selecionada && (
                   <div style={{ position: "absolute", inset: 0, background: "rgba(37,99,235,0.15)", pointerEvents: "none" }}>
-                    <div style={{ position: "absolute", bottom: 7, right: 7, width: 26, height: 26, borderRadius: "50%", background: "#2563EB", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 6px rgba(0,0,0,0.3)" }}>
-                      <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M2 6.5L5 9.5L11 3.5" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                    </div>
                     {/* Ícone de comentário */}
                     {temComentario && (
                       <div style={{ position: "absolute", bottom: 7, left: 7, background: "rgba(0,0,0,0.55)", borderRadius: 4, padding: "2px 5px", fontSize: 10, color: "#fff", display: "flex", alignItems: "center", gap: 3 }}>
@@ -754,7 +751,7 @@ export default function GaleriaClientePage() {
                     border: selecionada ? "none" : "1.5px solid rgba(255,255,255,0.5)",
                     display: "flex", alignItems: "center", justifyContent: "center",
                     cursor: maxAtingido ? "not-allowed" : "pointer",
-                    opacity: 0,
+                    opacity: selecionada ? 1 : 0,
                     transition: "opacity 0.15s",
                   }}
                   className="select-btn"
