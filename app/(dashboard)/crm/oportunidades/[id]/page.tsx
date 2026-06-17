@@ -23,11 +23,12 @@ export default function OportunidadeDetailPage() {
   const searchParams   = useSearchParams();
   const { fotografo }  = useFotografo();
 
-  const [opp,       setOpp]       = useState<CrmOpportunity | null>(null);
-  const [loading,   setLoading]   = useState(true);
-  const [editing,   setEditing]   = useState(searchParams.get("editar") === "1");
-  const [confirmDel, setConfirmDel] = useState(false);
-  const [deleting,  setDeleting]  = useState(false);
+  const [opp,          setOpp]          = useState<CrmOpportunity | null>(null);
+  const [clienteNome,  setClienteNome]  = useState<string | null>(null);
+  const [loading,      setLoading]      = useState(true);
+  const [editing,      setEditing]      = useState(searchParams.get("editar") === "1");
+  const [confirmDel,   setConfirmDel]   = useState(false);
+  const [deleting,     setDeleting]     = useState(false);
 
   // funil
   const [funis,    setFunis]    = useState<CrmFunnel[]>([]);
@@ -37,8 +38,21 @@ export default function OportunidadeDetailPage() {
   const [obsTexto,  setObsTexto]  = useState("");
 
   const carregarOpp = useCallback(async () => {
-    const { data } = await createClient().from("crm_opportunities").select("*").eq("id", id).single();
-    setOpp(data as CrmOpportunity | null);
+    const sb = createClient();
+    const { data } = await sb
+      .from("crm_opportunities")
+      .select("*, clientes!cliente_id(nome), indicado:clientes!indicado_por_id(nome)")
+      .eq("id", id)
+      .single();
+    if (data) {
+      const d = data as CrmOpportunity & { clientes?: { nome: string } | null; indicado?: { nome: string } | null };
+      setOpp(d);
+      setClienteNome(d.clientes?.nome ?? null);
+      // se indicado_por_nome não preenchido mas tem cadastro, usa o nome
+      if (!d.indicado_por_nome && d.indicado?.nome) {
+        (d as CrmOpportunity).indicado_por_nome = d.indicado.nome;
+      }
+    }
   }, [id]);
 
   const carregarFunil = useCallback(async () => {
@@ -140,7 +154,6 @@ export default function OportunidadeDetailPage() {
       observacao:      obsTexto.trim() || null,
     });
     setObsTexto("");
-    setShowObsInput(false);
     await carregarOpp();
     await carregarProgress();
     setAvancando(false);
