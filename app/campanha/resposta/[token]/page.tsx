@@ -14,7 +14,7 @@ type DadosCampanha = {
   respondidoEm: string | null;
 };
 
-type Tela = "carregando" | "nao_encontrado" | "ja_respondeu" | "opcoes" | "confirmando" | "confirmado";
+type Tela = "carregando" | "nao_encontrado" | "ja_respondeu" | "opcoes" | "confirmando" | "confirmando_arquivos" | "confirmado";
 
 export default function RespostaCampanhaPage() {
   const { token } = useParams() as { token: string };
@@ -304,6 +304,43 @@ export default function RespostaCampanhaPage() {
     return null;
   }
 
+  if (tela === "confirmando_arquivos" && dados) {
+    return (
+      <Wrap>
+        <div style={{ textAlign: "center", padding: "20px 0 16px" }}>
+          <div style={{ fontSize: 36, marginBottom: 12 }}>⚠️</div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: "#111", marginBottom: 8 }}>
+            Confirmar que já tem os arquivos?
+          </div>
+          <div style={{ fontSize: 14, color: "#555", lineHeight: 1.7, marginBottom: 24 }}>
+            Ao confirmar, o fotógrafo será notificado e poderá <strong>remover permanentemente</strong> os arquivos desta galeria do armazenamento.
+          </div>
+        </div>
+        {erro && (
+          <div style={{ fontSize: 13, color: "#EF4444", marginBottom: 14, padding: "10px 14px", background: "rgba(239,68,68,0.07)", borderRadius: 8 }}>
+            {erro}
+          </div>
+        )}
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <button
+            onClick={() => responder("tem_arquivos")}
+            disabled={salvando}
+            style={{ width: "100%", padding: "13px 20px", borderRadius: 10, border: "none", background: salvando ? "#9CA3AF" : "#374151", color: "#fff", fontSize: 15, fontWeight: 700, cursor: salvando ? "default" : "pointer" }}
+          >
+            {salvando ? "Registrando…" : "✅ Confirmar — já tenho meus arquivos"}
+          </button>
+          <button
+            onClick={() => { setTela("opcoes"); setErro(""); }}
+            disabled={salvando}
+            style={{ width: "100%", padding: "11px 20px", borderRadius: 10, border: "1.5px solid #E5E7EB", background: "transparent", color: "#6B7280", fontSize: 14, fontWeight: 600, cursor: "pointer" }}
+          >
+            ← Voltar
+          </button>
+        </div>
+      </Wrap>
+    );
+  }
+
   if (tela === "confirmado") {
     return (
       <Wrap>
@@ -395,7 +432,7 @@ export default function RespostaCampanhaPage() {
 
             {/* Opção 2: Já tenho */}
             <button
-              onClick={() => responder("tem_arquivos")}
+              onClick={() => setTela("confirmando_arquivos")}
               disabled={salvando}
               style={{
                 width: "100%", padding: "16px 20px", borderRadius: 12,
