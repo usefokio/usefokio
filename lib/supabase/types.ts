@@ -428,6 +428,21 @@ export type CrmOportunidadeStatus = {
   ativo: boolean;
 };
 
+export type CrmContaBancaria = {
+  id: string;
+  fotografo_id: string;
+  nome: string;
+  tipo: "conta_corrente" | "caixa" | "poupanca" | "outros";
+  instituicao: string | null;
+  agencia: string | null;
+  endereco: string | null;
+  fone: string | null;
+  gerente: string | null;
+  ativo: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
 export type CrmOpportunityField = {
   id: string;
   oportunidade_id: string;

@@ -263,6 +263,7 @@ export function Sidebar() {
                   { href: "/crm/oportunidades", label: "Oportunidades" },
                   { href: "/crm/pedidos",        label: "Pedidos" },
                   { href: "/crm/produtos",       label: "Produtos" },
+                  { href: "/crm/contas",         label: "Contas Bancárias" },
                   { href: "/crm/financeiro",     label: "Financeiro" },
                   { href: "/crm/resultados",     label: "Resultados" },
                   { href: "/crm/config",         label: "Config. CRM" },
