@@ -380,6 +380,35 @@ export type CrmProduct = {
   lista_precos: boolean;
   ativo: boolean;
   created_at: string;
+  agenda_ativo: boolean;
+  agenda_usuario_id: string | null;
+  agenda_dias: number;
+  agenda_duracao: string;
+  agenda_categoria_id: string | null;
+};
+
+export type CrmAgendamentoCategoria = {
+  id: string;
+  fotografo_id: string | null;
+  nome: string;
+  ordem: number;
+  ativo: boolean;
+  sistema: boolean;
+};
+
+export type CrmProductCusto = {
+  id: string;
+  produto_id: string;
+  fotografo_id: string;
+  descricao: string;
+  valor: number;
+  percentual: number | null;
+  conta_id: string | null;
+  referencia: "data_evento" | "data_pedido";
+  dias_offset: number;
+  dias_direcao: "antes" | "apos" | "na_data";
+  ordem: number;
+  created_at: string;
 };
 
 export type CrmOpportunity = {

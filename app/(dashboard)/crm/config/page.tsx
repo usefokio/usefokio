@@ -3,9 +3,9 @@
 import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
-import type { CrmProductCategory, CrmChartOfAccount, CrmOportunidadeStatus, CrmFunnel, CrmFunnelStage } from "@/lib/supabase/types";
+import type { CrmProductCategory, CrmChartOfAccount, CrmOportunidadeStatus, CrmFunnel, CrmFunnelStage, CrmAgendamentoCategoria } from "@/lib/supabase/types";
 
-type Tab = "produtos" | "plano" | "canais" | "opp_cats" | "status" | "funis";
+type Tab = "produtos" | "plano" | "canais" | "opp_cats" | "status" | "funis" | "agenda_cats";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -524,6 +524,143 @@ function AbaFunis({ fotografoId }: { fotografoId: string }) {
   );
 }
 
+// ── Aba Categorias de Agendamento ────────────────────────────────────────────
+
+function AbaAgendamentoCats({ fotografoId }: { fotografoId: string }) {
+  const [sistema, setSistema]     = useState<CrmAgendamentoCategoria[]>([]);
+  const [proprias, setProprias]   = useState<CrmAgendamentoCategoria[]>([]);
+  const [loading, setLoading]     = useState(true);
+  const [novoNome, setNovoNome]   = useState("");
+  const [editId, setEditId]       = useState<string | null>(null);
+  const [editNome, setEditNome]   = useState("");
+  const [saving, setSaving]       = useState(false);
+  const sb = createClient();
+
+  const carregar = useCallback(async () => {
+    setLoading(true);
+    const { data } = await sb.from("crm_agendamento_categorias")
+      .select("*")
+      .or(`fotografo_id.is.null,fotografo_id.eq.${fotografoId}`)
+      .eq("ativo", true)
+      .order("ordem");
+    const all = (data ?? []) as CrmAgendamentoCategoria[];
+    setSistema(all.filter((c) => c.sistema));
+    setProprias(all.filter((c) => !c.sistema && c.fotografo_id === fotografoId));
+    setLoading(false);
+  }, [fotografoId]);
+
+  useEffect(() => { carregar(); }, [carregar]);
+
+  async function adicionar() {
+    if (!novoNome.trim()) return;
+    setSaving(true);
+    await sb.from("crm_agendamento_categorias").insert({ fotografo_id: fotografoId, nome: novoNome.trim(), ordem: proprias.length, ativo: true, sistema: false });
+    setNovoNome("");
+    setSaving(false);
+    carregar();
+  }
+
+  async function salvarEdicao(id: string) {
+    if (!editNome.trim()) return;
+    setSaving(true);
+    await sb.from("crm_agendamento_categorias").update({ nome: editNome.trim() }).eq("id", id);
+    setEditId(null);
+    setSaving(false);
+    carregar();
+  }
+
+  async function excluir(id: string) {
+    if (!confirm("Excluir esta categoria?")) return;
+    await sb.from("crm_agendamento_categorias").delete().eq("id", id);
+    carregar();
+  }
+
+  async function reordenar(id: string, dir: "up" | "down") {
+    const idx = proprias.findIndex((i) => i.id === id);
+    if (dir === "up" && idx === 0) return;
+    if (dir === "down" && idx === proprias.length - 1) return;
+    const outro = proprias[dir === "up" ? idx - 1 : idx + 1];
+    await Promise.all([
+      sb.from("crm_agendamento_categorias").update({ ordem: outro.ordem }).eq("id", id),
+      sb.from("crm_agendamento_categorias").update({ ordem: proprias[idx].ordem }).eq("id", outro.id),
+    ]);
+    carregar();
+  }
+
+  if (loading) return <div style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>Carregando…</div>;
+
+  return (
+    <div>
+      <p style={{ fontSize: 13, color: "var(--color-text-secondary)", marginBottom: 20 }}>
+        Categorias padrão do sistema são somente leitura. Adicione suas próprias categorias abaixo.
+      </p>
+
+      <div style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", letterSpacing: "0.06em", marginBottom: 8 }}>
+        CATEGORIAS DO SISTEMA
+      </div>
+      <div style={{ border: "0.5px solid var(--color-border-tertiary)", borderRadius: 10, overflow: "hidden", marginBottom: 24 }}>
+        {sistema.map((c, idx) => (
+          <div key={c.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 14px", borderBottom: idx < sistema.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", background: "var(--color-background-primary)" }}>
+            <span style={{ flex: 1, fontSize: 13, color: "var(--color-text-primary)" }}>{c.nome}</span>
+            <span style={{ fontSize: 10, color: "var(--color-text-secondary)" }}>sistema</span>
+          </div>
+        ))}
+        {sistema.length === 0 && <div style={{ padding: "20px 0", textAlign: "center", fontSize: 13, color: "var(--color-text-secondary)" }}>Nenhuma categoria do sistema.</div>}
+      </div>
+
+      <div style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", letterSpacing: "0.06em", marginBottom: 8 }}>
+        SUAS CATEGORIAS
+      </div>
+      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+        <input
+          value={novoNome}
+          onChange={(e) => setNovoNome(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") adicionar(); }}
+          placeholder="Nova categoria…"
+          style={{ ...inputSt, flex: 1 }}
+        />
+        <button onClick={adicionar} disabled={saving || !novoNome.trim()} style={{ ...btnPrimary, opacity: !novoNome.trim() ? 0.5 : 1 }}>
+          + Adicionar
+        </button>
+      </div>
+      <div style={{ border: "0.5px solid var(--color-border-tertiary)", borderRadius: 10, overflow: "hidden" }}>
+        {proprias.length === 0 && (
+          <div style={{ padding: "28px 0", textAlign: "center", fontSize: 13, color: "var(--color-text-secondary)" }}>
+            Nenhuma categoria própria cadastrada.
+          </div>
+        )}
+        {proprias.map((item, idx) => (
+          <div key={item.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", borderBottom: idx < proprias.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", background: "var(--color-background-primary)" }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = "var(--color-background-secondary)"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = "var(--color-background-primary)"; }}
+          >
+            <div style={{ display: "flex", flexDirection: "column", gap: 1, flexShrink: 0 }}>
+              <button onClick={() => reordenar(item.id, "up")} disabled={idx === 0}
+                style={{ background: "none", border: "none", cursor: idx === 0 ? "default" : "pointer", fontSize: 10, color: "var(--color-text-secondary)", lineHeight: 1, padding: "1px 3px", opacity: idx === 0 ? 0.3 : 1 }}>▲</button>
+              <button onClick={() => reordenar(item.id, "down")} disabled={idx === proprias.length - 1}
+                style={{ background: "none", border: "none", cursor: idx === proprias.length - 1 ? "default" : "pointer", fontSize: 10, color: "var(--color-text-secondary)", lineHeight: 1, padding: "1px 3px", opacity: idx === proprias.length - 1 ? 0.3 : 1 }}>▼</button>
+            </div>
+            {editId === item.id ? (
+              <div style={{ display: "flex", gap: 6, flex: 1, alignItems: "center" }}>
+                <input value={editNome} onChange={(e) => setEditNome(e.target.value)} style={{ ...inputSt, flex: 1 }} autoFocus
+                  onKeyDown={(e) => { if (e.key === "Enter") salvarEdicao(item.id); if (e.key === "Escape") setEditId(null); }} />
+                <button onClick={() => salvarEdicao(item.id)} style={{ ...btnPrimary, padding: "5px 12px", fontSize: 12 }}>✓ Salvar</button>
+                <button onClick={() => setEditId(null)} style={btnGhost}>Cancelar</button>
+              </div>
+            ) : (
+              <>
+                <span style={{ flex: 1, fontSize: 13, fontWeight: 500, color: "var(--color-text-primary)" }}>{item.nome}</span>
+                <button onClick={() => { setEditId(item.id); setEditNome(item.nome); }} style={btnGhost}>Editar</button>
+                <button onClick={() => excluir(item.id)} style={{ ...btnGhost, color: "#ef4444", borderColor: "#fca5a5" }}>✕</button>
+              </>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ── Plano de Contas tree ──────────────────────────────────────────────────────
 
 type ContaNode = CrmChartOfAccount & { filhos: ContaNode[]; sistema: boolean };
@@ -781,6 +918,7 @@ export default function CrmConfigPage() {
         <button style={TAB_ST(tab === "canais")} onClick={() => setTab("canais")}>📍 Canais de Origem</button>
         <button style={TAB_ST(tab === "status")} onClick={() => setTab("status")}>📋 Status</button>
         <button style={TAB_ST(tab === "produtos")} onClick={() => setTab("produtos")}>🏷 Cat. Produtos</button>
+        <button style={TAB_ST(tab === "agenda_cats")} onClick={() => setTab("agenda_cats")}>📅 Cat. Agendamento</button>
         <button style={TAB_ST(tab === "plano")} onClick={() => setTab("plano")}>📊 Plano de Contas</button>
       </div>
 
@@ -861,6 +999,11 @@ export default function CrmConfigPage() {
             </div>
           )}
         </div>
+      )}
+
+      {/* ── Categorias de Agendamento ── */}
+      {tab === "agenda_cats" && fotografo && (
+        <AbaAgendamentoCats fotografoId={fotografo.id} />
       )}
 
       {/* ── Plano de Contas ── */}
