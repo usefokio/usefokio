@@ -37,8 +37,8 @@ const EMPTY: FormData = {
 };
 
 const CANAIS = [
-  "Indicação de amigos", "Indicação de cliente", "Busca na Internet",
-  "Instagram", "Facebook", "Google Ads", "Site", "Feira / Evento",
+  "Busca na Internet", "Facebook", "Feira / Evento", "Google Ads",
+  "Indicação de amigos", "Indicação de cliente", "Instagram", "Site",
 ];
 
 const ESTADOS_BR = [
@@ -47,10 +47,10 @@ const ESTADOS_BR = [
 ];
 
 const CATEGORIAS_PADRAO = [
-  "Casamento - Foto", "Casamento - Vídeo", "Casamento - Foto e Vídeo",
-  "Eventos", "Aniversário Adulto", "Aniversário Infantil", "Batizado",
-  "Ensaio Família", "Ensaio Casal", "Ensaio 15 anos", "Ensaio/Book",
-  "Evento Corporativo", "Consultoria", "Outro",
+  "Aniversário Adulto", "Aniversário Infantil", "Batizado",
+  "Casamento - Foto", "Casamento - Foto e Vídeo", "Casamento - Vídeo",
+  "Consultoria", "Ensaio 15 anos", "Ensaio Casal", "Ensaio Família", "Ensaio/Book",
+  "Evento Corporativo", "Eventos", "Outro",
 ];
 
 type Props = {
@@ -88,7 +88,7 @@ export default function FormOportunidade({ inicial, onSalvo }: Props) {
       setClientes((cls ?? []) as Pick<Cliente, "id" | "nome">[]);
       if (cats && cats.length > 0) {
         const nomes = (cats as { nome: string }[]).map(c => c.nome);
-        setCategorias([...new Set([...nomes, ...CATEGORIAS_PADRAO])]);
+        setCategorias([...new Set([...nomes, ...CATEGORIAS_PADRAO])].sort((a, b) => a.localeCompare(b, "pt-BR")));
       }
       // setar nome do cliente selecionado
       if (inicial?.cliente_id) {

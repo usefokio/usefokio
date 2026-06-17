@@ -29,15 +29,15 @@ const EMPTY: FormData = {
 };
 
 const FORMAS_PAGAMENTO = [
-  "Dinheiro", "Pix", "Cartão de crédito", "Cartão de débito",
-  "Transferência", "Boleto", "Cheque", "Parcelado",
+  "Boleto", "Cartão de crédito", "Cartão de débito", "Cheque",
+  "Dinheiro", "Parcelado", "Pix", "Transferência",
 ];
 
 const CATEGORIAS_PADRAO = [
-  "Casamento - Foto", "Casamento - Vídeo", "Casamento - Foto e Vídeo",
-  "Eventos", "Aniversário Adulto", "Aniversário Infantil", "Batizado",
-  "Ensaio Família", "Ensaio Casal", "Ensaio 15 anos", "Ensaio/Book",
-  "Evento Corporativo", "Consultoria", "Outro",
+  "Aniversário Adulto", "Aniversário Infantil", "Batizado",
+  "Casamento - Foto", "Casamento - Foto e Vídeo", "Casamento - Vídeo",
+  "Consultoria", "Ensaio 15 anos", "Ensaio Casal", "Ensaio Família", "Ensaio/Book",
+  "Evento Corporativo", "Eventos", "Outro",
 ];
 
 type Props = {
