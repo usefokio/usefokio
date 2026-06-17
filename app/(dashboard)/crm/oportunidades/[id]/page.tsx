@@ -87,7 +87,8 @@ export default function OportunidadeDetailPage() {
 
   const handleGerarPedido = async () => {
     if (!opp) return;
-    const { data } = await createClient()
+    const sb = createClient();
+    const { data } = await sb
       .from("crm_orders")
       .insert({
         fotografo_id:    opp.fotografo_id,
@@ -102,6 +103,19 @@ export default function OportunidadeDetailPage() {
       })
       .select("id")
       .single();
+
+    // Mover funil para a última etapa
+    if (etapas.length > 0) {
+      const ultimaEtapa = etapas[etapas.length - 1];
+      const funilId = opp.funil_id ?? funis[0]?.id;
+      await sb.from("crm_opportunities").update({ etapa_id: ultimaEtapa.id, funil_id: funilId }).eq("id", id);
+      await sb.from("crm_funnel_progress").insert({
+        oportunidade_id: id,
+        etapa_id:        ultimaEtapa.id,
+        observacao:      "Pedido gerado",
+      });
+    }
+
     if (data) router.push(`/crm/pedidos/${(data as { id: string }).id}`);
   };
 
