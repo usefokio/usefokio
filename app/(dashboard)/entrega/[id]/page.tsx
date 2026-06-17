@@ -422,13 +422,13 @@ export default function EntregaDetailPage() {
         <div style={{ border: "0.5px solid var(--color-border-secondary)", borderRadius: 10, padding: "14px 18px", marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <span style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>Esta galeria não está no funil de campanha.</span>
           <button
-            onClick={async () => {
-              await fetch(`/api/campanha/galeria/${id}`);
-              const sb = createClient();
-              const { data } = await sb.from("respostas_campanha")
-                .select("estagio, resposta, respondido_em, respondido_nome, email_1_em, email_2_em, whatsapp_em, ignorar_funil, agradecimento_em")
-                .eq("galeria_id", id).eq("fotografo_id", fotografo!.id).maybeSingle();
-              setFunilInfo(data ?? null);
+            onClick={async (e) => {
+              const btn = e.currentTarget;
+              btn.textContent = "Adicionando…";
+              btn.setAttribute("disabled", "true");
+              const res = await fetch(`/api/campanha/galeria/${id}`);
+              if (!res.ok) { btn.textContent = "Erro — tente novamente"; btn.removeAttribute("disabled"); return; }
+              router.push("/entrega/campanha");
             }}
             style={{ fontSize: 11, fontWeight: 600, color: "#2563EB", padding: "4px 10px", borderRadius: 7, border: "0.5px solid rgba(37,99,235,0.35)", background: "transparent", cursor: "pointer" }}
           >
@@ -510,9 +510,13 @@ export default function EntregaDetailPage() {
                 )}
                 {funilInfo.ignorar_funil ? (
                   <button
-                    onClick={async () => {
-                      await fetch(`/api/campanha/galeria/${id}/reativar`, { method: "POST" });
-                      setFunilInfo((prev) => prev ? { ...prev, ignorar_funil: false } : prev);
+                    onClick={async (e) => {
+                      const btn = e.currentTarget;
+                      btn.textContent = "Reativando…";
+                      btn.setAttribute("disabled", "true");
+                      const res = await fetch(`/api/campanha/galeria/${id}/reativar`, { method: "POST" });
+                      if (!res.ok) { btn.textContent = "Erro — tente novamente"; btn.removeAttribute("disabled"); return; }
+                      router.push("/entrega/campanha");
                     }}
                     style={{ fontSize: 11, fontWeight: 600, color: "#2563EB", padding: "4px 10px", borderRadius: 7, border: "0.5px solid rgba(37,99,235,0.35)", background: "transparent", cursor: "pointer" }}
                   >
