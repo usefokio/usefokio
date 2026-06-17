@@ -153,7 +153,6 @@ export default function PedidoDetailPage() {
             total:          pedido.total != null ? String(pedido.total) : "",
             discount:       pedido.discount != null ? String(pedido.discount) : "0",
             other_expenses: pedido.other_expenses != null ? String(pedido.other_expenses) : "0",
-            payment_method: pedido.payment_method ?? "",
             data_evento:    pedido.data_evento ?? "",
             observacoes:    pedido.observacoes ?? "",
           }}
