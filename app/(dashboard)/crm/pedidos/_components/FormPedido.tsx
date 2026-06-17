@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
@@ -42,6 +42,7 @@ type PlanoItem = {
   percentual: string;
   valor: string;
   obs: string;
+  parcelasOverride: ParcelaPreview[] | null;
 };
 
 type ParcelaPreview = { vencimento: string; valor: number; label: string };
@@ -56,7 +57,7 @@ const EMPTY: FormData = {
 
 const EMPTY_PLANO: Omit<PlanoItem, "tmpId"> = {
   forma: "", dataPrazo: "", numDocumento: "", numParcelas: 1,
-  intervalo: "mensal", percentual: "", valor: "", obs: "",
+  intervalo: "mensal", percentual: "", valor: "", obs: "", parcelasOverride: null,
 };
 
 const FORMAS_PAGAMENTO = [
@@ -131,8 +132,11 @@ export default function FormPedido({ inicial, onSalvo }: Props) {
   const [modalQtd,      setModalQtd]      = useState(1);
 
   // Planos de pagamento
-  const [planos,     setPlanos]     = useState<PlanoItem[]>([]);
-  const [modalPlano, setModalPlano] = useState<(PlanoItem & { editIdx: number | null }) | null>(null);
+  const [planos,             setPlanos]             = useState<PlanoItem[]>([]);
+  const [modalPlano,         setModalPlano]         = useState<(PlanoItem & { editIdx: number | null }) | null>(null);
+  const [parcelasEditaveis,  setParcelasEditaveis]  = useState<ParcelaPreview[]>([]);
+  // Ref para saber se a última mudança foi de config (regenera) ou de override (não regenera)
+  const regenerarRef = useRef(true);
 
   const isEditing = !!inicial?.id;
 
@@ -227,6 +231,8 @@ export default function FormPedido({ inicial, onSalvo }: Props) {
     setModalPlano(null);
   };
 
+  const CONFIG_KEYS: (keyof PlanoItem)[] = ["numParcelas", "intervalo", "dataPrazo", "valor", "percentual", "obs"];
+
   const updPlano = (k: keyof Omit<PlanoItem, "tmpId">, v: string | number) => {
     if (!modalPlano) return;
     const updated = { ...modalPlano, [k]: v };
@@ -238,10 +244,35 @@ export default function FormPedido({ inicial, onSalvo }: Props) {
       const val = parseFloat(String(v).replace(",", ".")) || 0;
       updated.percentual = val > 0 ? (val * 100 / liquido).toFixed(1) : "";
     }
+    // Mudar qualquer campo de config regenera as parcelas (limpa overrides)
+    if (CONFIG_KEYS.includes(k)) {
+      updated.parcelasOverride = null;
+      regenerarRef.current = true;
+    }
     setModalPlano(updated);
   };
 
-  const parcelasPreview = modalPlano ? calcParcelas(modalPlano) : [];
+  // Regenerar parcelasEditaveis quando config do modal muda
+  useEffect(() => {
+    if (!modalPlano || !regenerarRef.current) return;
+    regenerarRef.current = false;
+    setParcelasEditaveis(calcParcelas(modalPlano));
+  }, [modalPlano?.numParcelas, modalPlano?.intervalo, modalPlano?.dataPrazo, modalPlano?.valor, modalPlano?.obs]);
+
+  // Inicializar ao abrir o modal
+  useEffect(() => {
+    if (modalPlano) {
+      regenerarRef.current = true;
+      setParcelasEditaveis(modalPlano.parcelasOverride ?? calcParcelas(modalPlano));
+    }
+  }, [!!modalPlano]);
+
+  const editarDataParcela = (idx: number, novaData: string) => {
+    const novas = parcelasEditaveis.map((p, i) => i === idx ? { ...p, vencimento: novaData } : p);
+    setParcelasEditaveis(novas);
+    setModalPlano(m => m ? { ...m, parcelasOverride: novas } : m);
+    regenerarRef.current = false;
+  };
 
   // ── Salvar pedido ───────────────────────────────────────────────────────────
   const handleSave = async () => {
@@ -292,7 +323,7 @@ export default function FormPedido({ inicial, onSalvo }: Props) {
       if (planos.length > 0 && id) {
         const entries: object[] = [];
         for (const plano of planos) {
-          const ps = calcParcelas(plano);
+          const ps = plano.parcelasOverride ?? calcParcelas(plano);
           for (const p of ps) {
             entries.push({
               fotografo_id:          fotografo.id,
@@ -699,16 +730,21 @@ export default function FormPedido({ inicial, onSalvo }: Props) {
             </div>
 
             {/* Preview de parcelas */}
-            {parcelasPreview.length > 0 && (
+            {parcelasEditaveis.length > 0 && (
               <div style={{ marginTop: 16, border: "0.5px solid var(--color-border-tertiary)", borderRadius: 8, overflow: "hidden" }}>
                 <div style={{ padding: "7px 12px", background: "var(--color-background-secondary)", borderBottom: "0.5px solid var(--color-border-tertiary)", fontSize: 10, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
-                  Preview
+                  Preview — clique na data para editar
                 </div>
-                {parcelasPreview.map((p, i) => (
-                  <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 100px 90px", padding: "8px 12px", borderBottom: i < parcelasPreview.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", alignItems: "center" }}>
+                {parcelasEditaveis.map((p, i) => (
+                  <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 140px 90px", padding: "6px 12px", borderBottom: i < parcelasEditaveis.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", alignItems: "center" }}>
                     <div style={{ fontSize: 12, color: "var(--color-text-primary)" }}>{p.label}</div>
-                    <div style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>{fmtDate(p.vencimento)}</div>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: "#059669" }}>{fmt(p.valor)}</div>
+                    <input
+                      type="date"
+                      value={p.vencimento}
+                      onChange={e => editarDataParcela(i, e.target.value)}
+                      style={{ ...inputStyle, fontSize: 11, padding: "3px 6px", border: "0.5px solid var(--color-border-secondary)", borderRadius: 6 }}
+                    />
+                    <div style={{ fontSize: 12, fontWeight: 600, color: "#059669", textAlign: "right" }}>{fmt(p.valor)}</div>
                   </div>
                 ))}
               </div>
