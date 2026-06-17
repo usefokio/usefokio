@@ -193,45 +193,81 @@ export default function OportunidadeDetailPage() {
       </div>
 
       {/* Card topo */}
-      <div style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 12, padding: "18px 22px", marginBottom: 16, display: "flex", alignItems: "flex-start", gap: 14 }}>
-        <div style={{ flex: 1 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-            <h2 style={{ fontSize: 17, fontWeight: 700, color: "var(--color-text-primary)", margin: 0, letterSpacing: "-0.01em" }}>{opp.titulo}</h2>
-            <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 10, background: st.bg, color: st.color, whiteSpace: "nowrap" }}>{st.label}</span>
-          </div>
-          <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
-            {opp.categoria      && <span style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>{opp.categoria}</span>}
-            {opp.valor_estimado != null && <span style={{ fontSize: 13, fontWeight: 700, color: "var(--color-text-primary)" }}>{fmt(opp.valor_estimado)}</span>}
-            {opp.data_evento    && <span style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>📅 {new Date(opp.data_evento + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" })}</span>}
-            {opp.cidade_evento  && <span style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>📍 {opp.cidade_evento}{opp.estado_evento ? `/${opp.estado_evento}` : ""}</span>}
-            {opp.convidados     != null && <span style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>👥 {opp.convidados} convidados</span>}
-          </div>
-          {(opp.nome_noiva || opp.nome_noivo) && (
-            <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginTop: 6 }}>
-              💍 {[opp.nome_noiva, opp.nome_noivo].filter(Boolean).join(" & ")}
+      <div style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 12, marginBottom: 16, overflow: "hidden" }}>
+        {/* Header com título e ações */}
+        <div style={{ padding: "16px 22px", borderBottom: "0.5px solid var(--color-border-tertiary)", display: "flex", alignItems: "flex-start", gap: 14 }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+              <h2 style={{ fontSize: 17, fontWeight: 700, color: "var(--color-text-primary)", margin: 0, letterSpacing: "-0.01em" }}>{opp.titulo}</h2>
+              <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 10, background: st.bg, color: st.color, whiteSpace: "nowrap" }}>{st.label}</span>
+              {opp.prioridade && opp.prioridade !== "media" && (
+                <span style={{ fontSize: 11, fontWeight: 600, padding: "3px 8px", borderRadius: 10, background: opp.prioridade === "alta" ? "rgba(239,68,68,0.08)" : "rgba(107,114,128,0.08)", color: opp.prioridade === "alta" ? "#EF4444" : "#6B7280" }}>
+                  {opp.prioridade === "alta" ? "🔴 Alta prioridade" : "🔵 Baixa prioridade"}
+                </span>
+              )}
             </div>
-          )}
+          </div>
+          <div style={{ display: "flex", gap: 8, flexShrink: 0, flexWrap: "wrap", justifyContent: "flex-end" }}>
+            <button onClick={handleGerarPedido} style={{ padding: "8px 16px", borderRadius: 8, background: "#2563EB", color: "#fff", border: "none", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+              📋 Gerar pedido
+            </button>
+            <button onClick={() => setEditing(!editing)} style={{ padding: "8px 14px", borderRadius: 8, background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-secondary)", fontSize: 12, fontWeight: 500, cursor: "pointer", color: "var(--color-text-primary)" }}>
+              {editing ? "Cancelar edição" : "✏️ Editar"}
+            </button>
+            <button onClick={() => setConfirmDel(true)} style={{ padding: "8px 14px", borderRadius: 8, background: "rgba(239,68,68,0.06)", border: "0.5px solid rgba(239,68,68,0.2)", fontSize: 12, cursor: "pointer", color: "#EF4444" }}>
+              🗑
+            </button>
+          </div>
         </div>
-        <div style={{ display: "flex", gap: 8, flexShrink: 0, flexWrap: "wrap", justifyContent: "flex-end" }}>
-          <button
-            onClick={handleGerarPedido}
-            style={{ padding: "8px 16px", borderRadius: 8, background: "#2563EB", color: "#fff", border: "none", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
-          >
-            📋 Gerar pedido
-          </button>
-          <button
-            onClick={() => setEditing(!editing)}
-            style={{ padding: "8px 14px", borderRadius: 8, background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-secondary)", fontSize: 12, fontWeight: 500, cursor: "pointer", color: "var(--color-text-primary)" }}
-          >
-            {editing ? "Cancelar edição" : "✏️ Editar"}
-          </button>
-          <button
-            onClick={() => setConfirmDel(true)}
-            style={{ padding: "8px 14px", borderRadius: 8, background: "rgba(239,68,68,0.06)", border: "0.5px solid rgba(239,68,68,0.2)", fontSize: 12, cursor: "pointer", color: "#EF4444" }}
-          >
-            🗑
-          </button>
-        </div>
+
+        {/* Grid de informações */}
+        {!editing && (() => {
+          const Campo = ({ label, valor }: { label: string; valor?: string | number | null }) =>
+            valor != null && valor !== "" ? (
+              <div>
+                <div style={{ fontSize: 10, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 3 }}>{label}</div>
+                <div style={{ fontSize: 13, color: "var(--color-text-primary)" }}>{valor}</div>
+              </div>
+            ) : null;
+
+          const fmtDate = (s: string) => new Date(s + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" });
+          const localEvento = [opp.local_evento, opp.cidade_evento, opp.estado_evento].filter(Boolean).join(", ");
+          const localCerimonia = opp.local_cerimonia;
+          const localRecepcao = opp.local_recepcao;
+          const casal = [opp.nome_noiva, opp.nome_noivo].filter(Boolean).join(" & ");
+
+          const campos = [
+            clienteNome            && { label: "Cliente",            valor: clienteNome },
+            opp.categoria          && { label: "Categoria",          valor: opp.categoria },
+            opp.canal_origem       && { label: "Canal de origem",    valor: opp.canal_origem },
+            opp.valor_estimado != null && { label: "Valor estimado", valor: fmt(opp.valor_estimado) },
+            opp.data_evento        && { label: "Data do evento",     valor: fmtDate(opp.data_evento) },
+            localEvento            && { label: "Local do evento",    valor: localEvento },
+            localCerimonia         && { label: "Local da cerimônia", valor: localCerimonia },
+            localRecepcao          && { label: "Local da recepção",  valor: localRecepcao },
+            casal                  && { label: "Casal",              valor: casal },
+            opp.convidados != null && { label: "Convidados",         valor: `${opp.convidados} pessoas` },
+            (opp.indicado_por_nome || opp.indicado_por_id) && { label: "Indicado por", valor: opp.indicado_por_nome ?? "—" },
+          ].filter(Boolean) as { label: string; valor: string | number }[];
+
+          if (campos.length === 0) return null;
+
+          return (
+            <div style={{ padding: "16px 22px", display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: "14px 24px" }}>
+              {campos.map(({ label, valor }) => (
+                <Campo key={label} label={label} valor={valor} />
+              ))}
+            </div>
+          );
+        })()}
+
+        {/* Observações */}
+        {!editing && opp.observacoes && (
+          <div style={{ padding: "12px 22px", borderTop: "0.5px solid var(--color-border-tertiary)" }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>Observações</div>
+            <div style={{ fontSize: 13, color: "var(--color-text-primary)", lineHeight: 1.7, whiteSpace: "pre-wrap" }}>{opp.observacoes}</div>
+          </div>
+        )}
       </div>
 
       {/* ── FUNIL ──────────────────────────────────────────────────── */}
@@ -379,16 +415,7 @@ export default function OportunidadeDetailPage() {
             setEditing(false);
           }}
         />
-      ) : (
-        opp.observacoes && (
-          <div style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 12, overflow: "hidden" }}>
-            <div style={{ padding: "9px 20px", borderBottom: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-secondary)" }}>
-              <span style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.06em" }}>Observações</span>
-            </div>
-            <div style={{ padding: "14px 20px", fontSize: 13, color: "var(--color-text-primary)", lineHeight: 1.7, whiteSpace: "pre-wrap" }}>{opp.observacoes}</div>
-          </div>
-        )
-      )}
+      ) : null}
 
       {/* Modal exclusão */}
       {confirmDel && (
