@@ -48,8 +48,8 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ tok
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
-  const { resposta, nome, email } = await req.json().catch(() => ({})) as {
-    resposta?: string; nome?: string; email?: string;
+  const { resposta, nome, email, force } = await req.json().catch(() => ({})) as {
+    resposta?: string; nome?: string; email?: string; force?: boolean;
   };
 
   if (resposta !== "renovar" && resposta !== "tem_arquivos") {
@@ -65,8 +65,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
     .maybeSingle();
 
   if (!registro) return NextResponse.json({ erro: "Link inválido." }, { status: 404 });
+  // Allow override only when correcting "tem_arquivos" → "renovar"
   if (registro.resposta !== null) {
-    return NextResponse.json({ ok: true, galeriaId: registro.galeria_id, jaRespondeu: true });
+    if (!(force && registro.resposta === "tem_arquivos" && resposta === "renovar")) {
+      return NextResponse.json({ ok: true, galeriaId: registro.galeria_id, jaRespondeu: true });
+    }
   }
 
   const agora = new Date().toISOString();

@@ -27,6 +27,7 @@ export default function RespostaCampanhaPage() {
   const [cpf,    setCpf]    = useState("");
   const [salvando, setSalvando] = useState(false);
   const [erro,   setErro]   = useState("");
+  const [corrigindo, setCorrigindo] = useState(false);
 
   useEffect(() => {
     fetch(`/api/campanha/resposta/${token}`)
@@ -191,25 +192,98 @@ export default function RespostaCampanhaPage() {
       );
     }
 
-    const respostaTexto = dados.resposta === "tem_arquivos"
-      ? "Já tenho meus arquivos"
-      : "Quero renovar meu acesso";
-    return (
-      <Wrap>
-        <div style={{ textAlign: "center", padding: "20px 0 10px" }}>
-          <div style={{ fontSize: 40, marginBottom: 12 }}>✅</div>
-          <div style={{ fontSize: 16, fontWeight: 700, color: "#111", marginBottom: 8 }}>Já recebemos sua resposta</div>
-          <div style={{ fontSize: 14, color: "#555", marginBottom: 16 }}>
-            Você respondeu: <strong>{respostaTexto}</strong>
+    // "tem_arquivos" — mostrar confirmação + opção de corrigir
+    if (dados.resposta === "tem_arquivos") {
+      if (corrigindo && dados.asaasAtivo && dados.renewalFee > 0) {
+        // Formulário de correção → renovar
+        return (
+          <Wrap>
+            <div style={{ textAlign: "center", marginBottom: 20 }}>
+              <div style={{ fontSize: 12, color: "#999", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.05em" }}>{dados.nomeEmpresa}</div>
+              <h1 style={{ fontSize: 18, fontWeight: 800, color: "#111", margin: "0 0 6px", letterSpacing: "-0.02em" }}>{dados.titulo}</h1>
+            </div>
+            <div style={{ background: "#EFF6FF", border: "1px solid #BFDBFE", borderRadius: 8, padding: "10px 14px", marginBottom: 16, fontSize: 13, color: "#1D4ED8", textAlign: "center" }}>
+              Taxa de renovação: <strong>R$ {dados.renewalFee.toFixed(2).replace(".", ",")}</strong>
+            </div>
+            {(["Nome *", "E-mail *", "CPF *"] as const).map(() => null)}
+            <div style={{ marginBottom: 14 }}>
+              <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#555", marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.04em" }}>Nome *</label>
+              <input type="text" value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Seu nome completo" style={inputStyle} />
+            </div>
+            <div style={{ marginBottom: 14 }}>
+              <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#555", marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.04em" }}>E-mail *</label>
+              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="seu@email.com" style={inputStyle} />
+            </div>
+            <div style={{ marginBottom: 20 }}>
+              <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#555", marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.04em" }}>CPF *</label>
+              <input type="text" value={cpf} onChange={(e) => setCpf(e.target.value)} placeholder="000.000.000-00" style={inputStyle} />
+            </div>
+            {erro && <div style={{ fontSize: 13, color: "#EF4444", marginBottom: 14, padding: "10px 14px", background: "rgba(239,68,68,0.07)", borderRadius: 8 }}>{erro}</div>}
+            <button
+              onClick={async () => {
+                setSalvando(true); setErro("");
+                if (!nome.trim()) { setErro("Informe seu nome."); setSalvando(false); return; }
+                const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                if (!emailRe.test(email.trim())) { setErro("Informe um e-mail válido."); setSalvando(false); return; }
+                if (!cpf.trim()) { setErro("Informe seu CPF."); setSalvando(false); return; }
+                const r = await fetch(`/api/entrega/${dados.galeriaId}/renovar`, {
+                  method: "POST", headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ nome: nome.trim(), email: email.trim(), cpf: cpf.trim() }),
+                });
+                const j = await r.json();
+                if (!r.ok) { setErro(j.erro ?? "Erro ao gerar cobrança."); setSalvando(false); return; }
+                await fetch(`/api/campanha/resposta/${token}`, {
+                  method: "POST", headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ resposta: "renovar", nome: nome.trim(), email: email.trim(), force: true }),
+                });
+                window.location.href = j.invoiceUrl;
+              }}
+              disabled={salvando}
+              style={{ width: "100%", padding: "13px 20px", borderRadius: 10, border: "none", background: salvando ? "#9CA3AF" : "#1D4ED8", color: "#fff", fontSize: 15, fontWeight: 700, cursor: salvando ? "default" : "pointer", marginBottom: 10 }}
+            >
+              {salvando ? "Aguarde…" : "Ir para pagamento →"}
+            </button>
+            <button onClick={() => { setCorrigindo(false); setErro(""); }} disabled={salvando}
+              style={{ width: "100%", padding: "11px 20px", borderRadius: 10, border: "1.5px solid #E5E7EB", background: "transparent", fontSize: 14, color: "#6B7280", cursor: "pointer" }}>
+              ← Voltar
+            </button>
+          </Wrap>
+        );
+      }
+
+      return (
+        <Wrap>
+          <div style={{ textAlign: "center", padding: "20px 0 16px" }}>
+            <div style={{ fontSize: 40, marginBottom: 12 }}>✅</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: "#111", marginBottom: 8 }}>Já recebemos sua resposta</div>
+            <div style={{ fontSize: 14, color: "#555", marginBottom: 8 }}>
+              Você confirmou: <strong>Já tenho meus arquivos</strong>
+            </div>
+            {dados.respondidoEm && (
+              <div style={{ fontSize: 12, color: "#999", marginBottom: 20 }}>
+                Registrado em {new Date(dados.respondidoEm).toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" })}
+              </div>
+            )}
           </div>
-          {dados.respondidoEm && (
-            <div style={{ fontSize: 12, color: "#999" }}>
-              Registrado em {new Date(dados.respondidoEm).toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" })}
+          {dados.asaasAtivo && dados.renewalFee > 0 && (
+            <div style={{ borderTop: "1px solid #F3F4F6", paddingTop: 20 }}>
+              <div style={{ fontSize: 13, color: "#6B7280", marginBottom: 12, textAlign: "center" }}>
+                Cometeu um engano? Ainda é possível renovar o acesso à galeria.
+              </div>
+              <button
+                onClick={() => setCorrigindo(true)}
+                style={{ width: "100%", padding: "12px 20px", borderRadius: 10, border: "1.5px solid #2563EB", background: "transparent", color: "#2563EB", fontSize: 14, fontWeight: 600, cursor: "pointer" }}
+              >
+                🔄 Quero renovar meu acesso
+              </button>
             </div>
           )}
-        </div>
-      </Wrap>
-    );
+        </Wrap>
+      );
+    }
+
+    // "renovar" já respondido — exibido pelo bloco anterior (tela de pagamento)
+    return null;
   }
 
   if (tela === "confirmado") {
