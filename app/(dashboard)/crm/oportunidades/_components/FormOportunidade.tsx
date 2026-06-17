@@ -177,6 +177,7 @@ export default function FormOportunidade({ inicial, onSalvo }: Props) {
   );
 
   return (
+    <>
     <div style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 14, padding: "28px 32px" }}>
 
       {error && (
@@ -413,5 +414,6 @@ export default function FormOportunidade({ inicial, onSalvo }: Props) {
         </div>
       </div>
     )}
+    </>
   );
 }
