@@ -119,6 +119,76 @@ export default function RespostaCampanhaPage() {
   }
 
   if (tela === "ja_respondeu" && dados) {
+    // Se respondeu "renovar" e Asaas ativo, mostrar opção de pagamento
+    if (dados.resposta === "renovar" && dados.asaasAtivo && dados.renewalFee > 0) {
+      return (
+        <Wrap>
+          <div style={{ textAlign: "center", marginBottom: 20 }}>
+            <div style={{ fontSize: 12, color: "#999", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+              {dados.nomeEmpresa}
+            </div>
+            <h1 style={{ fontSize: 18, fontWeight: 800, color: "#111", margin: "0 0 6px", letterSpacing: "-0.02em" }}>
+              {dados.titulo}
+            </h1>
+          </div>
+          <div style={{ background: "#FFFBEB", border: "1px solid #FDE68A", borderRadius: 10, padding: "14px 18px", marginBottom: 20, fontSize: 14, color: "#92400E" }}>
+            Você sinalizou interesse em renovar. Finalize o pagamento para garantir o acesso às suas fotos.
+          </div>
+          <div style={{ background: "#EFF6FF", border: "1px solid #BFDBFE", borderRadius: 8, padding: "10px 14px", marginBottom: 16, fontSize: 13, color: "#1D4ED8", textAlign: "center" }}>
+            Taxa de renovação: <strong>R$ {dados.renewalFee.toFixed(2).replace(".", ",")}</strong>
+          </div>
+          <div style={{ marginBottom: 14 }}>
+            <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#555", marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+              Nome *
+            </label>
+            <input type="text" value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Seu nome completo" style={inputStyle} />
+          </div>
+          <div style={{ marginBottom: 14 }}>
+            <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#555", marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+              E-mail *
+            </label>
+            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="seu@email.com" style={inputStyle} />
+          </div>
+          <div style={{ marginBottom: 20 }}>
+            <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#555", marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+              CPF (opcional)
+            </label>
+            <input type="text" value={cpf} onChange={(e) => setCpf(e.target.value)} placeholder="000.000.000-00" style={inputStyle} />
+          </div>
+          {erro && (
+            <div style={{ fontSize: 13, color: "#EF4444", marginBottom: 14, padding: "10px 14px", background: "rgba(239,68,68,0.07)", borderRadius: 8 }}>
+              {erro}
+            </div>
+          )}
+          <button
+            onClick={async () => {
+              setSalvando(true);
+              setErro("");
+              if (!nome.trim()) { setErro("Informe seu nome para continuar."); setSalvando(false); return; }
+              const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+              if (!emailRe.test(email.trim())) { setErro("Informe um e-mail válido para continuar."); setSalvando(false); return; }
+              const r = await fetch(`/api/entrega/${dados.galeriaId}/renovar`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ nome: nome.trim(), email: email.trim(), cpf: cpf.trim() || undefined }),
+              });
+              const j = await r.json();
+              if (!r.ok) { setErro(j.erro ?? "Erro ao gerar cobrança."); setSalvando(false); return; }
+              window.location.href = j.invoiceUrl;
+            }}
+            disabled={salvando}
+            style={{
+              width: "100%", padding: "13px 20px", borderRadius: 10, border: "none",
+              background: salvando ? "#9CA3AF" : "#1D4ED8", color: "#fff",
+              fontSize: 15, fontWeight: 700, cursor: salvando ? "default" : "pointer",
+            }}
+          >
+            {salvando ? "Aguarde…" : "Ir para pagamento →"}
+          </button>
+        </Wrap>
+      );
+    }
+
     const respostaTexto = dados.resposta === "tem_arquivos"
       ? "Já tenho meus arquivos"
       : "Quero renovar meu acesso";
