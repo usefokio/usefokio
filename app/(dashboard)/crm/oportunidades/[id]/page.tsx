@@ -135,28 +135,29 @@ export default function OportunidadeDetailPage() {
 
   const etapaAtualIdx = opp?.etapa_id ? etapas.findIndex(e => e.id === opp.etapa_id) : -1;
 
-  const handleAvancar = async () => {
-    if (!opp || etapas.length === 0) return;
-    const proximaIdx = etapaAtualIdx + 1;
-    if (proximaIdx >= etapas.length) return;
-    const proximaEtapa = etapas[proximaIdx];
+  const handleIrParaEtapa = async (etapa: CrmFunnelStage, obs?: string) => {
+    if (!opp || avancando) return;
+    const funilId = opp.funil_id ?? funis[0]?.id;
+    if (!funilId) return;
     setAvancando(true);
     const sb = createClient();
-
-    // se não tem funil vinculado ainda, vincular o primeiro
-    const funilId = opp.funil_id ?? funis[0]?.id;
-    if (!funilId) { setAvancando(false); return; }
-
-    await sb.from("crm_opportunities").update({ etapa_id: proximaEtapa.id, funil_id: funilId }).eq("id", id);
+    await sb.from("crm_opportunities").update({ etapa_id: etapa.id, funil_id: funilId }).eq("id", id);
     await sb.from("crm_funnel_progress").insert({
       oportunidade_id: id,
-      etapa_id:        proximaEtapa.id,
-      observacao:      obsTexto.trim() || null,
+      etapa_id:        etapa.id,
+      observacao:      obs?.trim() || null,
     });
     setObsTexto("");
     await carregarOpp();
     await carregarProgress();
     setAvancando(false);
+  };
+
+  const handleAvancar = () => {
+    if (!opp || etapas.length === 0) return;
+    const proximaIdx = etapaAtualIdx + 1;
+    if (proximaIdx >= etapas.length) return;
+    handleIrParaEtapa(etapas[proximaIdx], obsTexto);
   };
 
   const handleVincularFunil = async (funilId: string) => {
@@ -294,18 +295,26 @@ export default function OportunidadeDetailPage() {
             </div>
           ) : (
             <>
-              {/* Barra de progresso das etapas */}
+              {/* Barra de progresso das etapas — clicável */}
               <div style={{ display: "flex", gap: 4, marginBottom: 16, flexWrap: "wrap" }}>
                 {etapas.map((e, idx) => {
                   const concluida = etapaAtualIdx >= 0 && idx < etapaAtualIdx;
                   const atual     = e.id === opp.etapa_id;
                   return (
-                    <div key={e.id} style={{ flex: 1, minWidth: 60, display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+                    <div
+                      key={e.id}
+                      onClick={() => !avancando && e.id !== opp.etapa_id && handleIrParaEtapa(e)}
+                      title={atual ? "Etapa atual" : `Ir para: ${e.nome}`}
+                      style={{ flex: 1, minWidth: 60, display: "flex", flexDirection: "column", alignItems: "center", gap: 4, cursor: atual || avancando ? "default" : "pointer" }}
+                    >
                       <div style={{
                         width: "100%", height: 6, borderRadius: 3,
                         background: concluida ? "#059669" : atual ? "#2563EB" : "var(--color-border-tertiary)",
                         transition: "background 0.2s",
-                      }} />
+                      }}
+                        onMouseEnter={(ev) => { if (!atual && !avancando) (ev.currentTarget as HTMLDivElement).style.opacity = "0.6"; }}
+                        onMouseLeave={(ev) => { (ev.currentTarget as HTMLDivElement).style.opacity = "1"; }}
+                      />
                       <span style={{ fontSize: 10, color: atual ? "#2563EB" : concluida ? "#059669" : "var(--color-text-secondary)", fontWeight: atual ? 700 : 400, textAlign: "center", lineHeight: 1.3 }}>
                         {e.nome}
                         {e.prazo_dias && <span style={{ display: "block", opacity: 0.7 }}>{e.prazo_dias}d</span>}
