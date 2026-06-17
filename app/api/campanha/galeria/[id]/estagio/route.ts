@@ -74,7 +74,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
   const { data: registro } = await admin
     .from("respostas_campanha")
-    .select("id, resposta")
+    .select("id, resposta, estagio")
     .eq("galeria_id", id)
     .eq("fotografo_id", user.id)
     .maybeSingle();
@@ -82,9 +82,18 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   if (!registro) return NextResponse.json({ erro: "Campanha não encontrada para esta galeria." }, { status: 404 });
 
   const campos: Record<string, string | null> = { estagio: novoEstagio };
-  // Grava timestamp se o estágio tem campo associado (e ainda não foi gravado)
-  const campoTs = TIMESTAMP_CAMPO[novoEstagio];
-  if (campoTs) campos[campoTs] = new Date().toISOString();
+  // Timestamps are only written by PATCH (ModalEmailCliente "Marcar como enviado").
+  // Manual card moves via PUT must NOT overwrite them to avoid showing false "last contact" dates.
+
+  // When regressing to an earlier stage, clear timestamps of stages being reverted.
+  const ORDEM: EstagioFunil[] = ["nao_contatado", "email_1", "email_2", "whatsapp", "encerrado"];
+  const idxAtual = ORDEM.indexOf(registro.estagio as EstagioFunil);
+  const idxNovo  = ORDEM.indexOf(novoEstagio);
+  if (idxNovo < idxAtual) {
+    if (idxNovo < ORDEM.indexOf("whatsapp" as EstagioFunil)) campos.whatsapp_em = null;
+    if (idxNovo < ORDEM.indexOf("email_2"  as EstagioFunil)) campos.email_2_em  = null;
+    if (idxNovo < ORDEM.indexOf("email_1"  as EstagioFunil)) campos.email_1_em  = null;
+  }
 
   // Se o card tinha "renovar" sem pagamento confirmado, zerar resposta para o cliente poder responder novamente
   if (registro.resposta === "renovar") {
