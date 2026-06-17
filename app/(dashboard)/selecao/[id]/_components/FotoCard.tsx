@@ -83,7 +83,7 @@ export function FotoCard({
           )}
           <div style={{
             position: "absolute", top: 6, left: 6,
-            width: 20, height: 20, borderRadius: 5,
+            width: 20, height: 20, borderRadius: "50%",
             background: selecionado ? "#2563EB" : "rgba(0,0,0,0.45)",
             border: selecionado ? "none" : "1.5px solid rgba(255,255,255,0.7)",
             display: "flex", alignItems: "center", justifyContent: "center",
@@ -99,8 +99,8 @@ export function FotoCard({
         </>
       )}
 
-      {/* Estrelas — sempre visíveis se rating > 0, no hover sempre mostra */}
-      {!foto._uploading && !foto._erro && (hover || (foto.rating ?? 0) > 0) && (
+      {/* Estrelas — ocultas em modo seleção para não confundir com o indicador de seleção */}
+      {!foto._uploading && !foto._erro && !modoSelecao && (hover || (foto.rating ?? 0) > 0) && (
         <div style={{ position: "absolute", bottom: 6, left: 6, zIndex: 10 }}>
           <Estrelas rating={foto.rating ?? 0} onRate={hover ? (r) => onRate(foto.id, r) : undefined} />
         </div>
