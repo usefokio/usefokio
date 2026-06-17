@@ -50,6 +50,7 @@ export default function RespostaCampanhaPage() {
       if (!nome.trim()) { setErro("Informe seu nome para continuar."); setSalvando(false); return; }
       const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRe.test(email.trim())) { setErro("Informe um e-mail válido para continuar."); setSalvando(false); return; }
+      if (!cpf.trim()) { setErro("Informe seu CPF para continuar."); setSalvando(false); return; }
 
       // Generate charge via Asaas
       const r = await fetch(`/api/entrega/${dados.galeriaId}/renovar`, {
@@ -151,7 +152,7 @@ export default function RespostaCampanhaPage() {
           </div>
           <div style={{ marginBottom: 20 }}>
             <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#555", marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.04em" }}>
-              CPF (opcional)
+              CPF *
             </label>
             <input type="text" value={cpf} onChange={(e) => setCpf(e.target.value)} placeholder="000.000.000-00" style={inputStyle} />
           </div>
@@ -167,6 +168,7 @@ export default function RespostaCampanhaPage() {
               if (!nome.trim()) { setErro("Informe seu nome para continuar."); setSalvando(false); return; }
               const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
               if (!emailRe.test(email.trim())) { setErro("Informe um e-mail válido para continuar."); setSalvando(false); return; }
+              if (!cpf.trim()) { setErro("Informe seu CPF para continuar."); setSalvando(false); return; }
               const r = await fetch(`/api/entrega/${dados.galeriaId}/renovar`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -337,7 +339,7 @@ export default function RespostaCampanhaPage() {
             {dados.asaasAtivo && dados.renewalFee > 0 && (
               <div style={{ marginBottom: 20 }}>
                 <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#555", marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.04em" }}>
-                  CPF (opcional)
+                  CPF *
                 </label>
                 <input
                   type="text"
