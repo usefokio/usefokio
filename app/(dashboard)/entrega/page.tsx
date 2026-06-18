@@ -11,7 +11,7 @@ import { ModalEmailCliente } from "./_components/ModalEmailCliente";
 
 // ─── Helpers de status ────────────────────────────────────────────────────────
 type StatusEntrega = "ativo" | "expirando" | "expirado" | "sem_prazo" | "suspensa" | "rascunho";
-type Filtro = "todas" | StatusEntrega;
+type Filtro = "todas" | StatusEntrega | "tem_arquivos";
 type Ordenacao = "evento" | "criado";
 
 function diasRestantes(expiresAt: string | null): number | null {
@@ -247,19 +247,22 @@ export default function EntregaPage() {
 
   // Contadores de status dentro do ano selecionado
   const contadores: Record<Filtro, number> = {
-    todas:     porAno.length,
-    ativo:     porAno.filter((g) => g._status === "ativo").length,
-    expirando: porAno.filter((g) => g._status === "expirando").length,
-    expirado:  porAno.filter((g) => g._status === "expirado").length,
-    sem_prazo: porAno.filter((g) => g._status === "sem_prazo").length,
-    suspensa:  porAno.filter((g) => g._status === "suspensa").length,
-    rascunho:  porAno.filter((g) => g._status === "rascunho").length,
+    todas:        porAno.length,
+    ativo:        porAno.filter((g) => g._status === "ativo").length,
+    expirando:    porAno.filter((g) => g._status === "expirando").length,
+    expirado:     porAno.filter((g) => g._status === "expirado").length,
+    sem_prazo:    porAno.filter((g) => g._status === "sem_prazo").length,
+    suspensa:     porAno.filter((g) => g._status === "suspensa").length,
+    rascunho:     porAno.filter((g) => g._status === "rascunho").length,
+    tem_arquivos: porAno.filter((g) => (g.respostas_campanha as any[])?.[0]?.resposta === "tem_arquivos").length,
   };
 
   // Aplicar filtro de status
   const porAnoEStatus = filtro === "todas"
     ? porAno
-    : porAno.filter((g) => g._status === filtro);
+    : filtro === "tem_arquivos"
+      ? porAno.filter((g) => (g.respostas_campanha as any[])?.[0]?.resposta === "tem_arquivos")
+      : porAno.filter((g) => g._status === filtro);
 
   // Aplicar busca por nome
   const porBusca = busca.trim()
@@ -413,6 +416,21 @@ export default function EntregaPage() {
             </button>
           );
         })}
+        {contadores.tem_arquivos > 0 && (
+          <button
+            onClick={() => setFiltro(filtro === "tem_arquivos" ? "todas" : "tem_arquivos")}
+            style={{
+              padding: "4px 12px", borderRadius: 20, border: "0.5px solid", cursor: "pointer",
+              fontSize: 12, transition: "all 0.15s",
+              borderColor: filtro === "tem_arquivos" ? "#16a34a" : "rgba(34,197,94,0.4)",
+              background: filtro === "tem_arquivos" ? "#16a34a" : "rgba(34,197,94,0.08)",
+              color: filtro === "tem_arquivos" ? "white" : "#16a34a",
+              fontWeight: filtro === "tem_arquivos" ? 600 : 500,
+            }}
+          >
+            ✅ Já tem arquivos ({contadores.tem_arquivos})
+          </button>
+        )}
       </div>
 
       {/* Lista */}
@@ -431,7 +449,7 @@ export default function EntregaPage() {
             </>
           ) : (
             <div style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>
-              Nenhuma galeria encontrada{anoFiltro ? ` em ${anoFiltro}` : ""}{filtro !== "todas" ? ` com status "${STATUS_LABEL[filtro as StatusEntrega]}"` : ""}
+              Nenhuma galeria encontrada{anoFiltro ? ` em ${anoFiltro}` : ""}{filtro !== "todas" ? ` com status "${filtro === "tem_arquivos" ? "Já tem arquivos" : STATUS_LABEL[filtro as StatusEntrega]}"` : ""}
             </div>
           )}
         </div>
