@@ -218,6 +218,7 @@ export function Sidebar() {
       {/* Nav */}
       <nav style={{ padding: collapsed ? "8px 6px" : 8, flex: 1 }}>
         {NAV_ITEMS.filter((item) => {
+          if (process.env.NODE_ENV === "development") return item.href === "/crm";
           // Oculta itens cujo recurso foi desativado pelo webmaster para este fotógrafo
           const recursoPorRota: Record<string, keyof NonNullable<typeof fotografo>["recursos"]> = {
             "/selecao": "selecao", "/entrega": "entrega", "/album": "album", "/contatos": "contatos", "/crm": "crm",
@@ -261,12 +262,13 @@ export function Sidebar() {
               {item.href === "/crm" && !collapsed && pathname.startsWith("/crm") && (() => {
                 const crmSubs = [
                   { href: "/crm/oportunidades", label: "Oportunidades" },
-                  { href: "/crm/pedidos",        label: "Pedidos" },
-                  { href: "/crm/produtos",       label: "Produtos" },
-                  { href: "/crm/contas",         label: "Contas Bancárias" },
-                  { href: "/crm/financeiro",     label: "Financeiro" },
-                  { href: "/crm/resultados",     label: "Resultados" },
-                  { href: "/crm/config",         label: "Config. CRM" },
+                  { href: "/crm/clientes",      label: "Clientes" },
+                  { href: "/crm/pedidos",       label: "Pedidos" },
+                  { href: "/crm/produtos",      label: "Produtos" },
+                  { href: "/crm/contas",        label: "Contas Bancárias" },
+                  { href: "/crm/financeiro",    label: "Financeiro" },
+                  { href: "/crm/resultados",    label: "Resultados" },
+                  { href: "/crm/config",        label: "Config. CRM" },
                 ];
                 return (
                   <>

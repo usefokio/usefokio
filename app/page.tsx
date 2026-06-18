@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Avatar } from "@/components/ui/Avatar";
 import { PLANOS } from "@/lib/planos";
@@ -14,7 +15,14 @@ const SELECTED_INDICES = [0, 2, 4, 5, 8, 11];
 type Section = "home" | "features" | "plans" | "blog";
 
 export default function LandingPage() {
+  const router = useRouter();
   const [nav, setNav] = useState<Section>("home");
+
+  useEffect(() => {
+    if (process.env.NODE_ENV === "development") {
+      router.replace("/crm");
+    }
+  }, [router]);
 
   return (
     <div style={{ fontFamily: "system-ui,sans-serif", color: "#111", background: "#fff", minHeight: "100vh" }}>

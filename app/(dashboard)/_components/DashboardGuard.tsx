@@ -61,10 +61,11 @@ function ModalAceiteTermos({ onAceito }: { onAceito: () => void }) {
 export function DashboardGuard({ children }: { children: React.ReactNode }) {
   const { fotografo, loading } = useFotografo();
   const router = useRouter();
-  const [termosVerificados, setTermosVerificados] = useState(false);
+  const [termosVerificados, setTermosVerificados] = useState(process.env.NODE_ENV === "development");
   const [precisaAceitar,    setPrecisaAceitar]    = useState(false);
 
   useEffect(() => {
+    if (process.env.NODE_ENV === "development") return;
     if (loading) return;
 
     if (!fotografo) {
