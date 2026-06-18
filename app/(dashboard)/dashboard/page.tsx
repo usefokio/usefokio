@@ -9,10 +9,12 @@ import type { Cliente, GaleriaSelecao } from "@/lib/supabase/types";
 import { DoacaoDev } from "../_components/DoacaoDev";
 
 type Stats = {
-  totalClientes:      number;
-  clientesEsteMes:    number;
-  totalGalerias:      number;
-  galeriasAtivas:     number;
+  totalClientes:         number;
+  clientesEsteMes:       number;
+  totalGalerias:         number;
+  galeriasAtivas:        number;
+  totalEntregas:         number;
+  entregasAtivas:        number;
 };
 
 const STORAGE_BASE = "https://fhsoqlttxggjpgrupjse.supabase.co/storage/v1/object/public/galerias/";
@@ -91,24 +93,31 @@ export default function DashboardPage() {
     async function load() {
       const supabase = createClient();
 
-      const [{ data: clientes }, { data: galerias }] = await Promise.all([
+      const [{ data: clientes }, { data: galerias }, { data: entregas }] = await Promise.all([
         supabase.from("clientes").select("id, nome, created_at").order("created_at", { ascending: false }),
         supabase.from("galerias_selecao")
           .select("id, titulo, status, selecao_enviada_em, created_at, foto_capa_id, cliente:clientes(nome), capa_foto:galerias_selecao_fotos!foto_capa_id(thumbnail_path, url_publica)")
           .order("created_at", { ascending: false }),
+        supabase.from("galerias_entrega")
+          .select("id, rascunho, suspensa, expires_at")
+          .eq("rascunho", false),
       ]);
 
-      const lista  = (clientes ?? []) as Pick<Cliente, "id" | "nome" | "created_at">[];
-      const gals   = (galerias ?? []) as unknown as (GaleriaSelecao & { cliente?: { nome: string } | null })[];
+      const lista    = (clientes ?? []) as Pick<Cliente, "id" | "nome" | "created_at">[];
+      const gals     = (galerias ?? []) as unknown as (GaleriaSelecao & { cliente?: { nome: string } | null })[];
+      const entList  = (entregas ?? []) as { id: string; rascunho: boolean; suspensa: boolean; expires_at: string | null }[];
 
       const inicioMes = new Date();
       inicioMes.setDate(1); inicioMes.setHours(0, 0, 0, 0);
 
+      const agora = new Date();
       setStats({
         totalClientes:   lista.length,
         clientesEsteMes: lista.filter((c) => new Date(c.created_at) >= inicioMes).length,
         totalGalerias:   gals.length,
         galeriasAtivas:  gals.filter((g) => g.status === "ativa").length,
+        totalEntregas:   entList.length,
+        entregasAtivas:  entList.filter((g) => !g.suspensa && (!g.expires_at || new Date(g.expires_at) > agora)).length,
       });
 
       // Galerias aguardando revisão
@@ -320,10 +329,19 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 10, padding: "16px 18px" }}>
+        <div
+          onClick={() => router.push("/entrega")}
+          style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 10, padding: "16px 18px", cursor: "pointer" }}
+          onMouseEnter={(e) => (e.currentTarget.style.borderColor = "#2563EB")}
+          onMouseLeave={(e) => (e.currentTarget.style.borderColor = "var(--color-border-tertiary)")}
+        >
           <div style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>Galerias de Entrega</div>
-          <div style={{ fontSize: 32, fontWeight: 700, color: "var(--color-text-primary)", letterSpacing: "-0.02em", lineHeight: 1 }}>0</div>
-          <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 6 }}>Em breve</div>
+          <div style={{ fontSize: 32, fontWeight: 700, color: "var(--color-text-primary)", letterSpacing: "-0.02em", lineHeight: 1 }}>
+            {loading ? "—" : stats?.totalEntregas ?? 0}
+          </div>
+          <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 6 }}>
+            {loading ? "" : `${stats?.entregasAtivas ?? 0} ativa${stats?.entregasAtivas !== 1 ? "s" : ""}`}
+          </div>
         </div>
 
       </div>
