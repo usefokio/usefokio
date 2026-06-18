@@ -412,7 +412,7 @@ export default function EntregaPage() {
                 fontWeight: ativo || (isAtencao && contadores.expirando > 0) ? 600 : 400,
               }}
             >
-              {s === "todas" ? "Todas" : STATUS_LABEL[s]} ({cnt})
+              {s === "todas" ? "Todas" : STATUS_LABEL[s as StatusEntrega]} ({cnt})
             </button>
           );
         })}
