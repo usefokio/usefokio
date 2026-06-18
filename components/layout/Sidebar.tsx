@@ -36,6 +36,17 @@ const NAV_ITEMS = [
     ),
   },
   {
+    href: "/album",
+    label: "Álbuns",
+    icon: (
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+        <rect x="1" y="2" width="7" height="12" rx="1.5" stroke="currentColor" strokeWidth="1.3" fill="none" opacity=".8" />
+        <rect x="8" y="2" width="7" height="12" rx="1.5" stroke="currentColor" strokeWidth="1.3" fill="none" opacity=".4" />
+        <path d="M8 2v12" stroke="currentColor" strokeWidth="1" opacity=".5" />
+      </svg>
+    ),
+  },
+  {
     href: "/clientes",
     label: "Clientes",
     icon: (
@@ -47,33 +58,15 @@ const NAV_ITEMS = [
     ),
   },
   {
-    href: "/selecao",
-    label: "Galerias de Seleção",
+    href: "/config",
+    label: "Configurações",
     icon: (
       <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
-        <rect x="1" y="3" width="14" height="10" rx="2" stroke="currentColor" strokeWidth="1.3" fill="none" opacity=".8" />
-        <path d="M1 10l3.5-3 3 3 2.5-2.5 4 4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" fill="none" opacity=".8" />
-      </svg>
-    ),
-  },
-  {
-    href: "/entrega",
-    label: "Galerias de Entrega",
-    icon: (
-      <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
-        <rect x="2" y="2" width="12" height="12" rx="2" stroke="currentColor" strokeWidth="1.3" fill="none" opacity=".8" />
-        <path d="M8 5v6M5 8l3 3 3-3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" opacity=".8" />
-      </svg>
-    ),
-  },
-  {
-    href: "/album",
-    label: "Álbuns",
-    icon: (
-      <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
-        <rect x="1" y="2" width="7" height="12" rx="1.5" stroke="currentColor" strokeWidth="1.3" fill="none" opacity=".8" />
-        <rect x="8" y="2" width="7" height="12" rx="1.5" stroke="currentColor" strokeWidth="1.3" fill="none" opacity=".4" />
-        <path d="M8 2v12" stroke="currentColor" strokeWidth="1" opacity=".5" />
+        <circle cx="8" cy="8" r="2" stroke="currentColor" strokeWidth="1.3" fill="none" />
+        <path
+          d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.41 1.41M11.54 11.54l1.41 1.41M3.05 12.95l1.41-1.41M11.54 4.46l1.41-1.41"
+          stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"
+        />
       </svg>
     ),
   },
@@ -89,18 +82,6 @@ const NAV_ITEMS = [
     ),
   },
   {
-    href: "/recebimentos",
-    label: "Recebimentos",
-    icon: (
-      <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
-        <rect x="1" y="3" width="14" height="10" rx="2" stroke="currentColor" strokeWidth="1.3" fill="none" opacity=".8" />
-        <path d="M1 6h14" stroke="currentColor" strokeWidth="1.3" opacity=".5" />
-        <rect x="3" y="9" width="3" height="1.5" rx=".5" fill="currentColor" opacity=".6" />
-        <rect x="8" y="9" width="5" height="1.5" rx=".5" fill="currentColor" opacity=".4" />
-      </svg>
-    ),
-  },
-  {
     href: "/crm",
     label: "CRM",
     icon: (
@@ -112,15 +93,34 @@ const NAV_ITEMS = [
     ),
   },
   {
-    href: "/config",
-    label: "Configurações",
+    href: "/entrega",
+    label: "Galerias de Entrega",
     icon: (
       <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
-        <circle cx="8" cy="8" r="2" stroke="currentColor" strokeWidth="1.3" fill="none" />
-        <path
-          d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.41 1.41M11.54 11.54l1.41 1.41M3.05 12.95l1.41-1.41M11.54 4.46l1.41-1.41"
-          stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"
-        />
+        <rect x="2" y="2" width="12" height="12" rx="2" stroke="currentColor" strokeWidth="1.3" fill="none" opacity=".8" />
+        <path d="M8 5v6M5 8l3 3 3-3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" opacity=".8" />
+      </svg>
+    ),
+  },
+  {
+    href: "/selecao",
+    label: "Galerias de Seleção",
+    icon: (
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+        <rect x="1" y="3" width="14" height="10" rx="2" stroke="currentColor" strokeWidth="1.3" fill="none" opacity=".8" />
+        <path d="M1 10l3.5-3 3 3 2.5-2.5 4 4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" fill="none" opacity=".8" />
+      </svg>
+    ),
+  },
+  {
+    href: "/recebimentos",
+    label: "Recebimentos",
+    icon: (
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+        <rect x="1" y="3" width="14" height="10" rx="2" stroke="currentColor" strokeWidth="1.3" fill="none" opacity=".8" />
+        <path d="M1 6h14" stroke="currentColor" strokeWidth="1.3" opacity=".5" />
+        <rect x="3" y="9" width="3" height="1.5" rx=".5" fill="currentColor" opacity=".6" />
+        <rect x="8" y="9" width="5" height="1.5" rx=".5" fill="currentColor" opacity=".4" />
       </svg>
     ),
   },
