@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { fetchAllRows } from "@/lib/supabase/fetchAll";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { inputStyle } from "@/lib/styles";
 import { gerarSenhaAcesso } from "@/lib/utils";
@@ -189,16 +190,13 @@ export function ClienteSelect({
   useEffect(() => {
     if (!fotografo) return;
     const supabase = createClient();
-    supabase
-      .from("clientes")
-      .select("*")
-      .eq("fotografo_id", fotografo.id)
-      .order("nome")
-      .limit(5000)
-      .then(({ data }) => {
-        setClientes(data ?? []);
-        setLoading(false);
-      });
+    fetchAllRows<Cliente>(
+      (sb, from, to) => sb.from("clientes").select("*").eq("fotografo_id", fotografo.id).order("nome").range(from, to),
+      supabase,
+    ).then((data) => {
+      setClientes(data);
+      setLoading(false);
+    });
   }, [fotografo]);
 
   // Fecha ao clicar fora
