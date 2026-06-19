@@ -5,11 +5,11 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { useUnsavedGuard } from "@/lib/hooks/useUnsavedGuard";
-import { gerarSenhaAcesso } from "@/lib/utils";
-import type { Cliente, Categoria, ConfigVendaFotos, ResolucaoExibicao } from "@/lib/supabase/types";
+import type { Categoria, ConfigVendaFotos, ResolucaoExibicao } from "@/lib/supabase/types";
 import { processarImagem, aplicarMarcaDagua, formatBytes } from "@/lib/imageResize";
 import { BETA_RESOLUCAO_MAXIMA } from "@/lib/planos";
 import { Field } from "@/components/ui/Field";
+import { ClienteSelect } from "@/components/ui/ClienteSelect";
 import { inputStyle } from "@/lib/styles";
 
 // ─── Arquivo em fila de upload ─────────────────────────────────────────────────
@@ -21,64 +21,6 @@ type ArquivoFila = {
   progresso:  number;
   erro?:      string;
 };
-
-// ─── Modal: Novo cliente inline ───────────────────────────────────────────────
-function ModalNovoCliente({
-  fotografoId, onClose, onCriado,
-}: {
-  fotografoId: string;
-  onClose:     () => void;
-  onCriado:    (c: Cliente) => void;
-}) {
-  const [nome, setNome]         = useState("");
-  const [email, setEmail]       = useState("");
-  const [telefone, setTelefone] = useState("");
-  const [saving, setSaving]     = useState(false);
-  const [error, setError]       = useState("");
-
-  async function criar() {
-    if (!nome.trim()) { setError("Nome é obrigatório."); return; }
-    setSaving(true);
-    const supabase = createClient();
-    const { data, error: err } = await supabase
-      .from("clientes")
-      .insert({ fotografo_id: fotografoId, nome: nome.trim(), email: email.trim() || null, telefone: telefone.trim() || null, senha_acesso: gerarSenhaAcesso() })
-      .select().single();
-    setSaving(false);
-    if (err) { setError(err.message); return; }
-    onCriado(data as Cliente);
-  }
-
-  return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 300 }}
-      onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 14, padding: "28px 32px", width: 420, boxShadow: "0 24px 64px rgba(0,0,0,0.2)" }}>
-        <div style={{ fontSize: 15, fontWeight: 700, color: "var(--color-text-primary)", marginBottom: 4 }}>Novo cliente</div>
-        <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginBottom: 20 }}>Uma senha de acesso será gerada automaticamente.</div>
-        {error && <div style={{ background: "rgba(239,68,68,0.08)", border: "0.5px solid rgba(239,68,68,0.3)", borderRadius: 7, padding: "8px 12px", marginBottom: 14, fontSize: 12, color: "#EF4444" }}>{error}</div>}
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          <Field label="Nome completo *">
-            <input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Ex: Maria Oliveira" style={inputStyle} autoFocus onKeyDown={(e) => e.key === "Enter" && criar()} />
-          </Field>
-          <Field label="Email">
-            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="email@exemplo.com" style={inputStyle} onKeyDown={(e) => e.key === "Enter" && criar()} />
-          </Field>
-          <Field label="Telefone">
-            <input type="tel" value={telefone} onChange={(e) => setTelefone(e.target.value)} placeholder="(00) 00000-0000" style={inputStyle} onKeyDown={(e) => e.key === "Enter" && criar()} />
-          </Field>
-        </div>
-        <div style={{ display: "flex", gap: 10, marginTop: 22 }}>
-          <button onClick={criar} disabled={saving || !nome.trim()} style={{ flex: 1, padding: "10px 0", borderRadius: 8, background: saving || !nome.trim() ? "#93C5FD" : "#2563EB", color: "#fff", border: "none", fontSize: 13, fontWeight: 700, cursor: saving || !nome.trim() ? "not-allowed" : "pointer" }}>
-            {saving ? "Salvando…" : "Cadastrar"}
-          </button>
-          <button onClick={onClose} style={{ padding: "10px 18px", borderRadius: 8, background: "transparent", color: "var(--color-text-secondary)", border: "0.5px solid var(--color-border-secondary)", fontSize: 13, cursor: "pointer" }}>
-            Cancelar
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 // ─── Seletor de categorias ────────────────────────────────────────────────────
 function CategoriaSelector({ fotografoId, selecionadas, onChange }: { fotografoId: string; selecionadas: string[]; onChange: (ids: string[]) => void }) {
@@ -177,9 +119,7 @@ function NovaSelecaoConteudo() {
   const params        = useSearchParams();
   const { fotografo } = useFotografo();
 
-  const [clientes, setClientes]   = useState<Cliente[]>([]);
   const [cfgVenda, setCfgVenda]   = useState<ConfigVendaFotos | null>(null);
-  const [modalCliente, setModalCliente] = useState(false);
 
   // Campos do formulário
   const [titulo, setTitulo]         = useState("");
@@ -214,11 +154,9 @@ function NovaSelecaoConteudo() {
     async function load() {
       if (!fotografo) return;
       const supabase = createClient();
-      const [{ data: cls }, { data: cfg }] = await Promise.all([
-        supabase.from("clientes").select("id, nome, email, telefone, whatsapp, instagram, observacoes, senha_acesso, fotografo_id, created_at, updated_at").order("nome"),
+      const [{ data: cfg }] = await Promise.all([
         supabase.from("config_venda_fotos").select("*").eq("fotografo_id", fotografo.id).maybeSingle(),
       ]);
-      setClientes((cls as Cliente[]) ?? []);
 
       // Pré-preencher configurações padrão de venda
       if (cfg) {
@@ -239,12 +177,6 @@ function NovaSelecaoConteudo() {
   function handleSairClick() {
     if (temAlteracoes) { pedirSaida("/selecao"); return; }
     router.back();
-  }
-
-  function handleClienteCriado(novo: Cliente) {
-    setClientes((l) => [...l, novo].sort((a, b) => a.nome.localeCompare(b.nome)));
-    setClienteId(novo.id);
-    setModalCliente(false);
   }
 
   // ── Fila de arquivos ──
@@ -477,15 +409,7 @@ function NovaSelecaoConteudo() {
             </Field>
 
             <Field label="Cliente">
-              <div style={{ display: "flex", gap: 8 }}>
-                <select value={clienteId} onChange={(e) => setClienteId(e.target.value)} style={{ ...inputStyle, flex: 1 }}>
-                  <option value="">— Sem cliente vinculado —</option>
-                  {clientes.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
-                </select>
-                <button type="button" onClick={() => setModalCliente(true)} style={{ padding: "0 14px", borderRadius: 8, flexShrink: 0, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-secondary)", cursor: "pointer", fontSize: 13, fontWeight: 600, color: "var(--color-text-secondary)", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 5 }}>
-                  + Novo
-                </button>
-              </div>
+              <ClienteSelect value={clienteId} onChange={(id) => setClienteId(id)} />
             </Field>
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
@@ -687,10 +611,6 @@ function NovaSelecaoConteudo() {
           Cancelar
         </button>
       </div>
-
-      {modalCliente && fotografo && (
-        <ModalNovoCliente fotografoId={fotografo.id} onClose={() => setModalCliente(false)} onCriado={handleClienteCriado} />
-      )}
 
       {/* Modal: dados não salvos */}
       {modalSair && (
