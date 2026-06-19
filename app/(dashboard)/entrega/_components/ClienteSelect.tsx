@@ -194,6 +194,7 @@ export function ClienteSelect({
       .select("*")
       .eq("fotografo_id", fotografo.id)
       .order("nome")
+      .limit(5000)
       .then(({ data }) => {
         setClientes(data ?? []);
         setLoading(false);
