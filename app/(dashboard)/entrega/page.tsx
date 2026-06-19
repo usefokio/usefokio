@@ -266,7 +266,11 @@ export default function EntregaPage() {
 
   // Aplicar busca por nome
   const porBusca = busca.trim()
-    ? porAnoEStatus.filter((g) => g.titulo.toLowerCase().includes(busca.trim().toLowerCase()))
+    ? porAnoEStatus.filter((g) => {
+        const termo = busca.trim().toLowerCase();
+        const nomeCliente = (g.clientes as any)?.nome?.toLowerCase() ?? "";
+        return g.titulo.toLowerCase().includes(termo) || nomeCliente.includes(termo);
+      })
     : porAnoEStatus;
 
   // Ordenação
