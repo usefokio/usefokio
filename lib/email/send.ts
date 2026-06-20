@@ -24,6 +24,11 @@ export async function enviarEmailCliente({
     throw new Error("Servidor de e-mail não configurado. Acesse Configurações → Servidor de e-mail.");
   }
 
+  const fromAddress = f.smtp_from || f.smtp_user;
+  if (!fromAddress) {
+    throw new Error("Remetente (From) não configurado. Acesse Configurações → Servidor de e-mail.");
+  }
+
   const transporter = nodemailer.createTransport({
     host: f.smtp_host,
     port: f.smtp_port ?? 587,
@@ -32,7 +37,7 @@ export async function enviarEmailCliente({
   });
 
   await transporter.sendMail({
-    from: f.smtp_from ?? f.smtp_user,
+    from: fromAddress,
     to,
     subject,
     html,

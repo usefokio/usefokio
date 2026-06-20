@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
     smtp_port:     port ?? 587,
     smtp_user:     smtpUser ?? null,
     smtp_pass_enc: passEnc,
-    smtp_from:     from ?? null,
+    smtp_from:     from || null,
     smtp_ativo:    ativo ?? false,
   }).eq("id", user.id);
 
