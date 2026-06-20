@@ -242,8 +242,8 @@ export function ModalEmailCliente({ galeria, onFechar, templateInicial, onEstagi
     } else {
       const customText = tpls?.[t.id];
       const vars: TemplateVars = { nomeCliente, titulo: galeria.titulo, link, respostaUrl: "", diasRestantes, nomeEmpresa };
-      const prazoEfetivo = t.id === "renovacao" && diasRestantes !== null && diasRestantes > 0
-        ? `até ${new Date(Date.now() + diasRestantes * 86_400_000).toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" })}`
+      const prazoEfetivo = t.id === "renovacao" && galeria.expires_at && diasRestantes !== null && diasRestantes > 0
+        ? `até ${new Date(galeria.expires_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric", timeZone: "America/Sao_Paulo" })}`
         : prazo;
       setMensagem(substituirVars(customText ?? t.padrao, { ...vars, prazo: prazoEfetivo }));
       setAssunto(t.assunto.replace("{titulo}", galeria.titulo));
