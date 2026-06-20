@@ -78,29 +78,30 @@ export default function OportunidadesPage() {
     if (!fotografo) return;
     setLoading(true);
     const sb = createClient();
-    let q = sb
+    const { data } = await sb
       .from("crm_opportunities")
       .select("*, clientes!cliente_id(nome), etapa:crm_funnel_stages!etapa_id(nome, ordem)")
       .eq("fotografo_id", fotografo.id)
       .order("created_at", { ascending: false });
-    if (status)    q = q.eq("status", status);
-    if (catFiltro) q = q.eq("categoria", catFiltro);
-    const { data } = await q;
     const items = (data ?? []) as OppWithRelations[];
     setOpps(items);
     const cats = [...new Set(items.map(o => o.categoria).filter(Boolean) as string[])].sort();
     setCategorias(cats);
     setLoading(false);
-  }, [fotografo, status, catFiltro]);
+  }, [fotografo]);
 
   useEffect(() => { carregar(); }, [carregar]);
 
-  const filtradas = opps.filter(o =>
-    busca === "" ||
-    o.titulo.toLowerCase().includes(busca.toLowerCase()) ||
-    (o.clientes?.nome ?? "").toLowerCase().includes(busca.toLowerCase()) ||
-    (o.cidade_evento ?? "").toLowerCase().includes(busca.toLowerCase())
-  );
+  const filtradas = opps.filter(o => {
+    if (status && o.status !== status) return false;
+    if (catFiltro && o.categoria !== catFiltro) return false;
+    if (busca !== "" &&
+      !o.titulo.toLowerCase().includes(busca.toLowerCase()) &&
+      !(o.clientes?.nome ?? "").toLowerCase().includes(busca.toLowerCase()) &&
+      !(o.cidade_evento ?? "").toLowerCase().includes(busca.toLowerCase())
+    ) return false;
+    return true;
+  });
 
   async function excluir(id: string) {
     setDeletando(true);
