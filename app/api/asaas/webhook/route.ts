@@ -51,16 +51,7 @@ export async function POST(request: NextRequest) {
   const galeraId = pagamento.galeria_id;
 
   if (galeraId) {
-    const { data: galeria } = await admin
-      .from("galerias_entrega")
-      .select("expires_at")
-      .eq("id", galeraId)
-      .single();
-
-    const base = galeria?.expires_at && new Date(galeria.expires_at) > new Date()
-      ? new Date(galeria.expires_at)
-      : new Date();
-    const novaData = new Date(base.getTime() + (pagamento.dias_liberados ?? 30) * 86_400_000);
+    const novaData = new Date(Date.now() + (pagamento.dias_liberados ?? 30) * 86_400_000);
 
     await admin.from("galerias_entrega").update({
       expires_at: novaData.toISOString(),

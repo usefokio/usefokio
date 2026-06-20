@@ -42,17 +42,8 @@ export async function POST(_request: NextRequest, { params }: { params: Promise<
         continue;
       }
 
-      // Pago: estende o acesso a partir de hoje (ou do prazo atual, o que for maior)
-      const { data: galeria } = await admin
-        .from("galerias_entrega")
-        .select("expires_at")
-        .eq("id", id)
-        .single();
-
-      const base = galeria?.expires_at && new Date(galeria.expires_at) > new Date()
-        ? new Date(galeria.expires_at)
-        : new Date();
-      const novaData = new Date(base.getTime() + (p.dias_liberados ?? 30) * 86_400_000);
+      // Pago: conta sempre a partir da data do pagamento
+      const novaData = new Date(Date.now() + (p.dias_liberados ?? 30) * 86_400_000);
 
       await admin.from("galerias_entrega").update({
         expires_at: novaData.toISOString(),
