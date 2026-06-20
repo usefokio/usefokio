@@ -176,7 +176,10 @@ export function ModalEmailCliente({ galeria, onFechar, templateInicial, onEstagi
   const { fotografo } = useFotografo();
   const [templateId,   setTemplateId]   = useState<TemplateId | null>(templateInicial ?? null);
   const [mensagem,     setMensagem]     = useState("");
+  const [assunto,      setAssunto]      = useState("");
   const [copiado,      setCopiado]      = useState(false);
+  const [enviando,     setEnviando]     = useState(false);
+  const [envioMsg,     setEnvioMsg]     = useState<{ tipo: "ok" | "erro"; texto: string } | null>(null);
   const [tokenInfo,    setTokenInfo]    = useState<TokenInfo | null>(null);
   const [loadingToken, setLoadingToken] = useState(false);
   const [whatsCopiado, setWhatsCopiado] = useState(false);
@@ -210,6 +213,7 @@ export function ModalEmailCliente({ galeria, onFechar, templateInicial, onEstagi
 
   async function selecionarTemplate(t: Template) {
     const tpls = fotografo?.templates_mensagem as Record<string, string> | null;
+    setEnvioMsg(null);
     if (t.id === "campanha") {
       setLoadingToken(true);
       try {
@@ -223,12 +227,14 @@ export function ModalEmailCliente({ galeria, onFechar, templateInicial, onEstagi
         if (info.resposta === "tem_arquivos" && !info.agradecimento_em) {
           const customAgradecimento = tpls?.["campanha_agradecimento"];
           setMensagem(substituirVars(customAgradecimento ?? CAMPANHA_AGRADECIMENTO_DEFAULT, { ...vars, prazo }));
+          setAssunto(`Obrigado pela confirmação — ${galeria.titulo}`);
         } else {
           const cfg        = CAMPANHA_POR_ESTAGIO[info.estagio] ?? CAMPANHA_POR_ESTAGIO.nao_contatado;
           const customText = tpls?.[cfg.key] ?? tpls?.["campanha"];
           const dataEmail1 = formatarDataContato(info.email_1_em);
           const dataEmail2 = formatarDataContato(info.email_2_em);
           setMensagem(substituirVars(customText ?? cfg.default, { ...vars, prazo, dataEmail1, dataEmail2 }));
+          setAssunto(cfg.assunto.replace("{titulo}", galeria.titulo));
         }
       } finally {
         setLoadingToken(false);
@@ -236,11 +242,11 @@ export function ModalEmailCliente({ galeria, onFechar, templateInicial, onEstagi
     } else {
       const customText = tpls?.[t.id];
       const vars: TemplateVars = { nomeCliente, titulo: galeria.titulo, link, respostaUrl: "", diasRestantes, nomeEmpresa };
-      // renovacao usa prazo como data absoluta ("até DD de mês de AAAA")
       const prazoEfetivo = t.id === "renovacao" && diasRestantes !== null && diasRestantes > 0
         ? `até ${new Date(Date.now() + diasRestantes * 86_400_000).toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" })}`
         : prazo;
       setMensagem(substituirVars(customText ?? t.padrao, { ...vars, prazo: prazoEfetivo }));
+      setAssunto(t.assunto.replace("{titulo}", galeria.titulo));
     }
     setTemplateId(t.id);
   }
@@ -248,7 +254,9 @@ export function ModalEmailCliente({ galeria, onFechar, templateInicial, onEstagi
   function voltar() {
     setTemplateId(null);
     setMensagem("");
+    setAssunto("");
     setCopiado(false);
+    setEnvioMsg(null);
     setTokenInfo(null);
   }
 
@@ -299,27 +307,31 @@ export function ModalEmailCliente({ galeria, onFechar, templateInicial, onEstagi
     }
   }
 
-  async function abrirNoEmail() {
-    if (!email || !templateId) return;
-    let assunto: string;
-    if (templateId === "campanha" && tokenInfo) {
-      if (tokenInfo.resposta === "tem_arquivos") {
-        assunto = `Obrigado pela confirmação — ${galeria.titulo}`;
-      } else {
-        const cfg = CAMPANHA_POR_ESTAGIO[tokenInfo.estagio] ?? CAMPANHA_POR_ESTAGIO.nao_contatado;
-        assunto = cfg.assunto.replace("{titulo}", galeria.titulo);
+  async function enviarEmail() {
+    if (!email || !templateId || enviando) return;
+    setEnviando(true);
+    setEnvioMsg(null);
+    try {
+      const res = await fetch("/api/email/enviar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ to: email, subject: assunto, body: mensagem }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setEnvioMsg({ tipo: "erro", texto: json.erro ?? "Erro ao enviar." });
+        return;
       }
-    } else {
-      const template = TEMPLATES.find((t) => t.id === templateId)!;
-      assunto = template.assunto.replace("{titulo}", galeria.titulo);
-    }
-    window.open(`mailto:${email}?subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(mensagem)}`);
-    if (templateId === "campanha" && tokenInfo) {
-      if (tokenInfo.resposta === "tem_arquivos" && !tokenInfo.agradecimento_em) {
-        await marcarAgradecimento();
-      } else if (tokenInfo.estagio === "nao_contatado" || tokenInfo.estagio === "email_1") {
-        await avancarEstagio({ fecharDepois: true });
+      setEnvioMsg({ tipo: "ok", texto: "Email enviado com sucesso!" });
+      if (templateId === "campanha" && tokenInfo) {
+        if (tokenInfo.resposta === "tem_arquivos" && !tokenInfo.agradecimento_em) {
+          await marcarAgradecimento();
+        } else if (tokenInfo.estagio === "nao_contatado" || tokenInfo.estagio === "email_1") {
+          await avancarEstagio({ fecharDepois: true });
+        }
       }
+    } finally {
+      setEnviando(false);
     }
   }
 
@@ -463,12 +475,33 @@ export function ModalEmailCliente({ galeria, onFechar, templateInicial, onEstagi
               <EstagioIndicador estagio={tokenInfo.estagio} resposta={tokenInfo.resposta} email1Em={tokenInfo.email_1_em} email2Em={tokenInfo.email_2_em} agradecimentoEm={tokenInfo.agradecimento_em} />
             )}
 
+            {/* Feedback de envio */}
+            {envioMsg && (
+              <div style={{ marginBottom: 12, padding: "9px 12px", borderRadius: 8, fontSize: 13, fontWeight: 500,
+                background: envioMsg.tipo === "ok" ? "rgba(16,185,129,0.08)" : "rgba(239,68,68,0.08)",
+                color: envioMsg.tipo === "ok" ? "#059669" : "#DC2626",
+                border: `0.5px solid ${envioMsg.tipo === "ok" ? "rgba(16,185,129,0.3)" : "rgba(239,68,68,0.3)"}`,
+              }}>
+                {envioMsg.texto}
+              </div>
+            )}
+
             {/* To: */}
-            <div style={{ marginBottom: 14 }}>
+            <div style={{ marginBottom: 10 }}>
               <div style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>Para</div>
               <div style={{ fontSize: 13, color: email ? "var(--color-text-primary)" : "var(--color-text-secondary)", padding: "8px 12px", background: "var(--color-background-secondary)", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)" }}>
                 {email ?? "—"}
               </div>
+            </div>
+
+            {/* Assunto */}
+            <div style={{ marginBottom: 10 }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>Assunto</div>
+              <input
+                value={assunto}
+                onChange={(e) => setAssunto(e.target.value)}
+                style={{ width: "100%", boxSizing: "border-box", padding: "8px 12px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-secondary)", fontSize: 13, color: "var(--color-text-primary)", fontFamily: "inherit" }}
+              />
             </div>
 
             {/* Mensagem */}
@@ -507,14 +540,17 @@ export function ModalEmailCliente({ galeria, onFechar, templateInicial, onEstagi
                 </button>
                 {email && (
                   <button
-                    onClick={abrirNoEmail}
+                    onClick={enviarEmail}
+                    disabled={enviando || !assunto.trim()}
                     style={{
                       flex: 1, padding: "9px 0", borderRadius: 8, fontSize: 13, fontWeight: 600,
-                      border: "none", background: "var(--color-text-primary)",
-                      color: "var(--color-background-primary)", cursor: "pointer",
+                      border: "none",
+                      background: enviando || !assunto.trim() ? "var(--color-background-secondary)" : "var(--color-text-primary)",
+                      color: enviando || !assunto.trim() ? "var(--color-text-secondary)" : "var(--color-background-primary)",
+                      cursor: enviando || !assunto.trim() ? "default" : "pointer",
                     }}
                   >
-                    Abrir no email
+                    {enviando ? "Enviando…" : "Enviar email"}
                   </button>
                 )}
               </div>

@@ -583,7 +583,6 @@ function ConfigEmail() {
   const [user,    setUser]    = useState(fotografo?.smtp_user ?? "");
   const [pass,    setPass]    = useState("");
   const [from,    setFrom]    = useState(fotografo?.smtp_from ?? "");
-  const [ativo,   setAtivo]   = useState(fotografo?.smtp_ativo ?? false);
   const [salvando,   setSalvando]   = useState(false);
   const [testando,   setTestando]   = useState(false);
   const [msg,        setMsg]        = useState<{ tipo: "ok" | "erro"; texto: string } | null>(null);
@@ -596,7 +595,7 @@ function ConfigEmail() {
     const res = await fetch("/api/config/smtp", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ host, port: Number(port), user, pass: pass || undefined, from, ativo }),
+      body: JSON.stringify({ host, port: Number(port), user, pass: pass || undefined, from, ativo: true }),
     });
     const json = await res.json();
     setSalvando(false);
@@ -620,7 +619,7 @@ function ConfigEmail() {
 
   async function desconectar() {
     await fetch("/api/config/smtp", { method: "DELETE" });
-    setHost(""); setPort("587"); setUser(""); setPass(""); setFrom(""); setAtivo(false);
+    setHost(""); setPort("587"); setUser(""); setPass(""); setFrom("");
     setMsg({ tipo: "ok", texto: "Servidor desconectado." });
     reload();
   }
@@ -671,17 +670,8 @@ function ConfigEmail() {
           <input value={from} onChange={(e) => setFrom(e.target.value)} placeholder="Seu Nome <contato@seudominio.com.br>" style={inputStyle} />
         </div>
 
-        <div
-          onClick={() => setAtivo((v) => !v)}
-          style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 14px", borderRadius: 9, cursor: "pointer", border: `0.5px solid ${ativo ? "rgba(37,99,235,0.3)" : "var(--color-border-tertiary)"}`, background: ativo ? "rgba(37,99,235,0.05)" : "var(--color-background-secondary)" }}
-        >
-          <div>
-            <div style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)" }}>{ativo ? "Servidor ativo" : "Usar servidor próprio"}</div>
-            <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 2 }}>{ativo ? "E-mails aos clientes serão enviados pelo seu servidor" : "E-mails serão enviados pelo UseFokio"}</div>
-          </div>
-          <div style={{ width: 40, height: 22, borderRadius: 11, flexShrink: 0, background: ativo ? "#2563EB" : "var(--color-border-secondary)", position: "relative", transition: "background 0.2s" }}>
-            <div style={{ position: "absolute", top: 3, width: 16, height: 16, borderRadius: "50%", background: "#fff", transition: "left 0.2s", left: ativo ? 21 : 3, boxShadow: "0 1px 3px rgba(0,0,0,0.2)" }} />
-          </div>
+        <div style={{ padding: "10px 14px", borderRadius: 9, background: "rgba(37,99,235,0.05)", border: "0.5px solid rgba(37,99,235,0.2)", fontSize: 12, color: "var(--color-text-secondary)" }}>
+          {temConfig ? "✓ Servidor configurado — e-mails aos clientes serão enviados pelo seu domínio." : "Sem servidor configurado — e-mails serão enviados pelo UseFokio."}
         </div>
 
         <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
