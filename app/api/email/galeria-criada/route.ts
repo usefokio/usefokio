@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { resend, FROM_DEFAULT, APP_URL } from "@/lib/email/resend";
+import { APP_URL } from "@/lib/email/resend";
+import { enviarEmailCliente } from "@/lib/email/send";
 import { templateGaleriaCriada } from "@/lib/email/templates";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
@@ -79,17 +80,12 @@ export async function POST(request: Request) {
       dataEvento:       dataEventoFmt,
     });
 
-    const { error } = await resend.emails.send({
-      from:    FROM_DEFAULT,
-      to:      [cliente.email],
+    await enviarEmailCliente({
+      fotografoId: session.user.id,
+      to:          cliente.email,
       subject,
       html,
     });
-
-    if (error) {
-      console.error("[email/galeria-criada] Resend error:", error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
 
     return NextResponse.json({ ok: true });
   } catch (err: any) {
