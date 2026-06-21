@@ -33,11 +33,14 @@ export function ModalEnviarAcesso({
     `Qualquer dúvida, estou à disposição!`,
   ].filter((l) => l !== null).join("\n");
 
-  const [assunto,   setAssunto]   = useState(assuntoDefault);
-  const [mensagem,  setMensagem]  = useState(mensagemDefault);
-  const [copiado,   setCopiado]   = useState<"link" | "senha" | "msg" | null>(null);
-  const [enviando,  setEnviando]  = useState(false);
-  const [envioMsg,  setEnvioMsg]  = useState<{ tipo: "ok" | "erro"; texto: string } | null>(null);
+  const [assunto,      setAssunto]      = useState(assuntoDefault);
+  const [mensagem,     setMensagem]     = useState(mensagemDefault);
+  const [emailManual,  setEmailManual]  = useState("");
+  const [copiado,      setCopiado]      = useState<"link" | "senha" | "msg" | null>(null);
+  const [enviando,     setEnviando]     = useState(false);
+  const [envioMsg,     setEnvioMsg]     = useState<{ tipo: "ok" | "erro"; texto: string } | null>(null);
+
+  const emailDestino = email || emailManual.trim();
 
   function copiar(texto: string, tipo: "link" | "senha" | "msg") {
     navigator.clipboard.writeText(texto);
@@ -46,20 +49,20 @@ export function ModalEnviarAcesso({
   }
 
   async function enviarEmail() {
-    if (!email || enviando) return;
+    if (!emailDestino || enviando) return;
     setEnviando(true);
     setEnvioMsg(null);
     try {
       const res = await fetch("/api/email/enviar", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ to: email, subject: assunto, body: mensagem }),
+        body: JSON.stringify({ to: emailDestino, subject: assunto, body: mensagem }),
       });
       const json = await res.json();
       if (!res.ok) {
         setEnvioMsg({ tipo: "erro", texto: json.erro ?? "Erro ao enviar." });
       } else {
-        setEnvioMsg({ tipo: "ok", texto: `Email enviado para ${email}!` });
+        setEnvioMsg({ tipo: "ok", texto: `Email enviado para ${emailDestino}!` });
       }
     } finally {
       setEnviando(false);
@@ -157,6 +160,20 @@ export function ModalEnviarAcesso({
           />
         </div>
 
+        {/* Campo e-mail manual quando cliente não tem e-mail cadastrado */}
+        {!email && (
+          <div style={{ marginBottom: 14 }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>E-mail do destinatário</div>
+            <input
+              type="email"
+              value={emailManual}
+              onChange={(e) => setEmailManual(e.target.value)}
+              placeholder="cliente@email.com"
+              style={{ width: "100%", boxSizing: "border-box", padding: "9px 12px", borderRadius: 8, border: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-secondary)", fontSize: 13, color: "var(--color-text-primary)", fontFamily: "inherit", outline: "none" }}
+            />
+          </div>
+        )}
+
         {/* Ações */}
         <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
           <button
@@ -165,15 +182,13 @@ export function ModalEnviarAcesso({
           >
             {copiado === "msg" ? "✓ Copiado!" : "Copiar mensagem"}
           </button>
-          {email && (
-            <button
-              onClick={enviarEmail}
-              disabled={enviando || !assunto.trim()}
-              style={{ flex: 1, padding: "10px", borderRadius: 8, border: "none", background: enviando || !assunto.trim() ? "var(--color-background-secondary)" : "var(--color-text-primary)", color: enviando || !assunto.trim() ? "var(--color-text-secondary)" : "var(--color-background-primary)", fontSize: 13, fontWeight: 600, cursor: enviando || !assunto.trim() ? "default" : "pointer" }}
-            >
-              {enviando ? "Enviando…" : "✉️ Enviar email"}
-            </button>
-          )}
+          <button
+            onClick={enviarEmail}
+            disabled={enviando || !assunto.trim() || !emailDestino}
+            style={{ flex: 1, padding: "10px", borderRadius: 8, border: "none", background: enviando || !assunto.trim() || !emailDestino ? "var(--color-background-secondary)" : "var(--color-text-primary)", color: enviando || !assunto.trim() || !emailDestino ? "var(--color-text-secondary)" : "var(--color-background-primary)", fontSize: 13, fontWeight: 600, cursor: enviando || !assunto.trim() || !emailDestino ? "default" : "pointer" }}
+          >
+            {enviando ? "Enviando…" : "✉️ Enviar email"}
+          </button>
         </div>
 
         <button onClick={onClose} style={{ width: "100%", padding: "10px", borderRadius: 8, background: "transparent", color: "var(--color-text-secondary)", border: "0.5px solid var(--color-border-secondary)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
