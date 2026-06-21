@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import type { Cliente } from "@/lib/supabase/types";
+import { normalizar } from "@/lib/utils/normalizar";
 
 const POR_PAGINA = 50;
 
@@ -104,9 +105,9 @@ export default function ClientesPage() {
 
   const filtrados = clientes.filter((c) => {
     const okBusca = busca === "" ||
-      c.nome.toLowerCase().includes(busca.toLowerCase()) ||
-      (c.email ?? "").toLowerCase().includes(busca.toLowerCase()) ||
-      (c.empresa ?? "").toLowerCase().includes(busca.toLowerCase());
+      normalizar(c.nome).includes(normalizar(busca)) ||
+      normalizar(c.email ?? "").includes(normalizar(busca)) ||
+      normalizar(c.empresa ?? "").includes(normalizar(busca));
     const okTipo = tipoFiltro === "" || c.tipo_contato === tipoFiltro;
     return okBusca && okTipo;
   });

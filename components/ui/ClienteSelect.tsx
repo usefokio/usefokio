@@ -6,6 +6,7 @@ import { fetchAllRows } from "@/lib/supabase/fetchAll";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { inputStyle } from "@/lib/styles";
 import { gerarSenhaAcesso } from "@/lib/utils";
+import { normalizar } from "@/lib/utils/normalizar";
 import type { Cliente } from "@/lib/supabase/types";
 
 // ── Modal criar novo cliente ─────────────────────────────────────────────────
@@ -213,7 +214,7 @@ export function ClienteSelect({
   const clienteSelecionado = clientes.find((c) => c.id === value) ?? null;
 
   const filtrados = busca.trim()
-    ? clientes.filter((c) => c.nome.toLowerCase().includes(busca.toLowerCase()))
+    ? clientes.filter((c) => normalizar(c.nome).includes(normalizar(busca)))
     : clientes;
 
   function abrir() {

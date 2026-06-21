@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import type { CrmProduct, CrmProductCategory } from "@/lib/supabase/types";
+import { normalizar } from "@/lib/utils/normalizar";
 
 export default function ProdutosPage() {
   const router                              = useRouter();
@@ -34,7 +35,7 @@ export default function ProdutosPage() {
   useEffect(() => { carregar(); }, [carregar]);
 
   const filtrados = produtos.filter((p) => {
-    const ok = busca === "" || p.nome.toLowerCase().includes(busca.toLowerCase()) || (p.codigo ?? "").toLowerCase().includes(busca.toLowerCase());
+    const ok = busca === "" || normalizar(p.nome).includes(normalizar(busca)) || normalizar(p.codigo ?? "").includes(normalizar(busca));
     const okCat = categFiltro === "" || p.categoria === categFiltro;
     return ok && okCat;
   });

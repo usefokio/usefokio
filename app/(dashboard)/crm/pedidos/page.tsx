@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import type { CrmOrder } from "@/lib/supabase/types";
+import { normalizar } from "@/lib/utils/normalizar";
 
 type OrderWithCliente = CrmOrder & {
   clientes?: { nome: string } | null;
@@ -54,9 +55,9 @@ export default function PedidosPage() {
 
   const filtrados = pedidos.filter(p =>
     busca === "" ||
-    (p.nome ?? "").toLowerCase().includes(busca.toLowerCase()) ||
-    (p.clientes?.nome ?? "").toLowerCase().includes(busca.toLowerCase()) ||
-    (p.numero ?? "").toLowerCase().includes(busca.toLowerCase())
+    normalizar(p.nome ?? "").includes(normalizar(busca)) ||
+    normalizar(p.clientes?.nome ?? "").includes(normalizar(busca)) ||
+    normalizar(p.numero ?? "").includes(normalizar(busca))
   );
 
   const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });

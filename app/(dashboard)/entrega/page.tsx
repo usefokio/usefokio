@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import type { GaleriaEntrega } from "@/lib/supabase/types";
 import { ModalEnviarAcesso } from "./_components/ModalEnviarAcesso";
+import { normalizar } from "@/lib/utils/normalizar";
 import { ModalEmailCliente } from "./_components/ModalEmailCliente";
 
 // ─── Helpers de status ────────────────────────────────────────────────────────
@@ -267,9 +268,9 @@ export default function EntregaPage() {
   // Aplicar busca por nome
   const porBusca = busca.trim()
     ? porAnoEStatus.filter((g) => {
-        const termo = busca.trim().toLowerCase();
-        const nomeCliente = (g.clientes as any)?.nome?.toLowerCase() ?? "";
-        return g.titulo.toLowerCase().includes(termo) || nomeCliente.includes(termo);
+        const termo = normalizar(busca.trim());
+        const nomeCliente = normalizar((g.clientes as any)?.nome ?? "");
+        return normalizar(g.titulo).includes(termo) || nomeCliente.includes(termo);
       })
     : porAnoEStatus;
 

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import type { CrmFinancialEntry } from "@/lib/supabase/types";
+import { normalizar } from "@/lib/utils/normalizar";
 
 type EntryWithPedido = CrmFinancialEntry & {
   crm_orders?: { nome: string | null; numero: string | null } | null;
@@ -53,8 +54,8 @@ export default function FinanceiroPage() {
 
   const filtradas = entries.filter(e => {
     const matchBusca = busca === "" ||
-      e.descricao.toLowerCase().includes(busca.toLowerCase()) ||
-      (e.crm_orders?.nome ?? "").toLowerCase().includes(busca.toLowerCase());
+      normalizar(e.descricao).includes(normalizar(busca)) ||
+      normalizar(e.crm_orders?.nome ?? "").includes(normalizar(busca));
     const matchMes = mesFiltro === "" || e.vencimento.startsWith(mesFiltro);
     return matchBusca && matchMes;
   });

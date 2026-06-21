@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { normalizar } from "@/lib/utils/normalizar";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import type { CrmOpportunity } from "@/lib/supabase/types";
 
@@ -97,9 +98,9 @@ export default function OportunidadesPage() {
 
   const filtradas = opps.filter(o =>
     busca === "" ||
-    o.titulo.toLowerCase().includes(busca.toLowerCase()) ||
-    (o.clientes?.nome ?? "").toLowerCase().includes(busca.toLowerCase()) ||
-    (o.cidade_evento ?? "").toLowerCase().includes(busca.toLowerCase())
+    normalizar(o.titulo).includes(normalizar(busca)) ||
+    normalizar(o.clientes?.nome ?? "").includes(normalizar(busca)) ||
+    normalizar(o.cidade_evento ?? "").includes(normalizar(busca))
   );
 
   async function excluir(id: string) {
