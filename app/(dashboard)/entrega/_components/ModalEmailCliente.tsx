@@ -21,6 +21,7 @@ interface TemplateVars {
   respostaUrl:  string;
   diasRestantes: number | null;
   nomeEmpresa:  string;
+  assinatura:   string;
 }
 
 const TEMPLATES: Template[] = [
@@ -29,42 +30,42 @@ const TEMPLATES: Template[] = [
     nome: "Enviar link de acesso",
     assunto: "Acesso à sua galeria — {titulo}",
     icone: "🔗",
-    padrao: "Olá, {nomeCliente}!\n\nSuas fotos de {titulo} estão disponíveis para acesso.\n\nClique no link abaixo para visualizar e baixar:\n{link}\n\nQualquer dúvida, estou à disposição.\n\nAtenciosamente,\n{nomeEmpresa}",
+    padrao: "Olá, {nomeCliente}!\n\nSuas fotos de {titulo} estão disponíveis para acesso.\n\nClique no link abaixo para visualizar e baixar:\n{link}\n\nQualquer dúvida, estou à disposição.\n\nAtenciosamente,\n{assinatura}",
   },
   {
     id: "expirando",
     nome: "Prazo expirando",
     assunto: "Seu acesso expira em breve — {titulo}",
     icone: "⏰",
-    padrao: "Olá, {nomeCliente}!\n\nPassando para avisar que seu acesso à galeria {titulo} expira {prazo}.\n\nAproveite para baixar suas fotos antes que o prazo encerre:\n{link}\n\nSe precisar de mais tempo, entre em contato comigo.\n\nAtenciosamente,\n{nomeEmpresa}",
+    padrao: "Olá, {nomeCliente}!\n\nPassando para avisar que seu acesso à galeria {titulo} expira {prazo}.\n\nAproveite para baixar suas fotos antes que o prazo encerre:\n{link}\n\nSe precisar de mais tempo, entre em contato comigo.\n\nAtenciosamente,\n{assinatura}",
   },
   {
     id: "suspensa",
     nome: "Galeria suspensa",
     assunto: "Acesso suspenso — {titulo}",
     icone: "🔒",
-    padrao: "Olá, {nomeCliente}!\n\nInformo que o acesso à galeria {titulo} foi temporariamente suspenso.\n\nCaso queira reativar o acesso, entre em contato comigo.\n\nAtenciosamente,\n{nomeEmpresa}",
+    padrao: "Olá, {nomeCliente}!\n\nInformo que o acesso à galeria {titulo} foi temporariamente suspenso.\n\nCaso queira reativar o acesso, entre em contato comigo.\n\nAtenciosamente,\n{assinatura}",
   },
   {
     id: "renovacao",
     nome: "Renovação confirmada",
     assunto: "Seu acesso foi renovado — {titulo}",
     icone: "✅",
-    padrao: "Oi, {nomeCliente}! Tudo certo — o acesso à galeria {titulo} foi reativado e o prazo renovado {prazo}.\n\nAgora é o momento de garantir o download de todos os arquivos e salvá-los em um local seguro, como o seu computador ou um serviço de nuvem pessoal. Ter os arquivos salvos localmente é a única garantia de que essas memórias vão ficar com você independente de qualquer coisa.\n\nQuando o prazo estiver se encerrando, você receberá um novo e-mail. Por lá será possível confirmar que já tem tudo salvo ou renovar o acesso mais uma vez.\n\n{nomeEmpresa}",
+    padrao: "Oi, {nomeCliente}! Tudo certo — o acesso à galeria {titulo} foi reativado e o prazo renovado {prazo}.\n\nAgora é o momento de garantir o download de todos os arquivos e salvá-los em um local seguro, como o seu computador ou um serviço de nuvem pessoal. Ter os arquivos salvos localmente é a única garantia de que essas memórias vão ficar com você independente de qualquer coisa.\n\nQuando o prazo estiver se encerrando, você receberá um novo e-mail. Por lá será possível confirmar que já tem tudo salvo ou renovar o acesso mais uma vez.\n\n{assinatura}",
   },
   {
     id: "lembrete_renovacao",
     nome: "Lembrete de renovação",
     assunto: "Suas fotos de {titulo} — finalize a renovação",
     icone: "⏳",
-    padrao: "Oi, {nomeCliente}!\n\nVi que você demonstrou interesse em renovar o acesso à galeria {titulo}, mas o pagamento ainda não foi confirmado.\n\nPara garantir o acesso às suas fotos, acesse o link abaixo e finalize a renovação:\n{link}\n\nSe tiver qualquer dúvida, é só me chamar!\n\n{nomeEmpresa}",
+    padrao: "Oi, {nomeCliente}!\n\nVi que você demonstrou interesse em renovar o acesso à galeria {titulo}, mas o pagamento ainda não foi confirmado.\n\nPara garantir o acesso às suas fotos, acesse o link abaixo e finalize a renovação:\n{link}\n\nSe tiver qualquer dúvida, é só me chamar!\n\n{assinatura}",
   },
   {
     id: "campanha",
     nome: "Campanha de reativação",
     assunto: "Suas fotos de {titulo} — ação necessária",
     icone: "📢",
-    padrao: "Olá, {nomeCliente}!\n\nEntramos em contato sobre as fotos de {titulo}.\n\nDevido ao aumento nos custos de armazenamento, precisamos entender se você ainda precisa das imagens.\n\nPor favor, acesse o link abaixo e nos diga:\n{respostaUrl}\n\n✅ Já tenho meus arquivos salvos\n🔄 Quero renovar meu acesso\n\nAtenciosamente,\n{nomeEmpresa}",
+    padrao: "Olá, {nomeCliente}!\n\nEntramos em contato sobre as fotos de {titulo}.\n\nDevido ao aumento nos custos de armazenamento, precisamos entender se você ainda precisa das imagens.\n\nPor favor, acesse o link abaixo e nos diga:\n{respostaUrl}\n\n✅ Já tenho meus arquivos salvos\n🔄 Quero renovar meu acesso\n\nAtenciosamente,\n{assinatura}",
   },
 ];
 
@@ -74,6 +75,7 @@ function substituirVars(texto: string, vars: TemplateVars & { prazo: string; dat
     .replace(/\{titulo\}/g, vars.titulo)
     .replace(/\{link\}/g, vars.link)
     .replace(/\{nomeEmpresa\}/g, vars.nomeEmpresa)
+    .replace(/\{assinatura\}/g, vars.assinatura)
     .replace(/\{respostaUrl\}/g, vars.respostaUrl)
     .replace(/\{prazo\}/g, vars.prazo)
     .replace(/\{diasRestantes\}/g, vars.diasRestantes !== null ? String(vars.diasRestantes) : "")
@@ -108,7 +110,7 @@ Por favor, nos diga o que prefere:
 ✅ Já tenho meus arquivos baixados e salvos
 🔄 Quero renovar meu acesso para fazer o download
 
-{nomeEmpresa}`;
+{assinatura}`;
 
 const CAMPANHA_EMAIL2_DEFAULT = `Oi, {nomeCliente}! Voltamos a entrar em contato sobre as fotos de {titulo}.
 
@@ -122,7 +124,7 @@ Acesse o link e nos diga o que prefere:
 ✅ Já tenho meus arquivos baixados e salvos
 🔄 Quero renovar meu acesso para fazer o download
 
-{nomeEmpresa}`;
+{assinatura}`;
 
 const CAMPANHA_WHATSAPP_DEFAULT = `Oi, {nomeCliente}! Aqui é {nomeEmpresa}.
 
@@ -145,7 +147,7 @@ const CAMPANHA_AGRADECIMENTO_DEFAULT = `Oi, {nomeCliente}! Ficamos felizes em sa
 Obrigado pela confiança ao longo de todo esse processo. Qualquer dúvida ou necessidade futura, estou à disposição.
 
 Um abraço,
-{nomeEmpresa}`;
+{assinatura}`;
 
 const CAMPANHA_POR_ESTAGIO: Record<string, { key: string; default: string; assunto: string }> = {
   nao_contatado: { key: "campanha_email1",   default: CAMPANHA_EMAIL1_DEFAULT,   assunto: "Suas fotos de {titulo} — precisamos conversar" },
@@ -199,6 +201,11 @@ export function ModalEmailCliente({ galeria, onFechar, templateInicial, onEstagi
   const email        = galeria.clientes?.email ?? null;
   const nomeCliente  = galeria.clientes?.nome ?? "Cliente";
   const nomeEmpresa  = fotografo?.nome_empresa ?? fotografo?.nome_completo ?? "";
+  const assinatura   = [
+    nomeEmpresa,
+    fotografo?.email ?? null,
+    fotografo?.site?.replace(/^https?:\/\//, "") ?? null,
+  ].filter(Boolean).join("\n");
   const link         = typeof window !== "undefined"
     ? `${window.location.origin}/acesso/entrega/${galeria.id}`
     : `/acesso/entrega/${galeria.id}`;
@@ -223,7 +230,7 @@ export function ModalEmailCliente({ galeria, onFechar, templateInicial, onEstagi
         const respostaUrl = typeof window !== "undefined"
           ? `${window.location.origin}/campanha/resposta/${info.token}`
           : `/campanha/resposta/${info.token}`;
-        const vars: TemplateVars = { nomeCliente, titulo: galeria.titulo, link, respostaUrl, diasRestantes, nomeEmpresa };
+        const vars: TemplateVars = { nomeCliente, titulo: galeria.titulo, link, respostaUrl, diasRestantes, nomeEmpresa, assinatura };
         if (info.resposta === "tem_arquivos" && !info.agradecimento_em) {
           const customAgradecimento = tpls?.["campanha_agradecimento"];
           setMensagem(substituirVars(customAgradecimento ?? CAMPANHA_AGRADECIMENTO_DEFAULT, { ...vars, prazo }));
