@@ -111,6 +111,28 @@ export async function criarCobranca(params: {
   return { paymentId: pagamento.id, invoiceUrl: pagamento.invoiceUrl };
 }
 
+/** Registra (ou atualiza) o webhook de pagamentos no Asaas para a URL do sistema */
+export async function registrarWebhook(apiKey: string, ambiente: AsaasAmbiente, webhookUrl: string, token?: string): Promise<void> {
+  // Lista webhooks existentes
+  const lista = await asaasFetch(apiKey, ambiente, "/webhooks").catch(() => ({ data: [] }));
+  const existente = (lista?.data ?? []).find((w: { url: string; id: string }) => w.url === webhookUrl);
+
+  const payload = {
+    url:        webhookUrl,
+    email:      "",
+    enabled:    true,
+    interrupted: false,
+    authToken:  token ?? "",
+    events: ["PAYMENT_RECEIVED", "PAYMENT_CONFIRMED", "PAYMENT_OVERDUE", "PAYMENT_DELETED", "PAYMENT_REFUNDED"],
+  };
+
+  if (existente?.id) {
+    await asaasFetch(apiKey, ambiente, `/webhooks/${existente.id}`, { method: "PUT", body: JSON.stringify(payload) });
+  } else {
+    await asaasFetch(apiKey, ambiente, "/webhooks", { method: "POST", body: JSON.stringify(payload) });
+  }
+}
+
 /** Consulta o status de um pagamento. Pago = RECEIVED ou CONFIRMED */
 export async function consultarPagamento(apiKey: string, ambiente: AsaasAmbiente, paymentId: string): Promise<{ pago: boolean; status: string }> {
   const p = await asaasFetch(apiKey, ambiente, `/payments/${paymentId}`);

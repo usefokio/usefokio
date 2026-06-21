@@ -717,13 +717,25 @@ function ConfigEmail() {
 // ── Pagamentos (Asaas) ────────────────────────────────────────────────────────
 function ConfigPagamentos() {
   const { fotografo, reload } = useFotografo();
-  const [apiKey,    setApiKey]    = useState("");
-  const [ambiente,  setAmbiente]  = useState<"producao" | "sandbox">("producao");
-  const [salvando,  setSalvando]  = useState(false);
-  const [erro,      setErro]      = useState("");
-  const [contaNome, setContaNome] = useState<string | null>(null);
+  const [apiKey,       setApiKey]       = useState("");
+  const [ambiente,     setAmbiente]     = useState<"producao" | "sandbox">("producao");
+  const [salvando,     setSalvando]     = useState(false);
+  const [erro,         setErro]         = useState("");
+  const [contaNome,    setContaNome]    = useState<string | null>(null);
+  const [webhookMsg,   setWebhookMsg]   = useState<{ tipo: "ok" | "erro"; texto: string } | null>(null);
+  const [regWebhook,   setRegWebhook]   = useState(false);
 
   const conectado = fotografo?.asaas_ativo ?? false;
+
+  async function registrarWebhook() {
+    setRegWebhook(true);
+    setWebhookMsg(null);
+    const res = await fetch("/api/asaas/webhook/registrar", { method: "POST" });
+    const json = await res.json();
+    setRegWebhook(false);
+    if (json.ok) setWebhookMsg({ tipo: "ok", texto: "Webhook registrado com sucesso! Pagamentos serão atualizados automaticamente." });
+    else setWebhookMsg({ tipo: "erro", texto: json.erro ?? "Erro ao registrar webhook." });
+  }
 
   async function conectar() {
     if (!apiKey.trim()) { setErro("Cole sua API key do Asaas."); return; }
@@ -777,9 +789,23 @@ function ConfigPagamentos() {
           <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginBottom: 14 }}>
             Suas galerias com taxa de renovação já aceitam pagamento online (Pix, boleto e cartão).
           </div>
-          <button onClick={desconectar} disabled={salvando} style={{ padding: "8px 16px", borderRadius: 8, border: "0.5px solid rgba(239,68,68,0.3)", background: "rgba(239,68,68,0.05)", fontSize: 12, fontWeight: 600, color: "#DC2626", cursor: "pointer" }}>
-            Desconectar conta
-          </button>
+          {webhookMsg && (
+            <div style={{ marginBottom: 12, padding: "9px 12px", borderRadius: 8, fontSize: 12, fontWeight: 500,
+              background: webhookMsg.tipo === "ok" ? "rgba(16,185,129,0.08)" : "rgba(239,68,68,0.08)",
+              color: webhookMsg.tipo === "ok" ? "#059669" : "#DC2626",
+              border: `0.5px solid ${webhookMsg.tipo === "ok" ? "rgba(16,185,129,0.3)" : "rgba(239,68,68,0.3)"}`,
+            }}>
+              {webhookMsg.texto}
+            </div>
+          )}
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={registrarWebhook} disabled={regWebhook} style={{ padding: "8px 16px", borderRadius: 8, border: "0.5px solid rgba(37,99,235,0.3)", background: "rgba(37,99,235,0.05)", fontSize: 12, fontWeight: 600, color: "#2563EB", cursor: regWebhook ? "default" : "pointer" }}>
+              {regWebhook ? "Registrando…" : "🔗 Registrar webhook"}
+            </button>
+            <button onClick={desconectar} disabled={salvando} style={{ padding: "8px 16px", borderRadius: 8, border: "0.5px solid rgba(239,68,68,0.3)", background: "rgba(239,68,68,0.05)", fontSize: 12, fontWeight: 600, color: "#DC2626", cursor: "pointer" }}>
+              Desconectar conta
+            </button>
+          </div>
         </div>
       ) : (
         <div style={{ border: "0.5px solid var(--color-border-secondary)", borderRadius: 12, padding: "20px 22px", marginBottom: 24 }}>

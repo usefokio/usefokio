@@ -4,7 +4,7 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { encryptKey, validarKey, type AsaasAmbiente } from "@/lib/asaas";
+import { encryptKey, validarKey, registrarWebhook, type AsaasAmbiente } from "@/lib/asaas";
 
 async function getUser() {
   const cookieStore = await cookies();
@@ -41,6 +41,18 @@ export async function POST(request: NextRequest) {
   }).eq("id", user.id);
 
   if (error) return NextResponse.json({ erro: error.message }, { status: 500 });
+
+  // Registra webhook automaticamente no Asaas
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://usefokio.com.br";
+  const webhookUrl = `${appUrl}/api/asaas/webhook`;
+  const webhookToken = process.env.ASAAS_WEBHOOK_TOKEN;
+  try {
+    await registrarWebhook(apiKey, ambiente as AsaasAmbiente, webhookUrl, webhookToken);
+  } catch (e) {
+    // Não bloqueia a conexão se o webhook falhar
+    console.error("[asaas/config] Falha ao registrar webhook:", e);
+  }
+
   return NextResponse.json({ ok: true, conta });
 }
 
