@@ -507,11 +507,18 @@ export default function EntregaPage() {
                           ✓ já tem os arquivos
                         </span>
                       );
-                      if (rc.resposta === "renovar") return (
-                        <span title="Cliente renovou o acesso via pagamento" style={{ flexShrink: 0, fontSize: 10, fontWeight: 600, padding: "2px 7px", borderRadius: 20, background: "rgba(37,99,235,0.10)", color: "#2563EB" }}>
-                          ✓ acesso reativado
-                        </span>
-                      );
+                      if (rc.resposta === "renovar") {
+                        const acessoAtivo = !g.suspensa && (!g.expires_at || new Date(g.expires_at) > new Date());
+                        return acessoAtivo ? (
+                          <span title="Pagamento confirmado — acesso reativado" style={{ flexShrink: 0, fontSize: 10, fontWeight: 600, padding: "2px 7px", borderRadius: 20, background: "rgba(37,99,235,0.10)", color: "#2563EB" }}>
+                            ✓ acesso reativado
+                          </span>
+                        ) : (
+                          <span title="Cliente sinalizou que quer renovar — aguardando pagamento" style={{ flexShrink: 0, fontSize: 10, fontWeight: 600, padding: "2px 7px", borderRadius: 20, background: "rgba(245,158,11,0.12)", color: "#B45309" }}>
+                            ⏳ quer renovar
+                          </span>
+                        );
+                      }
                       if (rc.estagio === "encerrado") return (
                         <span title="Encerrado sem resposta" style={{ flexShrink: 0, fontSize: 10, fontWeight: 600, padding: "2px 7px", borderRadius: 20, background: "rgba(107,114,128,0.10)", color: "#6B7280" }}>
                           encerrado
