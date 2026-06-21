@@ -119,7 +119,6 @@ export async function registrarWebhook(apiKey: string, ambiente: AsaasAmbiente, 
 
   const payload = {
     url:        webhookUrl,
-    email:      "",
     enabled:    true,
     interrupted: false,
     authToken:  token ?? "",
