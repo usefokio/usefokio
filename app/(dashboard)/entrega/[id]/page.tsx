@@ -12,6 +12,47 @@ import { ModalEnviarAcesso } from "../_components/ModalEnviarAcesso";
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // ── Modal: salvar emails dos acessos em uma lista/categoria ──────────────────
+function VerificarPagamentoBtn({ galeriaId, onConfirmado }: { galeriaId: string; onConfirmado: () => void }) {
+  const [verificando, setVerificando] = useState(false);
+  const [msg, setMsg] = useState<{ tipo: "ok" | "erro"; texto: string } | null>(null);
+
+  async function verificar() {
+    setVerificando(true);
+    setMsg(null);
+    try {
+      const res = await fetch(`/api/entrega/${galeriaId}/renovar/verificar`, { method: "POST" });
+      const json = await res.json();
+      if (json.liberado) {
+        setMsg({ tipo: "ok", texto: "Pagamento confirmado! Recarregando…" });
+        setTimeout(onConfirmado, 1500);
+      } else {
+        setMsg({ tipo: "erro", texto: "Pagamento ainda não confirmado no Asaas." });
+      }
+    } catch {
+      setMsg({ tipo: "erro", texto: "Erro ao verificar." });
+    } finally {
+      setVerificando(false);
+    }
+  }
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+      {msg && (
+        <span style={{ fontSize: 11, fontWeight: 600, color: msg.tipo === "ok" ? "#059669" : "#DC2626" }}>
+          {msg.texto}
+        </span>
+      )}
+      <button
+        onClick={verificar}
+        disabled={verificando}
+        style={{ padding: "4px 10px", borderRadius: 6, border: "0.5px solid rgba(180,83,9,0.4)", background: "rgba(245,158,11,0.12)", color: "#B45309", fontSize: 11, fontWeight: 600, cursor: verificando ? "default" : "pointer", whiteSpace: "nowrap" }}
+      >
+        {verificando ? "Verificando…" : "Verificar pagamento"}
+      </button>
+    </div>
+  );
+}
+
 function ModalSalvarLista({ fotografoId, galeriaTitulo, acessos, onFechar }: {
   fotografoId: string;
   galeriaTitulo: string;
@@ -381,8 +422,9 @@ export default function EntregaDetailPage() {
         const pendentes = pagamentos.filter(p => p.status === "pendente");
         return (
           <div style={{ background: "rgba(245,158,11,0.08)", border: "0.5px solid rgba(245,158,11,0.4)", borderRadius: 10, padding: "12px 18px", marginBottom: 14 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: "#B45309", marginBottom: 4 }}>
-              ⏳ Aguardando pagamento
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "#B45309" }}>⏳ Aguardando pagamento</div>
+              <VerificarPagamentoBtn galeriaId={id} onConfirmado={() => window.location.reload()} />
             </div>
             {pendentes.map((p) => (
               <div key={p.id} style={{ fontSize: 12, color: "#92400E", lineHeight: 1.5 }}>
