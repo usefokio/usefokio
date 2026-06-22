@@ -41,10 +41,10 @@ export default function NovaEntregaPage() {
   const [cliente,     setCliente]     = useState<Cliente | null>(null);
   const [dataEvento,  setDataEvento]  = useState(hoje);
   const [driveLink,   setDriveLink]   = useState("");
-  const [prazoFixo,   setPrazoFixo]   = useState<number | "custom">(30);
+  const [prazoFixo,   setPrazoFixo]   = useState<number | "custom">(0);
   const [prazoCustom, setPrazoCustom] = useState("");
   const [renovacao,          setRenovacao]          = useState("");
-  const [renovacaoDias,      setRenovacaoDias]      = useState("0");
+  const [renovacaoDias,      setRenovacaoDias]      = useState("30");
   const [mensagem,           setMensagem]           = useState("");
   const [apenaZip,           setApenaZip]           = useState(false);
   const [ordenacaoFotos,     setOrdenacaoFotos]     = useState<"envio" | "nome" | "nome_desc" | "data">("nome");
@@ -208,7 +208,7 @@ export default function NovaEntregaPage() {
         drive_link:   driveLink.trim() || null,
         expires_at,
         renewal_fee:  parseMoeda(renovacao),
-        renovacao_dias: parseInt(renovacaoDias) >= 0 ? parseInt(renovacaoDias) : 0,
+        renovacao_dias: parseInt(renovacaoDias) || 30,
         mensagem:     mensagem.trim() || null,
         apenas_zip:   apenaZip,
         identificacao_obrigatoria: identificacaoObrig,
@@ -379,6 +379,15 @@ export default function NovaEntregaPage() {
             Prazo de acesso
           </div>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            <button type="button" onClick={() => setPrazoFixo(0)} style={{
+              padding: "9px 16px", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer",
+              border: `0.5px solid ${prazoFixo === 0 ? "var(--color-text-primary)" : "var(--color-border-secondary)"}`,
+              background: prazoFixo === 0 ? "var(--color-text-primary)" : "var(--color-background-secondary)",
+              color: prazoFixo === 0 ? "var(--color-background-primary)" : "var(--color-text-secondary)",
+              transition: "all 0.15s",
+            }}>
+              Sem prazo
+            </button>
             {PRAZOS_FIXOS.map((d) => (
               <button key={d} type="button" onClick={() => setPrazoFixo(d)} style={{
                 padding: "9px 16px", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer",
