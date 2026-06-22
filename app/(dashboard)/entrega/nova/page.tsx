@@ -44,7 +44,7 @@ export default function NovaEntregaPage() {
   const [prazoFixo,   setPrazoFixo]   = useState<number | "custom">(30);
   const [prazoCustom, setPrazoCustom] = useState("");
   const [renovacao,          setRenovacao]          = useState("");
-  const [renovacaoDias,      setRenovacaoDias]      = useState("30");
+  const [renovacaoDias,      setRenovacaoDias]      = useState("0");
   const [mensagem,           setMensagem]           = useState("");
   const [apenaZip,           setApenaZip]           = useState(false);
   const [ordenacaoFotos,     setOrdenacaoFotos]     = useState<"envio" | "nome" | "nome_desc" | "data">("nome");
@@ -208,7 +208,7 @@ export default function NovaEntregaPage() {
         drive_link:   driveLink.trim() || null,
         expires_at,
         renewal_fee:  parseMoeda(renovacao),
-        renovacao_dias: parseInt(renovacaoDias) || 30,
+        renovacao_dias: parseInt(renovacaoDias) >= 0 ? parseInt(renovacaoDias) : 0,
         mensagem:     mensagem.trim() || null,
         apenas_zip:   apenaZip,
         identificacao_obrigatoria: identificacaoObrig,
