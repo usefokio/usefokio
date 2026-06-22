@@ -37,6 +37,13 @@ export type Fotografo = {
   asaas_api_key_enc: string | null;
   asaas_ambiente: "producao" | "sandbox";
   asaas_ativo: boolean;
+  pix_chave: string | null;
+  pix_tipo: string | null;
+  pix_ativo: boolean;
+  mp_api_key_enc: string | null;
+  mp_ativo: boolean;
+  abacate_api_key_enc: string | null;
+  abacate_ativo: boolean;
   smtp_host: string | null;
   smtp_port: number | null;
   smtp_user: string | null;
