@@ -213,9 +213,9 @@ export function ClienteSelect({
 
   const clienteSelecionado = clientes.find((c) => c.id === value) ?? null;
 
-  const filtrados = busca.trim()
+  const filtrados = (busca.trim()
     ? clientes.filter((c) => normalizar(c.nome).includes(normalizar(busca)))
-    : clientes;
+    : clientes).filter((c) => c.email);
 
   function abrir() {
     setBusca("");
