@@ -276,7 +276,7 @@ export default function EntregaDetailPage() {
   const [fotos,    setFotos]    = useState<GaleriaEntregaFoto[]>([]);
   const [acessos,  setAcessos]  = useState<{ id: string; nome: string; email: string; acessado_em: string }[]>([]);
   const [funilInfo, setFunilInfo] = useState<{ estagio: string; resposta: string | null; respondido_em: string | null; respondido_nome: string | null; email_1_em: string | null; email_2_em: string | null; whatsapp_em: string | null; ignorar_funil: boolean } | null | undefined>(undefined);
-  const [pagamentos, setPagamentos] = useState<Pick<Pagamento, "id" | "valor" | "status" | "paid_at" | "pagador_nome" | "pagador_email" | "dias_liberados">[]>([]);
+  const [pagamentos, setPagamentos] = useState<Pick<Pagamento, "id" | "valor" | "status" | "paid_at" | "pagador_nome" | "pagador_email" | "dias_liberados" | "gateway">[]>([]);
   const [loading,  setLoading]  = useState(true);
   const [copiado,  setCopiado]  = useState(false);
   const [modalLista, setModalLista] = useState(false);
@@ -311,7 +311,7 @@ export default function EntregaDetailPage() {
         .eq("fotografo_id", fotografo.id)
         .maybeSingle(),
       supabase.from("pagamentos")
-        .select("id, valor, status, paid_at, pagador_nome, pagador_email, dias_liberados")
+        .select("id, valor, status, paid_at, pagador_nome, pagador_email, dias_liberados, gateway")
         .eq("galeria_id", id)
         .eq("tipo", "renovacao")
         .in("status", ["pago", "pendente"])
