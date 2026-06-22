@@ -100,12 +100,13 @@ export async function criarCobranca(params: {
   const pagamento = await asaasFetch(params.apiKey, params.ambiente, "/payments", {
     method: "POST",
     body: JSON.stringify({
-      customer:          customerId,
-      billingType:       "PIX",
-      value:             params.valor,
+      customer:             customerId,
+      billingType:          "PIX",
+      value:                params.valor,
       dueDate,
-      description:       params.descricao,
-      externalReference: params.externalReference,
+      description:          params.descricao,
+      externalReference:    params.externalReference,
+      notificationDisabled: true,
     }),
   });
   return { paymentId: pagamento.id, invoiceUrl: pagamento.invoiceUrl };

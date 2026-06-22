@@ -133,10 +133,11 @@ export default function AcessoEntregaPage() {
   // Modal de orientação Drive (quando há fotos na galeria + drive_link)
   const [modalOrientacaoDrive, setModalOrientacaoDrive] = useState(false);
 
-  // Renovação de acesso (pagamento via Asaas do fotógrafo)
+  // Renovação de acesso
   const [renovFormAberto,  setRenovFormAberto]  = useState(false);
   const [renovInvoiceUrl,  setRenovInvoiceUrl]  = useState<string | null>(null);
   const [renovGerando,     setRenovGerando]     = useState(false);
+  const [pixInfo,          setPixInfo]          = useState<{ chave: string; tipo: string; valor: number } | null>(null);
   const [renovVerificando, setRenovVerificando] = useState(false);
   const [renovMsg,         setRenovMsg]         = useState("");
   const [renovNome,        setRenovNome]        = useState("");
@@ -154,7 +155,7 @@ export default function AcessoEntregaPage() {
   useEffect(() => {
     const supabase = createClient();
     Promise.all([
-      supabase.from("galerias_entrega").select("*, clientes(nome, email, cpf), fotografos(logo_url, nome_empresa, asaas_ativo)").eq("id", id).maybeSingle(),
+      supabase.from("galerias_entrega").select("*, clientes(nome, email, cpf), fotografos(logo_url, nome_empresa, asaas_ativo, pix_ativo, pix_chave, pix_tipo)").eq("id", id).maybeSingle(),
       fetchAllRows<GaleriaEntregaFoto>((sb, from, to) => sb.from("galerias_entrega_fotos").select("*").eq("galeria_id", id).order("ordem").order("created_at").range(from, to), supabase),
     ]).then(([{ data: g }, f]) => {
       if (!g || g.rascunho) { setTela("nao_encontrada"); return; }
@@ -292,8 +293,12 @@ export default function AcessoEntregaPage() {
       });
       const json = await res.json();
       if (!res.ok) { setRenovMsg(json.erro ?? "Erro ao gerar pagamento."); return; }
-      setRenovInvoiceUrl(json.invoiceUrl);
-      window.open(json.invoiceUrl, "_blank", "noopener,noreferrer");
+      if (json.gateway === "pix_manual") {
+        setPixInfo({ chave: json.pixChave, tipo: json.pixTipo, valor: json.valor });
+      } else {
+        setRenovInvoiceUrl(json.invoiceUrl);
+        window.open(json.invoiceUrl, "_blank", "noopener,noreferrer");
+      }
     } catch {
       setRenovMsg("Erro de conexão. Tente novamente.");
     } finally {
@@ -387,7 +392,33 @@ export default function AcessoEntregaPage() {
 
     return (
       <div style={{ marginTop: 12 }}>
-        {renovInvoiceUrl ? (
+        {pixInfo ? (
+          <div>
+            <div style={{ fontSize: 13, color: "rgba(255,255,255,0.8)", lineHeight: 1.6, marginBottom: 12 }}>
+              Realize o pagamento via PIX para renovar o acesso.
+            </div>
+            <div style={{ background: "rgba(255,255,255,0.1)", borderRadius: 10, padding: "14px 16px", marginBottom: 12 }}>
+              <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                Chave PIX {pixInfo.tipo !== "aleatoria" ? `(${pixInfo.tipo})` : "(aleatória)"}
+              </div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: "#fff", wordBreak: "break-all", marginBottom: 8 }}>
+                {pixInfo.chave}
+              </div>
+              <div style={{ fontSize: 13, color: "rgba(255,255,255,0.7)" }}>
+                Valor: <strong style={{ color: "#fff" }}>R$ {pixInfo.valor.toFixed(2).replace(".", ",")}</strong>
+              </div>
+            </div>
+            <button
+              onClick={() => { navigator.clipboard.writeText(pixInfo.chave); }}
+              style={{ padding: "10px 18px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.3)", background: "transparent", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer", marginBottom: 10 }}
+            >
+              📋 Copiar chave PIX
+            </button>
+            <div style={{ fontSize: 12, color: "rgba(255,255,255,0.5)", lineHeight: 1.6 }}>
+              Após realizar o pagamento, aguarde a confirmação do fotógrafo para liberar o acesso.
+            </div>
+          </div>
+        ) : renovInvoiceUrl ? (
           <div>
             <div style={{ fontSize: 12, color: "rgba(255,255,255,0.55)", lineHeight: 1.6, marginBottom: 12 }}>
               Cobrança gerada! Conclua o pagamento na aba que abriu (Pix, boleto ou cartão) e depois clique abaixo.

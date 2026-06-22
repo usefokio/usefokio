@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { decryptKey, criarCobranca, type AsaasAmbiente } from "@/lib/asaas";
+import { enviarEmailCliente } from "@/lib/email/send";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -28,61 +29,126 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   const { data: fotografo } = await admin
     .from("fotografos")
-    .select("id, asaas_api_key_enc, asaas_ambiente, asaas_ativo")
+    .select("id, nome_empresa, nome_completo, email, asaas_api_key_enc, asaas_ambiente, asaas_ativo, pix_ativo, pix_chave, pix_tipo, abacate_api_key_enc, abacate_ativo, mp_api_key_enc, mp_ativo")
     .eq("id", galeria.fotografo_id)
     .maybeSingle();
 
-  if (!fotografo?.asaas_ativo || !fotografo.asaas_api_key_enc) {
+  // Determina gateway por prioridade
+  const gateway =
+    fotografo?.pix_ativo && fotografo.pix_chave ? "pix_manual" :
+    fotografo?.abacate_ativo && fotografo.abacate_api_key_enc ? "abacatepay" :
+    fotografo?.mp_ativo && fotografo.mp_api_key_enc ? "mercadopago" :
+    fotografo?.asaas_ativo && fotografo.asaas_api_key_enc ? "asaas" : null;
+
+  if (!gateway) {
     return NextResponse.json({ erro: "Pagamento online não disponível. Entre em contato com o fotógrafo." }, { status: 400 });
   }
 
   const emailNorm = email.trim().toLowerCase();
 
-  // Reaproveita cobrança pendente da mesma galeria + email (não duplica)
+  // PIX manual — cria registro pendente e notifica fotógrafo por email
+  if (gateway === "pix_manual") {
+    const { data: pgto, error } = await admin.from("pagamentos").insert({
+      tipo:          "renovacao",
+      galeria_id:    id,
+      fotografo_id:  fotografo!.id,
+      valor:         galeria.renewal_fee,
+      status:        "pendente",
+      gateway:       "pix_manual",
+      dias_liberados: galeria.renovacao_dias ?? 30,
+      pagador_nome:  nome.trim(),
+      pagador_email: emailNorm,
+    }).select("id").single();
+
+    if (error) return NextResponse.json({ erro: error.message }, { status: 500 });
+
+    // Notifica fotógrafo por email
+    try {
+      const nomeEmpresa = fotografo!.nome_empresa ?? fotografo!.nome_completo ?? "Fotógrafo";
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://usefokio.com.br";
+      const valorFmt = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(galeria.renewal_fee);
+      const html = `<div style="font-family:sans-serif;font-size:15px;line-height:1.7;color:#222;max-width:600px">
+        <p><strong>${nome.trim()}</strong> realizou um pagamento PIX para renovação da galeria <strong>${galeria.titulo}</strong>.</p>
+        <p>Valor: <strong>${valorFmt}</strong><br>E-mail: ${emailNorm}</p>
+        <p>Acesse o painel para confirmar o pagamento e liberar o acesso:<br>
+        <a href="${appUrl}/entrega/${id}">${appUrl}/entrega/${id}</a></p>
+        <hr style="margin:24px 0;border:none;border-top:1px solid #eee">
+        <div style="font-size:12px;color:#aaa">UseFokio · pagamento PIX manual pendente de confirmação</div>
+      </div>`;
+      await enviarEmailCliente({
+        fotografoId: fotografo!.id,
+        to: fotografo!.email ?? "",
+        subject: `Pagamento PIX recebido — ${galeria.titulo}`,
+        html,
+      });
+    } catch { /* email não bloqueia o fluxo */ }
+
+    return NextResponse.json({
+      ok: true,
+      gateway: "pix_manual",
+      pixChave: fotografo!.pix_chave,
+      pixTipo: fotografo!.pix_tipo,
+      valor: galeria.renewal_fee,
+      pagamentoId: pgto.id,
+    });
+  }
+
+  // Gateways com API — reaproveita cobrança pendente (não duplica)
   const { data: pendente } = await admin
     .from("pagamentos")
-    .select("id, invoice_url, asaas_payment_id")
+    .select("id, invoice_url")
     .eq("galeria_id", id)
     .eq("tipo", "renovacao")
     .eq("status", "pendente")
     .eq("pagador_email", emailNorm)
+    .eq("gateway", gateway)
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
 
   if (pendente?.invoice_url) {
-    return NextResponse.json({ ok: true, invoiceUrl: pendente.invoice_url, pagamentoId: pendente.id });
+    return NextResponse.json({ ok: true, gateway, invoiceUrl: pendente.invoice_url, pagamentoId: pendente.id });
   }
 
   try {
-    const apiKey = decryptKey(fotografo.asaas_api_key_enc);
-    const { paymentId, invoiceUrl } = await criarCobranca({
-      apiKey,
-      ambiente: fotografo.asaas_ambiente as AsaasAmbiente,
-      cliente: { nome: nome.trim(), email: emailNorm, cpf: cpf?.trim() || undefined },
-      valor: galeria.renewal_fee,
-      descricao: `Renovação de acesso — ${galeria.titulo}`,
-      externalReference: `renovacao:${id}`,
-    });
+    let paymentId: string;
+    let invoiceUrl: string;
+
+    if (gateway === "asaas") {
+      const apiKey = decryptKey(fotografo!.asaas_api_key_enc!);
+      const resultado = await criarCobranca({
+        apiKey,
+        ambiente: fotografo!.asaas_ambiente as AsaasAmbiente,
+        cliente: { nome: nome.trim(), email: emailNorm, cpf: cpf?.trim() || undefined },
+        valor: galeria.renewal_fee,
+        descricao: `Renovação de acesso — ${galeria.titulo}`,
+        externalReference: `renovacao:${id}`,
+      });
+      paymentId = resultado.paymentId;
+      invoiceUrl = resultado.invoiceUrl;
+    } else {
+      return NextResponse.json({ erro: "Gateway não implementado ainda." }, { status: 501 });
+    }
 
     const { data: pgto, error } = await admin.from("pagamentos").insert({
       tipo:             "renovacao",
       galeria_id:       id,
-      fotografo_id:     fotografo.id,
-      asaas_payment_id: paymentId,
+      fotografo_id:     fotografo!.id,
+      asaas_payment_id: gateway === "asaas" ? paymentId : null,
       valor:            galeria.renewal_fee,
       status:           "pendente",
       invoice_url:      invoiceUrl,
+      gateway,
       dias_liberados:   galeria.renovacao_dias ?? 30,
       pagador_nome:     nome.trim(),
       pagador_email:    emailNorm,
     }).select("id").single();
 
     if (error) return NextResponse.json({ erro: error.message }, { status: 500 });
-    return NextResponse.json({ ok: true, invoiceUrl, pagamentoId: pgto.id });
+    return NextResponse.json({ ok: true, gateway, invoiceUrl, pagamentoId: pgto.id });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    console.error("[renovar] Asaas error:", msg);
+    console.error("[renovar] gateway error:", msg);
     return NextResponse.json({ erro: "Erro ao gerar cobrança: " + msg }, { status: 500 });
   }
 }

@@ -162,6 +162,7 @@ export type Pagamento = {
   fotografo_id: string | null;
   doador_fotografo_id: string | null;
   asaas_payment_id: string | null;
+  gateway: string | null;
   valor: number;
   status: "pendente" | "pago" | "cancelado";
   invoice_url: string | null;

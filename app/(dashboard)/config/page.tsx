@@ -725,6 +725,35 @@ function ConfigPagamentos() {
   const [webhookMsg,   setWebhookMsg]   = useState<{ tipo: "ok" | "erro"; texto: string } | null>(null);
   const [regWebhook,   setRegWebhook]   = useState(false);
 
+  // PIX manual
+  const [pixChave,    setPixChave]    = useState(fotografo?.pix_chave ?? "");
+  const [pixTipo,     setPixTipo]     = useState(fotografo?.pix_tipo ?? "aleatoria");
+  const [pixAtivo,    setPixAtivo]    = useState(fotografo?.pix_ativo ?? false);
+  const [pixSalvando, setPixSalvando] = useState(false);
+  const [pixMsg,      setPixMsg]      = useState<{ tipo: "ok" | "erro"; texto: string } | null>(null);
+
+  useEffect(() => {
+    if (fotografo) {
+      setPixChave(fotografo.pix_chave ?? "");
+      setPixTipo(fotografo.pix_tipo ?? "aleatoria");
+      setPixAtivo(fotografo.pix_ativo ?? false);
+    }
+  }, [fotografo]);
+
+  async function salvarPix() {
+    setPixSalvando(true);
+    setPixMsg(null);
+    const res = await fetch("/api/config/pix", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pix_chave: pixChave, pix_tipo: pixTipo, pix_ativo: pixAtivo }),
+    });
+    const json = await res.json();
+    setPixSalvando(false);
+    if (json.ok) { setPixMsg({ tipo: "ok", texto: "Configuração PIX salva!" }); await reload(); }
+    else setPixMsg({ tipo: "erro", texto: json.erro ?? "Erro ao salvar." });
+  }
+
   const conectado = fotografo?.asaas_ativo ?? false;
 
   async function registrarWebhook() {
@@ -835,6 +864,50 @@ function ConfigPagamentos() {
           </button>
         </div>
       )}
+
+      {/* PIX manual */}
+      <div style={{ borderTop: "0.5px solid var(--color-border-tertiary)", paddingTop: 20, marginBottom: 24 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: "var(--color-text-primary)", marginBottom: 4 }}>💸 PIX manual (chave própria)</div>
+        <p style={{ fontSize: 13, color: "var(--color-text-secondary)", margin: "0 0 16px", lineHeight: 1.6 }}>
+          O cliente recebe sua chave PIX e paga diretamente para você. Zero taxas de gateway. Confirmação manual no painel.
+        </p>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+          <label style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)", cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }}>
+            <input type="checkbox" checked={pixAtivo} onChange={(e) => setPixAtivo(e.target.checked)} style={{ width: 16, height: 16, cursor: "pointer" }} />
+            Ativar PIX manual
+          </label>
+        </div>
+        {pixAtivo && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 14 }}>
+            <div>
+              <label style={{ fontSize: 12, fontWeight: 600, color: "var(--color-text-secondary)", display: "block", marginBottom: 5 }}>Tipo de chave</label>
+              <select value={pixTipo} onChange={(e) => setPixTipo(e.target.value)} style={{ ...inputStyle, width: 220 }}>
+                <option value="aleatoria">Chave aleatória</option>
+                <option value="email">E-mail</option>
+                <option value="cpf">CPF</option>
+                <option value="cnpj">CNPJ</option>
+                <option value="telefone">Telefone</option>
+              </select>
+            </div>
+            <div>
+              <label style={{ fontSize: 12, fontWeight: 600, color: "var(--color-text-secondary)", display: "block", marginBottom: 5 }}>Chave PIX</label>
+              <input value={pixChave} onChange={(e) => setPixChave(e.target.value)} placeholder="Cole sua chave PIX aqui" style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} />
+            </div>
+          </div>
+        )}
+        {pixMsg && (
+          <div style={{ marginBottom: 12, padding: "9px 12px", borderRadius: 8, fontSize: 12, fontWeight: 500,
+            background: pixMsg.tipo === "ok" ? "rgba(16,185,129,0.08)" : "rgba(239,68,68,0.08)",
+            color: pixMsg.tipo === "ok" ? "#059669" : "#DC2626",
+            border: `0.5px solid ${pixMsg.tipo === "ok" ? "rgba(16,185,129,0.3)" : "rgba(239,68,68,0.3)"}`,
+          }}>
+            {pixMsg.texto}
+          </div>
+        )}
+        <button onClick={salvarPix} disabled={pixSalvando} style={{ padding: "8px 20px", borderRadius: 8, border: "none", background: pixSalvando ? "#6B7280" : "#111", color: "#fff", fontSize: 13, fontWeight: 600, cursor: pixSalvando ? "default" : "pointer" }}>
+          {pixSalvando ? "Salvando…" : "Salvar configuração PIX"}
+        </button>
+      </div>
 
       {/* Doação ao desenvolvedor */}
       <div style={{ borderTop: "0.5px solid var(--color-border-tertiary)", paddingTop: 20 }}>

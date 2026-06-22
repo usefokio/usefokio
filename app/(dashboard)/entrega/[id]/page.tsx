@@ -53,6 +53,47 @@ function VerificarPagamentoBtn({ galeriaId, onConfirmado }: { galeriaId: string;
   );
 }
 
+function ConfirmarPixBtn({ galeriaId, onConfirmado }: { galeriaId: string; onConfirmado: () => void }) {
+  const [confirmando, setConfirmando] = useState(false);
+  const [msg, setMsg] = useState<{ tipo: "ok" | "erro"; texto: string } | null>(null);
+
+  async function confirmar() {
+    setConfirmando(true);
+    setMsg(null);
+    try {
+      const res = await fetch(`/api/entrega/${galeriaId}/renovar/confirmar`, { method: "POST" });
+      const json = await res.json();
+      if (json.ok) {
+        setMsg({ tipo: "ok", texto: "Acesso liberado! Recarregando…" });
+        setTimeout(onConfirmado, 1500);
+      } else {
+        setMsg({ tipo: "erro", texto: json.erro ?? "Erro ao confirmar." });
+      }
+    } catch {
+      setMsg({ tipo: "erro", texto: "Erro ao confirmar." });
+    } finally {
+      setConfirmando(false);
+    }
+  }
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+      {msg && (
+        <span style={{ fontSize: 11, fontWeight: 600, color: msg.tipo === "ok" ? "#059669" : "#DC2626" }}>
+          {msg.texto}
+        </span>
+      )}
+      <button
+        onClick={confirmar}
+        disabled={confirmando}
+        style={{ padding: "4px 10px", borderRadius: 6, border: "0.5px solid rgba(16,185,129,0.4)", background: "rgba(16,185,129,0.12)", color: "#065F46", fontSize: 11, fontWeight: 600, cursor: confirmando ? "default" : "pointer", whiteSpace: "nowrap" }}
+      >
+        {confirmando ? "Confirmando…" : "✓ Confirmar pagamento PIX"}
+      </button>
+    </div>
+  );
+}
+
 function ModalSalvarLista({ fotografoId, galeriaTitulo, acessos, onFechar }: {
   fotografoId: string;
   galeriaTitulo: string;
@@ -420,11 +461,14 @@ export default function EntregaDetailPage() {
       {/* Aviso de pagamento pendente */}
       {pagamentos.some(p => p.status === "pendente") && (() => {
         const pendentes = pagamentos.filter(p => p.status === "pendente");
+        const pixPendente = pendentes.find(p => p.gateway === "pix_manual");
         return (
           <div style={{ background: "rgba(245,158,11,0.08)", border: "0.5px solid rgba(245,158,11,0.4)", borderRadius: 10, padding: "12px 18px", marginBottom: 14 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
               <div style={{ fontSize: 13, fontWeight: 700, color: "#B45309" }}>⏳ Aguardando pagamento</div>
-              <VerificarPagamentoBtn galeriaId={id} onConfirmado={() => window.location.reload()} />
+              {pixPendente
+                ? <ConfirmarPixBtn galeriaId={id} onConfirmado={() => window.location.reload()} />
+                : <VerificarPagamentoBtn galeriaId={id} onConfirmado={() => window.location.reload()} />}
             </div>
             {pendentes.map((p) => (
               <div key={p.id} style={{ fontSize: 12, color: "#92400E", lineHeight: 1.5 }}>
@@ -432,6 +476,7 @@ export default function EntregaDetailPage() {
                 {p.dias_liberados && <span> · +{p.dias_liberados} dias</span>}
                 {p.pagador_nome && <span> · {p.pagador_nome}</span>}
                 {p.pagador_email && <span style={{ opacity: 0.8 }}> ({p.pagador_email})</span>}
+                {p.gateway === "pix_manual" && <span style={{ marginLeft: 6, fontSize: 10, background: "rgba(245,158,11,0.2)", borderRadius: 4, padding: "1px 5px" }}>PIX manual</span>}
               </div>
             ))}
           </div>
