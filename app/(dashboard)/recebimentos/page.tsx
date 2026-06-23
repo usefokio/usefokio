@@ -9,6 +9,7 @@ type Pagamento = {
   tipo: string;
   valor: number;
   status: string;
+  gateway: string | null;
   pagador_nome: string | null;
   pagador_email: string | null;
   dias_liberados: number | null;
@@ -127,6 +128,8 @@ export default function RecebimentosPage() {
   const [detalhe, setDetalhe] = useState<Pagamento | null>(null);
   const [excluindoId, setExcluindoId] = useState<string | null>(null);
   const [confirmandoId, setConfirmandoId] = useState<string | null>(null);
+  const [verificandoId, setVerificandoId] = useState<string | null>(null);
+  const [verificandoMsg, setVerificandoMsg] = useState<{ id: string; texto: string; ok: boolean } | null>(null);
 
   useEffect(() => {
     if (!fotografo) return;
@@ -141,6 +144,21 @@ export default function RecebimentosPage() {
         setCarregando(false);
       });
   }, [fotografo]);
+
+  async function verificarPagamento(p: Pagamento) {
+    if (!p.galerias_entrega?.id) return;
+    setVerificandoId(p.id);
+    setVerificandoMsg(null);
+    const res = await fetch(`/api/entrega/${p.galerias_entrega.id}/verificar-pagamento`, { method: "POST" });
+    const json = await res.json();
+    setVerificandoId(null);
+    if (json.pago) {
+      setPagamentos((prev) => prev.map((pg) => pg.id === p.id ? { ...pg, status: "pago", paid_at: json.expiresAt } : pg));
+      setVerificandoMsg({ id: p.id, texto: "Pagamento confirmado! Acesso liberado.", ok: true });
+    } else {
+      setVerificandoMsg({ id: p.id, texto: json.erro ?? json.mensagem ?? "Ainda não confirmado.", ok: false });
+    }
+  }
 
   async function excluir(id: string) {
     setExcluindoId(id);
@@ -303,6 +321,21 @@ export default function RecebimentosPage() {
                     </>
                   ) : (
                     <>
+                      {p.status === "pendente" && p.gateway === "asaas" && p.galerias_entrega?.id && (
+                        <button
+                          onClick={() => verificarPagamento(p)}
+                          disabled={verificandoId === p.id}
+                          title="Verificar pagamento no Asaas"
+                          style={{ fontSize: 11, fontWeight: 600, padding: "4px 8px", borderRadius: 6, border: "0.5px solid rgba(37,99,235,0.3)", background: "rgba(37,99,235,0.07)", color: "#2563EB", cursor: verificandoId === p.id ? "default" : "pointer", whiteSpace: "nowrap" }}
+                        >
+                          {verificandoId === p.id ? "…" : "🔄 Verificar"}
+                        </button>
+                      )}
+                      {verificandoMsg?.id === p.id && (
+                        <span style={{ fontSize: 10, color: verificandoMsg.ok ? "#059669" : "#B45309", fontWeight: 600 }}>
+                          {verificandoMsg.texto}
+                        </span>
+                      )}
                       <button
                         onClick={() => setDetalhe(p)}
                         title="Ver detalhes"

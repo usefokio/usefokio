@@ -65,22 +65,22 @@ async function obterCustomer(apiKey: string, ambiente: AsaasAmbiente, cliente: {
   const existente = busca?.data?.[0];
 
   if (existente?.id) {
-    // Se temos CPF e o customer não tem, atualiza para habilitar Pix
-    if (cpfLimpo && !existente.cpfCnpj) {
-      await asaasFetch(apiKey, ambiente, `/customers/${existente.id}`, {
-        method: "PUT",
-        body: JSON.stringify({ name: existente.name, cpfCnpj: cpfLimpo }),
-      }).catch(() => {}); // ignora falha silenciosamente
-    }
+    const updates: Record<string, unknown> = { name: existente.name, notificationDisabled: true };
+    if (cpfLimpo && !existente.cpfCnpj) updates.cpfCnpj = cpfLimpo;
+    await asaasFetch(apiKey, ambiente, `/customers/${existente.id}`, {
+      method: "PUT",
+      body: JSON.stringify(updates),
+    }).catch(() => {});
     return existente.id;
   }
 
   const criado = await asaasFetch(apiKey, ambiente, "/customers", {
     method: "POST",
     body: JSON.stringify({
-      name:    cliente.nome,
-      email:   cliente.email,
-      cpfCnpj: cpfLimpo,
+      name:                 cliente.nome,
+      email:                cliente.email,
+      cpfCnpj:              cpfLimpo,
+      notificationDisabled: true,
     }),
   });
   return criado.id;
