@@ -612,8 +612,8 @@ export default function ClienteDetailPage() {
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <div style={{ fontSize: 17, fontWeight: 700, color: "var(--color-text-primary)", letterSpacing: "-0.01em" }}>{cliente.nome}</div>
             {(() => {
-              const tc = { oportunidade: { color: "#7C3AED", bg: "rgba(124,58,237,0.08)" }, cliente: { color: "#059669", bg: "rgba(16,185,129,0.08)" }, parceiro: { color: "#2563EB", bg: "rgba(37,99,235,0.08)" }, fornecedor: { color: "#D97706", bg: "rgba(217,119,6,0.08)" } }[cliente.tipo_contato ?? "cliente"] ?? { color: "#059669", bg: "rgba(16,185,129,0.08)" };
-              const labels: Record<string, string> = { oportunidade: "Lead", cliente: "Cliente", parceiro: "Parceiro", fornecedor: "Fornecedor" };
+              const tc = { oportunidade: { color: "#7C3AED", bg: "rgba(124,58,237,0.08)" }, cliente: { color: "#059669", bg: "rgba(16,185,129,0.08)" }, parceiro: { color: "#2563EB", bg: "rgba(37,99,235,0.08)" }, fornecedor: { color: "#D97706", bg: "rgba(217,119,6,0.08)" }, fotografo: { color: "#0891B2", bg: "rgba(8,145,178,0.08)" }, videografo: { color: "#7C3AED", bg: "rgba(124,58,237,0.08)" } }[cliente.tipo_contato ?? "cliente"] ?? { color: "#059669", bg: "rgba(16,185,129,0.08)" };
+              const labels: Record<string, string> = { oportunidade: "Oportunidade", cliente: "Cliente", parceiro: "Parceiro", fornecedor: "Fornecedor", fotografo: "Fotógrafo", videografo: "Videógrafo" };
               return <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 10, background: tc.bg, color: tc.color }}>{labels[cliente.tipo_contato ?? "cliente"]}</span>;
             })()}
           </div>

@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Avatar } from "@/components/ui/Avatar";
 import { useFotografo } from "@/lib/context/FotografoContext";
@@ -125,6 +125,60 @@ const NAV_ITEMS = [
     ),
   },
 ];
+
+function FinanceiroSubItems({ pathname }: { pathname: string }) {
+  const searchParams = useSearchParams();
+  const tipoAtual    = searchParams.get("tipo");
+  const isFinanceiro = pathname.startsWith("/crm/financeiro");
+  const isResultados = pathname === "/crm/resultados";
+  const isFluxo      = pathname === "/crm/fluxo";
+  if (!isFinanceiro && !isResultados && !isFluxo) return null;
+
+  const linkStyle = (tipo: string): React.CSSProperties => {
+    const isActive = isFinanceiro && (tipoAtual === tipo || (!tipoAtual && tipo === "receber"));
+    return {
+      display: "flex", alignItems: "center", gap: 7,
+      padding: "5px 10px 5px 44px", borderRadius: 7, marginBottom: 1,
+      background: isActive ? "var(--color-background-secondary)" : "transparent",
+      color: isActive ? "var(--color-text-primary)" : "var(--color-text-secondary)",
+      fontSize: 11, fontWeight: isActive ? 500 : 400, textDecoration: "none",
+    };
+  };
+  const linkStylePath = (href: string): React.CSSProperties => {
+    const isActive = pathname === href;
+    return {
+      display: "flex", alignItems: "center", gap: 7,
+      padding: "5px 10px 5px 44px", borderRadius: 7, marginBottom: 1,
+      background: isActive ? "var(--color-background-secondary)" : "transparent",
+      color: isActive ? "var(--color-text-primary)" : "var(--color-text-secondary)",
+      fontSize: 11, fontWeight: isActive ? 500 : 400, textDecoration: "none",
+    };
+  };
+  return (
+    <>
+      <Link href="/crm/financeiro?tipo=receber" style={linkStyle("receber")}
+        onMouseEnter={e => { if (!isFinanceiro || tipoAtual !== "receber") e.currentTarget.style.background = "var(--color-background-secondary)"; }}
+        onMouseLeave={e => { if (!isFinanceiro || tipoAtual !== "receber") e.currentTarget.style.background = "transparent"; }}>
+        <span style={{ whiteSpace: "nowrap" }}>A Receber</span>
+      </Link>
+      <Link href="/crm/financeiro?tipo=pagar" style={linkStyle("pagar")}
+        onMouseEnter={e => { if (!isFinanceiro || tipoAtual !== "pagar") e.currentTarget.style.background = "var(--color-background-secondary)"; }}
+        onMouseLeave={e => { if (!isFinanceiro || tipoAtual !== "pagar") e.currentTarget.style.background = "transparent"; }}>
+        <span style={{ whiteSpace: "nowrap" }}>A Pagar</span>
+      </Link>
+      <Link href="/crm/resultados" style={linkStylePath("/crm/resultados")}
+        onMouseEnter={e => { if (!isResultados) e.currentTarget.style.background = "var(--color-background-secondary)"; }}
+        onMouseLeave={e => { if (!isResultados) e.currentTarget.style.background = "transparent"; }}>
+        <span style={{ whiteSpace: "nowrap" }}>Resultados</span>
+      </Link>
+      <Link href="/crm/fluxo" style={linkStylePath("/crm/fluxo")}
+        onMouseEnter={e => { if (!isFluxo) e.currentTarget.style.background = "var(--color-background-secondary)"; }}
+        onMouseLeave={e => { if (!isFluxo) e.currentTarget.style.background = "transparent"; }}>
+        <span style={{ whiteSpace: "nowrap" }}>Fluxo de Caixa</span>
+      </Link>
+    </>
+  );
+}
 
 // Ícone de seta para o botão de colapso
 function IcoChevron({ collapsed }: { collapsed: boolean }) {
@@ -261,37 +315,44 @@ export function Sidebar() {
               {/* Sub-itens do CRM */}
               {item.href === "/crm" && !collapsed && pathname.startsWith("/crm") && (() => {
                 const crmSubs = [
+                  { href: "/crm/agenda",        label: "Agenda" },
                   { href: "/crm/oportunidades", label: "Oportunidades" },
-                  { href: "/crm/clientes",      label: "Clientes" },
+                  { href: "/crm/clientes",      label: "Contatos" },
                   { href: "/crm/pedidos",       label: "Pedidos" },
                   { href: "/crm/produtos",      label: "Produtos" },
                   { href: "/crm/contas",        label: "Contas Bancárias" },
                   { href: "/crm/financeiro",    label: "Financeiro" },
-                  { href: "/crm/resultados",    label: "Resultados" },
                   { href: "/crm/config",        label: "Config. CRM" },
                 ];
                 return (
                   <>
                     {crmSubs.map((sub) => {
-                      const subActive = pathname === sub.href || pathname.startsWith(sub.href + "/");
+                      const subPath = sub.href.split("?")[0];
+                      const subActive = pathname === subPath || pathname.startsWith(subPath + "/");
                       return (
-                        <Link
-                          key={sub.href}
-                          href={sub.href}
-                          style={{
-                            display: "flex", alignItems: "center", gap: 7,
-                            padding: "5px 10px 5px 28px",
-                            borderRadius: 7, marginBottom: 1,
-                            background: subActive ? "var(--color-background-secondary)" : "transparent",
-                            color: subActive ? "var(--color-text-primary)" : "var(--color-text-secondary)",
-                            fontSize: 11, fontWeight: subActive ? 500 : 400,
-                            textDecoration: "none",
-                          }}
-                          onMouseEnter={(e) => { if (!subActive) e.currentTarget.style.background = "var(--color-background-secondary)"; }}
-                          onMouseLeave={(e) => { if (!subActive) e.currentTarget.style.background = "transparent"; }}
-                        >
-                          <span style={{ whiteSpace: "nowrap" }}>{sub.label}</span>
-                        </Link>
+                        <div key={sub.href}>
+                          <Link
+                            href={sub.href}
+                            style={{
+                              display: "flex", alignItems: "center", gap: 7,
+                              padding: "5px 10px 5px 28px",
+                              borderRadius: 7, marginBottom: 1,
+                              background: subActive ? "var(--color-background-secondary)" : "transparent",
+                              color: subActive ? "var(--color-text-primary)" : "var(--color-text-secondary)",
+                              fontSize: 11, fontWeight: subActive ? 500 : 400,
+                              textDecoration: "none",
+                            }}
+                            onMouseEnter={(e) => { if (!subActive) e.currentTarget.style.background = "var(--color-background-secondary)"; }}
+                            onMouseLeave={(e) => { if (!subActive) e.currentTarget.style.background = "transparent"; }}
+                          >
+                            <span style={{ whiteSpace: "nowrap" }}>{sub.label}</span>
+                          </Link>
+                          {sub.href === "/crm/financeiro" && (
+                            <Suspense>
+                              <FinanceiroSubItems pathname={pathname} />
+                            </Suspense>
+                          )}
+                        </div>
                       );
                     })}
                   </>

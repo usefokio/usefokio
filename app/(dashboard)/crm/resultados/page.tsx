@@ -3,9 +3,11 @@
 import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
+import { GraficoPanorama } from "./_components/GraficoPanorama";
 
 type Conta = { id: string; codigo: string; nome: string };
 type Regime = "competencia" | "caixa";
+type PanoramaItem = { ano: number; receitas: number; despesas: number; lucro: number };
 
 const MESES = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
 
@@ -28,6 +30,7 @@ export default function ResultadosPage() {
   const [mapa,            setMapa]            = useState<Record<string, Record<number, number>>>({});
   const [loading,         setLoading]         = useState(true);
   const [naoMapeados,     setNaoMapeados]     = useState<{ categoria: string; total: number }[]>([]);
+  const [panorama,        setPanorama]        = useState<PanoramaItem[]>([]);
 
   const carregar = useCallback(async () => {
     if (!fotografo) return;
@@ -167,6 +170,53 @@ export default function ResultadosPage() {
 
   useEffect(() => { carregar(); }, [carregar]);
 
+  // Panorama: busca receitas e despesas de todos os anos de uma vez
+  useEffect(() => {
+    if (!fotografo) return;
+    const sb = createClient();
+    const fid = fotografo.id;
+    Promise.all([
+      sb.from("crm_orders")
+        .select("data_lancamento, total, categoria")
+        .eq("fotografo_id", fid)
+        .not("data_lancamento", "is", null),
+      sb.from("crm_financial_entries")
+        .select("vencimento, valor, tipo")
+        .eq("fotografo_id", fid)
+        .eq("status", "pago")
+        .eq("tipo", "despesa")
+        .not("vencimento", "is", null),
+    ]).then(([{ data: orders }, { data: desp }]) => {
+      const CATEGORIA_CODIGO_KEYS = new Set([
+        "Casamento - foto","Casamento - Foto","Bodas","Casamento - Foto e Video",
+        "Aniversário Infantil","Aniversario Infantil","Aniversário Adulto","Aniversario Adulto",
+        "Aniversário 15 anos","Batizado","Evento Corporativo","Eventos",
+        "Ensaio Gestante","Ensaio/Book","Ensaio Infantil","Ensaio 15 anos",
+        "Ensaio Casal","Ensaio Familia","Ensaio Newborn","Acompanhamento",
+        "Diagramação de livro/álbum","Consultoria","Cursos e Treinamento",
+        "Vendas Extras","Outros Serviços","Publicidade","Foto Produto",
+        "Casamento - Video","Video cultural","Video Cultural","Video Geral",
+      ]);
+      const mapeado: Record<number, { rec: number; desp: number }> = {};
+      for (const o of (orders ?? []) as { data_lancamento: string; total: number; categoria: string }[]) {
+        if (!CATEGORIA_CODIGO_KEYS.has(o.categoria)) continue;
+        const y = parseInt(o.data_lancamento.slice(0, 4));
+        mapeado[y] ??= { rec: 0, desp: 0 };
+        mapeado[y].rec += o.total;
+      }
+      for (const d of (desp ?? []) as { vencimento: string; valor: number }[]) {
+        const y = parseInt(d.vencimento.slice(0, 4));
+        mapeado[y] ??= { rec: 0, desp: 0 };
+        mapeado[y].desp += d.valor;
+      }
+      const dados: PanoramaItem[] = Object.entries(mapeado)
+        .map(([y, v]) => ({ ano: parseInt(y), receitas: v.rec, despesas: v.desp, lucro: v.rec - v.desp }))
+        .filter(d => d.receitas > 0 || d.despesas > 0)
+        .sort((a, b) => a.ano - b.ano);
+      setPanorama(dados);
+    });
+  }, [fotografo]);
+
   const contasPorPrefixo = (prefixo: string) =>
     contas.filter(c => c.codigo.startsWith(prefixo) && mapa[c.id]);
 
@@ -279,6 +329,9 @@ export default function ResultadosPage() {
 
   return (
     <div style={{ padding: "28px 32px", fontFamily: "var(--font-sans)", minWidth: 0 }}>
+
+      {/* Gráfico panorama */}
+      <GraficoPanorama dados={panorama} />
 
       {/* Aviso: categorias sem mapeamento (competência) */}
       {naoMapeados.length > 0 && (
