@@ -25,13 +25,16 @@ type GaleriaEntregaMin = { id: string; titulo: string; expires_at: string | null
 type AlbumMin          = { id: string; titulo: string; status: string; created_at: string };
 
 const TIPO_LABELS: Record<string, string> = {
-  oportunidade: "Lead", cliente: "Cliente", parceiro: "Parceiro", fornecedor: "Fornecedor",
+  oportunidade: "Lead", cliente: "Cliente", parceiro: "Parceiro",
+  fornecedor: "Fornecedor", fotografo: "Fotógrafo", videografo: "Videógrafo",
 };
 const TIPO_COLORS: Record<string, { color: string; bg: string }> = {
   oportunidade: { color: "#7C3AED", bg: "rgba(124,58,237,0.08)" },
   cliente:      { color: "#059669", bg: "rgba(16,185,129,0.08)" },
   parceiro:     { color: "#2563EB", bg: "rgba(37,99,235,0.08)" },
   fornecedor:   { color: "#D97706", bg: "rgba(217,119,6,0.08)" },
+  fotografo:    { color: "#0891B2", bg: "rgba(8,145,178,0.08)"  },
+  videografo:   { color: "#7C3AED", bg: "rgba(124,58,237,0.08)" },
 };
 
 // ─── Aba CRM ──────────────────────────────────────────────────────────────────
