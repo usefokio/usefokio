@@ -89,3 +89,59 @@ Dados copiados da produção (fotógrafo `contato@fernandoagrelafotografia.com.b
 - Sem login/auth em dev — qualquer chamada ao Supabase Auth deve ser protegida por `if (process.env.NODE_ENV === "development") return`
 - Commits em português no estilo `feat(crm): descrição`
 - Push para `origin feature/crm` após cada alteração
+
+---
+
+## Mapa do Sistema CRM
+
+### Tabelas do banco (dev: `lcpoufencuaawpztmclb`)
+
+| Tabela | Descrição | Página CRM |
+|--------|-----------|------------|
+| `clientes` | Contatos (clientes/fornecedores) | `/crm/clientes` |
+| `crm_orders` | Pedidos de serviço | `/crm/pedidos` |
+| `crm_order_items` | Itens do pedido (vazio — aguarda export photomanager) | `/crm/pedidos/[id]` |
+| `crm_financial_entries` | Receitas e despesas | `/crm/financeiro` |
+| `crm_chart_of_accounts` | Plano de contas (receita/despesa) | `/crm/config` → aba Plano |
+| `crm_opportunities` | Pipeline de vendas | `/crm/oportunidades` |
+| `crm_products` | Catálogo de produtos | `/crm/produtos` |
+| `crm_contas_bancarias` | Contas bancárias com saldo calculado | `/crm/contas` |
+| `crm_schedules` | Agenda/eventos vinculados a pedidos | `/crm/agenda` |
+| `crm_funnel_stages` | Etapas do funil de oportunidades | `/crm/config` → aba Funis |
+| `crm_oportunidade_status` | Status das oportunidades (dinâmico, com cor) | `/crm/config` → aba Status |
+| `crm_product_categories` | Categorias de produtos | `/crm/config` → aba Produtos |
+
+### Campos críticos
+
+| Campo | Tabela | Uso |
+|-------|--------|-----|
+| `data_lancamento` | `crm_orders` | Data do lançamento (= `add_date` do CSV legado). Usada pelo Resultados em **regime de competência** |
+| `legacy_id` | `crm_orders` | ID numérico do photomanager. Chave de idempotência em imports. Range 2025: 541–599; 2026: 600–627 |
+| `pago_em` | `crm_financial_entries` | Data real do pagamento. Usada pelo Resultados em **regime de caixa** |
+| `conta_id` | `crm_financial_entries` | FK → `crm_chart_of_accounts` (categoria contábil para o DRE) |
+| `conta_bancaria_id` | `crm_financial_entries` | FK → `crm_contas_bancarias` (banco físico onde o dinheiro entrou/saiu) |
+| `fotografo_id` | todas | Dev mock: `"00000000-0000-0000-0000-000000000001"` |
+
+### Utilitários compartilhados (não duplicar)
+
+| Arquivo | Exporta |
+|---------|---------|
+| `lib/utils/format.ts` | `formatBRL`, `formatNum`, `formatData` |
+| `lib/hooks/useWindowWidth.ts` | `useWindowWidth()` — responsividade |
+| `lib/constants/statusMaps.ts` | `PEDIDO_STATUS_MAP`, `FIN_STATUS_MAP` |
+| `app/(dashboard)/crm/_components/Icons.tsx` | `IcoEdit`, `IcoTrash`, `IcoOpen`, `IcoMail`, `IcoCheck`, `IcoWhatsApp` |
+
+### Lógica de Resultados (DRE)
+
+- **Regime de Competência**: receitas = `crm_orders` agrupados por `data_lancamento`, mapeados via `CATEGORIA_CODIGO` em `resultados/page.tsx`. Despesas = `crm_financial_entries` por `vencimento`.
+- **Regime de Caixa**: receitas = `crm_financial_entries` com `tipo=receita` e `pago_em` no período. Despesas = idem por `pago_em`.
+- `CATEGORIA_CODIGO` é hardcoded em `resultados/page.tsx` — atualizar sempre que adicionar nova categoria de pedido ou conta de receita. Categorias sem mapeamento exibem aviso amarelo na tela.
+
+### Dados importados (histórico photomanager)
+
+| Período | Qtd pedidos | Fonte |
+|---------|-------------|-------|
+| 2014–2024 | 500 | `pedidos total.csv` (importado via REST API) |
+| 2025 | 57 | `pedidos2025.csv` (importado via SQL) |
+| 2026 | 27 | `pedidos total.csv` — legacy_ids 600–627 |
+| Financeiro 2025 | 520 entries | `contas recebidas 2025.csv` + `contaspagas2025.csv` |

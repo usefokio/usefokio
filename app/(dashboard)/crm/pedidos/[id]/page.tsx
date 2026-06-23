@@ -5,23 +5,24 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import FormPedido from "../_components/FormPedido";
+import { PEDIDO_STATUS_MAP, FIN_STATUS_MAP } from "@/lib/constants/statusMaps";
+import { formatBRL, formatData } from "@/lib/utils/format";
 import type { CrmOrder, CrmFinancialEntry } from "@/lib/supabase/types";
 
 type OrderWithCliente = CrmOrder & { clientes?: { nome: string } | null };
 
-const STATUS_MAP: Record<string, { label: string; color: string; bg: string }> = {
-  aguardando_sinal: { label: "Aguardando sinal", color: "#D97706", bg: "rgba(217,119,6,0.08)"   },
-  em_producao:      { label: "Em produção",      color: "#2563EB", bg: "rgba(37,99,235,0.08)"   },
-  entregue:         { label: "Entregue",          color: "#059669", bg: "rgba(16,185,129,0.08)"  },
-  cancelado:        { label: "Cancelado",         color: "#EF4444", bg: "rgba(239,68,68,0.08)"   },
-  concluido:        { label: "Concluído",         color: "#6B7280", bg: "rgba(107,114,128,0.08)" },
+type OrderItem = {
+  id: string;
+  produto_id: string | null;
+  descricao: string;
+  quantidade: number;
+  preco_unit: number;
+  total: number;
+  crm_products?: { nome: string } | null;
 };
 
-const STATUS_FIN: Record<string, { label: string; color: string }> = {
-  pendente:  { label: "Pendente",  color: "#D97706" },
-  pago:      { label: "Pago",      color: "#059669" },
-  cancelado: { label: "Cancelado", color: "#EF4444" },
-};
+const STATUS_MAP = PEDIDO_STATUS_MAP;
+const STATUS_FIN = FIN_STATUS_MAP;
 
 export default function PedidoDetailPage() {
   const { id }   = useParams<{ id: string }>();
@@ -29,19 +30,23 @@ export default function PedidoDetailPage() {
 
   const [pedido,     setPedido]     = useState<OrderWithCliente | null>(null);
   const [financeiro, setFinanceiro] = useState<CrmFinancialEntry[]>([]);
+  const [itens,      setItens]      = useState<OrderItem[]>([]);
   const [loading,    setLoading]    = useState(true);
   const [editing,    setEditing]    = useState(false);
-  const [confirmDel, setConfirmDel] = useState(false);
-  const [deleting,   setDeleting]   = useState(false);
+  const [confirmDel,    setConfirmDel]    = useState(false);
+  const [deleting,      setDeleting]      = useState(false);
+  const [agendaMsg,     setAgendaMsg]     = useState("");
 
   const carregar = () => {
     const sb = createClient();
     Promise.all([
       sb.from("crm_orders").select("*, clientes(id, nome)").eq("id", id).single(),
       sb.from("crm_financial_entries").select("*").eq("pedido_id", id).order("vencimento"),
-    ]).then(([{ data: p }, { data: f }]) => {
+      sb.from("crm_order_items").select("*, crm_products(nome)").eq("pedido_id", id).order("descricao"),
+    ]).then(([{ data: p }, { data: f }, { data: oi }]) => {
       setPedido(p as OrderWithCliente | null);
       setFinanceiro((f ?? []) as CrmFinancialEntry[]);
+      setItens((oi ?? []) as OrderItem[]);
       setLoading(false);
     });
   };
@@ -50,7 +55,13 @@ export default function PedidoDetailPage() {
 
   const handleDelete = async () => {
     setDeleting(true);
-    await createClient().from("crm_orders").delete().eq("id", id);
+    const sb = createClient();
+    if (pedido?.oportunidade_id) {
+      await sb.from("crm_opportunities").update({ status: "em_aberto" }).eq("id", pedido.oportunidade_id);
+    }
+    await sb.from("crm_schedules").delete().eq("pedido_id", id);
+    await sb.from("crm_financial_entries").delete().eq("pedido_id", id);
+    await sb.from("crm_orders").delete().eq("id", id);
     router.push("/crm/pedidos");
   };
 
@@ -63,8 +74,8 @@ export default function PedidoDetailPage() {
   );
 
   const st  = STATUS_MAP[pedido.status] ?? STATUS_MAP.aguardando_sinal;
-  const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-  const fmtData = (s: string) => new Date(s + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" });
+  const fmt = formatBRL;
+  const fmtData = formatData;
 
   const liquido = (pedido.total ?? 0) - (pedido.discount ?? 0) + (pedido.other_expenses ?? 0);
   const totalPago = financeiro.filter(f => f.tipo === "receita" && f.status === "pago").reduce((s, f) => s + f.valor, 0);
@@ -83,6 +94,14 @@ export default function PedidoDetailPage() {
           {pedido.nome ?? pedido.numero ?? "Pedido"}
         </span>
       </div>
+
+      {/* Banner de agendamento atualizado */}
+      {agendaMsg && (
+        <div style={{ background: "rgba(16,185,129,0.08)", border: "0.5px solid rgba(16,185,129,0.3)", borderRadius: 10, padding: "10px 16px", marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+          <span style={{ fontSize: 13, color: "#059669" }}>✅ {agendaMsg}</span>
+          <button onClick={() => setAgendaMsg("")} style={{ background: "none", border: "none", cursor: "pointer", color: "#059669", fontSize: 16, lineHeight: 1 }}>×</button>
+        </div>
+      )}
 
       {/* Card topo */}
       <div style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 12, padding: "18px 22px", marginBottom: 16, display: "flex", alignItems: "flex-start", gap: 14 }}>
@@ -156,9 +175,13 @@ export default function PedidoDetailPage() {
             data_evento:    pedido.data_evento ?? "",
             observacoes:    pedido.observacoes ?? "",
           }}
-          onSalvo={() => {
+          onSalvo={(_, agendaAtualizado) => {
             createClient().from("crm_orders").select("*, clientes(id, nome)").eq("id", id).single()
-              .then(({ data }) => { setPedido(data as OrderWithCliente | null); setEditing(false); });
+              .then(({ data }) => {
+                setPedido(data as OrderWithCliente | null);
+                setEditing(false);
+                if (agendaAtualizado) setAgendaMsg("O agendamento foi atualizado com a nova data do evento.");
+              });
           }}
         />
       ) : (
@@ -170,6 +193,38 @@ export default function PedidoDetailPage() {
                 <span style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.06em" }}>Observações</span>
               </div>
               <div style={{ padding: "14px 20px", fontSize: 13, color: "var(--color-text-primary)", lineHeight: 1.7, whiteSpace: "pre-wrap" }}>{pedido.observacoes}</div>
+            </div>
+          )}
+
+          {/* Produtos / Itens do pedido */}
+          {itens.length > 0 && (
+            <div style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 12, overflow: "hidden", marginBottom: 16 }}>
+              <div style={{ padding: "9px 20px", borderBottom: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-secondary)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.06em" }}>Produtos / Serviços</span>
+                <span style={{ fontSize: 11, color: "var(--color-text-secondary)" }}>{itens.length} {itens.length === 1 ? "item" : "itens"}</span>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 70px 100px 100px", padding: "7px 20px", borderBottom: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-secondary)" }}>
+                {["Descrição", "Qtd", "Preço unit.", "Total"].map(h => (
+                  <span key={h} style={{ fontSize: 10, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.04em" }}>{h}</span>
+                ))}
+              </div>
+              {itens.map((item, i) => (
+                <div key={item.id} style={{ display: "grid", gridTemplateColumns: "1fr 70px 100px 100px", padding: "11px 20px", borderBottom: i < itens.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", alignItems: "center" }}>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 500, color: "var(--color-text-primary)" }}>{item.descricao || item.crm_products?.nome || "—"}</div>
+                    {item.crm_products?.nome && item.descricao && item.descricao !== item.crm_products.nome && (
+                      <div style={{ fontSize: 11, color: "var(--color-text-secondary)" }}>{item.crm_products.nome}</div>
+                    )}
+                  </div>
+                  <div style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>{item.quantidade}×</div>
+                  <div style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>{fmt(item.preco_unit)}</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "var(--color-text-primary)" }}>{fmt(item.total)}</div>
+                </div>
+              ))}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 70px 100px 100px", padding: "10px 20px", borderTop: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-secondary)" }}>
+                <div style={{ gridColumn: "1 / 4", fontSize: 12, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.04em" }}>Total dos itens</div>
+                <div style={{ fontSize: 14, fontWeight: 800, color: "var(--color-text-primary)" }}>{fmt(itens.reduce((s, i) => s + i.total, 0))}</div>
+              </div>
             </div>
           )}
 

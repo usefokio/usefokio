@@ -4,6 +4,8 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
+import { useWindowWidth } from "@/lib/hooks/useWindowWidth";
+import { IcoEdit, IcoTrash, IcoOpen } from "@/app/(dashboard)/crm/_components/Icons";
 import type { CrmOpportunity } from "@/lib/supabase/types";
 
 type OppWithRelations = CrmOpportunity & {
@@ -11,36 +13,23 @@ type OppWithRelations = CrmOpportunity & {
   etapa?: { nome: string; ordem: number } | null;
 };
 
-type StatusFiltro = "" | "em_aberto" | "venda_efetuada" | "perdido" | "abandonado";
+type StatusFiltro = string;
 
-const STATUS_MAP: Record<string, { label: string; color: string; bg: string }> = {
-  em_aberto:      { label: "Em aberto",   color: "#2563EB", bg: "rgba(37,99,235,0.08)"  },
-  venda_efetuada: { label: "Efetivada",   color: "#059669", bg: "rgba(16,185,129,0.08)" },
-  perdido:        { label: "Perdida",     color: "#EF4444", bg: "rgba(239,68,68,0.08)"  },
-  abandonado:     { label: "Desistência", color: "#6B7280", bg: "rgba(107,114,128,0.08)"},
-  suspensa:       { label: "Suspensa",    color: "#D97706", bg: "rgba(217,119,6,0.08)"  },
+const CORES_PADRAO: Record<string, { color: string; bg: string }> = {
+  em_aberto:      { color: "#2563EB", bg: "rgba(37,99,235,0.08)"  },
+  venda_efetuada: { color: "#059669", bg: "rgba(16,185,129,0.08)" },
+  perdido:        { color: "#EF4444", bg: "rgba(239,68,68,0.08)"  },
+  abandonado:     { color: "#6B7280", bg: "rgba(107,114,128,0.08)"},
+  suspensa:       { color: "#D97706", bg: "rgba(217,119,6,0.08)"  },
 };
+const COR_CUSTOM = { color: "#6B7280", bg: "rgba(107,114,128,0.08)" };
 
-const IcoEdit = () => (
-  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-  </svg>
-);
-
-const IcoTrash = () => (
-  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
-    <path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
-  </svg>
-);
-
-const IcoOpen = () => (
-  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-    <polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
-  </svg>
-);
+function hexToRgba(hex: string, alpha: number) {
+  const r = parseInt(hex.slice(1, 3), 16) || 107;
+  const g = parseInt(hex.slice(3, 5), 16) || 114;
+  const b = parseInt(hex.slice(5, 7), 16) || 128;
+  return `rgba(${r},${g},${b},${alpha})`;
+}
 
 function ModalExcluir({ titulo, onConfirmar, onFechar, deletando }: { titulo: string; onConfirmar: () => void; onFechar: () => void; deletando: boolean }) {
   return (
@@ -65,28 +54,49 @@ export default function OportunidadesPage() {
   const router        = useRouter();
   const { fotografo } = useFotografo();
 
-  const [opps,      setOpps]      = useState<OppWithRelations[]>([]);
-  const [loading,   setLoading]   = useState(true);
-  const [busca,     setBusca]     = useState("");
-  const [status,    setStatus]    = useState<StatusFiltro>("");
-  const [catFiltro, setCatFiltro] = useState("");
+  const [opps,       setOpps]       = useState<OppWithRelations[]>([]);
+  const [loading,    setLoading]    = useState(true);
+  const [busca,      setBusca]      = useState("");
+  const [status,     setStatus]     = useState<StatusFiltro>("");
+  const [catFiltro,  setCatFiltro]  = useState("");
   const [categorias, setCategorias] = useState<string[]>([]);
   const [deletarId,  setDeletarId]  = useState<string | null>(null);
   const [deletando,  setDeletando]  = useState(false);
+  const [statusMap,  setStatusMap]  = useState<Record<string, { label: string; color: string; bg: string }>>({});
+  const [statusList, setStatusList] = useState<{ chave: string; label: string; cor: string | null }[]>([]);
+  const largura = useWindowWidth();
 
   const carregar = useCallback(async () => {
     if (!fotografo) return;
     setLoading(true);
     const sb = createClient();
-    const { data } = await sb
-      .from("crm_opportunities")
-      .select("*, clientes!cliente_id(nome), etapa:crm_funnel_stages!etapa_id(nome, ordem)")
-      .eq("fotografo_id", fotografo.id)
-      .order("created_at", { ascending: false });
+    const [{ data }, { data: sts }] = await Promise.all([
+      sb.from("crm_opportunities")
+        .select("*, clientes!cliente_id(nome), etapa:crm_funnel_stages!etapa_id(nome, ordem)")
+        .eq("fotografo_id", fotografo.id)
+        .order("created_at", { ascending: false }),
+      sb.from("crm_oportunidade_status")
+        .select("chave, label, cor")
+        .eq("fotografo_id", fotografo.id)
+        .eq("ativo", true)
+        .order("ordem"),
+    ]);
     const items = (data ?? []) as OppWithRelations[];
     setOpps(items);
     const cats = [...new Set(items.map(o => o.categoria).filter(Boolean) as string[])].sort();
     setCategorias(cats);
+    const stList = (sts ?? []) as { chave: string; label: string; cor: string | null }[];
+    setStatusList(stList);
+    const map: Record<string, { label: string; color: string; bg: string }> = {};
+    for (const s of stList) {
+      if (s.cor) {
+        map[s.chave] = { label: s.label, color: s.cor, bg: hexToRgba(s.cor, 0.1) };
+      } else {
+        const cor = CORES_PADRAO[s.chave] ?? COR_CUSTOM;
+        map[s.chave] = { label: s.label, ...cor };
+      }
+    }
+    setStatusMap(map);
     setLoading(false);
   }, [fotografo]);
 
@@ -118,20 +128,34 @@ export default function OportunidadesPage() {
   for (const o of opps) contagens[o.status] = (contagens[o.status] ?? 0) + 1;
 
   const FILTROS: { id: StatusFiltro; label: string }[] = [
-    { id: "",               label: `Todos (${contagens[""] ?? 0})` },
-    { id: "em_aberto",      label: `Em aberto (${contagens.em_aberto ?? 0})` },
-    { id: "venda_efetuada", label: `Efetivadas (${contagens.venda_efetuada ?? 0})` },
-    { id: "perdido",        label: `Perdidas (${contagens.perdido ?? 0})` },
-    { id: "abandonado",     label: `Desistências (${contagens.abandonado ?? 0})` },
+    { id: "", label: `Todos (${contagens[""] ?? 0})` },
+    ...statusList.map(s => ({ id: s.chave, label: `${s.label} (${contagens[s.chave] ?? 0})` })),
   ];
 
   const oppParaDeletar = opps.find(o => o.id === deletarId);
 
+  // Layout responsivo
+  const verLarge  = largura >= 1100;
+  const verMedium = largura >= 700 && largura < 1100;
+  const verSmall  = largura < 700;
+
+  const gridTemplate = verLarge
+    ? "1fr 150px 120px 120px 130px 110px 80px"
+    : verMedium
+    ? "1fr 150px 130px 110px 80px"
+    : "1fr 110px 70px";
+
+  const cabecalhos = verLarge
+    ? ["Oportunidade", "Cliente", "Evento", "Valor", "Etapa do Funil", "Status", ""]
+    : verMedium
+    ? ["Oportunidade", "Cliente", "Etapa do Funil", "Status", ""]
+    : ["Oportunidade", "Status", ""];
+
   return (
-    <div style={{ padding: "28px 32px", maxWidth: 1200, fontFamily: "var(--font-sans)" }}>
+    <div style={{ padding: "28px 24px", maxWidth: 1200, fontFamily: "var(--font-sans)" }}>
 
       {/* Header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20, gap: 12 }}>
         <div>
           <h1 style={{ fontSize: 20, fontWeight: 800, letterSpacing: "-0.03em", color: "var(--color-text-primary)", margin: "0 0 4px" }}>Oportunidades</h1>
           <p style={{ fontSize: 13, color: "var(--color-text-secondary)", margin: 0 }}>
@@ -140,7 +164,7 @@ export default function OportunidadesPage() {
         </div>
         <button
           onClick={() => router.push("/crm/oportunidades/nova")}
-          style={{ padding: "9px 18px", borderRadius: 8, background: "#111", color: "#fff", border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer" }}
+          style={{ padding: "9px 18px", borderRadius: 8, background: "#111", color: "#fff", border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer", flexShrink: 0 }}
         >
           + Nova oportunidade
         </button>
@@ -167,8 +191,8 @@ export default function OportunidadesPage() {
       </div>
 
       {/* Busca + categoria */}
-      <div style={{ display: "flex", gap: 10, marginBottom: 18 }}>
-        <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 8, background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 9, padding: "8px 12px" }}>
+      <div style={{ display: "flex", gap: 10, marginBottom: 18, flexWrap: "wrap" }}>
+        <div style={{ flex: 1, minWidth: 180, display: "flex", alignItems: "center", gap: 8, background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 9, padding: "8px 12px" }}>
           <svg width="13" height="13" viewBox="0 0 14 14" fill="none" style={{ opacity: 0.4, flexShrink: 0 }}>
             <circle cx="6" cy="6" r="4" stroke="var(--color-text-primary)" strokeWidth="1.3"/>
             <path d="M9.5 9.5L12 12" stroke="var(--color-text-primary)" strokeWidth="1.3" strokeLinecap="round"/>
@@ -213,76 +237,94 @@ export default function OportunidadesPage() {
         </div>
       ) : (
         <div style={{ border: "0.5px solid var(--color-border-tertiary)", borderRadius: 12, overflow: "hidden" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 150px 120px 120px 130px 110px 90px", padding: "8px 16px", borderBottom: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-secondary)" }}>
-            {["Oportunidade", "Cliente", "Evento", "Valor", "Etapa do Funil", "Status", ""].map((h) => (
-              <span key={h} style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.04em" }}>{h}</span>
+          {/* Cabeçalho */}
+          <div style={{ display: "grid", gridTemplateColumns: gridTemplate, padding: "8px 16px", borderBottom: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-secondary)" }}>
+            {cabecalhos.map((h, i) => (
+              <span key={i} style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.04em" }}>{h}</span>
             ))}
           </div>
+
           {filtradas.map((o, i) => {
-            const st = STATUS_MAP[o.status] ?? STATUS_MAP.em_aberto;
+            const stInfo = statusMap[o.status];
+            const st = { label: stInfo?.label ?? o.status, color: stInfo?.color ?? COR_CUSTOM.color, bg: stInfo?.bg ?? COR_CUSTOM.bg };
             return (
               <div
                 key={o.id}
-                style={{ display: "grid", gridTemplateColumns: "1fr 150px 120px 120px 130px 110px 90px", padding: "12px 16px", borderBottom: i < filtradas.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", background: "var(--color-background-primary)", transition: "background 0.1s" }}
+                style={{ display: "grid", gridTemplateColumns: gridTemplate, padding: "12px 16px", borderBottom: i < filtradas.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", background: "var(--color-background-primary)", transition: "background 0.1s" }}
                 onMouseEnter={(e) => (e.currentTarget.style.background = "var(--color-background-secondary)")}
                 onMouseLeave={(e) => (e.currentTarget.style.background = "var(--color-background-primary)")}
               >
                 {/* Título */}
-                <div style={{ cursor: "pointer" }} onClick={() => router.push(`/crm/oportunidades/${o.id}`)}>
+                <div style={{ cursor: "pointer", minWidth: 0 }} onClick={() => router.push(`/crm/oportunidades/${o.id}`)}>
                   <div style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{o.titulo}</div>
-                  {o.categoria && <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 2 }}>{o.categoria}</div>}
-                </div>
-
-                {/* Cliente */}
-                <div style={{ display: "flex", alignItems: "center" }}>
-                  <span style={{ fontSize: 13, color: "var(--color-text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{o.clientes?.nome ?? "—"}</span>
-                </div>
-
-                {/* Evento */}
-                <div style={{ display: "flex", alignItems: "center" }}>
-                  <span style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>{o.data_evento ? fmtData(o.data_evento) : "—"}</span>
-                </div>
-
-                {/* Valor */}
-                <div style={{ display: "flex", alignItems: "center" }}>
-                  <span style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)" }}>{o.valor_estimado != null ? fmt(o.valor_estimado) : "—"}</span>
-                </div>
-
-                {/* Etapa do funil */}
-                <div style={{ display: "flex", alignItems: "center" }}>
-                  {o.etapa ? (
-                    <span style={{ fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 8, background: "rgba(37,99,235,0.07)", color: "#2563EB", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 120 }}>
-                      {o.etapa.nome}
-                    </span>
-                  ) : (
-                    <span style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>—</span>
+                  {o.categoria && <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{o.categoria}</div>}
+                  {verSmall && o.clientes?.nome && (
+                    <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 1 }}>{o.clientes.nome}</div>
                   )}
                 </div>
 
+                {/* Cliente — large e medium */}
+                {(verLarge || verMedium) && (
+                  <div style={{ display: "flex", alignItems: "center", minWidth: 0 }}>
+                    <span style={{ fontSize: 13, color: "var(--color-text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{o.clientes?.nome ?? "—"}</span>
+                  </div>
+                )}
+
+                {/* Evento — só large */}
+                {verLarge && (
+                  <div style={{ display: "flex", alignItems: "center" }}>
+                    <span style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>{o.data_evento ? fmtData(o.data_evento) : "—"}</span>
+                  </div>
+                )}
+
+                {/* Valor — só large */}
+                {verLarge && (
+                  <div style={{ display: "flex", alignItems: "center" }}>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)" }}>{o.valor_estimado != null ? fmt(o.valor_estimado) : "—"}</span>
+                  </div>
+                )}
+
+                {/* Etapa do funil — large e medium */}
+                {(verLarge || verMedium) && (
+                  <div style={{ display: "flex", alignItems: "center" }}>
+                    {o.etapa ? (
+                      <span style={{ fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 8, background: "rgba(37,99,235,0.07)", color: "#2563EB", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 120 }}>
+                        {o.etapa.nome}
+                      </span>
+                    ) : (
+                      <span style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>—</span>
+                    )}
+                  </div>
+                )}
+
                 {/* Status */}
                 <div style={{ display: "flex", alignItems: "center" }}>
-                  <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 8px", borderRadius: 10, background: st.bg, color: st.color, whiteSpace: "nowrap" }}>{st.label}</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 8px", borderRadius: 10, background: st.bg, color: st.color, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: verSmall ? 90 : 100 }}>{st.label}</span>
                 </div>
 
                 {/* Ações */}
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 5 }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 4 }}>
                   <button
                     onClick={() => router.push(`/crm/oportunidades/${o.id}`)}
                     title="Abrir"
                     style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 26, height: 26, borderRadius: 6, border: "0.5px solid var(--color-border-secondary)", color: "#2563EB", background: "transparent", cursor: "pointer" }}
                   ><IcoOpen /></button>
-                  <button
-                    onClick={() => router.push(`/crm/oportunidades/${o.id}?editar=1`)}
-                    title="Editar"
-                    style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 26, height: 26, borderRadius: 6, border: "0.5px solid var(--color-border-secondary)", color: "var(--color-text-secondary)", background: "transparent", cursor: "pointer" }}
-                  ><IcoEdit /></button>
-                  <button
-                    onClick={() => setDeletarId(o.id)}
-                    title="Excluir"
-                    style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 26, height: 26, borderRadius: 6, border: "0.5px solid rgba(239,68,68,0.3)", color: "#EF4444", background: "transparent", cursor: "pointer", opacity: 0.6 }}
-                    onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
-                    onMouseLeave={(e) => (e.currentTarget.style.opacity = "0.6")}
-                  ><IcoTrash /></button>
+                  {!verSmall && (
+                    <button
+                      onClick={() => router.push(`/crm/oportunidades/${o.id}?editar=1`)}
+                      title="Editar"
+                      style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 26, height: 26, borderRadius: 6, border: "0.5px solid var(--color-border-secondary)", color: "var(--color-text-secondary)", background: "transparent", cursor: "pointer" }}
+                    ><IcoEdit /></button>
+                  )}
+                  {!verSmall && (
+                    <button
+                      onClick={() => setDeletarId(o.id)}
+                      title="Excluir"
+                      style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 26, height: 26, borderRadius: 6, border: "0.5px solid rgba(239,68,68,0.3)", color: "#EF4444", background: "transparent", cursor: "pointer", opacity: 0.6 }}
+                      onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
+                      onMouseLeave={(e) => (e.currentTarget.style.opacity = "0.6")}
+                    ><IcoTrash /></button>
+                  )}
                 </div>
               </div>
             );

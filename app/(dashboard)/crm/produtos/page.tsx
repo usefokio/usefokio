@@ -4,7 +4,17 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
+import { IcoEdit, IcoTrash, IcoOpen } from "@/app/(dashboard)/crm/_components/Icons";
 import type { CrmProduct, CrmProductCategory } from "@/lib/supabase/types";
+
+const btnIcon = (extra?: React.CSSProperties): React.CSSProperties => ({
+  display: "flex", alignItems: "center", justifyContent: "center",
+  width: 26, height: 26, borderRadius: 6,
+  border: "0.5px solid var(--color-border-secondary)",
+  background: "transparent", cursor: "pointer",
+  color: "var(--color-text-secondary)",
+  ...extra,
+});
 
 export default function ProdutosPage() {
   const router                              = useRouter();
@@ -63,7 +73,7 @@ export default function ProdutosPage() {
         </div>
         <button
           onClick={() => router.push("/crm/produtos/novo")}
-          style={{ padding: "8px 16px", borderRadius: 8, background: "#111", color: "#fff", border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer" }}
+          style={{ padding: "9px 18px", borderRadius: 8, background: "#111", color: "#fff", border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer" }}
         >
           + Novo produto
         </button>
@@ -119,6 +129,9 @@ export default function ProdutosPage() {
                   <td style={{ padding: "10px 14px", color: "var(--color-text-secondary)", fontFamily: "var(--font-mono)", fontSize: 12 }}>{p.codigo ?? "—"}</td>
                   <td style={{ padding: "10px 14px", fontWeight: 500, color: "var(--color-text-primary)" }}>
                     {p.nome}
+                    {!p.conta_vendas_id && (
+                      <span title="Conta de vendas não configurada" style={{ marginLeft: 6, fontSize: 10, padding: "2px 6px", borderRadius: 10, background: "rgba(234,179,8,0.12)", color: "#CA8A04", fontWeight: 700, border: "0.5px solid rgba(234,179,8,0.3)" }}>!</span>
+                    )}
                     {p.pacote && <span style={{ marginLeft: 6, fontSize: 10, padding: "2px 6px", borderRadius: 10, background: "rgba(37,99,235,0.1)", color: "#2563EB", fontWeight: 600 }}>pacote</span>}
                     {p.tags?.length > 0 && <span style={{ marginLeft: 6, fontSize: 10, color: "var(--color-text-secondary)" }}>{p.tags.join(", ")}</span>}
                   </td>
@@ -138,22 +151,20 @@ export default function ProdutosPage() {
                     </span>
                   </td>
                   <td style={{ padding: "10px 14px" }}>
-                    <div style={{ display: "flex", gap: 8 }}>
-                      <button
-                        onClick={() => router.push(`/crm/produtos/${p.id}`)}
-                        style={{ background: "none", border: "none", cursor: "pointer", color: "var(--color-text-secondary)", fontSize: 12, padding: "3px 8px", borderRadius: 6 }}
-                        onMouseEnter={(e) => (e.currentTarget.style.background = "var(--color-background-secondary)")}
-                        onMouseLeave={(e) => (e.currentTarget.style.background = "none")}
-                      >
-                        Editar
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 5 }}>
+                      <button onClick={() => router.push(`/crm/produtos/${p.id}`)} title="Abrir"
+                        style={btnIcon({ color: "#2563EB", border: "0.5px solid var(--color-border-secondary)" })}>
+                        <IcoOpen />
                       </button>
-                      <button
-                        onClick={() => excluir(p.id)}
-                        style={{ background: "none", border: "none", cursor: "pointer", color: "#EF4444", fontSize: 12, padding: "3px 8px", borderRadius: 6 }}
-                        onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(239,68,68,0.07)")}
-                        onMouseLeave={(e) => (e.currentTarget.style.background = "none")}
-                      >
-                        Excluir
+                      <button onClick={() => router.push(`/crm/produtos/${p.id}`)} title="Editar"
+                        style={btnIcon()}>
+                        <IcoEdit />
+                      </button>
+                      <button onClick={() => excluir(p.id)} title="Excluir"
+                        style={btnIcon({ color: "#EF4444", border: "0.5px solid rgba(239,68,68,0.3)", opacity: 0.6 })}
+                        onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
+                        onMouseLeave={(e) => (e.currentTarget.style.opacity = "0.6")}>
+                        <IcoTrash />
                       </button>
                     </div>
                   </td>
