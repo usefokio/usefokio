@@ -321,8 +321,7 @@ function NovaSelecaoConteudo() {
       const erros = filaAtual.filter((f) => f.status === "erro").length;
       const total = filaAtual.length;
       if (erros === 0) {
-        setSuccessMsg(`✅ ${total} foto${total > 1 ? "s" : ""} enviada${total > 1 ? "s" : ""} com sucesso! Redirecionando…`);
-        setTimeout(() => router.push(`/selecao/${data.id}`), 1800);
+        setSuccessMsg(`✅ ${total} foto${total > 1 ? "s" : ""} enviada${total > 1 ? "s" : ""} com sucesso!`);
       }
       return filaAtual;
     });
@@ -340,10 +339,21 @@ function NovaSelecaoConteudo() {
           <div style={{ fontSize: 14, fontWeight: 700, color: successMsg ? "#059669" : "var(--color-text-primary)", marginBottom: 6 }}>
             {successMsg ?? `Enviando fotos… ${uploadAtual}/${uploadTotal}`}
           </div>
-          <div style={{ height: 6, background: "var(--color-background-secondary)", borderRadius: 3, marginBottom: 4 }}>
-            <div style={{ height: "100%", background: "#2563EB", borderRadius: 3, width: `${uploadPct}%`, transition: "width 0.3s" }} />
-          </div>
-          <div style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>{uploadPct}% concluído</div>
+          {successMsg ? (
+            <button
+              onClick={() => router.push(`/selecao/${galeriaId}`)}
+              style={{ marginTop: 12, padding: "10px 28px", borderRadius: 8, border: "none", background: "#059669", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer" }}
+            >
+              Ver galeria →
+            </button>
+          ) : (
+            <>
+              <div style={{ height: 6, background: "var(--color-background-secondary)", borderRadius: 3, marginBottom: 4 }}>
+                <div style={{ height: "100%", background: "#2563EB", borderRadius: 3, width: `${uploadPct}%`, transition: "width 0.3s" }} />
+              </div>
+              <div style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>{uploadPct}% concluído</div>
+            </>
+          )}
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
