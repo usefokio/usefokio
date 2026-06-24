@@ -295,6 +295,7 @@ export default function WebmasterPage() {
   const [loading, setLoading]       = useState(true);
   const [pendingIds, setPendingIds]  = useState<Set<string>>(new Set());
   const [filtro, setFiltro]         = useState<"todos" | "pendentes">("todos");
+  const [debugMsg, setDebugMsg]     = useState<string>("");
 
   // Verifica se é webmaster
   useEffect(() => {
@@ -322,17 +323,18 @@ export default function WebmasterPage() {
 
   async function carregarStats() {
     setLoading(true);
-    const supabase = createClient();
-    const { data: { session } } = await supabase.auth.getSession();
-    const token = session?.access_token;
-    const res = await fetch("/api/webmaster/stats", {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    });
+    const res = await fetch("/api/webmaster/stats");
+    const text = await res.text();
     if (res.ok) {
-      const json = await res.json();
-      setStats(json.data ?? []);
+      try {
+        const json = JSON.parse(text);
+        setStats(json.data ?? []);
+        setDebugMsg(`OK — ${(json.data ?? []).length} fotógrafos`);
+      } catch {
+        setDebugMsg(`Parse error: ${text.slice(0, 200)}`);
+      }
     } else {
-      console.error("[webmaster/stats]", res.status, await res.text());
+      setDebugMsg(`Erro ${res.status}: ${text.slice(0, 300)}`);
     }
     setLoading(false);
   }
@@ -363,6 +365,12 @@ export default function WebmasterPage() {
 
   return (
     <div style={{ minHeight: "100vh", background: "var(--color-background-tertiary)", fontFamily: "var(--font-sans)" }}>
+
+      {debugMsg && (
+        <div style={{ background: "#1e293b", color: "#94a3b8", padding: "8px 16px", fontSize: 12, fontFamily: "monospace" }}>
+          🔍 {debugMsg}
+        </div>
+      )}
 
       {/* Header */}
       <header style={{
