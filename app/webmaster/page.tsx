@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 const WEBMASTER_ID    = process.env.NEXT_PUBLIC_WEBMASTER_ID ?? "";
-const WEBMASTER_EMAIL = "usefokio@gmail.com";
+const WEBMASTER_EMAIL = "usefokio@gmail.com.br";
 
 type FotografoStats = {
   id: string;
@@ -324,7 +324,9 @@ export default function WebmasterPage() {
     setLoading(true);
     const supabase = createClient();
     const { data, error } = await supabase.rpc("webmaster_get_stats");
-    if (!error && data) {
+    if (error) {
+      console.error("[webmaster_get_stats]", error);
+    } else if (data) {
       setStats(data as FotografoStats[]);
     }
     setLoading(false);
