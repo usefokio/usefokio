@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { GraficoPanorama } from "./_components/GraficoPanorama";
+import { GraficoMensal } from "./_components/GraficoMensal";
 
 type Conta = { id: string; codigo: string; nome: string };
 type Regime = "competencia" | "caixa";
@@ -327,11 +328,15 @@ export default function ResultadosPage() {
 
   const saldoTotal = totalSecao(receitas) - totalSecao(custos) - totalSecao(despesas);
 
+  const dadosMensais = MESES.map((mes, i) => {
+    const m = i + 1;
+    const rec = totalSecao(receitas, m);
+    const desp = totalSecao(custos, m) + totalSecao(despesas, m);
+    return { mes, receitas: rec, despesas: desp, lucro: rec - desp };
+  });
+
   return (
     <div style={{ padding: "28px 32px", fontFamily: "var(--font-sans)", minWidth: 0 }}>
-
-      {/* Gráfico panorama */}
-      <GraficoPanorama dados={panorama} />
 
       {/* Aviso: categorias sem mapeamento (competência) */}
       {naoMapeados.length > 0 && (
@@ -377,6 +382,10 @@ export default function ResultadosPage() {
             style={{ padding: "7px 14px", borderRadius: 8, border: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-primary)", fontSize: 12, cursor: "pointer", color: "var(--color-text-primary)" }}>
             📥 Exportar CSV
           </button>
+          <a href="/crm/resultados/panorama"
+            style={{ padding: "7px 14px", borderRadius: 8, border: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-primary)", fontSize: 12, cursor: "pointer", color: "var(--color-text-primary)", textDecoration: "none", display: "inline-block" }}>
+            📊 Panorama
+          </a>
         </div>
       </div>
 
@@ -423,6 +432,28 @@ export default function ResultadosPage() {
               </tr>
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* Distribuição mensal do ano selecionado */}
+      <GraficoMensal dados={dadosMensais} ano={ano} />
+
+      {/* Panorama geral de todos os anos */}
+      {panorama.length > 0 && (
+        <div style={{
+          background: "var(--color-background-primary)",
+          border: "0.5px solid var(--color-border-tertiary)",
+          borderRadius: 12, padding: "20px 24px", marginTop: 24,
+        }}>
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "var(--color-text-primary)", letterSpacing: "-0.01em" }}>
+              Panorama Financeiro
+            </div>
+            <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginTop: 2 }}>
+              Receitas, despesas e lucro líquido por ano
+            </div>
+          </div>
+          <GraficoPanorama dados={panorama} />
         </div>
       )}
     </div>

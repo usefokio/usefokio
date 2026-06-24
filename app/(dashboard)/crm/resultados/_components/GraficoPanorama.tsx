@@ -42,53 +42,23 @@ function CustomTooltip({ active, payload, label }: { active?: boolean; payload?:
   );
 }
 
-export function GraficoPanorama({ dados }: { dados: PanoramaItem[] }) {
+export function GraficoPanorama({ dados, height = 260 }: { dados: PanoramaItem[]; height?: number }) {
   if (dados.length === 0) return null;
 
   return (
-    <div style={{
-      background: "var(--color-background-primary)",
-      border: "0.5px solid var(--color-border-tertiary)",
-      borderRadius: 12, padding: "20px 24px", marginBottom: 24,
-    }}>
-      <div style={{ marginBottom: 16 }}>
-        <div style={{ fontSize: 13, fontWeight: 700, color: "var(--color-text-primary)", letterSpacing: "-0.01em" }}>
-          Panorama Financeiro
-        </div>
-        <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginTop: 2 }}>
-          Receitas, despesas e lucro líquido por ano
-        </div>
-      </div>
-      <ResponsiveContainer width="100%" height={260}>
-        <ComposedChart data={dados} margin={{ top: 4, right: 16, left: 8, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border-tertiary)" vertical={false} />
-          <XAxis
-            dataKey="ano"
-            tick={{ fontSize: 11, fill: "var(--color-text-secondary)" }}
-            axisLine={false} tickLine={false}
-          />
-          <YAxis
-            tickFormatter={fmtK}
-            tick={{ fontSize: 11, fill: "var(--color-text-secondary)" }}
-            axisLine={false} tickLine={false} width={52}
-          />
-          <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
-          <Legend
-            iconType="circle" iconSize={8}
-            wrapperStyle={{ fontSize: 12, paddingTop: 12 }}
-            formatter={(v) => <span style={{ color: "var(--color-text-secondary)" }}>{v}</span>}
-          />
-          <Bar dataKey="receitas" name="Receitas" fill="#059669" radius={[4, 4, 0, 0]} maxBarSize={40} />
-          <Bar dataKey="despesas" name="Despesas" fill="#EF4444" radius={[4, 4, 0, 0]} maxBarSize={40} />
-          <Line
-            dataKey="lucro" name="Lucro líquido"
-            stroke="#2563EB" strokeWidth={2.5}
-            dot={{ r: 4, fill: "#2563EB", strokeWidth: 0 }}
-            activeDot={{ r: 6 }}
-            type="monotone"
-          />
-        </ComposedChart>
-      </ResponsiveContainer>
-    </div>
+    <ResponsiveContainer width="100%" height={height}>
+      <ComposedChart data={dados} margin={{ top: 4, right: 16, left: 8, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border-tertiary)" vertical={false} />
+        <XAxis dataKey="ano" tick={{ fontSize: 11, fill: "var(--color-text-secondary)" }} axisLine={false} tickLine={false} />
+        <YAxis tickFormatter={fmtK} tick={{ fontSize: 11, fill: "var(--color-text-secondary)" }} axisLine={false} tickLine={false} width={52} />
+        <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
+        <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12, paddingTop: 12 }}
+          formatter={(v) => <span style={{ color: "var(--color-text-secondary)" }}>{v}</span>} />
+        <Bar dataKey="receitas" name="Receitas" fill="#059669" radius={[4, 4, 0, 0]} maxBarSize={40} />
+        <Bar dataKey="despesas" name="Despesas" fill="#EF4444" radius={[4, 4, 0, 0]} maxBarSize={40} />
+        <Line dataKey="lucro" name="Lucro líquido" stroke="#2563EB" strokeWidth={2.5}
+          dot={{ r: 4, fill: "#2563EB", strokeWidth: 0 }} activeDot={{ r: 6 }} type="monotone" />
+      </ComposedChart>
+    </ResponsiveContainer>
   );
 }
