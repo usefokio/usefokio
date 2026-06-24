@@ -322,12 +322,12 @@ export default function WebmasterPage() {
 
   async function carregarStats() {
     setLoading(true);
-    const supabase = createClient();
-    const { data, error } = await supabase.rpc("webmaster_get_stats");
-    if (error) {
-      console.error("[webmaster_get_stats]", error);
-    } else if (data) {
-      setStats(data as FotografoStats[]);
+    const res = await fetch("/api/webmaster/stats");
+    if (res.ok) {
+      const json = await res.json();
+      setStats(json.data ?? []);
+    } else {
+      console.error("[webmaster/stats]", res.status, await res.text());
     }
     setLoading(false);
   }
