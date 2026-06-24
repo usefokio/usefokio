@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 const WEBMASTER_ID    = process.env.NEXT_PUBLIC_WEBMASTER_ID ?? "";
-const WEBMASTER_EMAIL = "usefokio@gmail.com.br";
+const WEBMASTER_EMAIL = "usefokio@gmail.com";
 
 type FotografoStats = {
   id: string;
