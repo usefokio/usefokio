@@ -148,6 +148,7 @@ function NovaSelecaoConteudo() {
   // Fase de upload pós-criação
   const [galeriaId, setGaleriaId] = useState<string | null>(null);
   const [uploadAtual, setUploadAtual] = useState(0);
+  const [successMsg, setSuccessMsg]   = useState<string | undefined>();
   const [uploadTotal, setUploadTotal] = useState(0);
 
   useEffect(() => {
@@ -237,18 +238,19 @@ function NovaSelecaoConteudo() {
     setUploadTotal(fila.length);
     setUploadAtual(0);
 
+    const CONCORRENCIA = 3;
     let concluidos = 0;
-    await Promise.all(fila.map(async (item) => {
+    let filaIdx = 0;
+
+    async function processarItem(item: ArquivoFila) {
       const updateItem = (patch: Partial<ArquivoFila>) =>
         setFila((prev) => prev.map((f) => f.id === item.id ? { ...f, ...patch } : f));
 
       try {
         updateItem({ status: "processando", progresso: 10 });
-        // Beta: forçar HD independente da seleção do fotógrafo
         const resolucaoUpload = BETA_RESOLUCAO_MAXIMA ? "hd" : resolucao;
         let processed = await processarImagem(item.file, resolucaoUpload);
 
-        // Aplicar marca d'água se configurada e habilitada para esta galeria
         if (marcaDagua && fotografo.watermark_url) {
           const img = new Image();
           const blobUrl = URL.createObjectURL(processed.blob);
@@ -295,7 +297,16 @@ function NovaSelecaoConteudo() {
 
       concluidos++;
       setUploadAtual(concluidos);
-    }));
+    }
+
+    async function worker() {
+      while (filaIdx < fila.length) {
+        const item = fila[filaIdx++];
+        await processarItem(item);
+      }
+    }
+
+    await Promise.all(Array.from({ length: Math.min(CONCORRENCIA, fila.length) }, worker));
 
     // Notifica cliente por email (fire-and-forget) — só se galeria ativa e tem cliente
     if (status === "ativa" && clienteId) {
@@ -306,13 +317,13 @@ function NovaSelecaoConteudo() {
       }).catch(() => {});
     }
 
-    // Redireciona apenas se todos os uploads tiveram sucesso
     setFila((filaAtual) => {
       const erros = filaAtual.filter((f) => f.status === "erro").length;
+      const total = filaAtual.length;
       if (erros === 0) {
-        router.push(`/selecao/${data.id}`);
+        setSuccessMsg(`✅ ${total} foto${total > 1 ? "s" : ""} enviada${total > 1 ? "s" : ""} com sucesso! Redirecionando…`);
+        setTimeout(() => router.push(`/selecao/${data.id}`), 1800);
       }
-      // Se houver erros, mantém na tela de progresso para o usuário ver quais falharam
       return filaAtual;
     });
   }
@@ -326,8 +337,8 @@ function NovaSelecaoConteudo() {
     return (
       <div style={{ padding: "40px 30px", maxWidth: 600, margin: "0 auto" }}>
         <div style={{ textAlign: "center", marginBottom: 32 }}>
-          <div style={{ fontSize: 14, fontWeight: 700, color: "var(--color-text-primary)", marginBottom: 6 }}>
-            Enviando fotos… {uploadAtual}/{uploadTotal}
+          <div style={{ fontSize: 14, fontWeight: 700, color: successMsg ? "#059669" : "var(--color-text-primary)", marginBottom: 6 }}>
+            {successMsg ?? `Enviando fotos… ${uploadAtual}/${uploadTotal}`}
           </div>
           <div style={{ height: 6, background: "var(--color-background-secondary)", borderRadius: 3, marginBottom: 4 }}>
             <div style={{ height: "100%", background: "#2563EB", borderRadius: 3, width: `${uploadPct}%`, transition: "width 0.3s" }} />
