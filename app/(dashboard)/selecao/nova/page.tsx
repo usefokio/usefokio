@@ -208,6 +208,7 @@ function NovaSelecaoConteudo() {
 
     setSaving(true); setError("");
     const supabase = createClient();
+    const fotoAtual = fotografo; // captura para uso em closures (TS null-narrowing)
 
     const { data, error: err } = await supabase.from("galerias_selecao").insert({
       fotografo_id: fotografo.id, cliente_id: clienteId || null,
@@ -251,7 +252,7 @@ function NovaSelecaoConteudo() {
         const resolucaoUpload = BETA_RESOLUCAO_MAXIMA ? "hd" : resolucao;
         let processed = await processarImagem(item.file, resolucaoUpload);
 
-        if (marcaDagua && fotografo.watermark_url) {
+        if (marcaDagua && fotoAtual.watermark_url) {
           const img = new Image();
           const blobUrl = URL.createObjectURL(processed.blob);
           await new Promise<void>((res, rej) => { img.onload = () => res(); img.onerror = rej; img.src = blobUrl; });
@@ -260,7 +261,7 @@ function NovaSelecaoConteudo() {
           canvas.width = processed.largura; canvas.height = processed.altura;
           const ctx = canvas.getContext("2d")!;
           ctx.drawImage(img, 0, 0);
-          await aplicarMarcaDagua(ctx, processed.largura, processed.altura, fotografo.watermark_url);
+          await aplicarMarcaDagua(ctx, processed.largura, processed.altura, fotoAtual.watermark_url);
           const watermarkedBlob = await new Promise<Blob>((res, rej) => canvas.toBlob((b) => b ? res(b) : rej(new Error("toBlob null")), "image/jpeg", 0.88));
           processed = { ...processed, blob: watermarkedBlob, tamanho_bytes: watermarkedBlob.size };
         }
@@ -268,8 +269,8 @@ function NovaSelecaoConteudo() {
         updateItem({ status: "enviando", progresso: 40 });
 
         const uuid      = crypto.randomUUID();
-        const mainPath  = `${fotografo.id}/${data.id}/${uuid}.jpg`;
-        const thumbPath = `${fotografo.id}/${data.id}/thumbs/${uuid}.jpg`;
+        const mainPath  = `${fotoAtual.id}/${data.id}/${uuid}.jpg`;
+        const thumbPath = `${fotoAtual.id}/${data.id}/thumbs/${uuid}.jpg`;
 
         const { error: e1 } = await supabase.storage.from("galerias").upload(mainPath, processed.blob, { contentType: "image/jpeg", upsert: false });
         if (e1) throw new Error(e1.message);
