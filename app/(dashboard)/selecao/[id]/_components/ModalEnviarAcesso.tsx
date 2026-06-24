@@ -1,7 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import { createClient } from "@/lib/supabase/client";
 import type { GaleriaSelecao, Cliente } from "@/lib/supabase/types";
+
+function gerarSenha(): string {
+  const chars = "abcdefghjkmnpqrstuvwxyz23456789";
+  return Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
+}
 
 export function ModalEnviarAcesso({
   galeria,
@@ -13,8 +19,24 @@ export function ModalEnviarAcesso({
   onClose:  () => void;
 }) {
   const link  = typeof window !== "undefined" ? `${window.location.origin}/galeria/${galeria.id}` : `/galeria/${galeria.id}`;
-  const senha = cliente?.senha_acesso ?? "";
   const email = cliente?.email ?? "";
+
+  // Se cliente não tem senha, gera uma automaticamente
+  const [senha, setSenha] = useState<string>(() => {
+    if (cliente?.senha_acesso) return cliente.senha_acesso;
+    return gerarSenha();
+  });
+  const [senhaSalva, setSenhaSalva] = useState(!!cliente?.senha_acesso);
+  const [salvandoSenha, setSalvandoSenha] = useState(false);
+
+  async function salvarSenha(s: string) {
+    if (!cliente?.id || salvandoSenha) return;
+    setSalvandoSenha(true);
+    const supabase = createClient();
+    await supabase.from("clientes").update({ senha_acesso: s }).eq("id", cliente.id);
+    setSenhaSalva(true);
+    setSalvandoSenha(false);
+  }
 
   const assuntoDefault = `Sua galeria de seleção está pronta — ${galeria.titulo}`;
   const mensagemDefault = [
@@ -24,14 +46,14 @@ export function ModalEnviarAcesso({
     ``,
     `📸 ${galeria.titulo}`,
     `🔗 Acesso: ${link}`,
-    senha ? `🔑 Senha: ${senha}` : "",
+    `🔑 Senha: ${senha}`,
     ``,
     galeria.expira_em
       ? `Selecione suas fotos favoritas até ${new Date(galeria.expira_em).toLocaleDateString("pt-BR")}.`
       : `Selecione suas fotos favoritas no prazo combinado.`,
     ``,
     `Qualquer dúvida, estou à disposição!`,
-  ].filter((l) => l !== null).join("\n");
+  ].join("\n");
 
   const [assunto,      setAssunto]      = useState(assuntoDefault);
   const [mensagem,     setMensagem]     = useState(mensagemDefault);
@@ -52,6 +74,8 @@ export function ModalEnviarAcesso({
     if (!emailDestino || enviando) return;
     setEnviando(true);
     setEnvioMsg(null);
+    // Salva a senha no cliente antes de enviar (caso ainda não esteja salva)
+    if (!senhaSalva) await salvarSenha(senha);
     try {
       const res = await fetch("/api/email/enviar", {
         method: "POST",
@@ -67,6 +91,11 @@ export function ModalEnviarAcesso({
     } finally {
       setEnviando(false);
     }
+  }
+
+  function copiarMensagem() {
+    if (!senhaSalva) salvarSenha(senha);
+    copiar(mensagem, "msg");
   }
 
   const CopyBtn = ({ tipo, texto }: { tipo: "link" | "senha" | "msg"; texto: string }) => (
@@ -112,21 +141,27 @@ export function ModalEnviarAcesso({
         </div>
 
         {/* Senha */}
-        {senha ? (
-          <div style={{ marginBottom: 20 }}>
-            <div style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>Senha de acesso</div>
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <div style={{ flex: 1, padding: "9px 12px", background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 8, fontSize: 16, fontWeight: 700, color: "var(--color-text-primary)", fontFamily: "monospace", letterSpacing: "0.15em" }}>
-                {senha}
-              </div>
-              <CopyBtn tipo="senha" texto={senha} />
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>
+            Senha de acesso
+            {!senhaSalva && <span style={{ marginLeft: 8, fontWeight: 400, color: "#B45309", textTransform: "none", fontSize: 11 }}>— senha gerada automaticamente, será salva ao enviar</span>}
+          </div>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <div style={{ flex: 1, padding: "9px 12px", background: "var(--color-background-secondary)", border: `0.5px solid ${senhaSalva ? "var(--color-border-tertiary)" : "rgba(245,158,11,0.4)"}`, borderRadius: 8, fontSize: 16, fontWeight: 700, color: "var(--color-text-primary)", fontFamily: "monospace", letterSpacing: "0.15em" }}>
+              {senha}
             </div>
+            <CopyBtn tipo="senha" texto={senha} />
+            {!senhaSalva && (
+              <button
+                onClick={() => { const nova = gerarSenha(); setSenha(nova); }}
+                title="Gerar nova senha"
+                style={{ padding: "5px 10px", borderRadius: 6, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-secondary)", color: "var(--color-text-secondary)", fontSize: 11, cursor: "pointer" }}
+              >
+                🔄
+              </button>
+            )}
           </div>
-        ) : (
-          <div style={{ marginBottom: 20, padding: "10px 12px", background: "rgba(245,158,11,0.08)", border: "0.5px solid rgba(245,158,11,0.3)", borderRadius: 8, fontSize: 12, color: "#92400E" }}>
-            ⚠️ Este cliente não tem senha cadastrada. Acesso à galeria é público para quem tiver o link.
-          </div>
-        )}
+        </div>
 
         {/* Feedback envio */}
         {envioMsg && (
@@ -177,7 +212,7 @@ export function ModalEnviarAcesso({
         {/* Ações */}
         <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
           <button
-            onClick={() => copiar(mensagem, "msg")}
+            onClick={copiarMensagem}
             style={{ flex: 1, padding: "10px", borderRadius: 8, background: copiado === "msg" ? "rgba(5,150,105,0.1)" : "var(--color-background-secondary)", border: `0.5px solid ${copiado === "msg" ? "rgba(5,150,105,0.4)" : "var(--color-border-secondary)"}`, color: copiado === "msg" ? "#059669" : "var(--color-text-primary)", fontSize: 13, fontWeight: 600, cursor: "pointer", transition: "all 0.15s" }}
           >
             {copiado === "msg" ? "✓ Copiado!" : "Copiar mensagem"}
