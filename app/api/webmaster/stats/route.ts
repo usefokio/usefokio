@@ -1,43 +1,41 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-const WEBMASTER_EMAIL = "usefokio@gmail.com";
-const WEBMASTER_ID    = process.env.NEXT_PUBLIC_WEBMASTER_ID ?? "";
-
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
-    // Validate caller via access token in Authorization header
-    const authHeader = request.headers.get("authorization");
-    const accessToken = authHeader?.replace("Bearer ", "");
-
-    if (!accessToken) {
-      return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-    }
-
     const admin = createAdminClient();
+    const { data, error } = await admin
+      .from("fotografos")
+      .select(`
+        id, nome_completo, nome_empresa, email, plano, aprovado, created_at, total_fotos_usadas,
+        clientes(id),
+        galerias_selecao(id, galerias_selecao_fotos(tamanho_bytes))
+      `)
+      .order("created_at", { ascending: false });
 
-    // Verify the token and get user info
-    const { data: { user }, error: userError } = await admin.auth.getUser(accessToken);
-    if (userError || !user) {
-      return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-    }
-
-    const isWebmaster =
-      (WEBMASTER_ID    && user.id    === WEBMASTER_ID) ||
-      (WEBMASTER_EMAIL && user.email === WEBMASTER_EMAIL);
-
-    if (!isWebmaster) {
-      return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-    }
-
-    const { data, error } = await admin.rpc("webmaster_get_stats");
     if (error) {
-      console.error("[webmaster/stats]", error);
+      console.error("[webmaster/stats] query error:", error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
-    return NextResponse.json({ data: data ?? [] });
+
+    const stats = (data ?? []).map((f: any) => ({
+      id:             f.id,
+      nome_completo:  f.nome_completo,
+      nome_empresa:   f.nome_empresa,
+      email:          f.email,
+      plano:          f.plano,
+      aprovado:       f.aprovado,
+      created_at:     f.created_at,
+      total_clientes: f.clientes?.length ?? 0,
+      total_galerias: f.galerias_selecao?.length ?? 0,
+      total_fotos:    f.total_fotos_usadas ?? 0,
+      total_bytes:    f.galerias_selecao?.reduce((sum: number, g: any) =>
+        sum + (g.galerias_selecao_fotos?.reduce((s: number, foto: any) => s + (foto.tamanho_bytes ?? 0), 0) ?? 0), 0) ?? 0,
+    }));
+
+    return NextResponse.json({ data: stats });
   } catch (err) {
-    console.error("[webmaster/stats]", err);
-    return NextResponse.json({ error: "internal error" }, { status: 500 });
+    console.error("[webmaster/stats] exception:", err);
+    return NextResponse.json({ error: String(err) }, { status: 500 });
   }
 }
