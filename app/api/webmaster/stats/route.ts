@@ -1,23 +1,35 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { createClient as createServerClient } from "@/lib/supabase/server";
 
 const WEBMASTER_EMAIL = "usefokio@gmail.com";
 const WEBMASTER_ID    = process.env.NEXT_PUBLIC_WEBMASTER_ID ?? "";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const supabase = await createServerClient();
-    const { data: { session } } = await supabase.auth.getSession();
-    const isWebmaster = session && (
-      (WEBMASTER_ID    && session.user.id    === WEBMASTER_ID) ||
-      (WEBMASTER_EMAIL && session.user.email === WEBMASTER_EMAIL)
-    );
-    if (!isWebmaster) {
+    // Validate caller via access token in Authorization header
+    const authHeader = request.headers.get("authorization");
+    const accessToken = authHeader?.replace("Bearer ", "");
+
+    if (!accessToken) {
       return NextResponse.json({ error: "unauthorized" }, { status: 401 });
     }
 
     const admin = createAdminClient();
+
+    // Verify the token and get user info
+    const { data: { user }, error: userError } = await admin.auth.getUser(accessToken);
+    if (userError || !user) {
+      return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+    }
+
+    const isWebmaster =
+      (WEBMASTER_ID    && user.id    === WEBMASTER_ID) ||
+      (WEBMASTER_EMAIL && user.email === WEBMASTER_EMAIL);
+
+    if (!isWebmaster) {
+      return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+    }
+
     const { data, error } = await admin.rpc("webmaster_get_stats");
     if (error) {
       console.error("[webmaster/stats]", error);

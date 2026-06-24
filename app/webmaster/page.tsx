@@ -322,7 +322,12 @@ export default function WebmasterPage() {
 
   async function carregarStats() {
     setLoading(true);
-    const res = await fetch("/api/webmaster/stats");
+    const supabase = createClient();
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    const res = await fetch("/api/webmaster/stats", {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
     if (res.ok) {
       const json = await res.json();
       setStats(json.data ?? []);
