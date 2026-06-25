@@ -214,7 +214,7 @@ export default function ResultadosPage() {
           .sort((a, b) => a.ano - b.ano);
 
         setPanorama(dados);
-      }).catch(console.error);
+      }, console.error);
   }, [fotografo]);
 
   const contasPorPrefixo = (prefixo: string) =>
