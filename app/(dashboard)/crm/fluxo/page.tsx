@@ -27,6 +27,7 @@ export default function FluxoPage() {
       .select("tipo, valor, pago_em, conta_id, crm_chart_of_accounts(codigo)")
       .eq("fotografo_id", fotografo.id)
       .eq("status", "pago")
+      .or("num_documento.is.null,num_documento.neq.DRE")
       .gte("pago_em", `${ano}-01-01`)
       .lte("pago_em", `${ano}-12-31`)
       .not("pago_em", "is", null);
