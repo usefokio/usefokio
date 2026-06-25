@@ -525,6 +525,18 @@ function FinanceiroInner() {
               </div>
             );
           })}
+          {/* Linha totalizadora */}
+          <div style={{ display: "grid", gridTemplateColumns: finGrid, padding: "11px 16px", borderTop: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-secondary)", alignItems: "center" }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+              {labelTotal} · {filtradas.length} lançamento{filtradas.length !== 1 ? "s" : ""}
+            </div>
+            {finVerLarge && <div />}
+            {(finVerLarge || finVerMedium) && <div />}
+            <div style={{ fontSize: 14, fontWeight: 800, color: (aba === "receber" || aba === "recebidas") ? "#059669" : "#EF4444" }}>
+              {fmt(totalFiltradas)}
+            </div>
+            <div />
+          </div>
         </div>
       )}
 
