@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
@@ -95,6 +95,31 @@ export default function FormOportunidade({ inicial, onSalvo }: Props) {
   const [novoCliente, setNovoCliente] = useState({ nome: "", email: "", telefone: "" });
   const [salvandoCliente, setSalvandoCliente] = useState(false);
   const [erroCliente, setErroCliente] = useState("");
+
+  type Disponibilidade = { status: "verificando" | "livre" | "ocupado" | null; itens: string[] };
+  const [disponibilidade, setDisponibilidade] = useState<Disponibilidade>({ status: null, itens: [] });
+  const timerDisp = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (timerDisp.current) clearTimeout(timerDisp.current);
+    if (!form.data_evento || !fotografo) { setDisponibilidade({ status: null, itens: [] }); return; }
+    setDisponibilidade({ status: "verificando", itens: [] });
+    timerDisp.current = setTimeout(async () => {
+      const data = form.data_evento;
+      const proxDia = (() => { const d = new Date(data + "T12:00:00"); d.setDate(d.getDate() + 1); return d.toISOString().slice(0, 10); })();
+      const sb = createClient();
+      const [{ data: agendas }, { data: pedidos }] = await Promise.all([
+        sb.from("crm_schedules").select("titulo").eq("fotografo_id", fotografo.id).gte("inicio", data).lt("inicio", proxDia),
+        sb.from("crm_orders").select("nome, numero, legacy_id").eq("fotografo_id", fotografo.id).eq("data_evento", data).neq("status", "cancelado"),
+      ]);
+      const itens = [
+        ...((agendas ?? []) as { titulo: string }[]).map(a => a.titulo),
+        ...((pedidos ?? []) as { nome: string | null; numero: string | null; legacy_id: number | null }[]).map(p => p.nome ?? (p.legacy_id ? `Pedido #${p.legacy_id}` : "Pedido sem nome")),
+      ];
+      setDisponibilidade({ status: itens.length > 0 ? "ocupado" : "livre", itens });
+    }, 500);
+    return () => { if (timerDisp.current) clearTimeout(timerDisp.current); };
+  }, [form.data_evento, fotografo]);
 
   const isEditing    = !!inicial?.id;
   const isCasamento  = form.categoria.toLowerCase().includes("casamento");
@@ -332,6 +357,17 @@ export default function FormOportunidade({ inicial, onSalvo }: Props) {
           </Field>
           <Field label="Data do evento">
             <input type="date" value={form.data_evento} onChange={(e) => upd("data_evento", e.target.value)} style={inputStyle} />
+            {disponibilidade.status === "verificando" && (
+              <div style={{ marginTop: 5, fontSize: 11, color: "var(--color-text-secondary)" }}>Verificando agenda…</div>
+            )}
+            {disponibilidade.status === "livre" && (
+              <div style={{ marginTop: 5, fontSize: 11, fontWeight: 600, color: "#059669" }}>✓ Data disponível</div>
+            )}
+            {disponibilidade.status === "ocupado" && (
+              <div style={{ marginTop: 5, fontSize: 11, fontWeight: 600, color: "#EF4444" }}>
+                ⚠ Data ocupada · {disponibilidade.itens.join(", ")}
+              </div>
+            )}
           </Field>
           <Field label="Canal de origem">
             <select value={form.canal_origem} onChange={(e) => { upd("canal_origem", e.target.value); if (!e.target.value.startsWith("Indicação")) { upd("indicado_por_id", ""); upd("indicado_por_nome", ""); setIndicadoNomeSelecionado(""); } }} style={inputStyle}>
