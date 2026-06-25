@@ -36,31 +36,24 @@ export default function PanoramaPage() {
   useEffect(() => {
     if (!fotografo) return;
     const sb = createClient();
-    const fid = fotografo.id;
 
-    // Uma única query — separa DRE vs individual em JS para evitar problema PostgREST+NULL
-    sb.from("crm_financial_entries")
-      .select("vencimento, valor, tipo, num_documento")
-      .eq("fotografo_id", fid)
-      .eq("status", "pago")
-      .not("vencimento", "is", null)
-      .range(0, 9999)
-      .then(({ data: entries }) => {
-        type Row = { vencimento: string; valor: number; tipo: string; num_documento: string | null };
+    // RPC agrega no banco — retorna ~50 linhas, sem problemas de limite ou comparação JS
+    sb.rpc("get_panorama_financeiro", { p_fotografo_id: fotografo.id })
+      .then(({ data, error }) => {
+        if (error) { console.error("panorama rpc:", error); return; }
 
+        type Row = { ano: number; fonte: string; tipo: string; total: number };
         const drePorAno: Record<number, { rec: number; desp: number }> = {};
         const indivPorAno: Record<number, { rec: number; desp: number }> = {};
 
-        for (const e of (entries ?? []) as Row[]) {
-          const ano = parseInt(e.vencimento.slice(0, 4));
-          const mapa = e.num_documento === "DRE" ? drePorAno : indivPorAno;
-          mapa[ano] ??= { rec: 0, desp: 0 };
-          if (e.tipo === "receita") mapa[ano].rec += e.valor;
-          else if (e.tipo === "despesa") mapa[ano].desp += e.valor;
+        for (const row of (data ?? []) as Row[]) {
+          const mapa = row.fonte === "dre" ? drePorAno : indivPorAno;
+          mapa[row.ano] ??= { rec: 0, desp: 0 };
+          if (row.tipo === "receita") mapa[row.ano].rec += Number(row.total);
+          else if (row.tipo === "despesa") mapa[row.ano].desp += Number(row.total);
         }
 
-        // Para anos com DRE: usa totais DRE (espelha a tabela de Resultados)
-        // Para anos sem DRE: usa lançamentos individuais
+        // Anos com DRE: usar DRE. Outros: usar individuais.
         const anosComDRE = new Set(Object.keys(drePorAno).map(Number));
         const todosAnos = new Set([
           ...Object.keys(drePorAno).map(Number),
@@ -90,7 +83,6 @@ export default function PanoramaPage() {
   return (
     <div style={{ padding: "28px 32px", maxWidth: 1100, fontFamily: "var(--font-sans)" }}>
 
-      {/* Header */}
       <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 24 }}>
         <button
           onClick={() => router.back()}
@@ -111,7 +103,6 @@ export default function PanoramaPage() {
         <div style={{ padding: "60px 0", textAlign: "center", fontSize: 13, color: "var(--color-text-secondary)" }}>Carregando…</div>
       ) : (
         <>
-          {/* Cards de resumo */}
           <div style={{ display: "flex", gap: 16, marginBottom: 24, flexWrap: "wrap" }}>
             <Card label="Total Receitas (todos os anos)" valor={totalReceitas} cor="#059669" />
             <Card label="Total Despesas (todos os anos)" valor={totalDespesas} cor="#EF4444" />
@@ -133,21 +124,17 @@ export default function PanoramaPage() {
             )}
           </div>
 
-          {/* Gráfico maior */}
           <div style={{
             background: "var(--color-background-primary)",
             border: "0.5px solid var(--color-border-tertiary)",
             borderRadius: 12, padding: "20px 24px", marginBottom: 24,
           }}>
-            <div style={{ marginBottom: 16 }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: "var(--color-text-primary)", letterSpacing: "-0.01em" }}>
-                Receitas, despesas e lucro por ano
-              </div>
+            <div style={{ marginBottom: 16, fontSize: 13, fontWeight: 700, color: "var(--color-text-primary)", letterSpacing: "-0.01em" }}>
+              Receitas, despesas e lucro por ano
             </div>
             <GraficoPanorama dados={dados} height={360} />
           </div>
 
-          {/* Tabela ano a ano */}
           <div style={{ border: "0.5px solid var(--color-border-tertiary)", borderRadius: 12, overflow: "hidden" }}>
             <div style={{ display: "grid", gridTemplateColumns: "80px 1fr 1fr 1fr", padding: "8px 16px", background: "var(--color-background-secondary)", borderBottom: "0.5px solid var(--color-border-tertiary)" }}>
               {["Ano", "Receitas", "Despesas", "Lucro"].map(h => (
@@ -167,7 +154,6 @@ export default function PanoramaPage() {
                 <span style={{ fontSize: 13, fontWeight: 700, color: d.lucro >= 0 ? "#2563EB" : "#EF4444", textAlign: "right" }}>{fmtBRL(d.lucro)}</span>
               </div>
             ))}
-            {/* Total */}
             <div style={{
               display: "grid", gridTemplateColumns: "80px 1fr 1fr 1fr",
               padding: "12px 16px", background: "var(--color-background-secondary)",

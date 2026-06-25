@@ -170,30 +170,24 @@ export default function ResultadosPage() {
 
   useEffect(() => { carregar(); }, [carregar]);
 
-  // Panorama: DRE para anos com DRE, lançamentos individuais para os demais
+  // Panorama: usa RPC que agrega no banco — sem problemas de limite ou comparação JS
   useEffect(() => {
     if (!fotografo) return;
     const sb = createClient();
-    const fid = fotografo.id;
 
-    sb.from("crm_financial_entries")
-      .select("vencimento, valor, tipo, num_documento")
-      .eq("fotografo_id", fid)
-      .eq("status", "pago")
-      .not("vencimento", "is", null)
-      .range(0, 9999)
-      .then(({ data: entries }) => {
-        type Row = { vencimento: string; valor: number; tipo: string; num_documento: string | null };
+    sb.rpc("get_panorama_financeiro", { p_fotografo_id: fotografo.id })
+      .then(({ data, error }) => {
+        if (error) { console.error("panorama rpc:", error); return; }
 
+        type Row = { ano: number; fonte: string; tipo: string; total: number };
         const drePorAno: Record<number, { rec: number; desp: number }> = {};
         const indivPorAno: Record<number, { rec: number; desp: number }> = {};
 
-        for (const e of (entries ?? []) as Row[]) {
-          const ano = parseInt(e.vencimento.slice(0, 4));
-          const mapa = e.num_documento === "DRE" ? drePorAno : indivPorAno;
-          mapa[ano] ??= { rec: 0, desp: 0 };
-          if (e.tipo === "receita") mapa[ano].rec += e.valor;
-          else if (e.tipo === "despesa") mapa[ano].desp += e.valor;
+        for (const row of (data ?? []) as Row[]) {
+          const mapa = row.fonte === "dre" ? drePorAno : indivPorAno;
+          mapa[row.ano] ??= { rec: 0, desp: 0 };
+          if (row.tipo === "receita") mapa[row.ano].rec += Number(row.total);
+          else if (row.tipo === "despesa") mapa[row.ano].desp += Number(row.total);
         }
 
         const anosComDRE = new Set(Object.keys(drePorAno).map(Number));
