@@ -46,8 +46,8 @@ type Coluna = {
 const COLUNAS: Coluna[] = [
   { id: "sem_contato", label: "Sem contato",  icone: "⏳", cor: "#6B7280", bg: "rgba(107,114,128,0.07)", estagios: ["nao_contatado"] },
   { id: "email_1",     label: "1º Email",     icone: "📧", cor: "#7C3AED", bg: "rgba(124,58,237,0.07)", estagios: ["email_1"] },
-  { id: "email_2",     label: "2º Email",     icone: "📧", cor: "#2563EB", bg: "rgba(37,99,235,0.07)",  estagios: [] },
-  { id: "whatsapp",      label: "WhatsApp",       icone: "📱", cor: "#15803D", bg: "rgba(34,197,94,0.07)",   estagios: ["email_2", "whatsapp"] },
+  { id: "email_2",     label: "2º Email",     icone: "📧", cor: "#2563EB", bg: "rgba(37,99,235,0.07)",  estagios: ["email_2"] },
+  { id: "whatsapp",    label: "WhatsApp",     icone: "📱", cor: "#15803D", bg: "rgba(34,197,94,0.07)",   estagios: ["whatsapp"] },
   { id: "ag_pagamento", label: "Ag. Pagamento",  icone: "💳", cor: "#D97706", bg: "rgba(245,158,11,0.07)",  estagios: [] },
   { id: "concluido",    label: "Concluído",      icone: "✓",  cor: "#059669", bg: "rgba(16,185,129,0.07)",  estagios: ["encerrado", "respondeu"] },
 ];

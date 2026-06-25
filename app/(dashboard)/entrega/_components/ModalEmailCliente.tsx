@@ -237,7 +237,7 @@ export function ModalEmailCliente({ galeria, onFechar, templateInicial, onEstagi
           setAssunto(`Obrigado pela confirmação — ${galeria.titulo}`);
         } else {
           const cfg        = CAMPANHA_POR_ESTAGIO[info.estagio] ?? CAMPANHA_POR_ESTAGIO.nao_contatado;
-          const customText = tpls?.[cfg.key] ?? tpls?.["campanha"];
+          const customText = tpls?.[cfg.key];
           const dataEmail1 = formatarDataContato(info.email_1_em);
           const dataEmail2 = formatarDataContato(info.email_2_em);
           setMensagem(substituirVars(customText ?? cfg.default, { ...vars, prazo, dataEmail1, dataEmail2 }));
