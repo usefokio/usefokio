@@ -8,16 +8,6 @@ import { GraficoPanorama } from "../_components/GraficoPanorama";
 
 type PanoramaItem = { ano: number; receitas: number; despesas: number; lucro: number };
 
-const CATEGORIAS_MAPEADAS = new Set([
-  "Casamento - foto","Casamento - Foto","Bodas","Casamento - Foto e Video",
-  "Aniversário Infantil","Aniversario Infantil","Aniversário Adulto","Aniversario Adulto",
-  "Aniversário 15 anos","Batizado","Evento Corporativo","Eventos",
-  "Ensaio Gestante","Ensaio/Book","Ensaio Infantil","Ensaio 15 anos",
-  "Ensaio Casal","Ensaio Familia","Ensaio Newborn","Acompanhamento",
-  "Diagramação de livro/álbum","Consultoria","Cursos e Treinamento",
-  "Vendas Extras","Outros Serviços","Publicidade","Foto Produto",
-  "Casamento - Video","Video cultural","Video Cultural","Video Geral",
-]);
 
 function fmtBRL(v: number) {
   return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -48,37 +38,39 @@ export default function PanoramaPage() {
     if (!fotografo) return;
     const sb = createClient();
     const fid = fotografo.id;
-    Promise.all([
-      sb.from("crm_orders")
-        .select("data_lancamento, total, categoria")
-        .eq("fotografo_id", fid)
-        .not("data_lancamento", "is", null),
-      sb.from("crm_financial_entries")
-        .select("vencimento, valor")
-        .eq("fotografo_id", fid)
-        .eq("status", "pago")
-        .eq("tipo", "despesa")
-        .not("vencimento", "is", null),
-    ]).then(([{ data: orders }, { data: desp }]) => {
-      const mapa: Record<number, { rec: number; desp: number }> = {};
-      for (const o of (orders ?? []) as { data_lancamento: string; total: number; categoria: string }[]) {
-        if (!CATEGORIAS_MAPEADAS.has(o.categoria)) continue;
-        const y = parseInt(o.data_lancamento.slice(0, 4));
-        mapa[y] ??= { rec: 0, desp: 0 };
-        mapa[y].rec += o.total;
-      }
-      for (const d of (desp ?? []) as { vencimento: string; valor: number }[]) {
-        const y = parseInt(d.vencimento.slice(0, 4));
-        mapa[y] ??= { rec: 0, desp: 0 };
-        mapa[y].desp += d.valor;
-      }
-      const result: PanoramaItem[] = Object.entries(mapa)
-        .map(([y, v]) => ({ ano: parseInt(y), receitas: v.rec, despesas: v.desp, lucro: v.rec - v.desp }))
-        .filter(d => d.receitas > 0 || d.despesas > 0)
-        .sort((a, b) => a.ano - b.ano);
-      setDados(result);
-      setLoading(false);
-    });
+
+    sb.from("crm_financial_entries")
+      .select("vencimento, valor, tipo, num_documento")
+      .eq("fotografo_id", fid)
+      .eq("status", "pago")
+      .not("vencimento", "is", null)
+      .range(0, 9999)
+      .then(({ data: entries }) => {
+        const anosComDRE = new Set<number>();
+        for (const e of entries ?? []) {
+          if (e.num_documento === "DRE") {
+            anosComDRE.add(parseInt(e.vencimento.slice(0, 4)));
+          }
+        }
+
+        const mapa: Record<number, { rec: number; desp: number }> = {};
+        for (const e of entries ?? []) {
+          const ano = parseInt(e.vencimento.slice(0, 4));
+          const isDRE = e.num_documento === "DRE";
+          const anoTemDRE = anosComDRE.has(ano);
+          if (anoTemDRE !== isDRE) continue;
+          mapa[ano] ??= { rec: 0, desp: 0 };
+          if (e.tipo === "receita") mapa[ano].rec += e.valor;
+          else if (e.tipo === "despesa") mapa[ano].desp += e.valor;
+        }
+
+        const result: PanoramaItem[] = Object.entries(mapa)
+          .map(([y, v]) => ({ ano: parseInt(y), receitas: v.rec, despesas: v.desp, lucro: v.rec - v.desp }))
+          .filter(d => d.receitas > 0 || d.despesas > 0)
+          .sort((a, b) => a.ano - b.ano);
+        setDados(result);
+        setLoading(false);
+      });
   }, [fotografo]);
 
   const totalReceitas = dados.reduce((s, d) => s + d.receitas, 0);
