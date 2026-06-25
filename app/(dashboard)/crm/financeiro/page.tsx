@@ -71,8 +71,9 @@ function FinanceiroInner() {
   const [entries,    setEntries]    = useState<EntryWithPedido[]>([]);
   const [contas,     setContas]     = useState<ContaBancaria[]>([]);
   const [loading,    setLoading]    = useState(true);
-  const [busca,      setBusca]      = useState("");
-  const [mesFiltro,  setMesFiltro]  = useState("");
+  const [busca,         setBusca]         = useState("");
+  const [mesFiltro,     setMesFiltro]     = useState("");
+  const [periodoRapido, setPeriodoRapido] = useState<"vencidas" | "este-mes" | "prox-mes" | "">("");
 
   // Modais
   const [modalEditar,      setModalEditar]      = useState<ModalEditar | null>(null);
@@ -109,18 +110,21 @@ function FinanceiroInner() {
     if (!fotografo) return;
     setLoading(true);
     const cfg = ABA_CONFIG[aba];
+    const pendentesStatuses = aba === "receber" || aba === "pagar"
+      ? ["pendente", "vencido"]
+      : [cfg.status];
     const { data } = await createClient()
       .from("crm_financial_entries")
       .select("*, crm_orders(nome, numero, clientes(nome, email, telefone, whatsapp)), clientes(nome, email)")
       .eq("fotografo_id", fotografo.id)
       .eq("tipo", cfg.tipo)
-      .eq("status", cfg.status)
+      .in("status", pendentesStatuses)
       .order("vencimento", { ascending: true });
     setEntries((data ?? []) as EntryWithPedido[]);
     setLoading(false);
   }, [fotografo, aba]);
 
-  useEffect(() => { setAba(tipoMenu as Aba); setMesFiltro(""); setBusca(""); }, [tipoMenu]);
+  useEffect(() => { setAba(tipoMenu as Aba); setMesFiltro(""); setBusca(""); setPeriodoRapido(""); }, [tipoMenu]);
   useEffect(() => { carregar(); }, [carregar]);
 
   useEffect(() => {
@@ -136,12 +140,26 @@ function FinanceiroInner() {
 
   const meses = [...new Set(entries.map(e => e.vencimento.slice(0, 7)))].sort();
 
+  const hoje = new Date().toISOString().slice(0, 10);
+  const mesAtual = hoje.slice(0, 7);
+  const proxMes  = (() => {
+    const d = new Date(hoje + "T12:00:00");
+    d.setMonth(d.getMonth() + 1);
+    return d.toISOString().slice(0, 7);
+  })();
+
   const filtradas = entries.filter(e => {
     const matchBusca = busca === "" ||
       e.descricao.toLowerCase().includes(busca.toLowerCase()) ||
       (e.crm_orders?.nome ?? "").toLowerCase().includes(busca.toLowerCase());
-    const matchMes = mesFiltro === "" || e.vencimento.startsWith(mesFiltro);
-    return matchBusca && matchMes;
+
+    let matchPeriodo = true;
+    if      (periodoRapido === "vencidas")  matchPeriodo = e.vencimento < hoje;
+    else if (periodoRapido === "este-mes")  matchPeriodo = e.vencimento.startsWith(mesAtual);
+    else if (periodoRapido === "prox-mes")  matchPeriodo = e.vencimento.startsWith(proxMes);
+    else if (mesFiltro !== "")              matchPeriodo = e.vencimento.startsWith(mesFiltro);
+
+    return matchBusca && matchPeriodo;
   });
 
   const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -153,8 +171,13 @@ function FinanceiroInner() {
 
   const totalFiltradas = filtradas.reduce((s, e) => s + e.valor, 0);
 
-  const hoje = new Date().toISOString().slice(0, 10);
-  const isVencido = (e: EntryWithPedido) => e.status === "pendente" && e.vencimento < hoje;
+  const isVencido = (e: EntryWithPedido) =>
+    e.status === "vencido" || (e.status === "pendente" && e.vencimento < hoje);
+
+  const labelTotal = periodoRapido === "vencidas" ? "Total Vencido"
+    : periodoRapido === "este-mes"  ? "Total Este Mês"
+    : periodoRapido === "prox-mes"  ? "Total Próx. Mês"
+    : `Total ${ABA_CONFIG[aba].label}`;
 
   // Editar lançamento
   const salvarEdicao = async () => {
@@ -348,18 +371,45 @@ function FinanceiroInner() {
       {/* Abas */}
       <div style={{ display: "flex", gap: 0, marginBottom: 20, borderBottom: "0.5px solid var(--color-border-tertiary)" }}>
         {abasVisiveis.map((a) => (
-          <button key={a} onClick={() => { setAba(a); setMesFiltro(""); setBusca(""); }}
+          <button key={a} onClick={() => { setAba(a); setMesFiltro(""); setBusca(""); setPeriodoRapido(""); }}
             style={{ padding: "9px 20px", fontSize: 13, fontWeight: aba === a ? 700 : 500, border: "none", background: "transparent", cursor: "pointer", color: aba === a ? "var(--color-text-primary)" : "var(--color-text-secondary)", borderBottom: aba === a ? "2px solid var(--color-text-primary)" : "2px solid transparent", marginBottom: -1 }}>
             {ABA_CONFIG[a].label}
           </button>
         ))}
       </div>
 
+      {/* Filtros rápidos — só na aba A Receber */}
+      {aba === "receber" && (
+        <div style={{ display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap" }}>
+          {([
+            { key: "",          label: "Todos"      },
+            { key: "vencidas",  label: "Vencidas"   },
+            { key: "este-mes",  label: "Este mês"   },
+            { key: "prox-mes",  label: "Próx. mês"  },
+          ] as const).map(({ key, label }) => {
+            const ativo = periodoRapido === key && (key !== "" || mesFiltro === "");
+            return (
+              <button key={key}
+                onClick={() => { setPeriodoRapido(key); setMesFiltro(""); }}
+                style={{
+                  padding: "6px 14px", borderRadius: 20, fontSize: 12,
+                  fontWeight: ativo ? 700 : 500, cursor: "pointer",
+                  border: `0.5px solid ${ativo ? "var(--color-text-primary)" : "var(--color-border-tertiary)"}`,
+                  background: ativo ? "var(--color-text-primary)" : "transparent",
+                  color: ativo ? "var(--color-background-primary)" : "var(--color-text-secondary)",
+                }}>
+                {label}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       {/* Card resumo */}
       {!loading && filtradas.length > 0 && (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12, marginBottom: 20 }}>
           {[
-            { label: `Total ${ABA_CONFIG[aba].label}`, valor: totalFiltradas, color: aba === "receber" || aba === "recebidas" ? "#059669" : "#EF4444" },
+            { label: labelTotal, valor: totalFiltradas, color: aba === "receber" || aba === "recebidas" ? "#059669" : "#EF4444" },
             { label: "Lançamentos", valor: filtradas.length, isCount: true },
           ].map(({ label, valor, color, isCount }) => (
             <div key={label} style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 10, padding: "14px 18px" }}>
@@ -382,7 +432,7 @@ function FinanceiroInner() {
           {busca && <button onClick={() => setBusca("")} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--color-text-secondary)", fontSize: 18, lineHeight: 1, padding: 0 }}>×</button>}
         </div>
         {meses.length > 1 && (
-          <select value={mesFiltro} onChange={(e) => setMesFiltro(e.target.value)}
+          <select value={mesFiltro} onChange={(e) => { setMesFiltro(e.target.value); setPeriodoRapido(""); }}
             style={{ padding: "8px 12px", borderRadius: 9, border: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-primary)", fontSize: 13, color: "var(--color-text-primary)", cursor: "pointer", outline: "none" }}>
             <option value="">Todos os meses</option>
             {meses.map(m => <option key={m} value={m}>{fmtMes(m)}</option>)}

@@ -546,7 +546,7 @@ export type CrmFinancialEntry = {
   vencimento: string;
   pago_em: string | null;
   conta_id: string | null;
-  status: "pendente" | "pago" | "cancelado";
+  status: "pendente" | "vencido" | "pago" | "cancelado";
   parcela: string | null;
   document_type_id: number | null;
   internal_account_type: "direto" | "pedido";
