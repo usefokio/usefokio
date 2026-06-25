@@ -27,11 +27,42 @@ function parseBRL(v) {
   return parseFloat(v.replace(/\./g, "").replace(",", ".")) || 0;
 }
 
+function parseCsvLine(line) {
+  const cols = [];
+  let cur = "", inQuote = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') { inQuote = !inQuote; continue; }
+    if (ch === ";" && !inQuote) { cols.push(cur); cur = ""; continue; }
+    cur += ch;
+  }
+  cols.push(cur);
+  return cols;
+}
+
 function parseRows(csv) {
-  const lines = csv.split(/\r?\n/).filter(Boolean);
-  const headers = lines[0].split(";");
-  return lines.slice(1).map((line) => {
-    const cols = line.split(";");
+  // Join lines that are inside quoted fields (multiline memos)
+  const rawLines = csv.split(/\r?\n/);
+  const joined = [];
+  let buf = "";
+  for (const line of rawLines) {
+    if (buf) {
+      buf += " " + line;
+    } else {
+      buf = line;
+    }
+    // Count unescaped quotes: if odd number, field is still open
+    const quoteCount = (buf.match(/"/g) || []).length;
+    if (quoteCount % 2 === 0) {
+      if (buf.trim()) joined.push(buf);
+      buf = "";
+    }
+  }
+  if (buf.trim()) joined.push(buf);
+
+  const headers = parseCsvLine(joined[0]);
+  return joined.slice(1).map((line) => {
+    const cols = parseCsvLine(line);
     const row = {};
     headers.forEach((h, i) => (row[h.trim()] = (cols[i] ?? "").trim()));
     return row;
