@@ -43,6 +43,7 @@ type ModalReceber = {
   entry: EntryWithPedido;
   dataPagamento: string;
   contaId: string;
+  contaPlanoId: string;
 };
 
 type ModalEditar = {
@@ -88,6 +89,7 @@ function FinanceiroInner() {
   const [modalExcluir,     setModalExcluir]     = useState<EntryWithPedido | null>(null);
   const [emailModal, setEmailModal] = useState<{ para: string; nome?: string | null; assunto: string; corpo: string } | null>(null);
   const [excluindo,        setExcluindo]        = useState(false);
+  const [baixaCategorias,  setBaixaCategorias]  = useState<ChartAccount[]>([]);
   const [copiado,          setCopiado]          = useState(false);
 
   // Modal novo lançamento
@@ -226,24 +228,46 @@ function FinanceiroInner() {
   };
 
   // Abrir modal de receber/pagar
-  const abrirReceber = (e: EntryWithPedido) => {
+  const abrirReceber = async (e: EntryWithPedido) => {
     setModalReceber({
       entry: e,
       dataPagamento: hoje,
       contaId: contas.length === 1 ? contas[0].id : "",
+      contaPlanoId: e.conta_id ?? "",
     });
     setErroPagamento("");
+    if (e.tipo === "despesa" && !e.conta_id && fotografo) {
+      const { data } = await createClient()
+        .from("crm_chart_of_accounts")
+        .select("id, codigo, nome")
+        .or(`fotografo_id.is.null,fotografo_id.eq.${fotografo.id}`)
+        .eq("ativo", true)
+        .order("codigo");
+      setBaixaCategorias(
+        ((data ?? []) as ChartAccount[]).filter(c => c.codigo.startsWith("4") || c.codigo.startsWith("5"))
+      );
+    }
   };
 
   // Confirmar pagamento
   const confirmarPagamento = async () => {
     if (!modalReceber) return;
+    if (aba === "pagar" && !modalReceber.entry.conta_id && !modalReceber.contaPlanoId) {
+      setErroPagamento("Selecione o plano de contas para registrar a despesa.");
+      return;
+    }
     setSalvandoPag(true);
     setErroPagamento("");
-    const { entry, dataPagamento, contaId } = modalReceber;
+    const { entry, dataPagamento, contaId, contaPlanoId } = modalReceber;
+    const updates: Record<string, string | null> = {
+      status: "pago",
+      pago_em: dataPagamento,
+      conta_bancaria_id: contaId || null,
+    };
+    if (aba === "pagar" && contaPlanoId) updates.conta_id = contaPlanoId;
     const { error } = await createClient()
       .from("crm_financial_entries")
-      .update({ status: "pago", pago_em: dataPagamento, conta_bancaria_id: contaId || null })
+      .update(updates)
       .eq("id", entry.id);
     setSalvandoPag(false);
     if (error) { setErroPagamento(error.message); return; }
@@ -614,6 +638,28 @@ function FinanceiroInner() {
                 style={{ padding: "9px 12px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", fontSize: 13, color: "var(--color-text-primary)", outline: "none", width: "100%", boxSizing: "border-box" }}
               />
             </div>
+
+            {/* Plano de contas — só para despesas sem categoria */}
+            {aba === "pagar" && !modalReceber.entry.conta_id && baixaCategorias.length > 0 && (
+              <div style={{ marginBottom: 18 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>
+                  Plano de contas *
+                </div>
+                <div style={{ fontSize: 12, color: "#D97706", marginBottom: 8, background: "rgba(217,119,6,0.08)", border: "0.5px solid rgba(217,119,6,0.3)", borderRadius: 8, padding: "8px 12px" }}>
+                  Esta despesa não tem categoria — selecione o plano de contas.
+                </div>
+                <select
+                  value={modalReceber.contaPlanoId}
+                  onChange={e => setModalReceber(m => m ? { ...m, contaPlanoId: e.target.value } : m)}
+                  style={{ width: "100%", boxSizing: "border-box", padding: "9px 12px", borderRadius: 8, border: `0.5px solid ${modalReceber.contaPlanoId ? "var(--color-border-secondary)" : "#D97706"}`, background: "var(--color-background-primary)", fontSize: 13, color: "var(--color-text-primary)", outline: "none" }}
+                >
+                  <option value="">Selecione a categoria…</option>
+                  {baixaCategorias.map(c => (
+                    <option key={c.id} value={c.id}>{c.codigo} — {c.nome}</option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             {/* Conta bancária */}
             {contas.length > 0 && (
