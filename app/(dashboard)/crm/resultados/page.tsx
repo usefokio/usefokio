@@ -41,59 +41,116 @@ export default function ResultadosPage() {
     const sb = createClient();
     const fid = fotografo.id;
 
+    const CATEGORIA_CODIGO: Record<string, string> = {
+      "Casamento - foto": "3.1.1", "Casamento - Foto": "3.1.1", "Bodas": "3.1.1",
+      "Casamento - Foto e Video": "3.1.1.2",
+      "Aniversário Infantil": "3.1.2", "Aniversario Infantil": "3.1.2",
+      "Aniversário Adulto": "3.1.2", "Aniversario Adulto": "3.1.2",
+      "Aniversário 15 anos": "3.1.2", "Batizado": "3.1.2",
+      "Evento Corporativo": "3.1.2", "Eventos": "3.1.2",
+      "Ensaio Gestante": "3.1.3", "Ensaio/Book": "3.1.3", "Ensaio Infantil": "3.1.3",
+      "Ensaio 15 anos": "3.1.3", "Ensaio Casal": "3.1.3", "Ensaio Familia": "3.1.3",
+      "Ensaio Newborn": "3.1.3", "Acompanhamento": "3.1.3",
+      "Diagramação de livro/álbum": "3.1.4",
+      "Consultoria": "3.1.6", "Cursos e Treinamento": "3.1.7",
+      "Vendas Extras": "3.1.9", "Outros Serviços": "3.1.9",
+      "Publicidade": "3.1.9", "Foto Produto": "3.1.9",
+      "Casamento - Video": "3.1.11",
+      "Video cultural": "3.1.12", "Video Cultural": "3.1.12",
+      "Video Geral": "3.1.13",
+    };
+
     const dateField = regime === "caixa" ? "pago_em" : "vencimento";
-    const [{ data: contasData }, { data: despesasData }, { data: receitasData }] = await Promise.all([
+
+    // Verificar se o ano tem entradas DRE
+    const { count: dreCount } = await sb
+      .from("crm_financial_entries")
+      .select("*", { count: "exact", head: true })
+      .eq("fotografo_id", fid)
+      .eq("num_documento", "DRE")
+      .gte("vencimento", `${ano}-01-01`)
+      .lte("vencimento", `${ano}-12-31`);
+    const temDRE = (dreCount ?? 0) > 0;
+
+    const [{ data: contasData }, { data: despesasData }, { data: receitasData }, { data: ordersData }] = await Promise.all([
       sb.from("crm_chart_of_accounts")
         .select("id, codigo, nome")
         .or(`fotografo_id.is.null,fotografo_id.eq.${fid}`)
         .eq("ativo", true)
         .order("codigo"),
-      // Despesas: entradas DRE do ano
-      sb.from("crm_financial_entries")
-        .select("conta_id, valor, vencimento, pago_em")
-        .eq("fotografo_id", fid)
-        .eq("tipo", "despesa")
-        .eq("num_documento", "DRE")
-        .gte(dateField, `${ano}-01-01`)
-        .lte(dateField, `${ano}-12-31`)
-        .range(0, 9999),
-      // Receitas: entradas DRE do ano (competência) ou financeiro caixa (pago_em)
-      regime === "caixa"
+      // Despesas: DRE se disponível, senão entradas individuais
+      temDRE
         ? sb.from("crm_financial_entries")
-            .select("conta_id, valor, pago_em")
-            .eq("fotografo_id", fid)
-            .eq("tipo", "receita")
-            .eq("status", "pago")
-            .not("num_documento", "eq", "DRE")
-            .gte("pago_em", `${ano}-01-01`)
-            .lte("pago_em", `${ano}-12-31`)
-            .not("conta_id", "is", null)
+            .select("conta_id, valor, vencimento, pago_em")
+            .eq("fotografo_id", fid).eq("tipo", "despesa").eq("num_documento", "DRE")
+            .gte(dateField, `${ano}-01-01`).lte(dateField, `${ano}-12-31`).range(0, 9999)
         : sb.from("crm_financial_entries")
+            .select("conta_id, valor, vencimento, pago_em")
+            .eq("fotografo_id", fid).eq("tipo", "despesa").eq("status", "pago")
+            .gte(dateField, `${ano}-01-01`).lte(dateField, `${ano}-12-31`).range(0, 9999),
+      // Receitas: DRE se disponível, senão entradas individuais (caixa) ou pedidos (competência)
+      temDRE
+        ? sb.from("crm_financial_entries")
             .select("conta_id, valor, vencimento")
+            .eq("fotografo_id", fid).eq("tipo", "receita").eq("num_documento", "DRE")
+            .gte("vencimento", `${ano}-01-01`).lte("vencimento", `${ano}-12-31`).range(0, 9999)
+        : regime === "caixa"
+          ? sb.from("crm_financial_entries")
+              .select("conta_id, valor, pago_em")
+              .eq("fotografo_id", fid).eq("tipo", "receita").eq("status", "pago")
+              .not("conta_id", "is", null)
+              .gte("pago_em", `${ano}-01-01`).lte("pago_em", `${ano}-12-31`)
+          : sb.from("crm_financial_entries") // placeholder — não usado quando !temDRE && competência
+              .select("conta_id, valor, vencimento").eq("fotografo_id", fid).eq("num_documento", "DRE")
+              .gte("vencimento", `${ano}-01-01`).lte("vencimento", `${ano}-01-01`).limit(0),
+      // Pedidos para competência sem DRE
+      !temDRE && regime === "competencia"
+        ? sb.from("crm_orders")
+            .select("categoria, total, data_lancamento")
             .eq("fotografo_id", fid)
-            .eq("tipo", "receita")
-            .eq("num_documento", "DRE")
-            .gte("vencimento", `${ano}-01-01`)
-            .lte("vencimento", `${ano}-12-31`)
-            .range(0, 9999),
+            .gte("data_lancamento", `${ano}-01-01`).lte("data_lancamento", `${ano}-12-31`)
+            .not("data_lancamento", "is", null)
+        : sb.from("crm_orders").select("categoria").eq("fotografo_id", fid).limit(0),
     ]);
 
     const contasArr = (contasData ?? []) as Conta[];
+    const contaPorCodigo: Record<string, string> = {};
+    for (const c of contasArr) contaPorCodigo[c.codigo] = c.id;
 
     const novoMapa: Record<string, Record<number, number>> = {};
+    const semMapeamento: Record<string, number> = {};
 
-    // Receitas: financial entries DRE (competência) ou pago (caixa)
-    const dateFieldRec = regime === "caixa" ? "pago_em" : "vencimento";
-    for (const e of (receitasData ?? []) as { conta_id: string; valor: number; vencimento?: string; pago_em?: string }[]) {
-      const dataRef = (e as Record<string, string>)[dateFieldRec];
-      if (!dataRef || !e.conta_id) continue;
-      const mes = parseInt(dataRef.slice(5, 7));
-      novoMapa[e.conta_id] ??= {};
-      novoMapa[e.conta_id][mes] = (novoMapa[e.conta_id][mes] ?? 0) + e.valor;
+    if (temDRE) {
+      // Receitas e despesas do DRE
+      for (const e of (receitasData ?? []) as { conta_id: string; valor: number; vencimento: string }[]) {
+        if (!e.conta_id) continue;
+        const mes = parseInt(e.vencimento.slice(5, 7));
+        novoMapa[e.conta_id] ??= {};
+        novoMapa[e.conta_id][mes] = (novoMapa[e.conta_id][mes] ?? 0) + e.valor;
+      }
+    } else if (regime === "competencia") {
+      // Receitas de pedidos
+      for (const o of (ordersData ?? []) as { categoria: string; total: number; data_lancamento: string }[]) {
+        const codigo = CATEGORIA_CODIGO[o.categoria];
+        if (!codigo) { semMapeamento[o.categoria || "(sem categoria)"] = (semMapeamento[o.categoria || "(sem categoria)"] ?? 0) + o.total; continue; }
+        const cid = contaPorCodigo[codigo];
+        if (!cid) continue;
+        const mes = parseInt(o.data_lancamento.slice(5, 7));
+        novoMapa[cid] ??= {};
+        novoMapa[cid][mes] = (novoMapa[cid][mes] ?? 0) + o.total;
+      }
+    } else {
+      // Receitas caixa
+      for (const e of (receitasData ?? []) as { conta_id: string; valor: number; pago_em: string }[]) {
+        if (!e.conta_id) continue;
+        const mes = parseInt(e.pago_em.slice(5, 7));
+        novoMapa[e.conta_id] ??= {};
+        novoMapa[e.conta_id][mes] = (novoMapa[e.conta_id][mes] ?? 0) + e.valor;
+      }
     }
-    setNaoMapeados([]);
+    setNaoMapeados(Object.entries(semMapeamento).map(([categoria, total]) => ({ categoria, total })));
 
-    // Despesas: entradas DRE
+    // Despesas
     for (const e of (despesasData ?? []) as { conta_id: string | null; valor: number; vencimento: string; pago_em: string | null }[]) {
       const dataRef = regime === "caixa" ? e.pago_em : e.vencimento;
       if (!dataRef) continue;
@@ -113,25 +170,61 @@ export default function ResultadosPage() {
 
   useEffect(() => { carregar(); }, [carregar]);
 
-  // Panorama: busca entradas DRE de todos os anos
+  // Panorama: DRE para anos com DRE, entradas individuais para os demais
   useEffect(() => {
     if (!fotografo) return;
     const sb = createClient();
     const fid = fotografo.id;
     Promise.all([
+      // Entradas DRE (2020–2024, 2026)
       sb.from("crm_financial_entries")
         .select("vencimento, valor, tipo")
         .eq("fotografo_id", fid)
         .eq("num_documento", "DRE")
         .not("vencimento", "is", null)
         .range(0, 9999),
-    ]).then(([{ data: entries }]) => {
+      // Entradas individuais para anos SEM DRE (receitas pagas com conta_id)
+      sb.from("crm_financial_entries")
+        .select("vencimento, pago_em, valor, tipo")
+        .eq("fotografo_id", fid)
+        .eq("tipo", "receita")
+        .eq("status", "pago")
+        .not("num_documento", "eq", "DRE")
+        .not("conta_id", "is", null)
+        .range(0, 9999),
+      // Despesas individuais para anos SEM DRE
+      sb.from("crm_financial_entries")
+        .select("vencimento, valor")
+        .eq("fotografo_id", fid)
+        .eq("tipo", "despesa")
+        .eq("status", "pago")
+        .not("num_documento", "eq", "DRE")
+        .not("vencimento", "is", null)
+        .range(0, 9999),
+    ]).then(([{ data: dreEntries }, { data: recIndividuais }, { data: despIndividuais }]) => {
+      // Anos com DRE
+      const anosComDRE = new Set<number>();
       const mapeado: Record<number, { rec: number; desp: number }> = {};
-      for (const e of (entries ?? []) as { vencimento: string; valor: number; tipo: string }[]) {
+      for (const e of (dreEntries ?? []) as { vencimento: string; valor: number; tipo: string }[]) {
         const y = parseInt(e.vencimento.slice(0, 4));
+        anosComDRE.add(y);
         mapeado[y] ??= { rec: 0, desp: 0 };
         if (e.tipo === "receita") mapeado[y].rec += e.valor;
         else mapeado[y].desp += e.valor;
+      }
+      // Anos sem DRE — receitas individuais
+      for (const e of (recIndividuais ?? []) as { vencimento: string; valor: number }[]) {
+        const y = parseInt(e.vencimento.slice(0, 4));
+        if (anosComDRE.has(y)) continue;
+        mapeado[y] ??= { rec: 0, desp: 0 };
+        mapeado[y].rec += e.valor;
+      }
+      // Anos sem DRE — despesas individuais
+      for (const e of (despIndividuais ?? []) as { vencimento: string; valor: number }[]) {
+        const y = parseInt(e.vencimento.slice(0, 4));
+        if (anosComDRE.has(y)) continue;
+        mapeado[y] ??= { rec: 0, desp: 0 };
+        mapeado[y].desp += e.valor;
       }
       const dados: PanoramaItem[] = Object.entries(mapeado)
         .map(([y, v]) => ({ ano: parseInt(y), receitas: v.rec, despesas: v.desp, lucro: v.rec - v.desp }))
