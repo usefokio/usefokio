@@ -351,7 +351,7 @@ export default function CampanhaPage() {
                           </div>
 
                           {/* Ação rápida */}
-                          {col.id !== "concluido" && item.resposta !== "renovar" && (
+                          {col.id !== "concluido" && col.id !== "whatsapp" && item.resposta !== "renovar" && (
                             <button
                               onClick={() => { setModalTemplate("campanha"); setModalGaleriaId(item.galeria.id); }}
                               style={{
