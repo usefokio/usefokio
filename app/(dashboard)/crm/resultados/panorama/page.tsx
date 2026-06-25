@@ -38,36 +38,22 @@ export default function PanoramaPage() {
     const sb = createClient();
 
     // RPC agrega no banco — retorna ~50 linhas, sem problemas de limite ou comparação JS
+    // RPC retorna apenas dados DRE agregados por ano — lançamentos individuais são histórico
     sb.rpc("get_panorama_financeiro", { p_fotografo_id: fotografo.id })
       .then(({ data, error }) => {
         if (error) { console.error("panorama rpc:", error); return; }
 
-        type Row = { ano: number; fonte: string; tipo: string; total: number };
-        const drePorAno: Record<number, { rec: number; desp: number }> = {};
-        const indivPorAno: Record<number, { rec: number; desp: number }> = {};
+        type Row = { ano: number; tipo: string; total: number };
+        const mapa: Record<number, { rec: number; desp: number }> = {};
 
         for (const row of (data ?? []) as Row[]) {
-          const mapa = row.fonte === "dre" ? drePorAno : indivPorAno;
           mapa[row.ano] ??= { rec: 0, desp: 0 };
           if (row.tipo === "receita") mapa[row.ano].rec += Number(row.total);
           else if (row.tipo === "despesa") mapa[row.ano].desp += Number(row.total);
         }
 
-        // Anos com DRE: usar DRE. Outros: usar individuais.
-        const anosComDRE = new Set(Object.keys(drePorAno).map(Number));
-        const todosAnos = new Set([
-          ...Object.keys(drePorAno).map(Number),
-          ...Object.keys(indivPorAno).map(Number),
-        ]);
-
-        const result: PanoramaItem[] = Array.from(todosAnos)
-          .map(ano => {
-            const d = anosComDRE.has(ano)
-              ? drePorAno[ano]
-              : (indivPorAno[ano] ?? { rec: 0, desp: 0 });
-            return { ano, receitas: d.rec, despesas: d.desp, lucro: d.rec - d.desp };
-          })
-          .filter(d => d.receitas > 0 || d.despesas > 0)
+        const result: PanoramaItem[] = Object.entries(mapa)
+          .map(([y, v]) => ({ ano: parseInt(y), receitas: v.rec, despesas: v.desp, lucro: v.rec - v.desp }))
           .sort((a, b) => a.ano - b.ano);
 
         setDados(result);

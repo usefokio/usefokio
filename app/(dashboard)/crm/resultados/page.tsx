@@ -170,7 +170,7 @@ export default function ResultadosPage() {
 
   useEffect(() => { carregar(); }, [carregar]);
 
-  // Panorama: usa RPC que agrega no banco — sem problemas de limite ou comparação JS
+  // Panorama: apenas dados DRE via RPC — lançamentos individuais são histórico
   useEffect(() => {
     if (!fotografo) return;
     const sb = createClient();
@@ -179,31 +179,17 @@ export default function ResultadosPage() {
       .then(({ data, error }) => {
         if (error) { console.error("panorama rpc:", error); return; }
 
-        type Row = { ano: number; fonte: string; tipo: string; total: number };
-        const drePorAno: Record<number, { rec: number; desp: number }> = {};
-        const indivPorAno: Record<number, { rec: number; desp: number }> = {};
+        type Row = { ano: number; tipo: string; total: number };
+        const mapa: Record<number, { rec: number; desp: number }> = {};
 
         for (const row of (data ?? []) as Row[]) {
-          const mapa = row.fonte === "dre" ? drePorAno : indivPorAno;
           mapa[row.ano] ??= { rec: 0, desp: 0 };
           if (row.tipo === "receita") mapa[row.ano].rec += Number(row.total);
           else if (row.tipo === "despesa") mapa[row.ano].desp += Number(row.total);
         }
 
-        const anosComDRE = new Set(Object.keys(drePorAno).map(Number));
-        const todosAnos = new Set([
-          ...Object.keys(drePorAno).map(Number),
-          ...Object.keys(indivPorAno).map(Number),
-        ]);
-
-        const dados: PanoramaItem[] = Array.from(todosAnos)
-          .map(ano => {
-            const d = anosComDRE.has(ano)
-              ? drePorAno[ano]
-              : (indivPorAno[ano] ?? { rec: 0, desp: 0 });
-            return { ano, receitas: d.rec, despesas: d.desp, lucro: d.rec - d.desp };
-          })
-          .filter(d => d.receitas > 0 || d.despesas > 0)
+        const dados: PanoramaItem[] = Object.entries(mapa)
+          .map(([y, v]) => ({ ano: parseInt(y), receitas: v.rec, despesas: v.desp, lucro: v.rec - v.desp }))
           .sort((a, b) => a.ano - b.ano);
 
         setPanorama(dados);
