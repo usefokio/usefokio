@@ -79,36 +79,46 @@ export default function ResultadosPage() {
       .eq("ativo", true)
       .order("codigo");
 
-    const qDespesas = temDRE
-      ? sb.from("crm_financial_entries")
-          .select("conta_id, valor, vencimento, pago_em")
-          .eq("fotografo_id", fid).eq("tipo", "despesa").eq("num_documento", "DRE")
-          .gte(dateField, `${ano}-01-01`).lte(dateField, `${ano}-12-31`).range(0, 9999)
-      : sb.from("crm_financial_entries")
-          .select("conta_id, valor, vencimento, pago_em")
-          .eq("fotografo_id", fid).eq("tipo", "despesa").eq("status", "pago")
-          .gte(dateField, `${ano}-01-01`).lte(dateField, `${ano}-12-31`).range(0, 9999);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let qDespesas: any;
+    if (regime === "caixa") {
+      qDespesas = sb.from("crm_financial_entries")
+        .select("conta_id, valor, pago_em")
+        .eq("fotografo_id", fid).eq("tipo", "despesa").eq("status", "pago")
+        .or("num_documento.is.null,num_documento.neq.DRE")
+        .gte("pago_em", `${ano}-01-01`).lte("pago_em", `${ano}-12-31`).range(0, 9999);
+    } else if (temDRE) {
+      qDespesas = sb.from("crm_financial_entries")
+        .select("conta_id, valor, vencimento, pago_em")
+        .eq("fotografo_id", fid).eq("tipo", "despesa").eq("num_documento", "DRE")
+        .gte("vencimento", `${ano}-01-01`).lte("vencimento", `${ano}-12-31`).range(0, 9999);
+    } else {
+      qDespesas = sb.from("crm_financial_entries")
+        .select("conta_id, valor, vencimento, pago_em")
+        .eq("fotografo_id", fid).eq("tipo", "despesa").eq("status", "pago")
+        .gte("vencimento", `${ano}-01-01`).lte("vencimento", `${ano}-12-31`).range(0, 9999);
+    }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let qReceitas: any;
-    if (temDRE) {
+    if (regime === "caixa") {
+      qReceitas = sb.from("crm_financial_entries")
+        .select("conta_id, valor, pago_em")
+        .eq("fotografo_id", fid).eq("tipo", "receita").eq("status", "pago")
+        .or("num_documento.is.null,num_documento.neq.DRE")
+        .gte("pago_em", `${ano}-01-01`).lte("pago_em", `${ano}-12-31`).range(0, 9999);
+    } else if (temDRE) {
       qReceitas = sb.from("crm_financial_entries")
         .select("conta_id, valor, vencimento")
         .eq("fotografo_id", fid).eq("tipo", "receita").eq("num_documento", "DRE")
         .gte("vencimento", `${ano}-01-01`).lte("vencimento", `${ano}-12-31`).range(0, 9999);
-    } else if (regime === "caixa") {
-      qReceitas = sb.from("crm_financial_entries")
-        .select("conta_id, valor, pago_em")
-        .eq("fotografo_id", fid).eq("tipo", "receita").eq("status", "pago")
-        .not("conta_id", "is", null)
-        .gte("pago_em", `${ano}-01-01`).lte("pago_em", `${ano}-12-31`);
     } else {
       qReceitas = sb.from("crm_financial_entries")
-        .select("conta_id, valor, vencimento").eq("fotografo_id", fid).eq("num_documento", "DRE")
+        .select("conta_id, valor, vencimento").eq("fotografo_id", fid)
         .gte("vencimento", `${ano}-01-01`).lte("vencimento", `${ano}-01-01`).limit(0);
     }
 
-    const qOrders = (!temDRE && regime === "competencia")
+    const qOrders = (regime === "competencia" && !temDRE)
       ? sb.from("crm_orders")
           .select("categoria, total, data_lancamento")
           .eq("fotografo_id", fid)
@@ -127,16 +137,24 @@ export default function ResultadosPage() {
     const novoMapa: Record<string, Record<number, number>> = {};
     const semMapeamento: Record<string, number> = {};
 
-    if (temDRE) {
-      // Receitas e despesas do DRE
+    if (regime === "caixa") {
+      // Receitas caixa: transações individuais reais por pago_em
+      for (const e of (receitasData ?? []) as { conta_id: string; valor: number; pago_em: string }[]) {
+        if (!e.conta_id || !e.pago_em) continue;
+        const mes = parseInt(e.pago_em.slice(5, 7));
+        novoMapa[e.conta_id] ??= {};
+        novoMapa[e.conta_id][mes] = (novoMapa[e.conta_id][mes] ?? 0) + e.valor;
+      }
+    } else if (temDRE) {
+      // Receitas competência com DRE: por vencimento
       for (const e of (receitasData ?? []) as { conta_id: string; valor: number; vencimento: string }[]) {
         if (!e.conta_id) continue;
         const mes = parseInt(e.vencimento.slice(5, 7));
         novoMapa[e.conta_id] ??= {};
         novoMapa[e.conta_id][mes] = (novoMapa[e.conta_id][mes] ?? 0) + e.valor;
       }
-    } else if (regime === "competencia") {
-      // Receitas de pedidos
+    } else {
+      // Receitas competência sem DRE: de crm_orders por data_lancamento
       for (const o of (ordersData ?? []) as { categoria: string; total: number; data_lancamento: string }[]) {
         const codigo = CATEGORIA_CODIGO[o.categoria];
         if (!codigo) { semMapeamento[o.categoria || "(sem categoria)"] = (semMapeamento[o.categoria || "(sem categoria)"] ?? 0) + o.total; continue; }
@@ -145,14 +163,6 @@ export default function ResultadosPage() {
         const mes = parseInt(o.data_lancamento.slice(5, 7));
         novoMapa[cid] ??= {};
         novoMapa[cid][mes] = (novoMapa[cid][mes] ?? 0) + o.total;
-      }
-    } else {
-      // Receitas caixa
-      for (const e of (receitasData ?? []) as { conta_id: string; valor: number; pago_em: string }[]) {
-        if (!e.conta_id) continue;
-        const mes = parseInt(e.pago_em.slice(5, 7));
-        novoMapa[e.conta_id] ??= {};
-        novoMapa[e.conta_id][mes] = (novoMapa[e.conta_id][mes] ?? 0) + e.valor;
       }
     }
     setNaoMapeados(Object.entries(semMapeamento).map(([categoria, total]) => ({ categoria, total })));
