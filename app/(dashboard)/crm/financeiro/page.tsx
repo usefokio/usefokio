@@ -136,6 +136,7 @@ function FinanceiroInner() {
           .eq("fotografo_id", fotografo.id)
           .eq("tipo", cfg.tipo)
           .in("status", pendentesStatuses)
+          .or("num_documento.is.null,num_documento.neq.DRE")
           .order("vencimento", { ascending: true })
           .range(from, to),
       sb,
