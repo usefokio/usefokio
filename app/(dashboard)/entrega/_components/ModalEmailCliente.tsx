@@ -128,13 +128,13 @@ Acesse o link e nos diga o que prefere:
 
 const CAMPANHA_WHATSAPP_DEFAULT = `Oi, {nomeCliente}! Aqui é {nomeEmpresa}.
 
-Tentamos entrar em contato por email duas vezes sobre as fotos de {titulo}:
+Tentamos entrar em contato por email duas vezes sobre as fotos de {titulo}, mas acreditamos que você pode não ter recebido:
 📧 1º email enviado em {dataEmail1}
 📧 2º email enviado em {dataEmail2}
 
-Se não recebeu nossos emails, verifique a pasta de spam ou lixo eletrônico.
+O motivo do contato: com o aumento nos custos de armazenamento, não é mais possível manter os arquivos ativos indefinidamente. Precisamos de uma posição sua antes de tomar uma decisão definitiva sobre essas fotos.
 
-Essa é nossa última tentativa de contato antes da exclusão definitiva dos arquivos. Por favor, nos diga o que prefere acessando o link:
+Por favor, acesse o link e nos diga o que prefere:
 {respostaUrl}
 
 ✅ Já tenho meus arquivos baixados e salvos
@@ -501,15 +501,17 @@ export function ModalEmailCliente({ galeria, onFechar, templateInicial, onEstagi
               </div>
             </div>
 
-            {/* Assunto */}
-            <div style={{ marginBottom: 10 }}>
-              <div style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>Assunto</div>
-              <input
-                value={assunto}
-                onChange={(e) => setAssunto(e.target.value)}
-                style={{ width: "100%", boxSizing: "border-box", padding: "8px 12px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-secondary)", fontSize: 13, color: "var(--color-text-primary)", fontFamily: "inherit" }}
-              />
-            </div>
+            {/* Assunto — oculto para mensagens WhatsApp (assunto vazio) */}
+            {assunto !== "" && (
+              <div style={{ marginBottom: 10 }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>Assunto</div>
+                <input
+                  value={assunto}
+                  onChange={(e) => setAssunto(e.target.value)}
+                  style={{ width: "100%", boxSizing: "border-box", padding: "8px 12px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-secondary)", fontSize: 13, color: "var(--color-text-primary)", fontFamily: "inherit" }}
+                />
+              </div>
+            )}
 
             {/* Mensagem */}
             <div style={{ marginBottom: 16 }}>
