@@ -41,121 +41,59 @@ export default function ResultadosPage() {
     const sb = createClient();
     const fid = fotografo.id;
 
-    const CATEGORIA_CODIGO: Record<string, string> = {
-      // Casamentos - Foto (3.1.1)
-      "Casamento - foto":          "3.1.1",
-      "Casamento - Foto":          "3.1.1",
-      "Bodas":                     "3.1.1",
-      // Casamento - Foto e Video (3.1.1.2)
-      "Casamento - Foto e Video":  "3.1.1.2",
-      // Eventos (3.1.2)
-      "Aniversário Infantil":      "3.1.2",
-      "Aniversario Infantil":      "3.1.2",
-      "Aniversário Adulto":        "3.1.2",
-      "Aniversario Adulto":        "3.1.2",
-      "Aniversário 15 anos":       "3.1.2",
-      "Batizado":                  "3.1.2",
-      "Evento Corporativo":        "3.1.2",
-      "Eventos":                   "3.1.2",
-      // Books/Ensaios (3.1.3)
-      "Ensaio Gestante":           "3.1.3",
-      "Ensaio/Book":               "3.1.3",
-      "Ensaio Infantil":           "3.1.3",
-      "Ensaio 15 anos":            "3.1.3",
-      "Ensaio Casal":              "3.1.3",
-      "Ensaio Familia":            "3.1.3",
-      "Ensaio Newborn":            "3.1.3",
-      "Acompanhamento":            "3.1.3",
-      // Albuns (3.1.4)
-      "Diagramação de livro/álbum":"3.1.4",
-      // Cursos (3.1.7)
-      "Cursos e Treinamento":      "3.1.7",
-      // Consultoria (3.1.6)
-      "Consultoria":               "3.1.6",
-      // Venda Extra (3.1.9)
-      "Vendas Extras":             "3.1.9",
-      "Outros Serviços":           "3.1.9",
-      "Publicidade":               "3.1.9",
-      "Foto Produto":              "3.1.9",
-      // Video Casamento (3.1.11)
-      "Casamento - Video":         "3.1.11",
-      // Video cultural (3.1.12)
-      "Video cultural":            "3.1.12",
-      "Video Cultural":            "3.1.12",
-      // Video Corporativo/Conteudo (3.1.13)
-      "Video Geral":               "3.1.13",
-    };
-
-    const [{ data: contasData }, { data: despesasData }, { data: ordersData }, { data: caixaReceitasData }] = await Promise.all([
+    const dateField = regime === "caixa" ? "pago_em" : "vencimento";
+    const [{ data: contasData }, { data: despesasData }, { data: receitasData }] = await Promise.all([
       sb.from("crm_chart_of_accounts")
         .select("id, codigo, nome")
         .or(`fotografo_id.is.null,fotografo_id.eq.${fid}`)
         .eq("ativo", true)
         .order("codigo"),
-      // Despesas: sempre por vencimento (competência) ou pago_em (caixa)
+      // Despesas: entradas DRE do ano
       sb.from("crm_financial_entries")
-        .select("conta_id, valor, vencimento, pago_em, status")
+        .select("conta_id, valor, vencimento, pago_em")
         .eq("fotografo_id", fid)
         .eq("tipo", "despesa")
-        .eq("status", "pago")
-        .gte(regime === "caixa" ? "pago_em" : "vencimento", `${ano}-01-01`)
-        .lte(regime === "caixa" ? "pago_em" : "vencimento", `${ano}-12-31`)
+        .eq("num_documento", "DRE")
+        .gte(dateField, `${ano}-01-01`)
+        .lte(dateField, `${ano}-12-31`)
         .range(0, 9999),
-      // Competência: receitas = pedidos (crm_orders) por data_lancamento (add_date)
-      sb.from("crm_orders")
-          .select("categoria, total, data_lancamento")
-          .eq("fotografo_id", fid)
-          .gte("data_lancamento", `${ano}-01-01`)
-          .lte("data_lancamento", `${ano}-12-31`)
-          .not("data_lancamento", "is", null),
-      // Caixa: receitas = financial entries por pago_em
-      sb.from("crm_financial_entries")
-          .select("conta_id, valor, pago_em")
-          .eq("fotografo_id", fid)
-          .eq("tipo", "receita")
-          .eq("status", "pago")
-          .gte("pago_em", `${ano}-01-01`)
-          .lte("pago_em", `${ano}-12-31`)
-          .not("conta_id", "is", null),
+      // Receitas: entradas DRE do ano (competência) ou financeiro caixa (pago_em)
+      regime === "caixa"
+        ? sb.from("crm_financial_entries")
+            .select("conta_id, valor, pago_em")
+            .eq("fotografo_id", fid)
+            .eq("tipo", "receita")
+            .eq("status", "pago")
+            .not("num_documento", "eq", "DRE")
+            .gte("pago_em", `${ano}-01-01`)
+            .lte("pago_em", `${ano}-12-31`)
+            .not("conta_id", "is", null)
+        : sb.from("crm_financial_entries")
+            .select("conta_id, valor, vencimento")
+            .eq("fotografo_id", fid)
+            .eq("tipo", "receita")
+            .eq("num_documento", "DRE")
+            .gte("vencimento", `${ano}-01-01`)
+            .lte("vencimento", `${ano}-12-31`)
+            .range(0, 9999),
     ]);
 
     const contasArr = (contasData ?? []) as Conta[];
-    const contaPorCodigo: Record<string, string> = {};
-    for (const c of contasArr) contaPorCodigo[c.codigo] = c.id;
 
     const novoMapa: Record<string, Record<number, number>> = {};
 
-    // Receitas — Competência: usar pedidos por data_lancamento
-    if (regime === "competencia") {
-      const semMapeamento: Record<string, number> = {};
-      for (const o of (ordersData ?? []) as { categoria: string; total: number; data_lancamento: string }[]) {
-        const codigo = CATEGORIA_CODIGO[o.categoria];
-        if (!codigo) {
-          const cat = o.categoria || "(sem categoria)";
-          semMapeamento[cat] = (semMapeamento[cat] ?? 0) + o.total;
-          continue;
-        }
-        const contaId = contaPorCodigo[codigo];
-        if (!contaId) continue;
-        const mes = parseInt(o.data_lancamento.slice(5, 7));
-        novoMapa[contaId] ??= {};
-        novoMapa[contaId][mes] = (novoMapa[contaId][mes] ?? 0) + o.total;
-      }
-      setNaoMapeados(Object.entries(semMapeamento).map(([categoria, total]) => ({ categoria, total })));
-    } else {
-      setNaoMapeados([]);
+    // Receitas: financial entries DRE (competência) ou pago (caixa)
+    const dateFieldRec = regime === "caixa" ? "pago_em" : "vencimento";
+    for (const e of (receitasData ?? []) as { conta_id: string; valor: number; vencimento?: string; pago_em?: string }[]) {
+      const dataRef = (e as Record<string, string>)[dateFieldRec];
+      if (!dataRef || !e.conta_id) continue;
+      const mes = parseInt(dataRef.slice(5, 7));
+      novoMapa[e.conta_id] ??= {};
+      novoMapa[e.conta_id][mes] = (novoMapa[e.conta_id][mes] ?? 0) + e.valor;
     }
+    setNaoMapeados([]);
 
-    // Receitas — Caixa: usar financial entries por pago_em
-    if (regime === "caixa") {
-      for (const e of (caixaReceitasData ?? []) as { conta_id: string; valor: number; pago_em: string }[]) {
-        const mes = parseInt(e.pago_em.slice(5, 7));
-        novoMapa[e.conta_id] ??= {};
-        novoMapa[e.conta_id][mes] = (novoMapa[e.conta_id][mes] ?? 0) + e.valor;
-      }
-    }
-
-    // Despesas: sempre por crm_financial_entries
+    // Despesas: entradas DRE
     for (const e of (despesasData ?? []) as { conta_id: string | null; valor: number; vencimento: string; pago_em: string | null }[]) {
       const dataRef = regime === "caixa" ? e.pago_em : e.vencimento;
       if (!dataRef) continue;
@@ -175,45 +113,25 @@ export default function ResultadosPage() {
 
   useEffect(() => { carregar(); }, [carregar]);
 
-  // Panorama: busca receitas e despesas de todos os anos de uma vez
+  // Panorama: busca entradas DRE de todos os anos
   useEffect(() => {
     if (!fotografo) return;
     const sb = createClient();
     const fid = fotografo.id;
     Promise.all([
-      sb.from("crm_orders")
-        .select("data_lancamento, total, categoria")
-        .eq("fotografo_id", fid)
-        .not("data_lancamento", "is", null),
       sb.from("crm_financial_entries")
         .select("vencimento, valor, tipo")
         .eq("fotografo_id", fid)
-        .eq("status", "pago")
-        .eq("tipo", "despesa")
+        .eq("num_documento", "DRE")
         .not("vencimento", "is", null)
         .range(0, 9999),
-    ]).then(([{ data: orders }, { data: desp }]) => {
-      const CATEGORIA_CODIGO_KEYS = new Set([
-        "Casamento - foto","Casamento - Foto","Bodas","Casamento - Foto e Video",
-        "Aniversário Infantil","Aniversario Infantil","Aniversário Adulto","Aniversario Adulto",
-        "Aniversário 15 anos","Batizado","Evento Corporativo","Eventos",
-        "Ensaio Gestante","Ensaio/Book","Ensaio Infantil","Ensaio 15 anos",
-        "Ensaio Casal","Ensaio Familia","Ensaio Newborn","Acompanhamento",
-        "Diagramação de livro/álbum","Consultoria","Cursos e Treinamento",
-        "Vendas Extras","Outros Serviços","Publicidade","Foto Produto",
-        "Casamento - Video","Video cultural","Video Cultural","Video Geral",
-      ]);
+    ]).then(([{ data: entries }]) => {
       const mapeado: Record<number, { rec: number; desp: number }> = {};
-      for (const o of (orders ?? []) as { data_lancamento: string; total: number; categoria: string }[]) {
-        if (!CATEGORIA_CODIGO_KEYS.has(o.categoria)) continue;
-        const y = parseInt(o.data_lancamento.slice(0, 4));
+      for (const e of (entries ?? []) as { vencimento: string; valor: number; tipo: string }[]) {
+        const y = parseInt(e.vencimento.slice(0, 4));
         mapeado[y] ??= { rec: 0, desp: 0 };
-        mapeado[y].rec += o.total;
-      }
-      for (const d of (desp ?? []) as { vencimento: string; valor: number }[]) {
-        const y = parseInt(d.vencimento.slice(0, 4));
-        mapeado[y] ??= { rec: 0, desp: 0 };
-        mapeado[y].desp += d.valor;
+        if (e.tipo === "receita") mapeado[y].rec += e.valor;
+        else mapeado[y].desp += e.valor;
       }
       const dados: PanoramaItem[] = Object.entries(mapeado)
         .map(([y, v]) => ({ ano: parseInt(y), receitas: v.rec, despesas: v.desp, lucro: v.rec - v.desp }))

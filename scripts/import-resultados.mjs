@@ -70,7 +70,8 @@ function parseDRE(csv) {
     if (d) monthDates.push(d);
   }
 
-  let section = null; // "income" | "costs" | "expenses"
+  // O label da primeira seção ("Incoming") está na linha 0 (cabeçalho de datas)
+  let section = headerCols[0]?.trim() === "Incoming" ? "income" : null;
   const entries = [];
 
   for (let li = 1; li < lines.length; li++) {
@@ -89,8 +90,7 @@ function parseDRE(csv) {
     // Pular linhas de total/balance
     if (!firstCol || nome === "Total" || nome === "Balance" || nome === "") continue;
 
-    // Só importar Costs e Expenses
-    if (section !== "costs" && section !== "expenses") continue;
+    if (section !== "income" && section !== "costs" && section !== "expenses") continue;
 
     const codigo = normalizeCodigo(firstCol);
 
@@ -99,7 +99,7 @@ function parseDRE(csv) {
       const raw = cols[mi + 2] ?? "";
       const valor = parseBRL(raw);
       if (valor === 0) continue;
-      entries.push({ codigo, nome, vencimento: monthDates[mi], valor });
+      entries.push({ section, codigo, nome, vencimento: monthDates[mi], valor });
     }
   }
 
@@ -151,15 +151,20 @@ async function main() {
   console.log(`  Ano detectado: ${ano}`);
   console.log(`  ${entries.length} lançamentos não-zero encontrados`);
 
+  // Separar receitas e despesas
+  const receitasEntries = entries.filter(e => e.section === "income");
+  const despesasEntries = entries.filter(e => e.section === "costs" || e.section === "expenses");
+
   // Mapear conta_id e reportar não encontrados
   const semConta = new Set();
-  const rows = entries.map(e => {
+
+  const makeRow = (e, tipo) => {
     const contaId = contaMap[e.codigo] ?? null;
     if (!contaId) semConta.add(`${e.codigo} (${e.nome})`);
     return {
       fotografo_id: FOTOGRAFO_ID,
       legacy_id: null,
-      tipo: "despesa",
+      tipo,
       descricao: e.nome,
       valor: e.valor,
       vencimento: e.vencimento,
@@ -171,28 +176,32 @@ async function main() {
       cliente_id: null,
       parcela: null,
       forma_pagamento: null,
-      num_documento: null,
+      num_documento: "DRE",
     };
-  }).filter(r => r.conta_id); // só inserir se mapeou a conta
+  };
+
+  const rowsReceitas = receitasEntries.map(e => makeRow(e, "receita")).filter(r => r.conta_id);
+  const rowsDespesas = despesasEntries.map(e => makeRow(e, "despesa")).filter(r => r.conta_id);
 
   if (semConta.size > 0) {
     console.log(`\n  ⚠ Contas sem mapeamento (não importadas):`);
     for (const c of semConta) console.log(`    - ${c}`);
   }
 
-  console.log(`\n  ${rows.length} lançamentos com conta mapeada para inserir`);
+  const totalRec = rowsReceitas.reduce((s, r) => s + r.valor, 0);
+  const totalDesp = rowsDespesas.reduce((s, r) => s + r.valor, 0);
+  console.log(`\n  Receitas: ${rowsReceitas.length} lançamentos — R$ ${totalRec.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`);
+  console.log(`  Despesas: ${rowsDespesas.length} lançamentos — R$ ${totalDesp.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`);
 
-  const totalValor = rows.reduce((s, r) => s + r.valor, 0);
-  console.log(`  Total: R$ ${totalValor.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`);
+  const rows = [...rowsReceitas, ...rowsDespesas];
 
-  // Apagar despesas pagas do ano (incluindo as do tds-contas-pagas.csv)
-  console.log(`\nApagando despesas pagas de ${ano}...`);
+  // Apagar entradas DRE do ano (receitas e despesas marcadas como DRE)
+  console.log(`\nApagando entradas DRE de ${ano}...`);
   const { error: delError } = await sb
     .from("crm_financial_entries")
     .delete()
     .eq("fotografo_id", FOTOGRAFO_ID)
-    .eq("tipo", "despesa")
-    .eq("status", "pago")
+    .eq("num_documento", "DRE")
     .gte("vencimento", `${ano}-01-01`)
     .lte("vencimento", `${ano}-12-31`);
   if (delError) {
