@@ -11,6 +11,8 @@ type Regime = "competencia" | "caixa";
 type PanoramaItem = { ano: number; receitas: number; despesas: number; lucro: number };
 
 const MESES = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
+const UNCAT_ID = "__naoclass__";
+const UNCAT_CONTA: Conta = { id: UNCAT_ID, codigo: "5.0", nome: "Não classificado" };
 
 function fmtBRL(v: number) {
   if (v === 0) return "";
@@ -98,7 +100,7 @@ export default function ResultadosPage() {
         .eq("status", "pago")
         .gte(regime === "caixa" ? "pago_em" : "vencimento", `${ano}-01-01`)
         .lte(regime === "caixa" ? "pago_em" : "vencimento", `${ano}-12-31`)
-        .not("conta_id", "is", null),
+        .range(0, 9999),
       // Competência: receitas = pedidos (crm_orders) por data_lancamento (add_date)
       sb.from("crm_orders")
           .select("categoria, total, data_lancamento")
@@ -118,8 +120,6 @@ export default function ResultadosPage() {
     ]);
 
     const contasArr = (contasData ?? []) as Conta[];
-    setContas(contasArr);
-
     const contaPorCodigo: Record<string, string> = {};
     for (const c of contasArr) contaPorCodigo[c.codigo] = c.id;
 
@@ -156,15 +156,19 @@ export default function ResultadosPage() {
     }
 
     // Despesas: sempre por crm_financial_entries
-    const dateField = regime === "caixa" ? "pago_em" : "vencimento";
-    for (const e of (despesasData ?? []) as { conta_id: string; valor: number; vencimento: string; pago_em: string | null }[]) {
+    for (const e of (despesasData ?? []) as { conta_id: string | null; valor: number; vencimento: string; pago_em: string | null }[]) {
       const dataRef = regime === "caixa" ? e.pago_em : e.vencimento;
       if (!dataRef) continue;
       const mes = parseInt(dataRef.slice(5, 7));
-      novoMapa[e.conta_id] ??= {};
-      novoMapa[e.conta_id][mes] = (novoMapa[e.conta_id][mes] ?? 0) + e.valor;
+      const cid = e.conta_id ?? UNCAT_ID;
+      novoMapa[cid] ??= {};
+      novoMapa[cid][mes] = (novoMapa[cid][mes] ?? 0) + e.valor;
     }
 
+    const contasComUncat = novoMapa[UNCAT_ID]
+      ? [...contasArr, UNCAT_CONTA]
+      : contasArr;
+    setContas(contasComUncat);
     setMapa(novoMapa);
     setLoading(false);
   }, [fotografo, ano, regime]);
@@ -186,7 +190,8 @@ export default function ResultadosPage() {
         .eq("fotografo_id", fid)
         .eq("status", "pago")
         .eq("tipo", "despesa")
-        .not("vencimento", "is", null),
+        .not("vencimento", "is", null)
+        .range(0, 9999),
     ]).then(([{ data: orders }, { data: desp }]) => {
       const CATEGORIA_CODIGO_KEYS = new Set([
         "Casamento - foto","Casamento - Foto","Bodas","Casamento - Foto e Video",
