@@ -91,7 +91,7 @@ export default function PedidosPage() {
   const ordenados = [...filtrados].sort((a, b) => {
     let va: string | number | null | undefined;
     let vb: string | number | null | undefined;
-    if      (sortCol === "numero")      { va = a.numero;          vb = b.numero; }
+    if      (sortCol === "numero")      { va = a.legacy_id ?? (a.numero ? parseInt(a.numero) : null); vb = b.legacy_id ?? (b.numero ? parseInt(b.numero) : null); }
     else if (sortCol === "nome")        { va = a.nome;            vb = b.nome; }
     else if (sortCol === "cliente")     { va = a.clientes?.nome;  vb = b.clientes?.nome; }
     else if (sortCol === "data_evento") { va = a.data_evento;     vb = b.data_evento; }
@@ -241,7 +241,7 @@ export default function PedidosPage() {
                 onMouseLeave={(e) => (e.currentTarget.style.background = "var(--color-background-primary)")}
               >
                 <div style={{ fontSize: 12, fontFamily: "var(--font-mono)", color: "var(--color-text-secondary)", cursor: "pointer" }} onClick={() => router.push(`/crm/pedidos/${p.id}`)}>
-                  {p.numero ?? "—"}
+                  {p.legacy_id ?? p.numero ?? "—"}
                 </div>
                 <div style={{ cursor: "pointer", minWidth: 0 }} onClick={() => router.push(`/crm/pedidos/${p.id}`)}>
                   <div style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
