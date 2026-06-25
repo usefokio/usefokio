@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePersistedState } from "@/lib/hooks/usePersistedState";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
@@ -130,9 +131,9 @@ export default function EntregaPage() {
 
   const [galerias,       setGalerias]       = useState<GaleriaEntrega[]>([]);
   const [loading,        setLoading]        = useState(true);
-  const [filtro,         setFiltro]         = useState<Filtro>("todas");
-  const [anoFiltro,      setAnoFiltro]      = useState<number | null>(null);
-  const [ordenacao,      setOrdenacao]      = useState<Ordenacao>("evento");
+  const [filtro,         setFiltro]         = usePersistedState<Filtro>("entrega:filtro", "todas");
+  const [anoFiltro,      setAnoFiltro]      = usePersistedState<number | null>("entrega:ano", null);
+  const [ordenacao,      setOrdenacao]      = usePersistedState<Ordenacao>("entrega:ordenacao", "evento");
   const [busca,          setBusca]          = useState("");
   const [enviarAcessoId, setEnviarAcessoId] = useState<string | null>(null);
   const [emailClienteId, setEmailClienteId] = useState<string | null>(null);

@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useState } from "react";
+import { usePersistedState } from "@/lib/hooks/usePersistedState";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -63,7 +64,7 @@ function SelecaoConteudo() {
   const [enviarAcessoId, setEnviarAcessoId] = useState<string | null>(null);
 
   const filtroInicial = (searchParams.get("filtro") as Filtro) ?? "todas";
-  const [filtro, setFiltro] = useState<Filtro>(filtroInicial);
+  const [filtro, setFiltro] = usePersistedState<Filtro>("selecao:filtro", filtroInicial);
 
   const appUrl = typeof window !== "undefined"
     ? window.location.origin

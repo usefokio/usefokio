@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePersistedState } from "@/lib/hooks/usePersistedState";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
@@ -61,7 +62,7 @@ export default function AlbumPage() {
   const [selecoes,   setSelecoes]   = useState<AlbumSelecao[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [copiando,   setCopiando]   = useState<string | null>(null);
-  const [filtro,     setFiltro]     = useState<Filtro>("todos");
+  const [filtro,     setFiltro]     = usePersistedState<Filtro>("album:filtro", "todos");
   const [excluindo,  setExcluindo]  = useState<AlbumSelecao | null>(null);
   const [deletando,  setDeletando]  = useState(false);
 

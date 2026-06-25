@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePersistedState } from "@/lib/hooks/usePersistedState";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -72,7 +73,7 @@ export default function ClientesPage() {
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [loading, setLoading]   = useState(true);
   const [busca, setBusca]       = useState("");
-  const [tipoFiltro, setTipoFiltro] = useState<TipoFiltro>("");
+  const [tipoFiltro, setTipoFiltro] = usePersistedState<TipoFiltro>("clientes:tipo", "");
   const [pagina, setPagina]     = useState(1);
   const [deletarId, setDeletarId] = useState<string | null>(null);
   const [deletando, setDeletando] = useState(false);
