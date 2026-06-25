@@ -176,55 +176,30 @@ export default function ResultadosPage() {
     const sb = createClient();
     const fid = fotografo.id;
     Promise.all([
-      // Entradas DRE (2020–2024, 2026)
+      // Todas as entradas financeiras pagas — receitas e despesas
       sb.from("crm_financial_entries")
-        .select("vencimento, valor, tipo")
+        .select("vencimento, valor, tipo, num_documento")
         .eq("fotografo_id", fid)
-        .eq("num_documento", "DRE")
+        .eq("status", "pago")
         .not("vencimento", "is", null)
         .range(0, 9999),
-      // Entradas individuais para anos SEM DRE (receitas pagas com conta_id)
-      sb.from("crm_financial_entries")
-        .select("vencimento, pago_em, valor, tipo")
-        .eq("fotografo_id", fid)
-        .eq("tipo", "receita")
-        .eq("status", "pago")
-        .not("num_documento", "eq", "DRE")
-        .not("conta_id", "is", null)
-        .range(0, 9999),
-      // Despesas individuais para anos SEM DRE
-      sb.from("crm_financial_entries")
-        .select("vencimento, valor")
-        .eq("fotografo_id", fid)
-        .eq("tipo", "despesa")
-        .eq("status", "pago")
-        .not("num_documento", "eq", "DRE")
-        .not("vencimento", "is", null)
-        .range(0, 9999),
-    ]).then(([{ data: dreEntries }, { data: recIndividuais }, { data: despIndividuais }]) => {
-      // Anos com DRE
+    ]).then(([{ data: allEntries }]) => {
+      // 1ª passada: detectar quais anos têm DRE
       const anosComDRE = new Set<number>();
+      for (const e of (allEntries ?? []) as { vencimento: string; num_documento: string | null }[]) {
+        if (e.num_documento === "DRE") anosComDRE.add(parseInt(e.vencimento.slice(0, 4)));
+      }
+      // 2ª passada: acumular por ano
       const mapeado: Record<number, { rec: number; desp: number }> = {};
-      for (const e of (dreEntries ?? []) as { vencimento: string; valor: number; tipo: string }[]) {
+      for (const e of (allEntries ?? []) as { vencimento: string; valor: number; tipo: string; num_documento: string | null }[]) {
         const y = parseInt(e.vencimento.slice(0, 4));
-        anosComDRE.add(y);
+        // Anos com DRE: usar apenas entradas DRE
+        if (anosComDRE.has(y) && e.num_documento !== "DRE") continue;
+        // Anos sem DRE: excluir entradas DRE (não deveriam existir, mas por segurança)
+        if (!anosComDRE.has(y) && e.num_documento === "DRE") continue;
         mapeado[y] ??= { rec: 0, desp: 0 };
         if (e.tipo === "receita") mapeado[y].rec += e.valor;
         else mapeado[y].desp += e.valor;
-      }
-      // Anos sem DRE — receitas individuais
-      for (const e of (recIndividuais ?? []) as { vencimento: string; valor: number }[]) {
-        const y = parseInt(e.vencimento.slice(0, 4));
-        if (anosComDRE.has(y)) continue;
-        mapeado[y] ??= { rec: 0, desp: 0 };
-        mapeado[y].rec += e.valor;
-      }
-      // Anos sem DRE — despesas individuais
-      for (const e of (despIndividuais ?? []) as { vencimento: string; valor: number }[]) {
-        const y = parseInt(e.vencimento.slice(0, 4));
-        if (anosComDRE.has(y)) continue;
-        mapeado[y] ??= { rec: 0, desp: 0 };
-        mapeado[y].desp += e.valor;
       }
       const dados: PanoramaItem[] = Object.entries(mapeado)
         .map(([y, v]) => ({ ano: parseInt(y), receitas: v.rec, despesas: v.desp, lucro: v.rec - v.desp }))
