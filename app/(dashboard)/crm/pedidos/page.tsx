@@ -38,6 +38,12 @@ export default function PedidosPage() {
   const [catFiltro, setCatFiltro] = useState("");
   const [categorias, setCategorias] = useState<string[]>([]);
   const largura = useWindowWidth();
+  const [sortCol, setSortCol] = useState<string>("created_at");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const toggleSort = (col: string) => {
+    if (sortCol === col) setSortDir(d => d === "asc" ? "desc" : "asc");
+    else { setSortCol(col); setSortDir("asc"); }
+  };
 
   const excluir = async (id: string, ev: React.MouseEvent) => {
     ev.stopPropagation();
@@ -82,6 +88,22 @@ export default function PedidosPage() {
     (p.numero ?? "").toLowerCase().includes(busca.toLowerCase())
   );
 
+  const ordenados = [...filtrados].sort((a, b) => {
+    let va: string | number | null | undefined;
+    let vb: string | number | null | undefined;
+    if      (sortCol === "numero")      { va = a.numero;          vb = b.numero; }
+    else if (sortCol === "nome")        { va = a.nome;            vb = b.nome; }
+    else if (sortCol === "cliente")     { va = a.clientes?.nome;  vb = b.clientes?.nome; }
+    else if (sortCol === "data_evento") { va = a.data_evento;     vb = b.data_evento; }
+    else if (sortCol === "total")       { va = a.total;           vb = b.total; }
+    else if (sortCol === "status")      { va = a.status;          vb = b.status; }
+    else                                { va = a.created_at;      vb = b.created_at; }
+    if (va == null) return 1;
+    if (vb == null) return -1;
+    const cmp = typeof va === "number" ? va - (vb as number) : String(va).localeCompare(String(vb), "pt-BR");
+    return sortDir === "asc" ? cmp : -cmp;
+  });
+
   const fmt = formatBRL;
   const fmtData = formatData;
 
@@ -103,16 +125,16 @@ export default function PedidosPage() {
   const verMedium = largura >= 700 && largura < 1100;
 
   const gridTemplate = verLarge
-    ? "1fr 160px 130px 120px 120px 100px"
+    ? "80px 1fr 160px 130px 120px 120px 100px"
     : verMedium
-    ? "1fr 120px 120px 100px"
-    : "1fr 120px 80px";
+    ? "80px 1fr 120px 120px 100px"
+    : "80px 1fr 120px 80px";
 
   const cabecalhos = verLarge
-    ? ["Pedido", "Cliente", "Evento", "Total", "Status", ""]
+    ? [{ label: "Nº", col: "numero" }, { label: "Pedido", col: "nome" }, { label: "Cliente", col: "cliente" }, { label: "Evento", col: "data_evento" }, { label: "Total", col: "total" }, { label: "Status", col: "status" }, { label: "", col: "" }]
     : verMedium
-    ? ["Pedido", "Total", "Status", ""]
-    : ["Pedido", "Status", ""];
+    ? [{ label: "Nº", col: "numero" }, { label: "Pedido", col: "nome" }, { label: "Total", col: "total" }, { label: "Status", col: "status" }, { label: "", col: "" }]
+    : [{ label: "Nº", col: "numero" }, { label: "Pedido", col: "nome" }, { label: "Status", col: "status" }, { label: "", col: "" }];
 
   return (
     <div style={{ padding: "28px 32px", maxWidth: 1100, fontFamily: "var(--font-sans)" }}>
@@ -201,20 +223,27 @@ export default function PedidosPage() {
       ) : (
         <div style={{ border: "0.5px solid var(--color-border-tertiary)", borderRadius: 12, overflow: "hidden" }}>
           <div style={{ display: "grid", gridTemplateColumns: gridTemplate, padding: "8px 16px", borderBottom: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-secondary)" }}>
-            {cabecalhos.map((h) => (
-              <span key={h} style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.04em" }}>{h}</span>
+            {cabecalhos.map(({ label, col }) => (
+              <div key={label || "acoes"} onClick={() => col && toggleSort(col)}
+                style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.04em", cursor: col ? "pointer" : "default", userSelect: "none" }}>
+                {label}
+                {col && sortCol === col && <span style={{ fontSize: 9, opacity: 0.7 }}>{sortDir === "asc" ? "↑" : "↓"}</span>}
+              </div>
             ))}
           </div>
-          {filtrados.map((p, i) => {
+          {ordenados.map((p, i) => {
             const st = STATUS_MAP[p.status] ?? STATUS_MAP.aguardando_sinal;
             return (
               <div
                 key={p.id}
-                style={{ display: "grid", gridTemplateColumns: gridTemplate, padding: "12px 16px", borderBottom: i < filtrados.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", background: "var(--color-background-primary)", transition: "background 0.1s", alignItems: "center" }}
+                style={{ display: "grid", gridTemplateColumns: gridTemplate, padding: "12px 16px", borderBottom: i < ordenados.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", background: "var(--color-background-primary)", transition: "background 0.1s", alignItems: "center" }}
                 onMouseEnter={(e) => (e.currentTarget.style.background = "var(--color-background-secondary)")}
                 onMouseLeave={(e) => (e.currentTarget.style.background = "var(--color-background-primary)")}
               >
-                <div style={{ cursor: "pointer" }} onClick={() => router.push(`/crm/pedidos/${p.id}`)}>
+                <div style={{ fontSize: 12, fontFamily: "var(--font-mono)", color: "var(--color-text-secondary)", cursor: "pointer" }} onClick={() => router.push(`/crm/pedidos/${p.id}`)}>
+                  {p.numero ?? "—"}
+                </div>
+                <div style={{ cursor: "pointer", minWidth: 0 }} onClick={() => router.push(`/crm/pedidos/${p.id}`)}>
                   <div style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {p.nome ?? p.numero ?? `Pedido #${p.id.slice(0, 8)}`}
                   </div>

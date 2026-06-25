@@ -25,6 +25,12 @@ export default function ProdutosPage() {
   const [busca, setBusca]                   = useState("");
   const [categFiltro, setCategFiltro]       = useState("");
   const [somenteAtivos, setSomenteAtivos]   = useState(true);
+  const [sortCol, setSortCol] = useState<string>("nome");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const toggleSort = (col: string) => {
+    if (sortCol === col) setSortDir(d => d === "asc" ? "desc" : "asc");
+    else { setSortCol(col); setSortDir("asc"); }
+  };
 
   const carregar = useCallback(async () => {
     if (!fotografo) return;
@@ -43,10 +49,32 @@ export default function ProdutosPage() {
 
   useEffect(() => { carregar(); }, [carregar]);
 
-  const filtrados = produtos.filter((p) => {
+  const filtrados = produtos.filter((p: CrmProduct) => {
     const ok = busca === "" || p.nome.toLowerCase().includes(busca.toLowerCase()) || (p.codigo ?? "").toLowerCase().includes(busca.toLowerCase());
     const okCat = categFiltro === "" || p.categoria === categFiltro;
     return ok && okCat;
+  });
+
+  const ordenados = [...filtrados].sort((a, b) => {
+    let va: string | number | null | undefined;
+    let vb: string | number | null | undefined;
+    if      (sortCol === "codigo")    { va = a.codigo;    vb = b.codigo; }
+    else if (sortCol === "nome")      { va = a.nome;      vb = b.nome; }
+    else if (sortCol === "categoria") { va = a.categoria; vb = b.categoria; }
+    else if (sortCol === "preco")     { va = a.preco;     vb = b.preco; }
+    else if (sortCol === "pacote")    { va = a.pacote ? 1 : 0; vb = b.pacote ? 1 : 0; }
+    else if (sortCol === "ativo")     { va = a.ativo ? 1 : 0;  vb = b.ativo ? 1 : 0; }
+    else                              { va = a.nome;      vb = b.nome; }
+    if (va == null) return 1;
+    if (vb == null) return -1;
+    const cmp = typeof va === "number" ? va - (vb as number) : String(va).localeCompare(String(vb), "pt-BR");
+    return sortDir === "asc" ? cmp : -cmp;
+  });
+
+  const thSort = (): React.CSSProperties => ({
+    padding: "9px 14px", textAlign: "left", fontSize: 11, fontWeight: 600,
+    color: "var(--color-text-secondary)", letterSpacing: "0.04em",
+    whiteSpace: "nowrap", cursor: "pointer", userSelect: "none",
   });
 
   const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -113,16 +141,24 @@ export default function ProdutosPage() {
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead>
               <tr style={{ background: "var(--color-background-secondary)", borderBottom: "0.5px solid var(--color-border-tertiary)" }}>
-                {["Código","Nome","Categoria","Preço","Pacote","Status",""].map((h) => (
-                  <th key={h} style={{ padding: "9px 14px", textAlign: "left", fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", letterSpacing: "0.04em", whiteSpace: "nowrap" }}>{h}</th>
+                {([
+                  { label: "Código", col: "codigo" }, { label: "Nome", col: "nome" },
+                  { label: "Categoria", col: "categoria" }, { label: "Preço", col: "preco" },
+                  { label: "Pacote", col: "pacote" }, { label: "Status", col: "ativo" },
+                  { label: "", col: "" },
+                ] as const).map(({ label, col }) => (
+                  <th key={label || "acoes"} onClick={() => col && toggleSort(col)} style={col ? thSort() : { ...thSort(), cursor: "default" }}>
+                    {label}
+                    {col && sortCol === col && <span style={{ fontSize: 9, opacity: 0.7, marginLeft: 3 }}>{sortDir === "asc" ? "↑" : "↓"}</span>}
+                  </th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {filtrados.map((p, i) => (
+              {ordenados.map((p, i) => (
                 <tr
                   key={p.id}
-                  style={{ borderBottom: i < filtrados.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", background: "var(--color-background-primary)" }}
+                  style={{ borderBottom: i < ordenados.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", background: "var(--color-background-primary)" }}
                   onMouseEnter={(e) => (e.currentTarget.style.background = "var(--color-background-secondary)")}
                   onMouseLeave={(e) => (e.currentTarget.style.background = "var(--color-background-primary)")}
                 >

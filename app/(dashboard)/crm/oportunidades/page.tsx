@@ -65,6 +65,12 @@ export default function OportunidadesPage() {
   const [statusMap,  setStatusMap]  = useState<Record<string, { label: string; color: string; bg: string }>>({});
   const [statusList, setStatusList] = useState<{ chave: string; label: string; cor: string | null }[]>([]);
   const largura = useWindowWidth();
+  const [sortCol, setSortCol] = useState<string>("created_at");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const toggleSort = (col: string) => {
+    if (sortCol === col) setSortDir(d => d === "asc" ? "desc" : "asc");
+    else { setSortCol(col); setSortDir("asc"); }
+  };
 
   const carregar = useCallback(async () => {
     if (!fotografo) return;
@@ -102,7 +108,7 @@ export default function OportunidadesPage() {
 
   useEffect(() => { carregar(); }, [carregar]);
 
-  const filtradas = opps.filter(o => {
+  const filtradas = opps.filter((o: OppWithRelations) => {
     if (status && o.status !== status) return false;
     if (catFiltro && o.categoria !== catFiltro) return false;
     if (busca !== "" &&
@@ -132,6 +138,22 @@ export default function OportunidadesPage() {
     ...statusList.map(s => ({ id: s.chave, label: `${s.label} (${contagens[s.chave] ?? 0})` })),
   ];
 
+  const ordenadas = [...filtradas].sort((a, b) => {
+    let va: string | number | null | undefined;
+    let vb: string | number | null | undefined;
+    if      (sortCol === "titulo")          { va = a.titulo;            vb = b.titulo; }
+    else if (sortCol === "cliente")         { va = a.clientes?.nome;    vb = b.clientes?.nome; }
+    else if (sortCol === "data_evento")     { va = a.data_evento;       vb = b.data_evento; }
+    else if (sortCol === "valor_estimado")  { va = a.valor_estimado;    vb = b.valor_estimado; }
+    else if (sortCol === "etapa_ordem")     { va = a.etapa?.ordem;      vb = b.etapa?.ordem; }
+    else if (sortCol === "status")          { va = a.status;            vb = b.status; }
+    else                                    { va = a.created_at;        vb = b.created_at; }
+    if (va == null) return 1;
+    if (vb == null) return -1;
+    const cmp = typeof va === "number" ? va - (vb as number) : String(va).localeCompare(String(vb), "pt-BR");
+    return sortDir === "asc" ? cmp : -cmp;
+  });
+
   const oppParaDeletar = opps.find(o => o.id === deletarId);
 
   // Layout responsivo
@@ -146,10 +168,10 @@ export default function OportunidadesPage() {
     : "1fr 110px 70px";
 
   const cabecalhos = verLarge
-    ? ["Oportunidade", "Cliente", "Evento", "Valor", "Etapa do Funil", "Status", ""]
+    ? [{ label: "Oportunidade", col: "titulo" }, { label: "Cliente", col: "cliente" }, { label: "Evento", col: "data_evento" }, { label: "Valor", col: "valor_estimado" }, { label: "Etapa do Funil", col: "etapa_ordem" }, { label: "Status", col: "status" }, { label: "", col: "" }]
     : verMedium
-    ? ["Oportunidade", "Cliente", "Etapa do Funil", "Status", ""]
-    : ["Oportunidade", "Status", ""];
+    ? [{ label: "Oportunidade", col: "titulo" }, { label: "Cliente", col: "cliente" }, { label: "Etapa do Funil", col: "etapa_ordem" }, { label: "Status", col: "status" }, { label: "", col: "" }]
+    : [{ label: "Oportunidade", col: "titulo" }, { label: "Status", col: "status" }, { label: "", col: "" }];
 
   return (
     <div style={{ padding: "28px 24px", maxWidth: 1200, fontFamily: "var(--font-sans)" }}>
@@ -239,18 +261,22 @@ export default function OportunidadesPage() {
         <div style={{ border: "0.5px solid var(--color-border-tertiary)", borderRadius: 12, overflow: "hidden" }}>
           {/* Cabeçalho */}
           <div style={{ display: "grid", gridTemplateColumns: gridTemplate, padding: "8px 16px", borderBottom: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-secondary)" }}>
-            {cabecalhos.map((h, i) => (
-              <span key={i} style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.04em" }}>{h}</span>
+            {cabecalhos.map(({ label, col }) => (
+              <div key={label || "acoes"} onClick={() => col && toggleSort(col)}
+                style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.04em", cursor: col ? "pointer" : "default", userSelect: "none" }}>
+                {label}
+                {col && sortCol === col && <span style={{ fontSize: 9, opacity: 0.7 }}>{sortDir === "asc" ? "↑" : "↓"}</span>}
+              </div>
             ))}
           </div>
 
-          {filtradas.map((o, i) => {
+          {ordenadas.map((o, i) => {
             const stInfo = statusMap[o.status];
             const st = { label: stInfo?.label ?? o.status, color: stInfo?.color ?? COR_CUSTOM.color, bg: stInfo?.bg ?? COR_CUSTOM.bg };
             return (
               <div
                 key={o.id}
-                style={{ display: "grid", gridTemplateColumns: gridTemplate, padding: "12px 16px", borderBottom: i < filtradas.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", background: "var(--color-background-primary)", transition: "background 0.1s" }}
+                style={{ display: "grid", gridTemplateColumns: gridTemplate, padding: "12px 16px", borderBottom: i < ordenadas.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", background: "var(--color-background-primary)", transition: "background 0.1s" }}
                 onMouseEnter={(e) => (e.currentTarget.style.background = "var(--color-background-secondary)")}
                 onMouseLeave={(e) => (e.currentTarget.style.background = "var(--color-background-primary)")}
               >

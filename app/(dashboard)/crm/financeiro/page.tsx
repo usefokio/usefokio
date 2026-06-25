@@ -105,6 +105,12 @@ function FinanceiroInner() {
   const [salvandonovo,    setSalvandoNovo]    = useState(false);
   const [erroNovo,        setErroNovo]        = useState("");
   const largura = useWindowWidth();
+  const [sortCol, setSortCol] = useState<string>("vencimento");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const toggleSort = (col: string) => {
+    if (sortCol === col) setSortDir(d => d === "asc" ? "desc" : "asc");
+    else { setSortCol(col); setSortDir("asc"); }
+  };
 
   const carregar = useCallback(async () => {
     if (!fotografo) return;
@@ -168,6 +174,20 @@ function FinanceiroInner() {
     const [y, m] = s.split("-");
     return new Date(Number(y), Number(m) - 1).toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
   };
+
+  const ordenadas = [...filtradas].sort((a, b) => {
+    let va: string | number | null | undefined;
+    let vb: string | number | null | undefined;
+    if      (sortCol === "descricao")  { va = a.descricao;  vb = b.descricao; }
+    else if (sortCol === "parcela")    { va = a.parcela;    vb = b.parcela; }
+    else if (sortCol === "vencimento") { va = a.vencimento; vb = b.vencimento; }
+    else if (sortCol === "valor")      { va = a.valor;      vb = b.valor; }
+    else                               { va = a.vencimento; vb = b.vencimento; }
+    if (va == null) return 1;
+    if (vb == null) return -1;
+    const cmp = typeof va === "number" ? va - (vb as number) : String(va).localeCompare(String(vb), "pt-BR");
+    return sortDir === "asc" ? cmp : -cmp;
+  });
 
   const totalFiltradas = filtradas.reduce((s, e) => s + e.valor, 0);
 
@@ -347,10 +367,10 @@ function FinanceiroInner() {
     : "1fr 110px 100px";
 
   const finCabecalhos = finVerLarge
-    ? ["Descrição / Cliente", "Parcela", "Vencimento", "Valor", ""]
+    ? [{ label: "Descrição / Cliente", col: "descricao" }, { label: "Parcela", col: "parcela" }, { label: "Vencimento", col: "vencimento" }, { label: "Valor", col: "valor" }, { label: "", col: "" }]
     : finVerMedium
-    ? ["Descrição / Cliente", "Vencimento", "Valor", ""]
-    : ["Descrição / Cliente", "Valor", ""];
+    ? [{ label: "Descrição / Cliente", col: "descricao" }, { label: "Vencimento", col: "vencimento" }, { label: "Valor", col: "valor" }, { label: "", col: "" }]
+    : [{ label: "Descrição / Cliente", col: "descricao" }, { label: "Valor", col: "valor" }, { label: "", col: "" }];
 
   return (
     <div style={{ padding: "28px 32px", maxWidth: 1100, fontFamily: "var(--font-sans)" }}>
@@ -456,11 +476,15 @@ function FinanceiroInner() {
       ) : (
         <div style={{ border: "0.5px solid var(--color-border-tertiary)", borderRadius: 12, overflow: "hidden" }}>
           <div style={{ display: "grid", gridTemplateColumns: finGrid, padding: "8px 16px", borderBottom: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-secondary)" }}>
-            {finCabecalhos.map((h) => (
-              <span key={h} style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.04em" }}>{h}</span>
+            {finCabecalhos.map(({ label, col }) => (
+              <div key={label || "acoes"} onClick={() => col && toggleSort(col)}
+                style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.04em", cursor: col ? "pointer" : "default", userSelect: "none" }}>
+                {label}
+                {col && sortCol === col && <span style={{ fontSize: 9, opacity: 0.7 }}>{sortDir === "asc" ? "↑" : "↓"}</span>}
+              </div>
             ))}
           </div>
-          {filtradas.map((e, i) => {
+          {ordenadas.map((e, i) => {
             const vencido = isVencido(e);
             const clienteNome = e.crm_orders?.clientes?.nome ?? e.clientes?.nome ?? null;
             const clienteEmail = e.crm_orders?.clientes?.email ?? e.clientes?.email ?? null;
@@ -476,7 +500,7 @@ function FinanceiroInner() {
             };
 
             return (
-              <div key={e.id} style={{ display: "grid", gridTemplateColumns: finGrid, padding: "11px 16px", borderBottom: i < filtradas.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", background: vencido ? "rgba(239,68,68,0.03)" : "var(--color-background-primary)", alignItems: "center" }}>
+              <div key={e.id} style={{ display: "grid", gridTemplateColumns: finGrid, padding: "11px 16px", borderBottom: i < ordenadas.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", background: vencido ? "rgba(239,68,68,0.03)" : "var(--color-background-primary)", alignItems: "center" }}>
                 <div>
                   <div style={{ fontSize: 13, fontWeight: 500, color: "var(--color-text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{e.descricao}</div>
                   {clienteNome && <div style={{ fontSize: 11, color: "var(--color-text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{clienteNome}</div>}

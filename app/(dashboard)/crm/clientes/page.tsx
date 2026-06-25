@@ -32,6 +32,12 @@ export default function CrmClientesPage() {
   const [loading, setLoading] = useState(true);
   const [busca, setBusca] = useState("");
   const [tipoFiltro, setTipoFiltro] = useState("");
+  const [sortCol, setSortCol] = useState<string>("nome");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const toggleSort = (col: string) => {
+    if (sortCol === col) setSortDir(d => d === "asc" ? "desc" : "asc");
+    else { setSortCol(col); setSortDir("asc"); }
+  };
 
   const excluir = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -58,7 +64,7 @@ export default function CrmClientesPage() {
 
   useEffect(() => { load(); }, [load]);
 
-  const filtrados = clientes.filter((c) => {
+  const filtrados = clientes.filter((c: Cliente) => {
     if (!busca) return true;
     const b = busca.toLowerCase();
     return (
@@ -67,6 +73,29 @@ export default function CrmClientesPage() {
       (c.telefone ?? "").includes(b) ||
       (c.empresa ?? "").toLowerCase().includes(b)
     );
+  });
+
+  const ordenados = [...filtrados].sort((a, b) => {
+    let va: string | null | undefined;
+    let vb: string | null | undefined;
+    if      (sortCol === "nome")         { va = a.nome;          vb = b.nome; }
+    else if (sortCol === "email")        { va = a.email;         vb = b.email; }
+    else if (sortCol === "telefone")     { va = a.telefone;      vb = b.telefone; }
+    else if (sortCol === "empresa")      { va = a.empresa;       vb = b.empresa; }
+    else if (sortCol === "tipo_contato") { va = a.tipo_contato;  vb = b.tipo_contato; }
+    else                                 { va = a.nome;          vb = b.nome; }
+    if (va == null) return 1;
+    if (vb == null) return -1;
+    const cmp = String(va).localeCompare(String(vb), "pt-BR");
+    return sortDir === "asc" ? cmp : -cmp;
+  });
+
+  const thSort = (col: string): React.CSSProperties => ({
+    padding: "8px 14px", fontWeight: 700, fontSize: 11,
+    color: "var(--color-text-secondary)", textAlign: "left",
+    textTransform: "uppercase", letterSpacing: "0.04em",
+    borderBottom: "0.5px solid var(--color-border-tertiary)",
+    cursor: "pointer", userSelect: "none", whiteSpace: "nowrap",
   });
 
   const cell: React.CSSProperties = {
@@ -133,13 +162,20 @@ export default function CrmClientesPage() {
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ background: "var(--color-background-secondary)" }}>
-                {["Nome", "Email", "Telefone", "Empresa", "Tipo", ""].map((h) => (
-                  <th key={h} style={{ ...cell, fontWeight: 700, fontSize: 11, color: "var(--color-text-secondary)", textAlign: "left", padding: "8px 14px", textTransform: "uppercase", letterSpacing: "0.04em", borderBottom: "0.5px solid var(--color-border-tertiary)" }}>{h}</th>
+                {([
+                  { label: "Nome", col: "nome" }, { label: "Email", col: "email" },
+                  { label: "Telefone", col: "telefone" }, { label: "Empresa", col: "empresa" },
+                  { label: "Tipo", col: "tipo_contato" }, { label: "", col: "" },
+                ] as const).map(({ label, col }) => (
+                  <th key={label || "acoes"} onClick={() => col && toggleSort(col)} style={col ? thSort(col) : { ...thSort(""), cursor: "default" }}>
+                    {label}
+                    {col && sortCol === col && <span style={{ fontSize: 9, opacity: 0.7, marginLeft: 3 }}>{sortDir === "asc" ? "↑" : "↓"}</span>}
+                  </th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {filtrados.map((c) => {
+              {ordenados.map((c) => {
                 const tipo = TIPO_MAP[c.tipo_contato] ?? TIPO_MAP.outro;
                 return (
                   <tr
