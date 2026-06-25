@@ -97,7 +97,14 @@ function parseDRE(csv) {
     // Ler valores por mês
     for (let mi = 0; mi < monthDates.length; mi++) {
       const raw = cols[mi + 2] ?? "";
-      const valor = parseBRL(raw);
+      let valor;
+      if (section === "income") {
+        const clean = raw.trim().replace(/\./g, "").replace(",", ".");
+        valor = parseFloat(clean) || 0;
+        // Receitas negativas (descontos, devoluções) mantêm sinal negativo para abater o total
+      } else {
+        valor = parseBRL(raw); // costs/expenses: abs() correto, CSV usa valores negativos por convenção
+      }
       if (valor === 0) continue;
       entries.push({ section, codigo, nome, vencimento: monthDates[mi], valor });
     }
