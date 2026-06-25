@@ -72,45 +72,52 @@ export default function ResultadosPage() {
       .lte("vencimento", `${ano}-12-31`);
     const temDRE = (dreCount ?? 0) > 0;
 
+    // Queries separadas para evitar erro TypeScript "type instantiation excessively deep"
+    const qContas = sb.from("crm_chart_of_accounts")
+      .select("id, codigo, nome")
+      .or(`fotografo_id.is.null,fotografo_id.eq.${fid}`)
+      .eq("ativo", true)
+      .order("codigo");
+
+    const qDespesas = temDRE
+      ? sb.from("crm_financial_entries")
+          .select("conta_id, valor, vencimento, pago_em")
+          .eq("fotografo_id", fid).eq("tipo", "despesa").eq("num_documento", "DRE")
+          .gte(dateField, `${ano}-01-01`).lte(dateField, `${ano}-12-31`).range(0, 9999)
+      : sb.from("crm_financial_entries")
+          .select("conta_id, valor, vencimento, pago_em")
+          .eq("fotografo_id", fid).eq("tipo", "despesa").eq("status", "pago")
+          .gte(dateField, `${ano}-01-01`).lte(dateField, `${ano}-12-31`).range(0, 9999);
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let qReceitas: any;
+    if (temDRE) {
+      qReceitas = sb.from("crm_financial_entries")
+        .select("conta_id, valor, vencimento")
+        .eq("fotografo_id", fid).eq("tipo", "receita").eq("num_documento", "DRE")
+        .gte("vencimento", `${ano}-01-01`).lte("vencimento", `${ano}-12-31`).range(0, 9999);
+    } else if (regime === "caixa") {
+      qReceitas = sb.from("crm_financial_entries")
+        .select("conta_id, valor, pago_em")
+        .eq("fotografo_id", fid).eq("tipo", "receita").eq("status", "pago")
+        .not("conta_id", "is", null)
+        .gte("pago_em", `${ano}-01-01`).lte("pago_em", `${ano}-12-31`);
+    } else {
+      qReceitas = sb.from("crm_financial_entries")
+        .select("conta_id, valor, vencimento").eq("fotografo_id", fid).eq("num_documento", "DRE")
+        .gte("vencimento", `${ano}-01-01`).lte("vencimento", `${ano}-01-01`).limit(0);
+    }
+
+    const qOrders = (!temDRE && regime === "competencia")
+      ? sb.from("crm_orders")
+          .select("categoria, total, data_lancamento")
+          .eq("fotografo_id", fid)
+          .gte("data_lancamento", `${ano}-01-01`).lte("data_lancamento", `${ano}-12-31`)
+          .not("data_lancamento", "is", null)
+      : sb.from("crm_orders").select("categoria").eq("fotografo_id", fid).limit(0);
+
     const [{ data: contasData }, { data: despesasData }, { data: receitasData }, { data: ordersData }] = await Promise.all([
-      sb.from("crm_chart_of_accounts")
-        .select("id, codigo, nome")
-        .or(`fotografo_id.is.null,fotografo_id.eq.${fid}`)
-        .eq("ativo", true)
-        .order("codigo"),
-      // Despesas: DRE se disponível, senão entradas individuais
-      temDRE
-        ? sb.from("crm_financial_entries")
-            .select("conta_id, valor, vencimento, pago_em")
-            .eq("fotografo_id", fid).eq("tipo", "despesa").eq("num_documento", "DRE")
-            .gte(dateField, `${ano}-01-01`).lte(dateField, `${ano}-12-31`).range(0, 9999)
-        : sb.from("crm_financial_entries")
-            .select("conta_id, valor, vencimento, pago_em")
-            .eq("fotografo_id", fid).eq("tipo", "despesa").eq("status", "pago")
-            .gte(dateField, `${ano}-01-01`).lte(dateField, `${ano}-12-31`).range(0, 9999),
-      // Receitas: DRE se disponível, senão entradas individuais (caixa) ou pedidos (competência)
-      temDRE
-        ? sb.from("crm_financial_entries")
-            .select("conta_id, valor, vencimento")
-            .eq("fotografo_id", fid).eq("tipo", "receita").eq("num_documento", "DRE")
-            .gte("vencimento", `${ano}-01-01`).lte("vencimento", `${ano}-12-31`).range(0, 9999)
-        : regime === "caixa"
-          ? sb.from("crm_financial_entries")
-              .select("conta_id, valor, pago_em")
-              .eq("fotografo_id", fid).eq("tipo", "receita").eq("status", "pago")
-              .not("conta_id", "is", null)
-              .gte("pago_em", `${ano}-01-01`).lte("pago_em", `${ano}-12-31`)
-          : sb.from("crm_financial_entries") // placeholder — não usado quando !temDRE && competência
-              .select("conta_id, valor, vencimento").eq("fotografo_id", fid).eq("num_documento", "DRE")
-              .gte("vencimento", `${ano}-01-01`).lte("vencimento", `${ano}-01-01`).limit(0),
-      // Pedidos para competência sem DRE
-      !temDRE && regime === "competencia"
-        ? sb.from("crm_orders")
-            .select("categoria, total, data_lancamento")
-            .eq("fotografo_id", fid)
-            .gte("data_lancamento", `${ano}-01-01`).lte("data_lancamento", `${ano}-12-31`)
-            .not("data_lancamento", "is", null)
-        : sb.from("crm_orders").select("categoria").eq("fotografo_id", fid).limit(0),
+      qContas, qDespesas, qReceitas, qOrders,
     ]);
 
     const contasArr = (contasData ?? []) as Conta[];
