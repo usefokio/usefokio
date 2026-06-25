@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { IcoEdit, IcoTrash, IcoOpen } from "@/app/(dashboard)/crm/_components/Icons";
+import { usePersistState } from "@/lib/hooks/usePersistState";
 import type { Cliente } from "@/lib/supabase/types";
 
 const btnIcon = (extra?: React.CSSProperties): React.CSSProperties => ({
@@ -29,11 +30,11 @@ export default function CrmClientesPage() {
   const { fotografo } = useFotografo();
   const router = useRouter();
   const [clientes, setClientes] = useState<Cliente[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [busca, setBusca] = useState("");
-  const [tipoFiltro, setTipoFiltro] = useState("");
-  const [sortCol, setSortCol] = useState<string>("nome");
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [loading,  setLoading]  = useState(true);
+  const [busca,      setBusca]      = usePersistState("clientes:busca",      "");
+  const [tipoFiltro, setTipoFiltro] = usePersistState("clientes:tipoFiltro", "");
+  const [sortCol, setSortCol] = usePersistState("clientes:sortCol", "nome");
+  const [sortDir, setSortDir] = usePersistState<"asc" | "desc">("clientes:sortDir", "asc");
   const toggleSort = (col: string) => {
     if (sortCol === col) setSortDir(d => d === "asc" ? "desc" : "asc");
     else { setSortCol(col); setSortDir("asc"); }

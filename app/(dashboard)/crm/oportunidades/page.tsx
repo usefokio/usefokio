@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { useWindowWidth } from "@/lib/hooks/useWindowWidth";
+import { usePersistState } from "@/lib/hooks/usePersistState";
 import { IcoEdit, IcoTrash, IcoOpen } from "@/app/(dashboard)/crm/_components/Icons";
 import type { CrmOpportunity } from "@/lib/supabase/types";
 
@@ -56,17 +57,17 @@ export default function OportunidadesPage() {
 
   const [opps,       setOpps]       = useState<OppWithRelations[]>([]);
   const [loading,    setLoading]    = useState(true);
-  const [busca,      setBusca]      = useState("");
-  const [status,     setStatus]     = useState<StatusFiltro>("");
-  const [catFiltro,  setCatFiltro]  = useState("");
   const [categorias, setCategorias] = useState<string[]>([]);
   const [deletarId,  setDeletarId]  = useState<string | null>(null);
   const [deletando,  setDeletando]  = useState(false);
   const [statusMap,  setStatusMap]  = useState<Record<string, { label: string; color: string; bg: string }>>({});
   const [statusList, setStatusList] = useState<{ chave: string; label: string; cor: string | null }[]>([]);
+  const [busca,     setBusca]     = usePersistState("oportunidades:busca",    "");
+  const [status,    setStatus]    = usePersistState<StatusFiltro>("oportunidades:status",   "");
+  const [catFiltro, setCatFiltro] = usePersistState("oportunidades:catFiltro", "");
   const largura = useWindowWidth();
-  const [sortCol, setSortCol] = useState<string>("created_at");
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const [sortCol, setSortCol] = usePersistState("oportunidades:sortCol", "created_at");
+  const [sortDir, setSortDir] = usePersistState<"asc" | "desc">("oportunidades:sortDir", "desc");
   const toggleSort = (col: string) => {
     if (sortCol === col) setSortDir(d => d === "asc" ? "desc" : "asc");
     else { setSortCol(col); setSortDir("asc"); }

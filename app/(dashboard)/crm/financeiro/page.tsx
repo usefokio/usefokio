@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { useWindowWidth } from "@/lib/hooks/useWindowWidth";
+import { usePersistState } from "@/lib/hooks/usePersistState";
 import { formatBRL } from "@/lib/utils/format";
 import { IcoEdit, IcoTrash, IcoMail, IcoCheck } from "@/app/(dashboard)/crm/_components/Icons";
 import { EmailModal } from "@/app/(dashboard)/crm/_components/EmailModal";
@@ -71,9 +72,9 @@ function FinanceiroInner() {
   const [entries,    setEntries]    = useState<EntryWithPedido[]>([]);
   const [contas,     setContas]     = useState<ContaBancaria[]>([]);
   const [loading,    setLoading]    = useState(true);
-  const [busca,         setBusca]         = useState("");
-  const [mesFiltro,     setMesFiltro]     = useState("");
-  const [periodoRapido, setPeriodoRapido] = useState<"vencidas" | "este-mes" | "prox-mes" | "">("");
+  const [busca,         setBusca]         = usePersistState("financeiro:busca",         "");
+  const [mesFiltro,     setMesFiltro]     = usePersistState("financeiro:mesFiltro",     "");
+  const [periodoRapido, setPeriodoRapido] = usePersistState<"vencidas" | "este-mes" | "prox-mes" | "">("financeiro:periodoRapido", "");
 
   // Modais
   const [modalEditar,      setModalEditar]      = useState<ModalEditar | null>(null);
@@ -105,8 +106,8 @@ function FinanceiroInner() {
   const [salvandonovo,    setSalvandoNovo]    = useState(false);
   const [erroNovo,        setErroNovo]        = useState("");
   const largura = useWindowWidth();
-  const [sortCol, setSortCol] = useState<string>("vencimento");
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [sortCol, setSortCol] = usePersistState("financeiro:sortCol", "vencimento");
+  const [sortDir, setSortDir] = usePersistState<"asc" | "desc">("financeiro:sortDir", "asc");
   const toggleSort = (col: string) => {
     if (sortCol === col) setSortDir(d => d === "asc" ? "desc" : "asc");
     else { setSortCol(col); setSortDir("asc"); }

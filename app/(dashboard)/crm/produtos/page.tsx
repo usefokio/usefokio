@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { IcoEdit, IcoTrash, IcoOpen } from "@/app/(dashboard)/crm/_components/Icons";
+import { usePersistState } from "@/lib/hooks/usePersistState";
 import type { CrmProduct, CrmProductCategory } from "@/lib/supabase/types";
 
 const btnIcon = (extra?: React.CSSProperties): React.CSSProperties => ({
@@ -19,14 +20,14 @@ const btnIcon = (extra?: React.CSSProperties): React.CSSProperties => ({
 export default function ProdutosPage() {
   const router                              = useRouter();
   const { fotografo }                       = useFotografo();
-  const [produtos, setProdutos]             = useState<CrmProduct[]>([]);
-  const [categorias, setCategorias]         = useState<CrmProductCategory[]>([]);
-  const [loading, setLoading]               = useState(true);
-  const [busca, setBusca]                   = useState("");
-  const [categFiltro, setCategFiltro]       = useState("");
-  const [somenteAtivos, setSomenteAtivos]   = useState(true);
-  const [sortCol, setSortCol] = useState<string>("nome");
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [produtos,   setProdutos]   = useState<CrmProduct[]>([]);
+  const [categorias, setCategorias] = useState<CrmProductCategory[]>([]);
+  const [loading,    setLoading]    = useState(true);
+  const [busca,         setBusca]         = usePersistState("produtos:busca",         "");
+  const [categFiltro,   setCategFiltro]   = usePersistState("produtos:categFiltro",   "");
+  const [somenteAtivos, setSomenteAtivos] = usePersistState("produtos:somenteAtivos", true);
+  const [sortCol, setSortCol] = usePersistState("produtos:sortCol", "nome");
+  const [sortDir, setSortDir] = usePersistState<"asc" | "desc">("produtos:sortDir", "asc");
   const toggleSort = (col: string) => {
     if (sortCol === col) setSortDir(d => d === "asc" ? "desc" : "asc");
     else { setSortCol(col); setSortDir("asc"); }

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { useWindowWidth } from "@/lib/hooks/useWindowWidth";
+import { usePersistState } from "@/lib/hooks/usePersistState";
 import { PEDIDO_STATUS_MAP } from "@/lib/constants/statusMaps";
 import { formatBRL, formatData } from "@/lib/utils/format";
 import { IcoEdit, IcoTrash, IcoOpen } from "@/app/(dashboard)/crm/_components/Icons";
@@ -31,15 +32,15 @@ export default function PedidosPage() {
   const router        = useRouter();
   const { fotografo } = useFotografo();
 
-  const [pedidos,  setPedidos]  = useState<OrderWithCliente[]>([]);
-  const [loading,  setLoading]  = useState(true);
-  const [busca,    setBusca]    = useState("");
-  const [status,   setStatus]   = useState<StatusFiltro>("");
-  const [catFiltro, setCatFiltro] = useState("");
+  const [pedidos,    setPedidos]    = useState<OrderWithCliente[]>([]);
+  const [loading,    setLoading]    = useState(true);
   const [categorias, setCategorias] = useState<string[]>([]);
+  const [busca,      setBusca]      = usePersistState("pedidos:busca",    "");
+  const [status,     setStatus]     = usePersistState<StatusFiltro>("pedidos:status",   "");
+  const [catFiltro,  setCatFiltro]  = usePersistState("pedidos:catFiltro", "");
   const largura = useWindowWidth();
-  const [sortCol, setSortCol] = useState<string>("created_at");
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const [sortCol, setSortCol] = usePersistState("pedidos:sortCol", "created_at");
+  const [sortDir, setSortDir] = usePersistState<"asc" | "desc">("pedidos:sortDir", "desc");
   const toggleSort = (col: string) => {
     if (sortCol === col) setSortDir(d => d === "asc" ? "desc" : "asc");
     else { setSortCol(col); setSortDir("asc"); }
