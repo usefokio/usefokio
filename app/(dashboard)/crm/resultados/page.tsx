@@ -118,13 +118,17 @@ export default function ResultadosPage() {
         .gte("vencimento", `${ano}-01-01`).lte("vencimento", `${ano}-01-01`).limit(0);
     }
 
-    const qOrders = (regime === "competencia" && !temDRE)
-      ? sb.from("crm_orders")
-          .select("categoria, total, data_lancamento")
-          .eq("fotografo_id", fid)
-          .gte("data_lancamento", `${ano}-01-01`).lte("data_lancamento", `${ano}-12-31`)
-          .not("data_lancamento", "is", null)
-      : sb.from("crm_orders").select("categoria").eq("fotografo_id", fid).limit(0);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let qOrders: any;
+    if (regime === "competencia" && !temDRE) {
+      qOrders = sb.from("crm_orders")
+        .select("categoria, total, data_lancamento")
+        .eq("fotografo_id", fid)
+        .gte("data_lancamento", `${ano}-01-01`).lte("data_lancamento", `${ano}-12-31`)
+        .not("data_lancamento", "is", null);
+    } else {
+      qOrders = sb.from("crm_orders").select("categoria").eq("fotografo_id", fid).limit(0);
+    }
 
     const [{ data: contasData }, { data: despesasData }, { data: receitasData }, { data: ordersData }] = await Promise.all([
       qContas, qDespesas, qReceitas, qOrders,
