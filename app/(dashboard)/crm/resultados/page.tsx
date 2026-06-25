@@ -170,43 +170,50 @@ export default function ResultadosPage() {
 
   useEffect(() => { carregar(); }, [carregar]);
 
-  // Panorama: DRE para anos com DRE, entradas individuais para os demais
+  // Panorama: DRE para anos com DRE, lançamentos individuais para os demais
   useEffect(() => {
     if (!fotografo) return;
     const sb = createClient();
     const fid = fotografo.id;
-    Promise.all([
-      // Todas as entradas financeiras pagas — receitas e despesas
-      sb.from("crm_financial_entries")
-        .select("vencimento, valor, tipo, num_documento")
-        .eq("fotografo_id", fid)
-        .eq("status", "pago")
-        .not("vencimento", "is", null)
-        .range(0, 9999),
-    ]).then(([{ data: allEntries }]) => {
-      // 1ª passada: detectar quais anos têm DRE
-      const anosComDRE = new Set<number>();
-      for (const e of (allEntries ?? []) as { vencimento: string; num_documento: string | null }[]) {
-        if (e.num_documento === "DRE") anosComDRE.add(parseInt(e.vencimento.slice(0, 4)));
-      }
-      // 2ª passada: acumular por ano
-      const mapeado: Record<number, { rec: number; desp: number }> = {};
-      for (const e of (allEntries ?? []) as { vencimento: string; valor: number; tipo: string; num_documento: string | null }[]) {
-        const y = parseInt(e.vencimento.slice(0, 4));
-        // Anos com DRE: usar apenas entradas DRE
-        if (anosComDRE.has(y) && e.num_documento !== "DRE") continue;
-        // Anos sem DRE: excluir entradas DRE (não deveriam existir, mas por segurança)
-        if (!anosComDRE.has(y) && e.num_documento === "DRE") continue;
-        mapeado[y] ??= { rec: 0, desp: 0 };
-        if (e.tipo === "receita") mapeado[y].rec += e.valor;
-        else mapeado[y].desp += e.valor;
-      }
-      const dados: PanoramaItem[] = Object.entries(mapeado)
-        .map(([y, v]) => ({ ano: parseInt(y), receitas: v.rec, despesas: v.desp, lucro: v.rec - v.desp }))
-        .filter(d => d.receitas > 0 || d.despesas > 0)
-        .sort((a, b) => a.ano - b.ano);
-      setPanorama(dados);
-    }).catch(console.error);
+
+    sb.from("crm_financial_entries")
+      .select("vencimento, valor, tipo, num_documento")
+      .eq("fotografo_id", fid)
+      .eq("status", "pago")
+      .not("vencimento", "is", null)
+      .range(0, 9999)
+      .then(({ data: entries }) => {
+        type Row = { vencimento: string; valor: number; tipo: string; num_documento: string | null };
+
+        const drePorAno: Record<number, { rec: number; desp: number }> = {};
+        const indivPorAno: Record<number, { rec: number; desp: number }> = {};
+
+        for (const e of (entries ?? []) as Row[]) {
+          const ano = parseInt(e.vencimento.slice(0, 4));
+          const mapa = e.num_documento === "DRE" ? drePorAno : indivPorAno;
+          mapa[ano] ??= { rec: 0, desp: 0 };
+          if (e.tipo === "receita") mapa[ano].rec += e.valor;
+          else if (e.tipo === "despesa") mapa[ano].desp += e.valor;
+        }
+
+        const anosComDRE = new Set(Object.keys(drePorAno).map(Number));
+        const todosAnos = new Set([
+          ...Object.keys(drePorAno).map(Number),
+          ...Object.keys(indivPorAno).map(Number),
+        ]);
+
+        const dados: PanoramaItem[] = Array.from(todosAnos)
+          .map(ano => {
+            const d = anosComDRE.has(ano)
+              ? drePorAno[ano]
+              : (indivPorAno[ano] ?? { rec: 0, desp: 0 });
+            return { ano, receitas: d.rec, despesas: d.desp, lucro: d.rec - d.desp };
+          })
+          .filter(d => d.receitas > 0 || d.despesas > 0)
+          .sort((a, b) => a.ano - b.ano);
+
+        setPanorama(dados);
+      }).catch(console.error);
   }, [fotografo]);
 
   const contasPorPrefixo = (prefixo: string) =>

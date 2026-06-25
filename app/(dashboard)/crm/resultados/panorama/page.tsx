@@ -8,7 +8,6 @@ import { GraficoPanorama } from "../_components/GraficoPanorama";
 
 type PanoramaItem = { ano: number; receitas: number; despesas: number; lucro: number };
 
-
 function fmtBRL(v: number) {
   return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
@@ -39,6 +38,7 @@ export default function PanoramaPage() {
     const sb = createClient();
     const fid = fotografo.id;
 
+    // Uma única query — separa DRE vs individual em JS para evitar problema PostgREST+NULL
     sb.from("crm_financial_entries")
       .select("vencimento, valor, tipo, num_documento")
       .eq("fotografo_id", fid)
@@ -46,28 +46,37 @@ export default function PanoramaPage() {
       .not("vencimento", "is", null)
       .range(0, 9999)
       .then(({ data: entries }) => {
-        const anosComDRE = new Set<number>();
-        for (const e of entries ?? []) {
-          if (e.num_documento === "DRE") {
-            anosComDRE.add(parseInt(e.vencimento.slice(0, 4)));
-          }
-        }
+        type Row = { vencimento: string; valor: number; tipo: string; num_documento: string | null };
 
-        const mapa: Record<number, { rec: number; desp: number }> = {};
-        for (const e of entries ?? []) {
+        const drePorAno: Record<number, { rec: number; desp: number }> = {};
+        const indivPorAno: Record<number, { rec: number; desp: number }> = {};
+
+        for (const e of (entries ?? []) as Row[]) {
           const ano = parseInt(e.vencimento.slice(0, 4));
-          const isDRE = e.num_documento === "DRE";
-          const anoTemDRE = anosComDRE.has(ano);
-          if (anoTemDRE !== isDRE) continue;
+          const mapa = e.num_documento === "DRE" ? drePorAno : indivPorAno;
           mapa[ano] ??= { rec: 0, desp: 0 };
           if (e.tipo === "receita") mapa[ano].rec += e.valor;
           else if (e.tipo === "despesa") mapa[ano].desp += e.valor;
         }
 
-        const result: PanoramaItem[] = Object.entries(mapa)
-          .map(([y, v]) => ({ ano: parseInt(y), receitas: v.rec, despesas: v.desp, lucro: v.rec - v.desp }))
+        // Para anos com DRE: usa totais DRE (espelha a tabela de Resultados)
+        // Para anos sem DRE: usa lançamentos individuais
+        const anosComDRE = new Set(Object.keys(drePorAno).map(Number));
+        const todosAnos = new Set([
+          ...Object.keys(drePorAno).map(Number),
+          ...Object.keys(indivPorAno).map(Number),
+        ]);
+
+        const result: PanoramaItem[] = Array.from(todosAnos)
+          .map(ano => {
+            const d = anosComDRE.has(ano)
+              ? drePorAno[ano]
+              : (indivPorAno[ano] ?? { rec: 0, desp: 0 });
+            return { ano, receitas: d.rec, despesas: d.desp, lucro: d.rec - d.desp };
+          })
           .filter(d => d.receitas > 0 || d.despesas > 0)
           .sort((a, b) => a.ano - b.ano);
+
         setDados(result);
         setLoading(false);
       });
@@ -93,7 +102,7 @@ export default function PanoramaPage() {
             Panorama Financeiro
           </h1>
           <p style={{ fontSize: 13, color: "var(--color-text-secondary)", margin: 0 }}>
-            Visão geral de todos os anos — regime de competência
+            Visão geral de todos os anos
           </p>
         </div>
       </div>
