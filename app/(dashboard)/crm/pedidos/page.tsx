@@ -64,30 +64,30 @@ export default function PedidosPage() {
   const carregar = useCallback(async () => {
     if (!fotografo) return;
     setLoading(true);
-    const sb = createClient();
-    let q = sb
+    const { data } = await createClient()
       .from("crm_orders")
       .select("*, clientes(nome)")
       .eq("fotografo_id", fotografo.id)
       .order("created_at", { ascending: false });
-    if (status)    q = q.eq("status", status);
-    if (catFiltro) q = q.eq("categoria", catFiltro);
-    const { data } = await q;
     const items = (data ?? []) as OrderWithCliente[];
     setPedidos(items);
     const cats = [...new Set(items.map(o => o.categoria).filter(Boolean) as string[])].sort();
     setCategorias(cats);
     setLoading(false);
-  }, [fotografo, status, catFiltro]);
+  }, [fotografo]);
 
   useEffect(() => { carregar(); }, [carregar]);
 
-  const filtrados = pedidos.filter(p =>
-    busca === "" ||
-    (p.nome ?? "").toLowerCase().includes(busca.toLowerCase()) ||
-    (p.clientes?.nome ?? "").toLowerCase().includes(busca.toLowerCase()) ||
-    (p.numero ?? "").toLowerCase().includes(busca.toLowerCase())
-  );
+  const filtrados = pedidos.filter(p => {
+    if (status    && p.status    !== status)    return false;
+    if (catFiltro && p.categoria !== catFiltro) return false;
+    if (busca !== "" &&
+      !(p.nome ?? "").toLowerCase().includes(busca.toLowerCase()) &&
+      !(p.clientes?.nome ?? "").toLowerCase().includes(busca.toLowerCase()) &&
+      !(p.numero ?? "").toLowerCase().includes(busca.toLowerCase())
+    ) return false;
+    return true;
+  });
 
   const ordenados = [...filtrados].sort((a, b) => {
     let va: string | number | null | undefined;
