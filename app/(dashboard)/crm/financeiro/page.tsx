@@ -51,6 +51,7 @@ type ModalEditar = {
   descricao: string;
   valor: string;
   vencimento: string;
+  contaPlanoId: string;
 };
 
 type ModalConfirmacao = {
@@ -220,11 +221,32 @@ function FinanceiroInner() {
     setSalvandoEdit(true);
     await createClient()
       .from("crm_financial_entries")
-      .update({ descricao: modalEditar.descricao.trim(), valor: parseFloat(modalEditar.valor.replace(",", ".")) || 0, vencimento: modalEditar.vencimento })
+      .update({
+        descricao: modalEditar.descricao.trim(),
+        valor: parseFloat(modalEditar.valor.replace(",", ".")) || 0,
+        vencimento: modalEditar.vencimento,
+        conta_id: modalEditar.contaPlanoId || null,
+      })
       .eq("id", modalEditar.entry.id);
     setSalvandoEdit(false);
     setModalEditar(null);
     carregar();
+  };
+
+  const abrirEditar = async (e: EntryWithPedido) => {
+    setModalEditar({ entry: e, descricao: e.descricao, valor: String(e.valor), vencimento: e.vencimento, contaPlanoId: e.conta_id ?? "" });
+    if (fotografo && baixaCategorias.length === 0) {
+      const prefixos = e.tipo === "receita" ? ["3"] : ["4", "5"];
+      const { data } = await createClient()
+        .from("crm_chart_of_accounts")
+        .select("id, codigo, nome")
+        .or(`fotografo_id.is.null,fotografo_id.eq.${fotografo.id}`)
+        .eq("ativo", true)
+        .order("codigo");
+      setBaixaCategorias(
+        ((data ?? []) as ChartAccount[]).filter(c => prefixos.some(p => c.codigo.startsWith(p)))
+      );
+    }
   };
 
   // Abrir modal de receber/pagar
@@ -570,8 +592,7 @@ function FinanceiroInner() {
                       <IcoMail />
                     </button>
                   )}
-                  <button onClick={() => setModalEditar({ entry: e, descricao: e.descricao, valor: String(e.valor), vencimento: e.vencimento })}
-                    title="Editar" style={btnIcon()}>
+                  <button onClick={() => abrirEditar(e)} title="Editar" style={btnIcon()}>
                     <IcoEdit />
                   </button>
                   {!e.pedido_id && (
@@ -801,6 +822,21 @@ function FinanceiroInner() {
                     style={{ width: "100%", boxSizing: "border-box", padding: "9px 12px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", fontSize: 13, color: "var(--color-text-primary)", outline: "none" }} />
                 </div>
               </div>
+              {baixaCategorias.length > 0 && (
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>Plano de contas</div>
+                  <select
+                    value={modalEditar.contaPlanoId}
+                    onChange={e => setModalEditar(m => m ? { ...m, contaPlanoId: e.target.value } : m)}
+                    style={{ width: "100%", boxSizing: "border-box", padding: "9px 12px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", fontSize: 13, color: "var(--color-text-primary)", outline: "none" }}
+                  >
+                    <option value="">Sem categoria</option>
+                    {baixaCategorias.map(c => (
+                      <option key={c.id} value={c.id}>{c.codigo} — {c.nome}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </div>
             <div style={{ display: "flex", gap: 10, marginTop: 22 }}>
               <button onClick={salvarEdicao} disabled={salvandoEdit || !modalEditar.descricao.trim()}
