@@ -220,7 +220,7 @@ export default function ResultadosPage() {
         .filter(d => d.receitas > 0 || d.despesas > 0)
         .sort((a, b) => a.ano - b.ano);
       setPanorama(dados);
-    });
+    }).catch(console.error);
   }, [fotografo]);
 
   const contasPorPrefixo = (prefixo: string) =>
