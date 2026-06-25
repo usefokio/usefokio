@@ -1,13 +1,9 @@
 /**
- * Import de contas recebidas do photomanager para crm_financial_entries
+ * Import de contas recebidas/a receber do photomanager para crm_financial_entries
  *
  * Uso:
- *   node scripts/import-contas-receber.mjs <recebidas.csv>
- *
- * Exemplo:
- *   node scripts/import-contas-receber.mjs "C:\Users\ferna\Downloads\contasrecebidastds anos.csv"
- *
- * O script apaga todas as receitas existentes do fotografo antes de inserir.
+ *   node scripts/import-contas-receber.mjs <recebidas.csv>           # histórico pago — apaga pago, insere pago
+ *   node scripts/import-contas-receber.mjs <areceber.csv> --pendentes # pendentes — não apaga, deriva status da data
  */
 
 import { createClient } from "../node_modules/@supabase/supabase-js/dist/index.mjs";
@@ -197,14 +193,19 @@ async function insertBatch(rows) {
 
 // ── main ──────────────────────────────────────────────────────────────────────
 
+const HOJE = new Date().toISOString().slice(0, 10);
+
 async function main() {
-  const [, , csvFile] = process.argv;
+  const args = process.argv.slice(2);
+  const csvFile = args.find(a => !a.startsWith("--"));
+  const pendentes = args.includes("--pendentes");
+
   if (!csvFile) {
-    console.error('Uso: node scripts/import-contas-receber.mjs <recebidas.csv>');
+    console.error("Uso: node scripts/import-contas-receber.mjs <csv> [--pendentes]");
     process.exit(1);
   }
 
-  console.log("\n=== Import contas recebidas ===\n");
+  console.log(`\n=== Import contas ${pendentes ? "a receber (pendentes)" : "recebidas"} ===\n`);
 
   console.log("Buscando dados de referência...");
   const ref = await fetchReferenceData();
@@ -215,7 +216,15 @@ async function main() {
 
   const seen = new Set();
   const entries = rows
-    .map(r => convertRow(r, ref))
+    .map(r => {
+      const e = convertRow(r, ref);
+      if (!e) return null;
+      if (pendentes) {
+        e.pago_em = null;
+        e.status = e.vencimento < HOJE ? "vencido" : "pendente";
+      }
+      return e;
+    })
     .filter(r => {
       if (!r) return false;
       if (seen.has(r.legacy_id)) return false;
@@ -229,18 +238,21 @@ async function main() {
   console.log(`  Total: R$ ${totalCSV.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`);
   console.log(`  Sem conta_id: ${semConta} (order_id sem pedido correspondente ou categoria sem mapeamento)`);
 
-  // Apagar receitas existentes
-  console.log("\nApagando receitas existentes...");
-  const { error: delError, count } = await sb
-    .from("crm_financial_entries")
-    .delete()
-    .eq("fotografo_id", FOTOGRAFO_ID)
-    .eq("tipo", "receita");
-  if (delError) {
-    console.error("  ✗ Erro ao apagar:", delError.message);
-    process.exit(1);
+  // Apagar apenas receitas pagas (não apaga pendentes)
+  if (!pendentes) {
+    console.log("\nApagando receitas pagas existentes...");
+    const { error: delError } = await sb
+      .from("crm_financial_entries")
+      .delete()
+      .eq("fotografo_id", FOTOGRAFO_ID)
+      .eq("tipo", "receita")
+      .eq("status", "pago");
+    if (delError) {
+      console.error("  ✗ Erro ao apagar:", delError.message);
+      process.exit(1);
+    }
+    console.log("  Apagadas receitas pagas existentes.");
   }
-  console.log(`  Apagadas (contagem não disponível via anon key — ok)`);
 
   // Inserir
   console.log(`\nInserindo ${entries.length} receitas...`);
