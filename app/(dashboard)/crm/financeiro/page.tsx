@@ -7,6 +7,7 @@ import { useFotografo } from "@/lib/context/FotografoContext";
 import { useWindowWidth } from "@/lib/hooks/useWindowWidth";
 import { usePersistState } from "@/lib/hooks/usePersistState";
 import { formatBRL } from "@/lib/utils/format";
+import { fetchAllRows } from "@/lib/supabase/fetchAll";
 import { IcoEdit, IcoTrash, IcoMail, IcoCheck } from "@/app/(dashboard)/crm/_components/Icons";
 import { Paginacao } from "@/app/(dashboard)/crm/_components/Paginacao";
 import { EmailModal } from "@/app/(dashboard)/crm/_components/EmailModal";
@@ -123,15 +124,20 @@ function FinanceiroInner() {
     const pendentesStatuses = aba === "receber" || aba === "pagar"
       ? ["pendente", "vencido"]
       : [cfg.status];
-    const { data } = await createClient()
-      .from("crm_financial_entries")
-      .select("*, crm_orders(nome, numero, clientes(nome, email, telefone, whatsapp)), clientes(nome, email)")
-      .eq("fotografo_id", fotografo.id)
-      .eq("tipo", cfg.tipo)
-      .in("status", pendentesStatuses)
-      .order("vencimento", { ascending: true })
-      .range(0, 4999);
-    setEntries((data ?? []) as EntryWithPedido[]);
+    const sb = createClient();
+    const data = await fetchAllRows<EntryWithPedido>(
+      (client, from, to) =>
+        client
+          .from("crm_financial_entries")
+          .select("*, crm_orders(nome, numero, clientes(nome, email, telefone, whatsapp)), clientes(nome, email)")
+          .eq("fotografo_id", fotografo.id)
+          .eq("tipo", cfg.tipo)
+          .in("status", pendentesStatuses)
+          .order("vencimento", { ascending: true })
+          .range(from, to),
+      sb,
+    );
+    setEntries(data);
     setLoading(false);
   }, [fotografo, aba]);
 
