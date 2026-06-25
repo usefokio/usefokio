@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { IcoEdit, IcoTrash, IcoOpen } from "@/app/(dashboard)/crm/_components/Icons";
+import { Paginacao } from "@/app/(dashboard)/crm/_components/Paginacao";
 import { usePersistState } from "@/lib/hooks/usePersistState";
 import type { Cliente } from "@/lib/supabase/types";
 
@@ -31,6 +32,8 @@ export default function CrmClientesPage() {
   const router = useRouter();
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [loading,  setLoading]  = useState(true);
+  const [page,     setPage]     = useState(1);
+  const [pageSize, setPageSize] = usePersistState<25|50|100>("clientes:pageSize", 50);
   const [busca,      setBusca]      = usePersistState("clientes:busca",      "");
   const [tipoFiltro, setTipoFiltro] = usePersistState("clientes:tipoFiltro", "");
   const [sortCol, setSortCol] = usePersistState("clientes:sortCol", "nome");
@@ -58,12 +61,13 @@ export default function CrmClientesPage() {
       .eq("crm_ativo", true)
       .order("nome");
     if (tipoFiltro) q.eq("tipo_contato", tipoFiltro);
-    const { data } = await q;
+    const { data } = await q.range(0, 4999);
     setClientes(data ?? []);
     setLoading(false);
   }, [fotografo, tipoFiltro]);
 
   useEffect(() => { load(); }, [load]);
+  useEffect(() => { setPage(1); }, [busca, tipoFiltro, sortCol, sortDir]);
 
   const filtrados = clientes.filter((c: Cliente) => {
     if (!busca) return true;
@@ -90,6 +94,8 @@ export default function CrmClientesPage() {
     const cmp = String(va).localeCompare(String(vb), "pt-BR");
     return sortDir === "asc" ? cmp : -cmp;
   });
+
+  const paginados = ordenados.slice((page - 1) * pageSize, page * pageSize);
 
   const thSort = (col: string): React.CSSProperties => ({
     padding: "8px 14px", fontWeight: 700, fontSize: 11,
@@ -160,6 +166,7 @@ export default function CrmClientesPage() {
             </div>
           </div>
         ) : (
+          <>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ background: "var(--color-background-secondary)" }}>
@@ -176,7 +183,7 @@ export default function CrmClientesPage() {
               </tr>
             </thead>
             <tbody>
-              {ordenados.map((c) => {
+              {paginados.map((c) => {
                 const tipo = TIPO_MAP[c.tipo_contato] ?? TIPO_MAP.outro;
                 return (
                   <tr
@@ -219,6 +226,8 @@ export default function CrmClientesPage() {
               })}
             </tbody>
           </table>
+          <Paginacao pagina={page} total={ordenados.length} pageSize={pageSize} onPagina={setPage} onPageSize={setPageSize} />
+          </>
         )}
       </div>
     </div>

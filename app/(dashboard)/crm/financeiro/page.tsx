@@ -8,6 +8,7 @@ import { useWindowWidth } from "@/lib/hooks/useWindowWidth";
 import { usePersistState } from "@/lib/hooks/usePersistState";
 import { formatBRL } from "@/lib/utils/format";
 import { IcoEdit, IcoTrash, IcoMail, IcoCheck } from "@/app/(dashboard)/crm/_components/Icons";
+import { Paginacao } from "@/app/(dashboard)/crm/_components/Paginacao";
 import { EmailModal } from "@/app/(dashboard)/crm/_components/EmailModal";
 import type { CrmFinancialEntry } from "@/lib/supabase/types";
 
@@ -108,6 +109,8 @@ function FinanceiroInner() {
   const largura = useWindowWidth();
   const [sortCol, setSortCol] = usePersistState("financeiro:sortCol", "vencimento");
   const [sortDir, setSortDir] = usePersistState<"asc" | "desc">("financeiro:sortDir", "asc");
+  const [page,     setPage]     = useState(1);
+  const [pageSize, setPageSize] = usePersistState<25|50|100>("financeiro:pageSize", 50);
   const toggleSort = (col: string) => {
     if (sortCol === col) setSortDir(d => d === "asc" ? "desc" : "asc");
     else { setSortCol(col); setSortDir("asc"); }
@@ -126,13 +129,15 @@ function FinanceiroInner() {
       .eq("fotografo_id", fotografo.id)
       .eq("tipo", cfg.tipo)
       .in("status", pendentesStatuses)
-      .order("vencimento", { ascending: true });
+      .order("vencimento", { ascending: true })
+      .range(0, 4999);
     setEntries((data ?? []) as EntryWithPedido[]);
     setLoading(false);
   }, [fotografo, aba]);
 
-  useEffect(() => { setAba(tipoMenu as Aba); setMesFiltro(""); setBusca(""); setPeriodoRapido(""); }, [tipoMenu]);
+  useEffect(() => { setAba(tipoMenu as Aba); setMesFiltro(""); setBusca(""); setPeriodoRapido(""); setPage(1); }, [tipoMenu]);
   useEffect(() => { carregar(); }, [carregar]);
+  useEffect(() => { setPage(1); }, [busca, mesFiltro, periodoRapido, sortCol, sortDir]);
 
   useEffect(() => {
     if (!fotografo) return;
@@ -190,6 +195,7 @@ function FinanceiroInner() {
     return sortDir === "asc" ? cmp : -cmp;
   });
 
+  const paginadas = ordenadas.slice((page - 1) * pageSize, page * pageSize);
   const totalFiltradas = filtradas.reduce((s, e) => s + e.valor, 0);
 
   const isVencido = (e: EntryWithPedido) =>
@@ -485,7 +491,7 @@ function FinanceiroInner() {
               </div>
             ))}
           </div>
-          {ordenadas.map((e, i) => {
+          {paginadas.map((e, i) => {
             const vencido = isVencido(e);
             const clienteNome = e.crm_orders?.clientes?.nome ?? e.clientes?.nome ?? null;
             const clienteEmail = e.crm_orders?.clientes?.email ?? e.clientes?.email ?? null;
@@ -501,7 +507,7 @@ function FinanceiroInner() {
             };
 
             return (
-              <div key={e.id} style={{ display: "grid", gridTemplateColumns: finGrid, padding: "11px 16px", borderBottom: i < ordenadas.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", background: vencido ? "rgba(239,68,68,0.03)" : "var(--color-background-primary)", alignItems: "center" }}>
+              <div key={e.id} style={{ display: "grid", gridTemplateColumns: finGrid, padding: "11px 16px", borderBottom: i < paginadas.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", background: vencido ? "rgba(239,68,68,0.03)" : "var(--color-background-primary)", alignItems: "center" }}>
                 <div>
                   <div style={{ fontSize: 13, fontWeight: 500, color: "var(--color-text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{e.descricao}</div>
                   {clienteNome && <div style={{ fontSize: 11, color: "var(--color-text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{clienteNome}</div>}
@@ -550,6 +556,7 @@ function FinanceiroInner() {
               </div>
             );
           })}
+          <Paginacao pagina={page} total={ordenadas.length} pageSize={pageSize} onPagina={setPage} onPageSize={setPageSize} />
           {/* Linha totalizadora */}
           <div style={{ display: "grid", gridTemplateColumns: finGrid, padding: "11px 16px", borderTop: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-secondary)", alignItems: "center" }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.04em" }}>

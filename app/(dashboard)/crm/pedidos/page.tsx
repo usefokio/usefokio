@@ -9,6 +9,7 @@ import { usePersistState } from "@/lib/hooks/usePersistState";
 import { PEDIDO_STATUS_MAP } from "@/lib/constants/statusMaps";
 import { formatBRL, formatData } from "@/lib/utils/format";
 import { IcoEdit, IcoTrash, IcoOpen } from "@/app/(dashboard)/crm/_components/Icons";
+import { Paginacao } from "@/app/(dashboard)/crm/_components/Paginacao";
 import type { CrmOrder } from "@/lib/supabase/types";
 
 const btnIcon = (extra?: React.CSSProperties): React.CSSProperties => ({
@@ -35,6 +36,8 @@ export default function PedidosPage() {
   const [pedidos,    setPedidos]    = useState<OrderWithCliente[]>([]);
   const [loading,    setLoading]    = useState(true);
   const [categorias, setCategorias] = useState<string[]>([]);
+  const [page,     setPage]     = useState(1);
+  const [pageSize, setPageSize] = usePersistState<25|50|100>("pedidos:pageSize", 50);
   const [busca,      setBusca]      = usePersistState("pedidos:busca",    "");
   const [status,     setStatus]     = usePersistState<StatusFiltro>("pedidos:status",   "");
   const [catFiltro,  setCatFiltro]  = usePersistState("pedidos:catFiltro", "");
@@ -68,7 +71,8 @@ export default function PedidosPage() {
       .from("crm_orders")
       .select("*, clientes(nome)")
       .eq("fotografo_id", fotografo.id)
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .range(0, 4999);
     const items = (data ?? []) as OrderWithCliente[];
     setPedidos(items);
     const cats = [...new Set(items.map(o => o.categoria).filter(Boolean) as string[])].sort();
@@ -77,6 +81,7 @@ export default function PedidosPage() {
   }, [fotografo]);
 
   useEffect(() => { carregar(); }, [carregar]);
+  useEffect(() => { setPage(1); }, [busca, status, catFiltro, sortCol, sortDir]);
 
   const filtrados = pedidos.filter(p => {
     if (status    && p.status    !== status)    return false;
@@ -104,6 +109,8 @@ export default function PedidosPage() {
     const cmp = typeof va === "number" ? va - (vb as number) : String(va).localeCompare(String(vb), "pt-BR");
     return sortDir === "asc" ? cmp : -cmp;
   });
+
+  const paginados = ordenados.slice((page - 1) * pageSize, page * pageSize);
 
   const fmt = formatBRL;
   const fmtData = formatData;
@@ -232,12 +239,12 @@ export default function PedidosPage() {
               </div>
             ))}
           </div>
-          {ordenados.map((p, i) => {
+          {paginados.map((p, i) => {
             const st = STATUS_MAP[p.status] ?? STATUS_MAP.aguardando_sinal;
             return (
               <div
                 key={p.id}
-                style={{ display: "grid", gridTemplateColumns: gridTemplate, padding: "12px 16px", borderBottom: i < ordenados.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", background: "var(--color-background-primary)", transition: "background 0.1s", alignItems: "center" }}
+                style={{ display: "grid", gridTemplateColumns: gridTemplate, padding: "12px 16px", borderBottom: i < paginados.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", background: "var(--color-background-primary)", transition: "background 0.1s", alignItems: "center" }}
                 onMouseEnter={(e) => (e.currentTarget.style.background = "var(--color-background-secondary)")}
                 onMouseLeave={(e) => (e.currentTarget.style.background = "var(--color-background-primary)")}
               >
@@ -289,6 +296,7 @@ export default function PedidosPage() {
               </div>
             );
           })}
+          <Paginacao pagina={page} total={ordenados.length} pageSize={pageSize} onPagina={setPage} onPageSize={setPageSize} />
         </div>
       )}
     </div>

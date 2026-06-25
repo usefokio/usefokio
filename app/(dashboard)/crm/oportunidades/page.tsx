@@ -7,6 +7,7 @@ import { useFotografo } from "@/lib/context/FotografoContext";
 import { useWindowWidth } from "@/lib/hooks/useWindowWidth";
 import { usePersistState } from "@/lib/hooks/usePersistState";
 import { IcoEdit, IcoTrash, IcoOpen } from "@/app/(dashboard)/crm/_components/Icons";
+import { Paginacao } from "@/app/(dashboard)/crm/_components/Paginacao";
 import type { CrmOpportunity } from "@/lib/supabase/types";
 
 type OppWithRelations = CrmOpportunity & {
@@ -58,6 +59,8 @@ export default function OportunidadesPage() {
   const [opps,       setOpps]       = useState<OppWithRelations[]>([]);
   const [loading,    setLoading]    = useState(true);
   const [categorias, setCategorias] = useState<string[]>([]);
+  const [page,     setPage]     = useState(1);
+  const [pageSize, setPageSize] = usePersistState<25|50|100>("oportunidades:pageSize", 50);
   const [deletarId,  setDeletarId]  = useState<string | null>(null);
   const [deletando,  setDeletando]  = useState(false);
   const [statusMap,  setStatusMap]  = useState<Record<string, { label: string; color: string; bg: string }>>({});
@@ -81,7 +84,8 @@ export default function OportunidadesPage() {
       sb.from("crm_opportunities")
         .select("*, clientes!cliente_id(nome), etapa:crm_funnel_stages!etapa_id(nome, ordem)")
         .eq("fotografo_id", fotografo.id)
-        .order("created_at", { ascending: false }),
+        .order("created_at", { ascending: false })
+        .range(0, 4999),
       sb.from("crm_oportunidade_status")
         .select("chave, label, cor")
         .eq("fotografo_id", fotografo.id)
@@ -108,6 +112,7 @@ export default function OportunidadesPage() {
   }, [fotografo]);
 
   useEffect(() => { carregar(); }, [carregar]);
+  useEffect(() => { setPage(1); }, [busca, status, catFiltro, sortCol, sortDir]);
 
   const filtradas = opps.filter((o: OppWithRelations) => {
     if (status && o.status !== status) return false;
@@ -155,6 +160,7 @@ export default function OportunidadesPage() {
     return sortDir === "asc" ? cmp : -cmp;
   });
 
+  const paginadas = ordenadas.slice((page - 1) * pageSize, page * pageSize);
   const oppParaDeletar = opps.find(o => o.id === deletarId);
 
   // Layout responsivo
@@ -271,13 +277,13 @@ export default function OportunidadesPage() {
             ))}
           </div>
 
-          {ordenadas.map((o, i) => {
+          {paginadas.map((o, i) => {
             const stInfo = statusMap[o.status];
             const st = { label: stInfo?.label ?? o.status, color: stInfo?.color ?? COR_CUSTOM.color, bg: stInfo?.bg ?? COR_CUSTOM.bg };
             return (
               <div
                 key={o.id}
-                style={{ display: "grid", gridTemplateColumns: gridTemplate, padding: "12px 16px", borderBottom: i < ordenadas.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", background: "var(--color-background-primary)", transition: "background 0.1s" }}
+                style={{ display: "grid", gridTemplateColumns: gridTemplate, padding: "12px 16px", borderBottom: i < paginadas.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", background: "var(--color-background-primary)", transition: "background 0.1s" }}
                 onMouseEnter={(e) => (e.currentTarget.style.background = "var(--color-background-secondary)")}
                 onMouseLeave={(e) => (e.currentTarget.style.background = "var(--color-background-primary)")}
               >
@@ -356,6 +362,7 @@ export default function OportunidadesPage() {
               </div>
             );
           })}
+          <Paginacao pagina={page} total={ordenadas.length} pageSize={pageSize} onPagina={setPage} onPageSize={setPageSize} />
         </div>
       )}
 

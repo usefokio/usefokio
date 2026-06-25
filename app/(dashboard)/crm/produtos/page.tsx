@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { IcoEdit, IcoTrash, IcoOpen } from "@/app/(dashboard)/crm/_components/Icons";
+import { Paginacao } from "@/app/(dashboard)/crm/_components/Paginacao";
 import { usePersistState } from "@/lib/hooks/usePersistState";
 import type { CrmProduct, CrmProductCategory } from "@/lib/supabase/types";
 
@@ -23,6 +24,8 @@ export default function ProdutosPage() {
   const [produtos,   setProdutos]   = useState<CrmProduct[]>([]);
   const [categorias, setCategorias] = useState<CrmProductCategory[]>([]);
   const [loading,    setLoading]    = useState(true);
+  const [page,     setPage]     = useState(1);
+  const [pageSize, setPageSize] = usePersistState<25|50|100>("produtos:pageSize", 50);
   const [busca,         setBusca]         = usePersistState("produtos:busca",         "");
   const [categFiltro,   setCategFiltro]   = usePersistState("produtos:categFiltro",   "");
   const [somenteAtivos, setSomenteAtivos] = usePersistState("produtos:somenteAtivos", true);
@@ -37,7 +40,7 @@ export default function ProdutosPage() {
     if (!fotografo) return;
     setLoading(true);
     const sb = createClient();
-    let q = sb.from("crm_products").select("*").eq("fotografo_id", fotografo.id).order("nome");
+    let q = sb.from("crm_products").select("*").eq("fotografo_id", fotografo.id).order("nome").range(0, 4999);
     if (somenteAtivos) q = q.eq("ativo", true);
     const [{ data }, { data: cats }] = await Promise.all([
       q,
@@ -49,6 +52,7 @@ export default function ProdutosPage() {
   }, [fotografo, somenteAtivos]);
 
   useEffect(() => { carregar(); }, [carregar]);
+  useEffect(() => { setPage(1); }, [busca, categFiltro, somenteAtivos, sortCol, sortDir]);
 
   const filtrados = produtos.filter((p: CrmProduct) => {
     const ok = busca === "" || p.nome.toLowerCase().includes(busca.toLowerCase()) || (p.codigo ?? "").toLowerCase().includes(busca.toLowerCase());
@@ -71,6 +75,8 @@ export default function ProdutosPage() {
     const cmp = typeof va === "number" ? va - (vb as number) : String(va).localeCompare(String(vb), "pt-BR");
     return sortDir === "asc" ? cmp : -cmp;
   });
+
+  const paginados = ordenados.slice((page - 1) * pageSize, page * pageSize);
 
   const thSort = (): React.CSSProperties => ({
     padding: "9px 14px", textAlign: "left", fontSize: 11, fontWeight: 600,
@@ -156,10 +162,10 @@ export default function ProdutosPage() {
               </tr>
             </thead>
             <tbody>
-              {ordenados.map((p, i) => (
+              {paginados.map((p, i) => (
                 <tr
                   key={p.id}
-                  style={{ borderBottom: i < ordenados.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", background: "var(--color-background-primary)" }}
+                  style={{ borderBottom: i < paginados.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", background: "var(--color-background-primary)" }}
                   onMouseEnter={(e) => (e.currentTarget.style.background = "var(--color-background-secondary)")}
                   onMouseLeave={(e) => (e.currentTarget.style.background = "var(--color-background-primary)")}
                 >
@@ -209,6 +215,7 @@ export default function ProdutosPage() {
               ))}
             </tbody>
           </table>
+          <Paginacao pagina={page} total={ordenados.length} pageSize={pageSize} onPagina={setPage} onPageSize={setPageSize} />
         </div>
       )}
     </div>
