@@ -8,8 +8,9 @@ import FormPedido from "../_components/FormPedido";
 import { PEDIDO_STATUS_MAP, FIN_STATUS_MAP } from "@/lib/constants/statusMaps";
 import { formatBRL, formatData } from "@/lib/utils/format";
 import type { CrmOrder, CrmFinancialEntry, CrmContractTemplate, CrmContract } from "@/lib/supabase/types";
+import { RichTextEditor } from "@/app/(dashboard)/crm/_components/RichTextEditor";
 
-type OrderWithCliente = CrmOrder & { clientes?: { id: string; nome: string } | null };
+type OrderWithCliente = CrmOrder & { clientes?: { id: string; nome: string; email?: string | null } | null };
 
 type OrderItem = {
   id: string;
@@ -38,24 +39,38 @@ export default function PedidoDetailPage() {
   const [agendaMsg,     setAgendaMsg]     = useState("");
 
   // Contratos
-  const [contratos,       setContratos]       = useState<CrmContract[]>([]);
-  const [modalContrato,   setModalContrato]   = useState(false);
-  const [templates,       setTemplates]       = useState<CrmContractTemplate[]>([]);
-  const [templateId,      setTemplateId]      = useState("");
-  const [horaEvento,      setHoraEvento]      = useState("");
-  const [localEvento,     setLocalEvento]     = useState("");
-  const [cidadeEvento,    setCidadeEvento]    = useState("");
-  const [estadoEvento,    setEstadoEvento]    = useState("");
-  const [convidados,      setConvidados]      = useState("");
-  const [gerandoContrato, setGerandoContrato] = useState(false);
+  const [contratos,           setContratos]           = useState<CrmContract[]>([]);
+  const [modalContrato,       setModalContrato]       = useState(false);
+  const [templates,           setTemplates]           = useState<CrmContractTemplate[]>([]);
+  const [templateId,          setTemplateId]          = useState("");
+  const [horaEvento,          setHoraEvento]          = useState("");
+  const [localEvento,         setLocalEvento]         = useState("");
+  const [cidadeEvento,        setCidadeEvento]        = useState("");
+  const [estadoEvento,        setEstadoEvento]        = useState("");
+  const [convidados,          setConvidados]          = useState("");
+  const [gerandoContrato,     setGerandoContrato]     = useState(false);
+  // Editar contrato
+  const [modalEditarContrato, setModalEditarContrato] = useState<CrmContract | null>(null);
+  const [corpoEditado,        setCorpoEditado]        = useState("");
+  const [salvandoContrato,    setSalvandoContrato]    = useState(false);
+  // Email contrato
+  const [modalEmailContrato,  setModalEmailContrato]  = useState<CrmContract | null>(null);
+  const [emailPara,           setEmailPara]           = useState("");
+  const [emailAssunto,        setEmailAssunto]        = useState("");
+  const [emailMensagem,       setEmailMensagem]       = useState("");
+  const [enviandoEmail,       setEnviandoEmail]       = useState(false);
+  const [emailEnviado,        setEmailEnviado]        = useState(false);
+  // Excluir contrato
+  const [confirmExcluirContrato, setConfirmExcluirContrato] = useState<CrmContract | null>(null);
+  const [excluindoContrato,      setExcluindoContrato]      = useState(false);
 
   const carregar = () => {
     const sb = createClient();
     Promise.all([
-      sb.from("crm_orders").select("*, clientes(id, nome)").eq("id", id).single(),
+      sb.from("crm_orders").select("*, clientes(id, nome, email)").eq("id", id).single(),
       sb.from("crm_financial_entries").select("*").eq("pedido_id", id).order("vencimento"),
       sb.from("crm_order_items").select("*, crm_products(nome)").eq("pedido_id", id).order("descricao"),
-      sb.from("crm_contracts").select("id, nome_template, created_at").eq("pedido_id", id).order("created_at"),
+      sb.from("crm_contracts").select("*").eq("pedido_id", id).order("created_at"),
     ]).then(([{ data: p }, { data: f }, { data: oi }, { data: ct }]) => {
       setPedido(p as OrderWithCliente | null);
       setFinanceiro((f ?? []) as CrmFinancialEntry[]);
@@ -175,7 +190,7 @@ export default function PedidoDetailPage() {
     setGerandoContrato(false);
     setModalContrato(false);
     carregar();
-    if (contrato?.id) window.open(`/crm/contratos/${contrato.id}`, "_blank");
+    if (contrato?.id) window.open(`/crm-contrato/${contrato.id}`, "_blank");
   };
 
   useEffect(() => { carregar(); }, [id]);
@@ -401,16 +416,30 @@ export default function PedidoDetailPage() {
               <div style={{ padding: "18px 20px", fontSize: 13, color: "var(--color-text-secondary)" }}>Nenhum contrato gerado para este pedido.</div>
             ) : (
               contratos.map((c, i) => (
-                <div key={c.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 20px", borderBottom: i < contratos.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none" }}>
+                <div key={c.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "11px 20px", borderBottom: i < contratos.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", flexWrap: "wrap" }}>
                   <span style={{ fontSize: 20 }}>📄</span>
-                  <div style={{ flex: 1 }}>
+                  <div style={{ flex: 1, minWidth: 120 }}>
                     <div style={{ fontSize: 13, fontWeight: 500, color: "var(--color-text-primary)" }}>{c.nome_template ?? "Contrato"}</div>
                     <div style={{ fontSize: 11, color: "var(--color-text-secondary)" }}>Gerado em {new Date(c.created_at).toLocaleDateString("pt-BR")}</div>
                   </div>
-                  <a href={`/crm/contratos/${c.id}`} target="_blank" rel="noreferrer"
-                    style={{ padding: "6px 14px", borderRadius: 7, border: "0.5px solid var(--color-border-secondary)", background: "transparent", fontSize: 12, color: "var(--color-text-secondary)", cursor: "pointer", textDecoration: "none" }}>
-                    Ver contrato
-                  </a>
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    <button onClick={() => window.open(`/crm-contrato/${c.id}`, "_blank")}
+                      style={{ padding: "5px 12px", borderRadius: 7, border: "0.5px solid var(--color-border-secondary)", background: "transparent", fontSize: 12, color: "var(--color-text-secondary)", cursor: "pointer" }}>
+                      Visualizar
+                    </button>
+                    <button onClick={() => { setCorpoEditado(c.corpo_gerado); setModalEditarContrato(c); }}
+                      style={{ padding: "5px 12px", borderRadius: 7, border: "0.5px solid var(--color-border-secondary)", background: "transparent", fontSize: 12, color: "var(--color-text-secondary)", cursor: "pointer" }}>
+                      Editar
+                    </button>
+                    <button onClick={() => { setEmailPara(pedido.clientes?.email ?? ""); setEmailAssunto(`Contrato — ${c.nome_template ?? "Contrato"}`); setEmailMensagem(""); setEmailEnviado(false); setModalEmailContrato(c); }}
+                      style={{ padding: "5px 12px", borderRadius: 7, border: "0.5px solid rgba(37,99,235,0.4)", background: "transparent", fontSize: 12, color: "#2563EB", cursor: "pointer" }}>
+                      E-mail
+                    </button>
+                    <button onClick={() => setConfirmExcluirContrato(c)}
+                      style={{ padding: "5px 12px", borderRadius: 7, border: "0.5px solid rgba(239,68,68,0.3)", background: "transparent", fontSize: 12, color: "#EF4444", cursor: "pointer" }}>
+                      Excluir
+                    </button>
+                  </div>
                 </div>
               ))
             )}
@@ -506,6 +535,115 @@ export default function PedidoDetailPage() {
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Modal editar contrato */}
+      {modalEditarContrato && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}
+          onClick={e => e.target === e.currentTarget && setModalEditarContrato(null)}>
+          <div style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 14, padding: "28px 32px", width: "100%", maxWidth: 860, maxHeight: "90vh", overflowY: "auto", boxShadow: "0 24px 64px rgba(0,0,0,0.22)" }}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: "var(--color-text-primary)", marginBottom: 18 }}>Editar contrato</div>
+            <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginBottom: 14 }}>{modalEditarContrato.nome_template}</div>
+            <RichTextEditor value={corpoEditado} onChange={(v: string) => setCorpoEditado(v)} minHeight={400} />
+            <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
+              <button disabled={salvandoContrato} onClick={async () => {
+                setSalvandoContrato(true);
+                await createClient().from("crm_contracts").update({ corpo_gerado: corpoEditado }).eq("id", modalEditarContrato.id);
+                setSalvandoContrato(false);
+                setModalEditarContrato(null);
+                carregar();
+              }} style={{ padding: "9px 22px", borderRadius: 8, background: "#111", color: "#fff", border: "none", fontSize: 13, fontWeight: 700, cursor: "pointer", opacity: salvandoContrato ? 0.6 : 1 }}>
+                {salvandoContrato ? "Salvando…" : "Salvar contrato"}
+              </button>
+              <button onClick={() => setModalEditarContrato(null)} style={{ padding: "9px 16px", borderRadius: 8, background: "transparent", color: "var(--color-text-secondary)", border: "0.5px solid var(--color-border-secondary)", fontSize: 13, cursor: "pointer" }}>
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal enviar contrato por e-mail */}
+      {modalEmailContrato && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}
+          onClick={e => e.target === e.currentTarget && setModalEmailContrato(null)}>
+          <div style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 14, padding: "28px 32px", width: "100%", maxWidth: 480, boxShadow: "0 24px 64px rgba(0,0,0,0.22)" }}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: "var(--color-text-primary)", marginBottom: 20 }}>Enviar contrato por e-mail</div>
+            {emailEnviado ? (
+              <div style={{ textAlign: "center", padding: "24px 0" }}>
+                <div style={{ fontSize: 36, marginBottom: 12 }}>✅</div>
+                <div style={{ fontSize: 15, fontWeight: 600, color: "var(--color-text-primary)", marginBottom: 6 }}>E-mail enviado!</div>
+                <div style={{ fontSize: 13, color: "var(--color-text-secondary)", marginBottom: 20 }}>O contrato foi enviado para {emailPara}</div>
+                <button onClick={() => setModalEmailContrato(null)} style={{ padding: "9px 22px", borderRadius: 8, background: "#111", color: "#fff", border: "none", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>Fechar</button>
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                {[
+                  { label: "Para *", val: emailPara, set: setEmailPara, ph: "email@cliente.com", type: "email" },
+                  { label: "Assunto *", val: emailAssunto, set: setEmailAssunto, ph: "Contrato — Casamento", type: "text" },
+                ].map(({ label, val, set, ph, type }) => (
+                  <div key={label}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 5 }}>{label}</div>
+                    <input type={type} value={val} onChange={e => set(e.target.value)} placeholder={ph}
+                      style={{ width: "100%", boxSizing: "border-box", padding: "9px 12px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", fontSize: 13, color: "var(--color-text-primary)", outline: "none" }} />
+                  </div>
+                ))}
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 5 }}>Mensagem (opcional)</div>
+                  <textarea value={emailMensagem} onChange={e => setEmailMensagem(e.target.value)} placeholder="Olá! Segue em anexo o contrato para sua aprovação…" rows={4}
+                    style={{ width: "100%", boxSizing: "border-box", padding: "9px 12px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", fontSize: 13, color: "var(--color-text-primary)", outline: "none", resize: "vertical" }} />
+                </div>
+                <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
+                  <button disabled={enviandoEmail || !emailPara || !emailAssunto} onClick={async () => {
+                    setEnviandoEmail(true);
+                    try {
+                      const res = await fetch("/api/crm/contratos/enviar", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ fotografo_id: pedido.fotografo_id, contrato_id: modalEmailContrato.id, para: emailPara, assunto: emailAssunto, mensagem: emailMensagem }),
+                      });
+                      if (res.ok) setEmailEnviado(true);
+                      else alert("Erro ao enviar e-mail. Verifique as configurações de SMTP em Configurações.");
+                    } catch { alert("Erro ao enviar e-mail."); }
+                    setEnviandoEmail(false);
+                  }} style={{ padding: "9px 22px", borderRadius: 8, background: "#2563EB", color: "#fff", border: "none", fontSize: 13, fontWeight: 700, cursor: "pointer", opacity: enviandoEmail || !emailPara || !emailAssunto ? 0.6 : 1 }}>
+                    {enviandoEmail ? "Enviando…" : "Enviar"}
+                  </button>
+                  <button onClick={() => setModalEmailContrato(null)} style={{ padding: "9px 16px", borderRadius: 8, background: "transparent", color: "var(--color-text-secondary)", border: "0.5px solid var(--color-border-secondary)", fontSize: 13, cursor: "pointer" }}>
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Modal excluir contrato */}
+      {confirmExcluirContrato && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center" }}
+          onClick={e => e.target === e.currentTarget && setConfirmExcluirContrato(null)}>
+          <div style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 14, padding: "28px 32px", width: 400, boxShadow: "0 24px 64px rgba(0,0,0,0.22)" }}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: "var(--color-text-primary)", marginBottom: 10 }}>Excluir contrato?</div>
+            <div style={{ fontSize: 13, color: "var(--color-text-secondary)", marginBottom: 22 }}>
+              O contrato <strong>{confirmExcluirContrato.nome_template ?? "Contrato"}</strong> será excluído permanentemente.
+            </div>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button disabled={excluindoContrato} onClick={async () => {
+                setExcluindoContrato(true);
+                await createClient().from("crm_contracts").delete().eq("id", confirmExcluirContrato.id);
+                setExcluindoContrato(false);
+                setConfirmExcluirContrato(null);
+                carregar();
+              }} style={{ padding: "9px 20px", borderRadius: 8, background: "#EF4444", color: "#fff", border: "none", fontSize: 13, fontWeight: 700, cursor: "pointer", opacity: excluindoContrato ? 0.6 : 1 }}>
+                {excluindoContrato ? "Excluindo…" : "Excluir"}
+              </button>
+              <button onClick={() => setConfirmExcluirContrato(null)} style={{ padding: "9px 16px", borderRadius: 8, background: "transparent", color: "var(--color-text-secondary)", border: "0.5px solid var(--color-border-secondary)", fontSize: 13, cursor: "pointer" }}>
+                Cancelar
+              </button>
+            </div>
           </div>
         </div>
       )}
