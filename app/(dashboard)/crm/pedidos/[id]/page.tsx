@@ -129,11 +129,19 @@ export default function PedidoDetailPage() {
       CEP_CLIENTE:          c?.cep ?? "",
       NUMERO_PEDIDO:        pedido.numero ?? "",
       DATA_EVENTO:          dataEvento,
-      HORA_EVENTO:          horaEvento,
-      LOCAL_EVENTO:         localEvento,
+      HORA_EVENTO:          pedido.hora_evento ?? horaEvento,
+      LOCAL_EVENTO:         (() => {
+        const cat = (pedido.categoria ?? "").toLowerCase();
+        const isCasamento = cat.includes("casamento") || cat === "bodas";
+        if (isCasamento) {
+          const parts = [pedido.local_cerimonia, pedido.local_recepcao].filter(Boolean);
+          return parts.length > 0 ? parts.join(" / ") : localEvento;
+        }
+        return pedido.local_evento ?? localEvento;
+      })(),
       CIDADE_EVENTO:        cidadeEvento,
       ESTADO_EVENTO:        estadoEvento,
-      CONVIDADOS:           convidados,
+      CONVIDADOS:           pedido.convidados != null ? String(pedido.convidados) : convidados,
       LOCAL_CERIMONIA:      pedido.local_cerimonia ?? "",
       LOCAL_RECEPCAO:       pedido.local_recepcao ?? "",
       VALOR_TOTAL:          formatBRL(pedido.total ?? 0),
