@@ -7,9 +7,9 @@ import { createClient } from "@/lib/supabase/client";
 import FormPedido from "../_components/FormPedido";
 import { PEDIDO_STATUS_MAP, FIN_STATUS_MAP } from "@/lib/constants/statusMaps";
 import { formatBRL, formatData } from "@/lib/utils/format";
-import type { CrmOrder, CrmFinancialEntry } from "@/lib/supabase/types";
+import type { CrmOrder, CrmFinancialEntry, CrmContractTemplate, CrmContract } from "@/lib/supabase/types";
 
-type OrderWithCliente = CrmOrder & { clientes?: { nome: string } | null };
+type OrderWithCliente = CrmOrder & { clientes?: { id: string; nome: string } | null };
 
 type OrderItem = {
   id: string;
@@ -37,18 +37,130 @@ export default function PedidoDetailPage() {
   const [deleting,      setDeleting]      = useState(false);
   const [agendaMsg,     setAgendaMsg]     = useState("");
 
+  // Contratos
+  const [contratos,       setContratos]       = useState<CrmContract[]>([]);
+  const [modalContrato,   setModalContrato]   = useState(false);
+  const [templates,       setTemplates]       = useState<CrmContractTemplate[]>([]);
+  const [templateId,      setTemplateId]      = useState("");
+  const [horaEvento,      setHoraEvento]      = useState("");
+  const [localEvento,     setLocalEvento]     = useState("");
+  const [cidadeEvento,    setCidadeEvento]    = useState("");
+  const [estadoEvento,    setEstadoEvento]    = useState("");
+  const [convidados,      setConvidados]      = useState("");
+  const [gerandoContrato, setGerandoContrato] = useState(false);
+
   const carregar = () => {
     const sb = createClient();
     Promise.all([
       sb.from("crm_orders").select("*, clientes(id, nome)").eq("id", id).single(),
       sb.from("crm_financial_entries").select("*").eq("pedido_id", id).order("vencimento"),
       sb.from("crm_order_items").select("*, crm_products(nome)").eq("pedido_id", id).order("descricao"),
-    ]).then(([{ data: p }, { data: f }, { data: oi }]) => {
+      sb.from("crm_contracts").select("id, nome_template, created_at").eq("pedido_id", id).order("created_at"),
+    ]).then(([{ data: p }, { data: f }, { data: oi }, { data: ct }]) => {
       setPedido(p as OrderWithCliente | null);
       setFinanceiro((f ?? []) as CrmFinancialEntry[]);
       setItens((oi ?? []) as OrderItem[]);
+      setContratos((ct ?? []) as CrmContract[]);
       setLoading(false);
     });
+  };
+
+  const abrirModalContrato = async () => {
+    const sb = createClient();
+    const fotografoId = pedido?.fotografo_id;
+    if (!fotografoId) return;
+    const { data } = await sb.from("crm_contract_templates").select("*").eq("fotografo_id", fotografoId).order("created_at");
+    setTemplates((data ?? []) as CrmContractTemplate[]);
+    setTemplateId((data ?? [])[0]?.id ?? "");
+    // Restaurar últimos valores do evento do localStorage
+    try {
+      const saved = JSON.parse(localStorage.getItem("contrato_evento_" + fotografoId) ?? "{}");
+      setHoraEvento(saved.hora ?? ""); setLocalEvento(saved.local ?? "");
+      setCidadeEvento(saved.cidade ?? ""); setEstadoEvento(saved.estado ?? "");
+      setConvidados(saved.convidados ?? "");
+    } catch { /* ignore */ }
+    setModalContrato(true);
+  };
+
+  const gerarContrato = async () => {
+    if (!pedido || !templateId) return;
+    setGerandoContrato(true);
+    const sb = createClient();
+    const template = templates.find(t => t.id === templateId);
+    if (!template) { setGerandoContrato(false); return; }
+
+    // Buscar dados completos do cliente e fotógrafo
+    const [{ data: cli }, { data: fot }] = await Promise.all([
+      pedido.cliente_id ? sb.from("clientes").select("*").eq("id", pedido.cliente_id).single() : Promise.resolve({ data: null }),
+      sb.from("fotografos").select("nome_completo, nome_empresa, cidade, estado").eq("id", pedido.fotografo_id).single(),
+    ]);
+
+    const c = cli as Record<string, string | null> | null;
+    const f = fot as { nome_completo: string | null; nome_empresa: string | null; cidade: string | null; estado: string | null } | null;
+
+    const receitas = financeiro.filter(fi => fi.tipo === "receita");
+    const itensHtml = itens.length > 0
+      ? "<ul>" + itens.map(i => `<li>${i.descricao || ""} — ${i.quantidade}× ${formatBRL(i.preco_unit)} = <strong>${formatBRL(i.total)}</strong></li>`).join("") + "</ul>"
+      : "";
+    const cronogramaHtml = receitas.length > 0
+      ? "<ul>" + receitas.map(fi => `<li>Parcela ${fi.parcela ?? ""} — Vencimento: ${new Date(fi.vencimento + "T12:00:00").toLocaleDateString("pt-BR")} — <strong>${formatBRL(fi.valor)}</strong></li>`).join("") + "</ul>"
+      : "";
+
+    const enderecoCliente = [c?.logradouro, c?.numero].filter(Boolean).join(", ");
+    const dataAtual = new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" });
+    const dataEvento = pedido.data_evento ? new Date(pedido.data_evento + "T12:00:00").toLocaleDateString("pt-BR") : "";
+
+    const vars: Record<string, string> = {
+      NOME_CLIENTE:         c?.nome ?? "",
+      CPF_CLIENTE:          c?.cpf ?? "",
+      RG_CLIENTE:           c?.rg ?? "",
+      EMAIL_CLIENTE:        c?.email ?? "",
+      TELEFONE_CLIENTE:     c?.telefone ?? "",
+      WHATSAPP_CLIENTE:     c?.whatsapp ?? "",
+      ENDERECO_CLIENTE:     enderecoCliente,
+      BAIRRO_CLIENTE:       c?.bairro ?? "",
+      CIDADE_CLIENTE:       c?.cidade ?? "",
+      ESTADO_CLIENTE:       c?.estado ?? "",
+      CEP_CLIENTE:          c?.cep ?? "",
+      NUMERO_PEDIDO:        pedido.numero ?? "",
+      DATA_EVENTO:          dataEvento,
+      HORA_EVENTO:          horaEvento,
+      LOCAL_EVENTO:         localEvento,
+      CIDADE_EVENTO:        cidadeEvento,
+      ESTADO_EVENTO:        estadoEvento,
+      CONVIDADOS:           convidados,
+      VALOR_TOTAL:          formatBRL(pedido.total ?? 0),
+      QTD_PARCELAS:         String(receitas.length),
+      ITENS_CONTRATO:       itensHtml,
+      CRONOGRAMA_PAGAMENTO: cronogramaHtml,
+      NOME_EMPRESA:         f?.nome_empresa ?? f?.nome_completo ?? "",
+      CIDADE_EMPRESA:       f?.cidade ?? "",
+      ESTADO_EMPRESA:       f?.estado ?? "",
+      DATA_ATUAL:           dataAtual,
+    };
+
+    let corpoGerado = template.corpo;
+    for (const [key, val] of Object.entries(vars)) {
+      corpoGerado = corpoGerado.replaceAll(`{{${key}}}`, val);
+    }
+
+    // Salvar dados do evento no localStorage para próxima vez
+    try {
+      localStorage.setItem("contrato_evento_" + pedido.fotografo_id, JSON.stringify({ hora: horaEvento, local: localEvento, cidade: cidadeEvento, estado: estadoEvento, convidados }));
+    } catch { /* ignore */ }
+
+    const { data: contrato } = await sb.from("crm_contracts").insert({
+      fotografo_id: pedido.fotografo_id,
+      pedido_id: pedido.id,
+      template_id: templateId,
+      nome_template: template.nome,
+      corpo_gerado: corpoGerado,
+    }).select("id").single();
+
+    setGerandoContrato(false);
+    setModalContrato(false);
+    carregar();
+    if (contrato?.id) window.open(`/crm/contratos/${contrato.id}`, "_blank");
   };
 
   useEffect(() => { carregar(); }, [id]);
@@ -230,7 +342,7 @@ export default function PedidoDetailPage() {
 
           {/* Lançamentos financeiros */}
           {financeiro.length > 0 && (
-            <div style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 12, overflow: "hidden" }}>
+            <div style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 12, overflow: "hidden", marginBottom: 16 }}>
               <div style={{ padding: "9px 20px", borderBottom: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-secondary)" }}>
                 <span style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.06em" }}>Lançamentos financeiros</span>
               </div>
@@ -256,7 +368,91 @@ export default function PedidoDetailPage() {
               })}
             </div>
           )}
+
+          {/* Contratos */}
+          <div style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 12, overflow: "hidden" }}>
+            <div style={{ padding: "9px 20px", borderBottom: contratos.length > 0 ? "0.5px solid var(--color-border-tertiary)" : "none", background: "var(--color-background-secondary)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.06em" }}>Contratos</span>
+              <button onClick={abrirModalContrato} style={{ padding: "5px 12px", borderRadius: 7, background: "#111", color: "#fff", border: "none", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+                + Gerar contrato
+              </button>
+            </div>
+            {contratos.length === 0 ? (
+              <div style={{ padding: "18px 20px", fontSize: 13, color: "var(--color-text-secondary)" }}>Nenhum contrato gerado para este pedido.</div>
+            ) : (
+              contratos.map((c, i) => (
+                <div key={c.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 20px", borderBottom: i < contratos.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none" }}>
+                  <span style={{ fontSize: 20 }}>📄</span>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 13, fontWeight: 500, color: "var(--color-text-primary)" }}>{c.nome_template ?? "Contrato"}</div>
+                    <div style={{ fontSize: 11, color: "var(--color-text-secondary)" }}>Gerado em {new Date(c.created_at).toLocaleDateString("pt-BR")}</div>
+                  </div>
+                  <a href={`/crm/contratos/${c.id}`} target="_blank" rel="noreferrer"
+                    style={{ padding: "6px 14px", borderRadius: 7, border: "0.5px solid var(--color-border-secondary)", background: "transparent", fontSize: 12, color: "var(--color-text-secondary)", cursor: "pointer", textDecoration: "none" }}>
+                    Ver contrato
+                  </a>
+                </div>
+              ))
+            )}
+          </div>
         </>
+      )}
+
+      {/* Modal gerar contrato */}
+      {modalContrato && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center" }}
+          onClick={e => e.target === e.currentTarget && setModalContrato(false)}>
+          <div style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 14, padding: "28px 32px", width: 520, maxHeight: "90vh", overflowY: "auto", boxShadow: "0 24px 64px rgba(0,0,0,0.22)" }}>
+            <div style={{ fontSize: 16, fontWeight: 700, color: "var(--color-text-primary)", marginBottom: 20 }}>Gerar contrato</div>
+
+            {templates.length === 0 ? (
+              <div style={{ fontSize: 13, color: "var(--color-text-secondary)", marginBottom: 20 }}>
+                Nenhum modelo de contrato cadastrado. Acesse <a href="/crm/config" style={{ color: "#2563EB" }}>Configurações → Contratos</a> para criar um modelo.
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                {/* Modelo */}
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>Modelo de contrato *</div>
+                  <select value={templateId} onChange={e => setTemplateId(e.target.value)}
+                    style={{ width: "100%", boxSizing: "border-box", padding: "9px 12px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", fontSize: 13, color: "var(--color-text-primary)", outline: "none" }}>
+                    {templates.map(t => <option key={t.id} value={t.id}>{t.nome}</option>)}
+                  </select>
+                </div>
+
+                {/* Dados do evento */}
+                <div style={{ borderTop: "0.5px solid var(--color-border-tertiary)", paddingTop: 16 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 12 }}>Dados do evento</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                    {[
+                      { label: "Hora do evento", val: horaEvento, set: setHoraEvento, ph: "Ex: 16:00" },
+                      { label: "Local / Espaço", val: localEvento, set: setLocalEvento, ph: "Ex: Espaço Villa Lobos" },
+                      { label: "Cidade do evento", val: cidadeEvento, set: setCidadeEvento, ph: "Ex: Ourinhos" },
+                      { label: "Estado do evento", val: estadoEvento, set: setEstadoEvento, ph: "Ex: SP" },
+                      { label: "Nº de convidados", val: convidados, set: setConvidados, ph: "Ex: 200" },
+                    ].map(({ label, val, set, ph }) => (
+                      <div key={label}>
+                        <div style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", marginBottom: 5 }}>{label}</div>
+                        <input value={val} onChange={e => set(e.target.value)} placeholder={ph}
+                          style={{ width: "100%", boxSizing: "border-box", padding: "8px 10px", borderRadius: 7, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", fontSize: 13, color: "var(--color-text-primary)", outline: "none" }} />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
+                  <button onClick={gerarContrato} disabled={gerandoContrato || !templateId}
+                    style={{ padding: "9px 22px", borderRadius: 8, background: "#111", color: "#fff", border: "none", fontSize: 13, fontWeight: 700, cursor: "pointer", opacity: gerandoContrato || !templateId ? 0.6 : 1 }}>
+                    {gerandoContrato ? "Gerando…" : "Gerar e abrir contrato"}
+                  </button>
+                  <button onClick={() => setModalContrato(false)} style={{ padding: "9px 16px", borderRadius: 8, background: "transparent", color: "var(--color-text-secondary)", border: "0.5px solid var(--color-border-secondary)", fontSize: 13, cursor: "pointer" }}>
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       )}
 
       {/* Modal exclusão */}

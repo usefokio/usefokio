@@ -4,8 +4,9 @@ import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import type { CrmProductCategory, CrmChartOfAccount, CrmOportunidadeStatus, CrmFunnel, CrmFunnelStage, CrmAgendamentoCategoria } from "@/lib/supabase/types";
+import { AbaContratos } from "./_components/AbaContratos";
 
-type Tab = "produtos" | "plano" | "canais" | "opp_cats" | "status" | "funis" | "agenda_cats" | "email";
+type Tab = "produtos" | "plano" | "canais" | "opp_cats" | "status" | "funis" | "agenda_cats" | "email" | "contratos";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -1082,6 +1083,7 @@ export default function CrmConfigPage() {
         <button style={TAB_ST(tab === "agenda_cats")} onClick={() => setTab("agenda_cats")}>📅 Cat. Agendamento</button>
         <button style={TAB_ST(tab === "plano")} onClick={() => setTab("plano")}>📊 Plano de Contas</button>
         <button style={TAB_ST(tab === "email")} onClick={() => setTab("email")}>✉️ E-mail</button>
+        <button style={TAB_ST(tab === "contratos")} onClick={() => setTab("contratos")}>📄 Contratos</button>
       </div>
 
       {/* ── Funis ── */}
@@ -1194,6 +1196,11 @@ export default function CrmConfigPage() {
       {/* ── E-mail ── */}
       {tab === "email" && fotografo && (
         <AbaEmail fotografoId={fotografo.id} />
+      )}
+
+      {/* ── Contratos ── */}
+      {tab === "contratos" && fotografo && (
+        <AbaContratos fotografoId={fotografo.id} />
       )}
     </div>
   );

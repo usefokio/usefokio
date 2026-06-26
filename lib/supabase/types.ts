@@ -572,3 +572,6 @@ export type CrmSchedule = {
   pedido_id: string | null;
   created_at: string;
 };
+
+export type CrmContractTemplate = { id: string; fotografo_id: string; nome: string; corpo: string; created_at: string; updated_at: string };
+export type CrmContract = { id: string; fotografo_id: string; pedido_id: string; template_id: string | null; nome_template: string | null; corpo_gerado: string; created_at: string };
