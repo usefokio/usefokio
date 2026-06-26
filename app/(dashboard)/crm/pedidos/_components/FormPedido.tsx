@@ -584,10 +584,7 @@ export default function FormPedido({ inicial, onSalvo }: Props) {
             <input type="number" min="0" value={form.convidados} onChange={e => upd("convidados", e.target.value)} placeholder="Ex: 150" style={inputStyle} />
           </Field>
         </div>
-        <Field label="Local do evento">
-          <input value={form.local_evento} onChange={e => upd("local_evento", e.target.value)} placeholder="Ex: Espaço Villa dos Sonhos" style={inputStyle} />
-        </Field>
-        {(form.categoria.toLowerCase().includes("casamento") || form.categoria === "Bodas") && (
+        {(form.categoria.toLowerCase().includes("casamento") || form.categoria === "Bodas") ? (
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
             <Field label="Local da cerimônia">
               <input value={form.local_cerimonia} onChange={e => upd("local_cerimonia", e.target.value)} placeholder="Ex: Igreja São Francisco" style={inputStyle} />
@@ -596,6 +593,10 @@ export default function FormPedido({ inicial, onSalvo }: Props) {
               <input value={form.local_recepcao} onChange={e => upd("local_recepcao", e.target.value)} placeholder="Ex: Clube Náutico" style={inputStyle} />
             </Field>
           </div>
+        ) : (
+          <Field label="Local do evento">
+            <input value={form.local_evento} onChange={e => upd("local_evento", e.target.value)} placeholder="Ex: Espaço Villa dos Sonhos" style={inputStyle} />
+          </Field>
         )}
       </div>
 
