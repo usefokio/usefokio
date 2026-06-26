@@ -458,8 +458,8 @@ function FinanceiroInner() {
         ))}
       </div>
 
-      {/* Filtros rápidos — só na aba A Receber */}
-      {aba === "receber" && (
+      {/* Filtros rápidos — A Receber e A Pagar */}
+      {(aba === "receber" || aba === "pagar") && (
         <div style={{ display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap" }}>
           {([
             { key: "",          label: "Todos"      },
