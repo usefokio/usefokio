@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, Suspense } from "react";
-import { useParams, useSearchParams } from "next/navigation";
+import { useParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 type Entrada = {
@@ -12,6 +12,7 @@ type Entrada = {
   pago_em: string | null;
   status: string;
   conta_id: string | null;
+  fotografo_id: string;
   crm_orders?: {
     nome: string | null;
     numero: string | null;
@@ -25,19 +26,31 @@ type Entrada = {
 };
 
 function ReciboConteudo() {
-  const { id }      = useParams<{ id: string }>();
-  const searchParams = useSearchParams();
-  const contaNome   = searchParams.get("conta");
+  const { id } = useParams<{ id: string }>();
 
   const [entrada, setEntrada] = useState<Entrada | null | undefined>(undefined);
+  const [nomefotografo, setNomefotografo] = useState<string>("Fotógrafo");
 
   useEffect(() => {
     createClient()
       .from("crm_financial_entries")
-      .select("id, descricao, valor, vencimento, pago_em, status, conta_id, crm_orders(nome, numero, data_evento, clientes(nome, email, telefone))")
+      .select("id, descricao, valor, vencimento, pago_em, status, conta_id, fotografo_id, crm_orders(nome, numero, data_evento, clientes(nome, email, telefone))")
       .eq("id", id)
       .single()
-      .then(({ data }) => setEntrada((data as unknown as Entrada) ?? null));
+      .then(({ data }) => {
+        const entry = (data as unknown as Entrada) ?? null;
+        setEntrada(entry);
+        if (entry?.fotografo_id) {
+          createClient()
+            .from("fotografos")
+            .select("nome_completo, nome_empresa")
+            .eq("id", entry.fotografo_id)
+            .single()
+            .then(({ data: f }) => {
+              if (f) setNomefotografo((f as { nome_completo: string | null; nome_empresa: string | null }).nome_empresa || (f as { nome_completo: string | null }).nome_completo || "Fotógrafo");
+            });
+        }
+      });
   }, [id]);
 
   const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -102,7 +115,7 @@ function ReciboConteudo() {
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
               <div>
                 <div style={{ fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase", color: "#9CA3AF", marginBottom: 4 }}>Recibo de Pagamento</div>
-                <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: "-0.02em" }}>UseFokio</div>
+                <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: "-0.02em" }}>{nomefotografo}</div>
               </div>
               <div style={{ textAlign: "right" }}>
                 <div style={{ fontSize: 10, color: "#9CA3AF", marginBottom: 2 }}>Nº</div>
@@ -154,13 +167,6 @@ function ReciboConteudo() {
                   <div style={{ fontSize: 13, color: "#6B7280", marginTop: 2 }}>Data do evento: {fmtData(entrada.crm_orders.data_evento)}</div>
                 )}
               </div>
-
-              {contaNome && (
-                <div>
-                  <div style={{ fontSize: 10, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 4 }}>Conta bancária</div>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: "#111827" }}>{contaNome}</div>
-                </div>
-              )}
 
               <div>
                 <div style={{ fontSize: 10, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 4 }}>Vencimento original</div>

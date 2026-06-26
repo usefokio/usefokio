@@ -458,9 +458,8 @@ function FinanceiroInner() {
         ))}
       </div>
 
-      {/* Filtros rápidos — A Receber e A Pagar */}
-      {(aba === "receber" || aba === "pagar") && (
-        <div style={{ display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap" }}>
+      {/* Filtros rápidos */}
+      <div style={{ display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap" }}>
           {([
             { key: "",          label: "Todos"      },
             { key: "vencidas",  label: "Vencidas"   },
@@ -483,7 +482,6 @@ function FinanceiroInner() {
             );
           })}
         </div>
-      )}
 
       {/* Card resumo */}
       {!loading && filtradas.length > 0 && (
