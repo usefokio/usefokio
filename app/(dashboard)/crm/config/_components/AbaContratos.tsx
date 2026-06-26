@@ -29,6 +29,8 @@ const VARIAVEIS: { grupo: string; vars: { key: string; label: string }[] }[] = [
     { key: "{{CIDADE_EVENTO}}", label: "Cidade do evento" },
     { key: "{{ESTADO_EVENTO}}", label: "Estado do evento" },
     { key: "{{CONVIDADOS}}", label: "Nº de convidados" },
+    { key: "{{LOCAL_CERIMONIA}}", label: "Local da cerimônia" },
+    { key: "{{LOCAL_RECEPCAO}}", label: "Local da recepção" },
     { key: "{{VALOR_TOTAL}}", label: "Valor total" },
     { key: "{{QTD_PARCELAS}}", label: "Qtd. parcelas" },
     { key: "{{ITENS_CONTRATO}}", label: "Itens contratados" },

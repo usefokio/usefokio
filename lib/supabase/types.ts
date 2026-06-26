@@ -515,6 +515,11 @@ export type CrmOrder = {
   payment_method: string | null;
   categoria: string | null;
   data_evento: string | null;
+  hora_evento: string | null;
+  local_evento: string | null;
+  convidados: number | null;
+  local_cerimonia: string | null;
+  local_recepcao: string | null;
   data_entrega: string | null;
   observacoes: string | null;
   plano_parcelas: Record<string, unknown> | null;

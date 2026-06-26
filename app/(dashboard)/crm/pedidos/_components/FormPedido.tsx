@@ -19,6 +19,11 @@ type FormData = {
   discount: string;
   other_expenses: string;
   data_evento: string;
+  hora_evento: string;
+  local_evento: string;
+  convidados: string;
+  local_cerimonia: string;
+  local_recepcao: string;
   observacoes: string;
 };
 
@@ -52,7 +57,8 @@ type ParcelaPreview = { vencimento: string; valor: number; label: string };
 const EMPTY: FormData = {
   nome: "", cliente_id: "", categoria: "", status: "aguardando_sinal",
   total: "", discount: "0", other_expenses: "0",
-  data_evento: "", observacoes: "",
+  data_evento: "", hora_evento: "", local_evento: "", convidados: "",
+  local_cerimonia: "", local_recepcao: "", observacoes: "",
 };
 
 const EMPTY_PLANO: Omit<PlanoItem, "tmpId"> = {
@@ -347,6 +353,11 @@ export default function FormPedido({ inicial, onSalvo }: Props) {
       other_expenses:  parseMoney(form.other_expenses),
       payment_method:  planos.length > 0 ? (planos[0].forma || null) : null,
       data_evento:     form.data_evento || null,
+      hora_evento:     form.hora_evento.trim() || null,
+      local_evento:    form.local_evento.trim() || null,
+      convidados:      form.convidados ? parseInt(form.convidados) || null : null,
+      local_cerimonia: form.local_cerimonia.trim() || null,
+      local_recepcao:  form.local_recepcao.trim() || null,
       data_entrega:    null,
       observacoes:     form.observacoes.trim() || null,
       updated_at:      new Date().toISOString(),
@@ -547,9 +558,30 @@ export default function FormPedido({ inicial, onSalvo }: Props) {
             </select>
           </Field>
         </div>
-        <Field label="Data do evento">
-          <input type="date" value={form.data_evento} onChange={e => upd("data_evento", e.target.value)} style={{ ...inputStyle, maxWidth: 240 }} />
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14 }}>
+          <Field label="Data do evento">
+            <input type="date" value={form.data_evento} onChange={e => upd("data_evento", e.target.value)} style={inputStyle} />
+          </Field>
+          <Field label="Horário">
+            <input value={form.hora_evento} onChange={e => upd("hora_evento", e.target.value)} placeholder="Ex: 16h" style={inputStyle} />
+          </Field>
+          <Field label="Convidados">
+            <input type="number" min="0" value={form.convidados} onChange={e => upd("convidados", e.target.value)} placeholder="Ex: 150" style={inputStyle} />
+          </Field>
+        </div>
+        <Field label="Local do evento">
+          <input value={form.local_evento} onChange={e => upd("local_evento", e.target.value)} placeholder="Ex: Espaço Villa dos Sonhos" style={inputStyle} />
         </Field>
+        {(form.categoria.toLowerCase().includes("casamento") || form.categoria === "Bodas") && (
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+            <Field label="Local da cerimônia">
+              <input value={form.local_cerimonia} onChange={e => upd("local_cerimonia", e.target.value)} placeholder="Ex: Igreja São Francisco" style={inputStyle} />
+            </Field>
+            <Field label="Local da recepção">
+              <input value={form.local_recepcao} onChange={e => upd("local_recepcao", e.target.value)} placeholder="Ex: Clube Náutico" style={inputStyle} />
+            </Field>
+          </div>
+        )}
       </div>
 
       {/* ── Cliente ── */}

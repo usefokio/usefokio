@@ -72,12 +72,17 @@ export default function PedidoDetailPage() {
     const { data } = await sb.from("crm_contract_templates").select("*").eq("fotografo_id", fotografoId).order("created_at");
     setTemplates((data ?? []) as CrmContractTemplate[]);
     setTemplateId((data ?? [])[0]?.id ?? "");
-    // Restaurar últimos valores do evento do localStorage
+    // Pré-preencher com dados do pedido, complementar com localStorage para campos não salvos
+    setHoraEvento(pedido.hora_evento ?? "");
+    setLocalEvento(pedido.local_evento ?? "");
+    setConvidados(pedido.convidados != null ? String(pedido.convidados) : "");
     try {
       const saved = JSON.parse(localStorage.getItem("contrato_evento_" + fotografoId) ?? "{}");
-      setHoraEvento(saved.hora ?? ""); setLocalEvento(saved.local ?? "");
-      setCidadeEvento(saved.cidade ?? ""); setEstadoEvento(saved.estado ?? "");
-      setConvidados(saved.convidados ?? "");
+      if (!pedido.hora_evento)  setHoraEvento(saved.hora ?? "");
+      if (!pedido.local_evento) setLocalEvento(saved.local ?? "");
+      if (pedido.convidados == null) setConvidados(saved.convidados ?? "");
+      setCidadeEvento(saved.cidade ?? "");
+      setEstadoEvento(saved.estado ?? "");
     } catch { /* ignore */ }
     setModalContrato(true);
   };
@@ -129,6 +134,8 @@ export default function PedidoDetailPage() {
       CIDADE_EVENTO:        cidadeEvento,
       ESTADO_EVENTO:        estadoEvento,
       CONVIDADOS:           convidados,
+      LOCAL_CERIMONIA:      pedido.local_cerimonia ?? "",
+      LOCAL_RECEPCAO:       pedido.local_recepcao ?? "",
       VALOR_TOTAL:          formatBRL(pedido.total ?? 0),
       QTD_PARCELAS:         String(receitas.length),
       ITENS_CONTRATO:       itensHtml,
@@ -285,6 +292,11 @@ export default function PedidoDetailPage() {
             discount:       pedido.discount != null ? String(pedido.discount) : "0",
             other_expenses: pedido.other_expenses != null ? String(pedido.other_expenses) : "0",
             data_evento:    pedido.data_evento ?? "",
+            hora_evento:    pedido.hora_evento ?? "",
+            local_evento:   pedido.local_evento ?? "",
+            convidados:     pedido.convidados != null ? String(pedido.convidados) : "",
+            local_cerimonia: pedido.local_cerimonia ?? "",
+            local_recepcao:  pedido.local_recepcao ?? "",
             observacoes:    pedido.observacoes ?? "",
           }}
           onSalvo={(_, agendaAtualizado) => {
