@@ -59,9 +59,10 @@ export default function ExtratoConta() {
     ? movimentos.filter(m => (m.pago_em ?? m.vencimento).startsWith(mesFiltro))
     : movimentos;
 
+  const saldoInicial = conta?.saldo_inicial ?? 0;
   const entradas = filtrados.filter(m => m.tipo === "receita").reduce((s, m) => s + m.valor, 0);
   const saidas   = filtrados.filter(m => m.tipo === "despesa").reduce((s, m) => s + m.valor, 0);
-  const saldo    = entradas - saidas;
+  const saldo    = saldoInicial + entradas - saidas;
 
   const TIPO_LABEL: Record<string, string> = {
     conta_corrente: "Conta Corrente", caixa: "Caixa", poupanca: "Poupança", outros: "Outros",

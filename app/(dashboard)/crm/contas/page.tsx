@@ -219,18 +219,13 @@ export default function ContasBancariasPage() {
               {/* Saldo */}
               {(() => {
                 const s = saldos[c.id];
-                const saldo = s ? s.receitas - s.despesas : null;
+                const saldoInicial = c.saldo_inicial ?? 0;
+                const saldo = saldoInicial + (s ? s.receitas - s.despesas : 0);
                 const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
                 return (
                   <div style={{ textAlign: "right", flexShrink: 0, minWidth: 120 }}>
-                    {saldo !== null ? (
-                      <>
-                        <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginBottom: 2 }}>Saldo</div>
-                        <div style={{ fontSize: 15, fontWeight: 700, color: saldo >= 0 ? "#059669" : "#EF4444" }}>{fmt(saldo)}</div>
-                      </>
-                    ) : (
-                      <div style={{ fontSize: 11, color: "var(--color-text-secondary)" }}>Sem movimentações</div>
-                    )}
+                    <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginBottom: 2 }}>Saldo</div>
+                    <div style={{ fontSize: 15, fontWeight: 700, color: saldo >= 0 ? "#059669" : "#EF4444" }}>{fmt(saldo)}</div>
                   </div>
                 );
               })()}

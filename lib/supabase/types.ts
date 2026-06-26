@@ -489,6 +489,7 @@ export type CrmContaBancaria = {
   fone: string | null;
   gerente: string | null;
   ativo: boolean;
+  saldo_inicial: number | null;
   created_at: string;
   updated_at: string;
 };
