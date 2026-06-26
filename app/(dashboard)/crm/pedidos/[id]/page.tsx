@@ -441,24 +441,59 @@ export default function PedidoDetailPage() {
                 </div>
 
                 {/* Dados do evento */}
-                <div style={{ borderTop: "0.5px solid var(--color-border-tertiary)", paddingTop: 16 }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 12 }}>Dados do evento</div>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                    {[
-                      { label: "Hora do evento", val: horaEvento, set: setHoraEvento, ph: "Ex: 16:00" },
-                      { label: "Local / Espaço", val: localEvento, set: setLocalEvento, ph: "Ex: Espaço Villa Lobos" },
-                      { label: "Cidade do evento", val: cidadeEvento, set: setCidadeEvento, ph: "Ex: Ourinhos" },
-                      { label: "Estado do evento", val: estadoEvento, set: setEstadoEvento, ph: "Ex: SP" },
-                      { label: "Nº de convidados", val: convidados, set: setConvidados, ph: "Ex: 200" },
-                    ].map(({ label, val, set, ph }) => (
-                      <div key={label}>
-                        <div style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", marginBottom: 5 }}>{label}</div>
-                        <input value={val} onChange={e => set(e.target.value)} placeholder={ph}
-                          style={{ width: "100%", boxSizing: "border-box", padding: "8px 10px", borderRadius: 7, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", fontSize: 13, color: "var(--color-text-primary)", outline: "none" }} />
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                {(() => {
+                  const cat = (pedido.categoria ?? "").toLowerCase();
+                  const isCasamento = cat.includes("casamento") || cat === "bodas";
+                  const localSalvo = isCasamento
+                    ? [pedido.local_cerimonia, pedido.local_recepcao].filter(Boolean).join(" / ")
+                    : pedido.local_evento ?? "";
+                  const horaSalva = pedido.hora_evento ?? "";
+                  const convidadosSalvos = pedido.convidados != null ? String(pedido.convidados) : "";
+
+                  const inpSt: React.CSSProperties = { width: "100%", boxSizing: "border-box", padding: "8px 10px", borderRadius: 7, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", fontSize: 13, color: "var(--color-text-primary)", outline: "none" };
+                  const chipSt: React.CSSProperties = { padding: "7px 10px", borderRadius: 7, background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-tertiary)", fontSize: 13, color: "var(--color-text-primary)" };
+                  const labelSt: React.CSSProperties = { fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", marginBottom: 5 };
+
+                  const temPendentes = !horaSalva || !localSalvo || !convidadosSalvos || !cidadeEvento || !estadoEvento;
+
+                  return (
+                    <div style={{ borderTop: "0.5px solid var(--color-border-tertiary)", paddingTop: 16, display: "flex", flexDirection: "column", gap: 12 }}>
+                      {/* Campos já preenchidos no pedido — exibição somente leitura */}
+                      {(horaSalva || localSalvo || convidadosSalvos) && (
+                        <div>
+                          <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 10 }}>Dados do pedido</div>
+                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                            {horaSalva && <div><div style={labelSt}>Hora</div><div style={chipSt}>{horaSalva}</div></div>}
+                            {localSalvo && <div style={!horaSalva && !convidadosSalvos ? { gridColumn: "1 / -1" } : {}}><div style={labelSt}>{isCasamento ? "Cerimônia / Recepção" : "Local"}</div><div style={chipSt}>{localSalvo}</div></div>}
+                            {convidadosSalvos && <div><div style={labelSt}>Convidados</div><div style={chipSt}>{convidadosSalvos}</div></div>}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Campos pendentes — inputs */}
+                      {temPendentes && (
+                        <div>
+                          <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 10 }}>
+                            {horaSalva || localSalvo || convidadosSalvos ? "Complementar informações" : "Dados do evento"}
+                          </div>
+                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                            {!horaSalva && <div><div style={labelSt}>Hora do evento</div><input value={horaEvento} onChange={e => setHoraEvento(e.target.value)} placeholder="Ex: 16h" style={inpSt} /></div>}
+                            {!localSalvo && <div><div style={labelSt}>Local / Espaço</div><input value={localEvento} onChange={e => setLocalEvento(e.target.value)} placeholder="Ex: Espaço Villa Lobos" style={inpSt} /></div>}
+                            {!convidadosSalvos && <div><div style={labelSt}>Nº de convidados</div><input value={convidados} onChange={e => setConvidados(e.target.value)} placeholder="Ex: 200" style={inpSt} /></div>}
+                            <div><div style={labelSt}>Cidade do evento</div><input value={cidadeEvento} onChange={e => setCidadeEvento(e.target.value)} placeholder="Ex: Ourinhos" style={inpSt} /></div>
+                            <div><div style={labelSt}>Estado do evento</div><input value={estadoEvento} onChange={e => setEstadoEvento(e.target.value)} placeholder="Ex: SP" style={inpSt} /></div>
+                          </div>
+                        </div>
+                      )}
+                      {!temPendentes && (
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                          <div><div style={labelSt}>Cidade do evento</div><input value={cidadeEvento} onChange={e => setCidadeEvento(e.target.value)} placeholder="Ex: Ourinhos" style={inpSt} /></div>
+                          <div><div style={labelSt}>Estado do evento</div><input value={estadoEvento} onChange={e => setEstadoEvento(e.target.value)} placeholder="Ex: SP" style={inpSt} /></div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
                   <button onClick={gerarContrato} disabled={gerandoContrato || !templateId}
