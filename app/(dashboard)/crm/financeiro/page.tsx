@@ -462,10 +462,10 @@ function FinanceiroInner() {
       <div style={{ display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap" }}>
           {([
             { key: "",          label: "Todos"      },
-            { key: "vencidas",  label: "Vencidas"   },
+            { key: "vencidas",  label: "Vencidas",  apenasNaoPago: true },
             { key: "este-mes",  label: "Este mês"   },
             { key: "prox-mes",  label: "Próx. mês"  },
-          ] as const).map(({ key, label }) => {
+          ] as const).filter(f => !("apenasNaoPago" in f && f.apenasNaoPago && (aba === "recebidas" || aba === "pagas"))).map(({ key, label }) => {
             const ativo = periodoRapido === key && (key !== "" || mesFiltro === "");
             return (
               <button key={key}
