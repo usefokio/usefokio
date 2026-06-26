@@ -341,11 +341,26 @@ export default function FormPedido({ inicial, onSalvo }: Props) {
     setError("");
 
     const sb = createClient();
+
+    // Gerar número sequencial apenas para novos pedidos
+    let proximoNumero: number | null = null;
+    if (!isEditing) {
+      const { data: maxRow } = await sb.from("crm_orders")
+        .select("legacy_id")
+        .eq("fotografo_id", fotografo.id)
+        .not("legacy_id", "is", null)
+        .order("legacy_id", { ascending: false })
+        .limit(1)
+        .single();
+      proximoNumero = ((maxRow as { legacy_id: number } | null)?.legacy_id ?? 0) + 1;
+    }
+
     const payload = {
       fotografo_id:    fotografo.id,
       nome:            form.nome.trim(),
       cliente_id:      form.cliente_id || null,
       oportunidade_id: inicial?.oportunidade_id ?? null,
+      ...(proximoNumero !== null ? { legacy_id: proximoNumero, numero: String(proximoNumero) } : {}),
       categoria:       form.categoria || null,
       status:          form.status,
       total:           itens.length > 0 ? totalItens : parseMoney(form.total),
