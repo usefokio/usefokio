@@ -200,21 +200,10 @@ export default function PedidoDetailPage() {
     const taxa = parseFloat(modalTaxa.taxa.replace(",", ".")) || 0;
     if (taxa <= 0) return;
     setSalvandoTaxa(true);
-    const sb = createClient();
-    await sb.from("crm_financial_entries").update({ valor: modalTaxa.receita.valor + taxa }).eq("id", modalTaxa.receita.id);
-    await sb.from("crm_financial_entries").insert({
-      fotografo_id: pedido.fotografo_id,
-      tipo: "despesa",
-      descricao: `Tarifa cartão — ${new Date((modalTaxa.receita.pago_em ?? modalTaxa.receita.vencimento) + "T12:00:00").toLocaleDateString("pt-BR")}`,
-      valor: taxa,
-      vencimento: modalTaxa.receita.pago_em ?? modalTaxa.receita.vencimento,
-      pago_em: modalTaxa.receita.pago_em ?? null,
-      status: "pago",
-      conta_id: "48548e5c-3d52-4d1a-b6bd-4d1b148b7356",
-      conta_bancaria_id: modalTaxa.receita.conta_bancaria_id ?? null,
-      pedido_id: pedido.id,
-      internal_account_type: "pedido",
-    });
+    await createClient()
+      .from("crm_financial_entries")
+      .update({ valor: modalTaxa.receita.valor + taxa })
+      .eq("id", modalTaxa.receita.id);
     setSalvandoTaxa(false);
     setModalTaxa(null);
     carregar();

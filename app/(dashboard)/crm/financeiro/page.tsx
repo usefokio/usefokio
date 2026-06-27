@@ -44,7 +44,6 @@ type ModalReceber = {
   dataPagamento: string;
   contaId: string;
   contaPlanoId: string;
-  taxaCartao: string;
 };
 
 type ModalEditar = {
@@ -258,7 +257,6 @@ function FinanceiroInner() {
       dataPagamento: hoje,
       contaId: contas.length === 1 ? contas[0].id : "",
       contaPlanoId: e.conta_id ?? "",
-      taxaCartao: "",
     });
     setErroPagamento("");
     if (e.tipo === "despesa" && !e.conta_id && fotografo) {
@@ -283,7 +281,7 @@ function FinanceiroInner() {
     }
     setSalvandoPag(true);
     setErroPagamento("");
-    const { entry, dataPagamento, contaId, contaPlanoId, taxaCartao } = modalReceber;
+    const { entry, dataPagamento, contaId, contaPlanoId } = modalReceber;
     const updates: Record<string, string | null> = {
       status: "pago",
       pago_em: dataPagamento,
@@ -295,22 +293,6 @@ function FinanceiroInner() {
       .update(updates)
       .eq("id", entry.id);
     if (error) { setSalvandoPag(false); setErroPagamento(error.message); return; }
-    const taxa = parseFloat(taxaCartao.replace(",", ".")) || 0;
-    if (taxa > 0 && fotografo) {
-      await createClient().from("crm_financial_entries").insert({
-        fotografo_id: fotografo.id,
-        tipo: "despesa",
-        descricao: "Tarifa cartão",
-        valor: taxa,
-        vencimento: dataPagamento,
-        pago_em: dataPagamento,
-        status: "pago",
-        conta_id: "48548e5c-3d52-4d1a-b6bd-4d1b148b7356",
-        conta_bancaria_id: contaId || null,
-        pedido_id: entry.pedido_id ?? null,
-        internal_account_type: entry.pedido_id ? "pedido" : "direto",
-      });
-    }
     setSalvandoPag(false);
     const contaNome = contas.find(c => c.id === contaId)?.nome ?? "Conta";
     setModalReceber(null);
@@ -718,25 +700,6 @@ function FinanceiroInner() {
                     </label>
                   ))}
                 </div>
-              </div>
-            )}
-
-            {/* Taxa de cartão — apenas para receitas */}
-            {(aba === "receber" || aba === "recebidas") && (
-              <div style={{ marginBottom: 18 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>Taxa de cartão (R$) — opcional</div>
-                <input
-                  type="number" min="0" step="0.01"
-                  value={modalReceber.taxaCartao}
-                  onChange={e => setModalReceber(m => m ? { ...m, taxaCartao: e.target.value } : m)}
-                  placeholder="0,00"
-                  style={{ padding: "9px 12px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", fontSize: 13, color: "var(--color-text-primary)", outline: "none", width: "100%", boxSizing: "border-box" }}
-                />
-                {parseFloat(modalReceber.taxaCartao.replace(",", ".")) > 0 && (
-                  <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 4 }}>
-                    Uma despesa de Tarifa Bancária (5.6.4) será registrada automaticamente.
-                  </div>
-                )}
               </div>
             )}
 
