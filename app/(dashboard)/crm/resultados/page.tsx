@@ -9,10 +9,37 @@ import { GraficoMensal } from "./_components/GraficoMensal";
 type Conta = { id: string; codigo: string; nome: string };
 type Regime = "competencia" | "caixa";
 type PanoramaItem = { ano: number; receitas: number; despesas: number; lucro: number };
+type DrillEntry = {
+  id: string;
+  descricao: string | null;
+  valor: number;
+  data: string;
+  pedido_id?: string | null;
+  fonte: "entry" | "order";
+};
 
 const MESES = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
 const UNCAT_ID = "__naoclass__";
 const UNCAT_CONTA: Conta = { id: UNCAT_ID, codigo: "5.0", nome: "Não classificado" };
+
+const CATEGORIA_CODIGO: Record<string, string> = {
+  "Casamento - foto": "3.1.1", "Casamento - Foto": "3.1.1", "Bodas": "3.1.1",
+  "Casamento - Foto e Video": "3.1.1.2",
+  "Aniversário Infantil": "3.1.2", "Aniversario Infantil": "3.1.2",
+  "Aniversário Adulto": "3.1.2", "Aniversario Adulto": "3.1.2",
+  "Aniversário 15 anos": "3.1.2", "Batizado": "3.1.2",
+  "Evento Corporativo": "3.1.2", "Eventos": "3.1.2",
+  "Ensaio Gestante": "3.1.3", "Ensaio/Book": "3.1.3", "Ensaio Infantil": "3.1.3",
+  "Ensaio 15 anos": "3.1.3", "Ensaio Casal": "3.1.3", "Ensaio Familia": "3.1.3",
+  "Ensaio Newborn": "3.1.3", "Acompanhamento": "3.1.3",
+  "Diagramação de livro/álbum": "3.1.4",
+  "Consultoria": "3.1.6", "Cursos e Treinamento": "3.1.7",
+  "Vendas Extras": "3.1.9", "Outros Serviços": "3.1.9",
+  "Publicidade": "3.1.9", "Foto Produto": "3.1.9",
+  "Casamento - Video": "3.1.11",
+  "Video cultural": "3.1.12", "Video Cultural": "3.1.12",
+  "Video Geral": "3.1.13",
+};
 
 function fmtBRL(v: number) {
   if (v === 0) return "";
@@ -27,38 +54,24 @@ export default function ResultadosPage() {
   const { fotografo } = useFotografo();
   const anoAtual = new Date().getFullYear();
 
-  const [ano,     setAno]     = useState(anoAtual);
-  const [regime,          setRegime]          = useState<Regime>("competencia");
-  const [contas,          setContas]          = useState<Conta[]>([]);
-  const [mapa,            setMapa]            = useState<Record<string, Record<number, number>>>({});
-  const [loading,         setLoading]         = useState(true);
-  const [naoMapeados,     setNaoMapeados]     = useState<{ categoria: string; total: number }[]>([]);
-  const [panorama,        setPanorama]        = useState<PanoramaItem[]>([]);
+  const [ano,            setAno]            = useState(anoAtual);
+  const [regime,         setRegime]         = useState<Regime>("competencia");
+  const [contas,         setContas]         = useState<Conta[]>([]);
+  const [mapa,           setMapa]           = useState<Record<string, Record<number, number>>>({});
+  const [loading,        setLoading]        = useState(true);
+  const [naoMapeados,    setNaoMapeados]    = useState<{ categoria: string; total: number }[]>([]);
+  const [panorama,       setPanorama]       = useState<PanoramaItem[]>([]);
+  const [temDRE,         setTemDRE]         = useState(false);
+  const [contaPorCodigo, setContaPorCodigo] = useState<Record<string, string>>({});
+  const [drillDown,      setDrillDown]      = useState<{ conta: Conta; mes: number | null } | null>(null);
+  const [drillEntries,   setDrillEntries]   = useState<DrillEntry[]>([]);
+  const [drillLoading,   setDrillLoading]   = useState(false);
 
   const carregar = useCallback(async () => {
     if (!fotografo) return;
     setLoading(true);
     const sb = createClient();
     const fid = fotografo.id;
-
-    const CATEGORIA_CODIGO: Record<string, string> = {
-      "Casamento - foto": "3.1.1", "Casamento - Foto": "3.1.1", "Bodas": "3.1.1",
-      "Casamento - Foto e Video": "3.1.1.2",
-      "Aniversário Infantil": "3.1.2", "Aniversario Infantil": "3.1.2",
-      "Aniversário Adulto": "3.1.2", "Aniversario Adulto": "3.1.2",
-      "Aniversário 15 anos": "3.1.2", "Batizado": "3.1.2",
-      "Evento Corporativo": "3.1.2", "Eventos": "3.1.2",
-      "Ensaio Gestante": "3.1.3", "Ensaio/Book": "3.1.3", "Ensaio Infantil": "3.1.3",
-      "Ensaio 15 anos": "3.1.3", "Ensaio Casal": "3.1.3", "Ensaio Familia": "3.1.3",
-      "Ensaio Newborn": "3.1.3", "Acompanhamento": "3.1.3",
-      "Diagramação de livro/álbum": "3.1.4",
-      "Consultoria": "3.1.6", "Cursos e Treinamento": "3.1.7",
-      "Vendas Extras": "3.1.9", "Outros Serviços": "3.1.9",
-      "Publicidade": "3.1.9", "Foto Produto": "3.1.9",
-      "Casamento - Video": "3.1.11",
-      "Video cultural": "3.1.12", "Video Cultural": "3.1.12",
-      "Video Geral": "3.1.13",
-    };
 
     const dateField = regime === "caixa" ? "pago_em" : "vencimento";
 
@@ -70,7 +83,7 @@ export default function ResultadosPage() {
       .eq("num_documento", "DRE")
       .gte("vencimento", `${ano}-01-01`)
       .lte("vencimento", `${ano}-12-31`);
-    const temDRE = (dreCount ?? 0) > 0;
+    const temDRELocal = (dreCount ?? 0) > 0;
 
     // Queries separadas para evitar erro TypeScript "type instantiation excessively deep"
     const qContas = sb.from("crm_chart_of_accounts")
@@ -87,7 +100,7 @@ export default function ResultadosPage() {
         .eq("fotografo_id", fid).eq("tipo", "despesa").eq("status", "pago")
         .or("num_documento.is.null,num_documento.neq.DRE")
         .gte("pago_em", `${ano}-01-01`).lte("pago_em", `${ano}-12-31`).range(0, 9999);
-    } else if (temDRE) {
+    } else if (temDRELocal) {
       qDespesas = sb.from("crm_financial_entries")
         .select("conta_id, valor, vencimento, pago_em")
         .eq("fotografo_id", fid).eq("tipo", "despesa").eq("num_documento", "DRE")
@@ -107,7 +120,7 @@ export default function ResultadosPage() {
         .eq("fotografo_id", fid).eq("tipo", "receita").eq("status", "pago")
         .or("num_documento.is.null,num_documento.neq.DRE")
         .gte("pago_em", `${ano}-01-01`).lte("pago_em", `${ano}-12-31`).range(0, 9999);
-    } else if (temDRE) {
+    } else if (temDRELocal) {
       qReceitas = sb.from("crm_financial_entries")
         .select("conta_id, valor, vencimento")
         .eq("fotografo_id", fid).eq("tipo", "receita").eq("num_documento", "DRE")
@@ -132,7 +145,7 @@ export default function ResultadosPage() {
         .gte("data_lancamento", `${ano}-01-01`).lte("data_lancamento", `${ano}-12-31`)
         .not("data_lancamento", "is", null);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      qOrders = temDRE ? (q as any).eq("crm_nativo", true) : sb.from("crm_orders").select("categoria").eq("fotografo_id", fid).limit(0);
+      qOrders = temDRELocal ? (q as any).eq("crm_nativo", true) : sb.from("crm_orders").select("categoria").eq("fotografo_id", fid).limit(0);
     } else {
       qOrders = sb.from("crm_orders").select("categoria").eq("fotografo_id", fid).limit(0);
     }
@@ -142,8 +155,8 @@ export default function ResultadosPage() {
     ]);
 
     const contasArr = (contasData ?? []) as Conta[];
-    const contaPorCodigo: Record<string, string> = {};
-    for (const c of contasArr) contaPorCodigo[c.codigo] = c.id;
+    const cpCodigo: Record<string, string> = {};
+    for (const c of contasArr) cpCodigo[c.codigo] = c.id;
 
     const novoMapa: Record<string, Record<number, number>> = {};
     const semMapeamento: Record<string, number> = {};
@@ -156,7 +169,7 @@ export default function ResultadosPage() {
         novoMapa[e.conta_id] ??= {};
         novoMapa[e.conta_id][mes] = (novoMapa[e.conta_id][mes] ?? 0) + e.valor;
       }
-    } else if (temDRE) {
+    } else if (temDRELocal) {
       // Competência com DRE (Fernando): entradas DRE legadas + pedidos crm_nativo
       for (const e of (receitasData ?? []) as { conta_id: string; valor: number; vencimento: string }[]) {
         if (!e.conta_id) continue;
@@ -167,7 +180,7 @@ export default function ResultadosPage() {
       for (const o of (ordersData ?? []) as { categoria: string; total: number; data_lancamento: string }[]) {
         const codigo = CATEGORIA_CODIGO[o.categoria];
         if (!codigo) { semMapeamento[o.categoria || "(sem categoria)"] = (semMapeamento[o.categoria || "(sem categoria)"] ?? 0) + o.total; continue; }
-        const cid = contaPorCodigo[codigo];
+        const cid = cpCodigo[codigo];
         if (!cid) continue;
         const mes = parseInt(o.data_lancamento.slice(5, 7));
         novoMapa[cid] ??= {};
@@ -199,7 +212,10 @@ export default function ResultadosPage() {
       : contasArr;
     setContas(contasComUncat);
     setMapa(novoMapa);
+    setTemDRE(temDRELocal);
+    setContaPorCodigo(cpCodigo);
     setLoading(false);
+    void dateField;
   }, [fotografo, ano, regime]);
 
   useEffect(() => { carregar(); }, [carregar]);
@@ -229,6 +245,75 @@ export default function ResultadosPage() {
         setPanorama(dados);
       }, console.error);
   }, [fotografo]);
+
+  const abrirDrill = useCallback(async (conta: Conta, mes: number | null) => {
+    if (!fotografo) return;
+    setDrillDown({ conta, mes });
+    setDrillLoading(true);
+    setDrillEntries([]);
+    const sb = createClient();
+    const fid = fotografo.id;
+    const entries: DrillEntry[] = [];
+
+    const mesStart = mes !== null ? `${ano}-${String(mes).padStart(2, "0")}-01` : `${ano}-01-01`;
+    const mesEnd   = mes !== null ? `${ano}-${String(mes).padStart(2, "0")}-31` : `${ano}-12-31`;
+    const tipo = conta.codigo.startsWith("3") ? "receita" : "despesa";
+
+    if (regime === "caixa") {
+      const { data } = await sb.from("crm_financial_entries")
+        .select("id, descricao, valor, pago_em, pedido_id")
+        .eq("fotografo_id", fid).eq("tipo", tipo).eq("status", "pago")
+        .or("num_documento.is.null,num_documento.neq.DRE")
+        .eq("conta_id", conta.id)
+        .gte("pago_em", mesStart).lte("pago_em", mesEnd);
+      for (const e of (data ?? []) as { id: string; descricao: string | null; valor: number; pago_em: string; pedido_id?: string | null }[]) {
+        entries.push({ id: e.id, descricao: e.descricao, valor: e.valor, data: e.pago_em, pedido_id: e.pedido_id, fonte: "entry" });
+      }
+    } else if (temDRE && tipo === "receita") {
+      // DRE entries legadas
+      const { data: dreData } = await sb.from("crm_financial_entries")
+        .select("id, descricao, valor, vencimento, pedido_id")
+        .eq("fotografo_id", fid).eq("tipo", "receita").eq("num_documento", "DRE")
+        .eq("conta_id", conta.id).gte("vencimento", mesStart).lte("vencimento", mesEnd);
+      for (const e of (dreData ?? []) as { id: string; descricao: string | null; valor: number; vencimento: string; pedido_id?: string | null }[]) {
+        entries.push({ id: e.id, descricao: e.descricao, valor: e.valor, data: e.vencimento, pedido_id: e.pedido_id, fonte: "entry" });
+      }
+      // Pedidos crm_nativo mapeados para esta conta via CATEGORIA_CODIGO
+      const categoriasDaConta = Object.entries(CATEGORIA_CODIGO)
+        .filter(([, cod]) => contaPorCodigo[cod] === conta.id).map(([cat]) => cat);
+      if (categoriasDaConta.length > 0) {
+        const { data: ordData } = await sb.from("crm_orders")
+          .select("id, nome, total, data_lancamento")
+          .eq("fotografo_id", fid).eq("crm_nativo", true)
+          .in("categoria", categoriasDaConta)
+          .gte("data_lancamento", mesStart).lte("data_lancamento", mesEnd);
+        for (const o of (ordData ?? []) as { id: string; nome: string; total: number; data_lancamento: string }[]) {
+          entries.push({ id: o.id, descricao: o.nome, valor: o.total, data: o.data_lancamento, pedido_id: o.id, fonte: "order" });
+        }
+      }
+    } else if (temDRE && tipo === "despesa") {
+      const { data } = await sb.from("crm_financial_entries")
+        .select("id, descricao, valor, vencimento, pedido_id")
+        .eq("fotografo_id", fid).eq("tipo", "despesa").eq("num_documento", "DRE")
+        .eq("conta_id", conta.id).gte("vencimento", mesStart).lte("vencimento", mesEnd);
+      for (const e of (data ?? []) as { id: string; descricao: string | null; valor: number; vencimento: string; pedido_id?: string | null }[]) {
+        entries.push({ id: e.id, descricao: e.descricao, valor: e.valor, data: e.vencimento, pedido_id: e.pedido_id, fonte: "entry" });
+      }
+    } else {
+      // Novos usuários (sem DRE) — regime competência
+      const { data } = await sb.from("crm_financial_entries")
+        .select("id, descricao, valor, vencimento, pedido_id")
+        .eq("fotografo_id", fid).eq("tipo", tipo)
+        .eq("conta_id", conta.id).gte("vencimento", mesStart).lte("vencimento", mesEnd);
+      for (const e of (data ?? []) as { id: string; descricao: string | null; valor: number; vencimento: string; pedido_id?: string | null }[]) {
+        entries.push({ id: e.id, descricao: e.descricao, valor: e.valor, data: e.vencimento, pedido_id: e.pedido_id, fonte: "entry" });
+      }
+    }
+
+    entries.sort((a, b) => a.data.localeCompare(b.data));
+    setDrillEntries(entries);
+    setDrillLoading(false);
+  }, [fotografo, ano, regime, temDRE, contaPorCodigo]);
 
   const contasPorPrefixo = (prefixo: string) =>
     contas.filter(c => c.codigo.startsWith(prefixo) && mapa[c.id]);
@@ -327,11 +412,19 @@ export default function ResultadosPage() {
         <td style={tdCod}>{c.codigo}</td>
         <td style={tdNome}>{c.nome}</td>
         {vals.map((v, i) => (
-          <td key={i} style={{ ...tdStyle, color: v > 0 ? cor : "var(--color-text-secondary)" }}>
+          <td key={i}
+            onClick={() => { if (v > 0) abrirDrill(c, i + 1); }}
+            style={{ ...tdStyle, color: v > 0 ? cor : "var(--color-text-secondary)", cursor: v > 0 ? "pointer" : "default" }}
+            title={v > 0 ? "Ver lançamentos" : undefined}
+          >
             {v > 0 ? (negativo ? `-${fmtBRL(v)}` : fmtBRL(v)) : ""}
           </td>
         ))}
-        <td style={{ ...tdStyle, fontWeight: 600, color: total > 0 ? cor : "var(--color-text-secondary)", borderLeft: "0.5px solid var(--color-border-tertiary)" }}>
+        <td
+          onClick={() => { if (total > 0) abrirDrill(c, null); }}
+          style={{ ...tdStyle, fontWeight: 600, color: total > 0 ? cor : "var(--color-text-secondary)", borderLeft: "0.5px solid var(--color-border-tertiary)", cursor: total > 0 ? "pointer" : "default" }}
+          title={total > 0 ? "Ver todos os lançamentos do ano" : undefined}
+        >
           {total > 0 ? (negativo ? `-${fmtBRL(total)}` : fmtBRL(total)) : ""}
         </td>
       </tr>
@@ -346,6 +439,9 @@ export default function ResultadosPage() {
     const desp = totalSecao(custos, m) + totalSecao(despesas, m);
     return { mes, receitas: rec, despesas: desp, lucro: rec - desp };
   });
+
+  const drillCor = drillDown?.conta.codigo.startsWith("3") ? "#059669" : "#EF4444";
+  const drillTotal = drillEntries.reduce((s, e) => s + e.valor, 0);
 
   return (
     <div style={{ padding: "28px 32px", fontFamily: "var(--font-sans)", minWidth: 0 }}>
@@ -472,6 +568,85 @@ export default function ResultadosPage() {
             </div>
           </div>
           <GraficoPanorama dados={panorama} />
+        </div>
+      )}
+
+      {/* Modal drill-down */}
+      {drillDown && (
+        <div
+          onClick={() => setDrillDown(null)}
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{ background: "var(--color-background-primary)", borderRadius: 16, padding: "24px 28px", width: "100%", maxWidth: 640, maxHeight: "80vh", overflowY: "auto", boxShadow: "0 8px 40px rgba(0,0,0,0.22)" }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
+              <div>
+                <div style={{ fontSize: 15, fontWeight: 800, color: "var(--color-text-primary)", letterSpacing: "-0.02em" }}>
+                  {drillDown.conta.nome}
+                </div>
+                <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginTop: 3 }}>
+                  {drillDown.mes !== null ? `${MESES[drillDown.mes - 1]} ${ano}` : `Ano ${ano}`}
+                  {" · "}{drillDown.conta.codigo}
+                  {" · "}{regime === "competencia" ? "Competência" : "Caixa"}
+                </div>
+              </div>
+              <button
+                onClick={() => setDrillDown(null)}
+                style={{ fontSize: 20, lineHeight: 1, border: "none", background: "none", cursor: "pointer", color: "var(--color-text-secondary)", padding: "0 0 0 16px" }}
+              >✕</button>
+            </div>
+
+            {drillLoading ? (
+              <div style={{ padding: "32px 0", textAlign: "center", fontSize: 13, color: "var(--color-text-secondary)" }}>
+                Carregando lançamentos…
+              </div>
+            ) : drillEntries.length === 0 ? (
+              <div style={{ padding: "32px 0", textAlign: "center", fontSize: 13, color: "var(--color-text-secondary)" }}>
+                Nenhum lançamento encontrado.
+              </div>
+            ) : (
+              <>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                  <thead>
+                    <tr>
+                      <th style={{ ...thStyle, textAlign: "left", width: 90 }}>Data</th>
+                      <th style={{ ...thStyle, textAlign: "left" }}>Descrição</th>
+                      <th style={thStyle}>Valor</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {drillEntries.map(e => (
+                      <tr key={e.id} style={{ background: "var(--color-background-primary)" }}>
+                        <td style={{ ...tdStyle, textAlign: "left", color: "var(--color-text-secondary)" }}>
+                          {e.data.slice(0, 10).split("-").reverse().join("/")}
+                        </td>
+                        <td style={tdNome}>
+                          {e.fonte === "order" && e.pedido_id ? (
+                            <a href={`/crm/pedidos/${e.pedido_id}`} style={{ color: "#2563EB", textDecoration: "none", fontWeight: 500 }}>
+                              {e.descricao ?? "Pedido"}
+                            </a>
+                          ) : (e.descricao ?? "—")}
+                        </td>
+                        <td style={{ ...tdStyle, fontWeight: 600, color: drillCor }}>
+                          {fmtBRL(e.valor)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <div style={{ marginTop: 14, display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 12, borderTop: "0.5px solid var(--color-border-tertiary)" }}>
+                  <span style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>
+                    {drillEntries.length} lançamento{drillEntries.length !== 1 ? "s" : ""}
+                  </span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: drillCor }}>
+                    Total: {fmtBRL(drillTotal)}
+                  </span>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       )}
     </div>
