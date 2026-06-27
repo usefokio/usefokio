@@ -28,7 +28,7 @@ export function RichTextEditor({ value, onChange, readonly = false, minHeight = 
     ],
     content: value,
     editable: !readonly,
-    onUpdate: ({ editor }) => {
+    onUpdate: ({ editor }: { editor: { getHTML: () => string } }) => {
       onChange?.(editor.getHTML());
     },
   });

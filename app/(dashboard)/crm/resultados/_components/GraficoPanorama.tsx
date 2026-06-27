@@ -53,7 +53,7 @@ export function GraficoPanorama({ dados, height = 260 }: { dados: PanoramaItem[]
         <YAxis tickFormatter={fmtK} tick={{ fontSize: 11, fill: "var(--color-text-secondary)" }} axisLine={false} tickLine={false} width={52} />
         <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
         <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12, paddingTop: 12 }}
-          formatter={(v) => <span style={{ color: "var(--color-text-secondary)" }}>{v}</span>} />
+          formatter={(v: string) => <span style={{ color: "var(--color-text-secondary)" }}>{v}</span>} />
         <Bar dataKey="receitas" name="Receitas" fill="#059669" radius={[4, 4, 0, 0]} maxBarSize={40} />
         <Bar dataKey="despesas" name="Despesas" fill="#EF4444" radius={[4, 4, 0, 0]} maxBarSize={40} />
         <Line dataKey="lucro" name="Lucro líquido" stroke="#2563EB" strokeWidth={2.5}
