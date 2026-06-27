@@ -256,7 +256,8 @@ export default function ResultadosPage() {
     const entries: DrillEntry[] = [];
 
     const mesStart = mes !== null ? `${ano}-${String(mes).padStart(2, "0")}-01` : `${ano}-01-01`;
-    const mesEnd   = mes !== null ? `${ano}-${String(mes).padStart(2, "0")}-31` : `${ano}-12-31`;
+    const lastDay  = mes !== null ? new Date(ano, mes, 0).getDate() : 31;
+    const mesEnd   = mes !== null ? `${ano}-${String(mes).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}` : `${ano}-12-31`;
     const tipo = conta.codigo.startsWith("3") ? "receita" : "despesa";
 
     if (regime === "caixa") {
