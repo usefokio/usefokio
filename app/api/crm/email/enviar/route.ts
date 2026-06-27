@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 type EmailConfig = {
   nome_remetente?: string;
@@ -60,17 +59,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Campos obrigatórios: fotografo_id, para, assunto, corpo" }, { status: 400 });
     }
 
-    const cookieStore = await cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll()   { return cookieStore.getAll(); },
-          setAll(cs) { cs.forEach(({ name, value, options }) => cookieStore.set(name, value, options)); },
-        },
-      }
-    );
+    const supabase = createAdminClient();
 
     const { data: fot } = await supabase
       .from("fotografos")
