@@ -37,6 +37,8 @@ export default function PedidoDetailPage() {
   const [confirmDel,    setConfirmDel]    = useState(false);
   const [deleting,      setDeleting]      = useState(false);
   const [agendaMsg,     setAgendaMsg]     = useState("");
+  const [modalTaxa,     setModalTaxa]     = useState<{ receita: CrmFinancialEntry; taxa: string } | null>(null);
+  const [salvandoTaxa,  setSalvandoTaxa]  = useState(false);
 
   // Contratos
   const [contratos,           setContratos]           = useState<CrmContract[]>([]);
@@ -191,6 +193,31 @@ export default function PedidoDetailPage() {
     setModalContrato(false);
     carregar();
     if (contrato?.id) window.open(`/crm-contrato/${contrato.id}`, "_blank");
+  };
+
+  const confirmarTaxa = async () => {
+    if (!modalTaxa || !pedido) return;
+    const taxa = parseFloat(modalTaxa.taxa.replace(",", ".")) || 0;
+    if (taxa <= 0) return;
+    setSalvandoTaxa(true);
+    const sb = createClient();
+    await sb.from("crm_financial_entries").update({ valor: modalTaxa.receita.valor + taxa }).eq("id", modalTaxa.receita.id);
+    await sb.from("crm_financial_entries").insert({
+      fotografo_id: pedido.fotografo_id,
+      tipo: "despesa",
+      descricao: `Tarifa cartão — ${new Date((modalTaxa.receita.pago_em ?? modalTaxa.receita.vencimento) + "T12:00:00").toLocaleDateString("pt-BR")}`,
+      valor: taxa,
+      vencimento: modalTaxa.receita.pago_em ?? modalTaxa.receita.vencimento,
+      pago_em: modalTaxa.receita.pago_em ?? null,
+      status: "pago",
+      conta_id: "48548e5c-3d52-4d1a-b6bd-4d1b148b7356",
+      conta_bancaria_id: modalTaxa.receita.conta_bancaria_id ?? null,
+      pedido_id: pedido.id,
+      internal_account_type: "pedido",
+    });
+    setSalvandoTaxa(false);
+    setModalTaxa(null);
+    carregar();
   };
 
   useEffect(() => { carregar(); }, [id]);
@@ -375,6 +402,35 @@ export default function PedidoDetailPage() {
             </div>
           )}
 
+          {/* Aviso de taxa de cartão */}
+          {(() => {
+            const receitasCartaoPagas = financeiro.filter(f =>
+              f.tipo === "receita" && f.status === "pago" &&
+              (f.forma_pagamento ?? "").toLowerCase().includes("cart")
+            );
+            const diferenca = liquido - totalPago;
+            if (totalPendente === 0 && diferenca > 0.01 && receitasCartaoPagas.length > 0) {
+              return (
+                <div style={{ background: "rgba(217,119,6,0.08)", border: "0.5px solid rgba(217,119,6,0.3)", borderRadius: 10, padding: "12px 16px", marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: "#D97706", marginBottom: 2 }}>
+                      Diferença de {fmt(diferenca)} pode ser taxa de cartão
+                    </div>
+                    <div style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>
+                      Recebido {fmt(totalPago)} · Total do pedido {fmt(liquido)}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setModalTaxa({ receita: receitasCartaoPagas[0], taxa: diferenca.toFixed(2) })}
+                    style={{ padding: "7px 14px", borderRadius: 8, background: "#D97706", color: "#fff", border: "none", fontSize: 12, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>
+                    Registrar taxa
+                  </button>
+                </div>
+              );
+            }
+            return null;
+          })()}
+
           {/* Lançamentos financeiros */}
           {financeiro.length > 0 && (
             <div style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 12, overflow: "hidden", marginBottom: 16 }}>
@@ -445,6 +501,38 @@ export default function PedidoDetailPage() {
             )}
           </div>
         </>
+      )}
+
+      {/* Modal taxa de cartão */}
+      {modalTaxa && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center" }}
+          onClick={e => e.target === e.currentTarget && setModalTaxa(null)}>
+          <div style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 14, padding: "28px 32px", width: 420, boxShadow: "0 24px 64px rgba(0,0,0,0.22)" }}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: "var(--color-text-primary)", marginBottom: 6 }}>Registrar taxa de cartão</div>
+            <div style={{ fontSize: 13, color: "var(--color-text-secondary)", marginBottom: 20, lineHeight: 1.6 }}>
+              A receita será ajustada para {fmt(modalTaxa.receita.valor + (parseFloat(modalTaxa.taxa.replace(",", ".")) || 0))} e uma despesa de Tarifa Bancária (5.6.4) será registrada.
+            </div>
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>Valor da taxa (R$)</div>
+              <input
+                type="number" min="0" step="0.01"
+                value={modalTaxa.taxa}
+                onChange={e => setModalTaxa(m => m ? { ...m, taxa: e.target.value } : m)}
+                style={{ width: "100%", boxSizing: "border-box", padding: "9px 12px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", fontSize: 13, color: "var(--color-text-primary)", outline: "none" }}
+              />
+            </div>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button onClick={confirmarTaxa} disabled={salvandoTaxa || !(parseFloat(modalTaxa.taxa.replace(",", ".")) > 0)}
+                style={{ padding: "9px 22px", borderRadius: 8, background: "#111", color: "#fff", border: "none", fontSize: 13, fontWeight: 700, cursor: "pointer", opacity: salvandoTaxa || !(parseFloat(modalTaxa.taxa.replace(",", ".")) > 0) ? 0.6 : 1 }}>
+                {salvandoTaxa ? "Salvando…" : "Confirmar"}
+              </button>
+              <button onClick={() => setModalTaxa(null)}
+                style={{ padding: "9px 16px", borderRadius: 8, background: "transparent", color: "var(--color-text-secondary)", border: "0.5px solid var(--color-border-secondary)", fontSize: 13, cursor: "pointer" }}>
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Modal gerar contrato */}
