@@ -161,7 +161,15 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
       .or(`fotografo_id.is.null,fotografo_id.eq.${fotografo.id}`)
       .eq("ativo", true)
       .order("codigo")
-      .then(({ data }) => setChartAccounts((data ?? []) as ChartAccount[]));
+      .then(({ data }) => {
+        const seen = new Set<string>();
+        const unique = (data ?? []).filter(c => {
+          if (seen.has(c.codigo)) return false;
+          seen.add(c.codigo);
+          return true;
+        });
+        setChartAccounts(unique as ChartAccount[]);
+      });
   }, [fotografo]);
 
   const meses = [...new Set(entries.map(e => e.vencimento.slice(0, 7)))].sort();
