@@ -266,6 +266,9 @@ function SelecaoConteudo() {
             const st        = STATUS_BADGE[g.status];
             const aguardando = g.status === "aguardando_revisao";
             const encerrada  = g.status === "encerrada";
+            const diasRestantes = g.expira_em
+              ? Math.ceil((new Date(g.expira_em).getTime() - Date.now()) / 86400000)
+              : null;
 
             return (
               <div
@@ -296,6 +299,14 @@ function SelecaoConteudo() {
                     {g.total_fotos != null && <span> · {g.total_fotos} foto{g.total_fotos !== 1 ? "s" : ""}</span>}
                     {!g.selecao_livre && g.limite_minimo ? <span> · mín. {g.limite_minimo}</span> : null}
                     <span> · {new Date(g.created_at).toLocaleDateString("pt-BR")}</span>
+                    {diasRestantes !== null && diasRestantes >= 0 && (
+                      <span style={{ color: diasRestantes <= 3 ? "#EF4444" : diasRestantes <= 7 ? "#D97706" : "#059669", fontWeight: 600 }}>
+                        {" · "}{diasRestantes === 0 ? "expira hoje" : `${diasRestantes} dia${diasRestantes !== 1 ? "s" : ""} restante${diasRestantes !== 1 ? "s" : ""}`}
+                      </span>
+                    )}
+                    {diasRestantes !== null && diasRestantes < 0 && (
+                      <span style={{ color: "#EF4444", fontWeight: 600 }}> · expirado</span>
+                    )}
                   </div>
                 </div>
 
