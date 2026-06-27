@@ -85,9 +85,13 @@ export default function FluxoPage() {
     setDrillItems([]);
 
     const sb = createClient();
-    const mesStr = String(mes + 1).padStart(2, "0");
+    const mesNum = mes + 1;
+    const mesStr = String(mesNum).padStart(2, "0");
     const mesStart = `${ano}-${mesStr}-01`;
-    const mesEnd   = `${ano}-${mesStr}-31`;
+    // Usar primeiro dia do mês seguinte para evitar datas inválidas (ex: 31/06)
+    const proxMes = mesNum === 12 ? 1 : mesNum + 1;
+    const proxAno = mesNum === 12 ? ano + 1 : ano;
+    const mesEnd = `${proxAno}-${String(proxMes).padStart(2, "0")}-01`;
 
     // Buscar entries com conta contábil (classifica por código)
     const { data: dataComConta } = await sb
@@ -97,7 +101,7 @@ export default function FluxoPage() {
       .eq("status", "pago")
       .or("num_documento.is.null,num_documento.neq.DRE")
       .gte("pago_em", mesStart)
-      .lte("pago_em", mesEnd)
+      .lt("pago_em", mesEnd)
       .not("pago_em", "is", null)
       .not("conta_id", "is", null)
       .order("pago_em", { ascending: true });
@@ -130,7 +134,7 @@ export default function FluxoPage() {
       .eq("tipo", tipo === "entrada" ? "receita" : "despesa")
       .or("num_documento.is.null,num_documento.neq.DRE")
       .gte("pago_em", mesStart)
-      .lte("pago_em", mesEnd)
+      .lt("pago_em", mesEnd)
       .not("pago_em", "is", null)
       .is("conta_id", null)
       .order("pago_em", { ascending: true });
