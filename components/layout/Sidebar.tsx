@@ -158,18 +158,6 @@ const CRM_ITEMS = [
     ),
   },
   {
-    href: "/crm/contas",
-    label: "Contas Bancárias",
-    icon: (
-      <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
-        <rect x="1" y="4" width="14" height="9" rx="1.5" stroke="currentColor" strokeWidth="1.3" fill="none" opacity=".8" />
-        <path d="M1 7h14" stroke="currentColor" strokeWidth="1.3" opacity=".5" />
-        <rect x="3" y="9.5" width="3" height="1.5" rx=".5" fill="currentColor" opacity=".6" />
-        <path d="M8 2l4 2H4l4-2z" fill="currentColor" opacity=".4" />
-      </svg>
-    ),
-  },
-  {
     href: "/crm/financeiro",
     label: "Financeiro",
     icon: (
@@ -199,7 +187,8 @@ function FinanceiroSubItems({ pathname }: { pathname: string }) {
   const isFinanceiro = pathname.startsWith("/crm/financeiro");
   const isResultados = pathname === "/crm/resultados";
   const isFluxo      = pathname === "/crm/fluxo";
-  if (!isFinanceiro && !isResultados && !isFluxo) return null;
+  const isContas     = pathname.startsWith("/crm/contas");
+  if (!isFinanceiro && !isResultados && !isFluxo && !isContas) return null;
 
   const linkStyle = (tipo: string): React.CSSProperties => {
     const isActive = isFinanceiro && (tipoAtual === tipo || (!tipoAtual && tipo === "receber"));
@@ -232,6 +221,11 @@ function FinanceiroSubItems({ pathname }: { pathname: string }) {
         onMouseEnter={e => { if (!isFinanceiro || tipoAtual !== "pagar") e.currentTarget.style.background = "var(--color-background-secondary)"; }}
         onMouseLeave={e => { if (!isFinanceiro || tipoAtual !== "pagar") e.currentTarget.style.background = "transparent"; }}>
         <span style={{ whiteSpace: "nowrap" }}>A Pagar</span>
+      </Link>
+      <Link href="/crm/contas" style={linkStylePath("/crm/contas")}
+        onMouseEnter={e => { if (!isContas) e.currentTarget.style.background = "var(--color-background-secondary)"; }}
+        onMouseLeave={e => { if (!isContas) e.currentTarget.style.background = "transparent"; }}>
+        <span style={{ whiteSpace: "nowrap" }}>Contas Bancárias</span>
       </Link>
       <Link href="/crm/resultados" style={linkStylePath("/crm/resultados")}
         onMouseEnter={e => { if (!isResultados) e.currentTarget.style.background = "var(--color-background-secondary)"; }}
