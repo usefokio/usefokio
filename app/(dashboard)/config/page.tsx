@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
+import { uploadFileClient } from "@/lib/storage/uploadClient";
 import { PLANOS, pctUso, corBarra, limiteEfetivo, type PlanoId } from "@/lib/planos";
 import type { Categoria, ConfigVendaFotos } from "@/lib/supabase/types";
 import { inputStyle } from "@/lib/styles";
@@ -968,15 +969,12 @@ function IdentidadeVisual() {
     const supabase = createClient();
     const ext = file.name.split(".").pop() ?? "png";
     const path = `assets/${fotografo.id}/${tipo}.${ext}`;
-    const { error } = await supabase.storage
-      .from("galerias")
-      .upload(path, file, { contentType: file.type, upsert: true });
-    if (!error) {
-      const { data } = supabase.storage.from("galerias").getPublicUrl(path);
+    try {
+      const { url_publica } = await uploadFileClient(path, file, file.type);
       const field = tipo === "logo" ? "logo_url" : "watermark_url";
-      await supabase.from("fotografos").update({ [field]: data.publicUrl }).eq("id", fotografo.id);
-      setUrl(data.publicUrl + "?t=" + Date.now());
-    }
+      await supabase.from("fotografos").update({ [field]: url_publica }).eq("id", fotografo.id);
+      setUrl(url_publica + "?t=" + Date.now());
+    } catch { /* silencioso */ }
     setUploading(false);
   }
 

@@ -8,6 +8,7 @@ import { Field } from "@/components/ui/Field";
 import { inputStyle } from "@/lib/styles";
 import { ClienteSelect } from "../_components/ClienteSelect";
 import { processarImagemEntrega, formatBytes } from "@/lib/imageResize";
+import { uploadFileClient } from "@/lib/storage/uploadClient";
 import type { Cliente, Categoria } from "@/lib/supabase/types";
 import { mascaraMoeda, parseMoeda, formatarMoeda } from "@/lib/moeda";
 
@@ -224,11 +225,8 @@ export default function NovaEntregaPage() {
     if (capaFile && fotografo) {
       const ext = capaFile.type === "image/png" ? "png" : capaFile.type === "image/webp" ? "webp" : "jpg";
       const capaPath = `entrega/${fotografo.id}/${data.id}/capa.${ext}`;
-      const { error: capaErr } = await supabase.storage.from("galerias").upload(capaPath, capaFile, { upsert: true, contentType: capaFile.type });
-      if (!capaErr) {
-        const { data: { publicUrl } } = supabase.storage.from("galerias").getPublicUrl(capaPath);
-        await supabase.from("galerias_entrega").update({ foto_capa_url: publicUrl }).eq("id", data.id);
-      }
+      const { url_publica: capaUrlPublica } = await uploadFileClient(capaPath, capaFile, capaFile.type);
+      await supabase.from("galerias_entrega").update({ foto_capa_url: capaUrlPublica }).eq("id", data.id);
     }
 
     await enviarFila(data.id);

@@ -4,6 +4,7 @@ import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useSta
 import { createClient } from "@/lib/supabase/client";
 import { fetchAllRows } from "@/lib/supabase/fetchAll";
 import { processarImagemEntrega, formatBytes } from "@/lib/imageResize";
+import { uploadFileClient } from "@/lib/storage/uploadClient";
 import type { GaleriaEntregaFoto } from "@/lib/supabase/types";
 
 type FotoFila = {
@@ -99,20 +100,15 @@ export const FotosEntregaUpload = forwardRef<FotosEntregaUploadHandle, Props>(fu
       const uuid = crypto.randomUUID();
       const path = `entrega/${fotografoId}/${gId}/${uuid}.jpg`;
 
-      const { error: uploadErr } = await supabase.storage
-        .from("galerias")
-        .upload(path, processed.blob, { contentType: "image/jpeg", upsert: false });
-      if (uploadErr) throw new Error(uploadErr.message);
+      const { url_publica } = await uploadFileClient(path, processed.blob);
       atualizar({ progresso: 80 });
-
-      const { data: urlData } = supabase.storage.from("galerias").getPublicUrl(path);
 
       const { data: foto, error: dbErr } = await supabase
         .from("galerias_entrega_fotos")
         .insert({
           galeria_id:    gId,
           storage_path:  path,
-          url_publica:   urlData.publicUrl,
+          url_publica:   url_publica,
           nome_arquivo:  item.file.name,
           tamanho_bytes: processed.tamanho_bytes,
           largura:       processed.largura,

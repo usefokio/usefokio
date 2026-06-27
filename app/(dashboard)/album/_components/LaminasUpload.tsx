@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { processarImagemEntrega, formatBytes } from "@/lib/imageResize";
+import { uploadFileClient } from "@/lib/storage/uploadClient";
 import type { AlbumLamina } from "@/lib/supabase/types";
 
 type FilaItem = {
@@ -103,13 +104,8 @@ export function LaminasUpload({ selecaoId, fotografoId, ensureSelecaoId, onLamin
       const uuid = crypto.randomUUID();
       const path = `album/${fotografoId}/${selecaoIdRef.current}/${uuid}.jpg`;
 
-      const { error: uploadErr } = await supabase.storage
-        .from("galerias")
-        .upload(path, processed.blob, { contentType: "image/jpeg", upsert: false });
-      if (uploadErr) throw new Error(uploadErr.message);
+      const { url_publica } = await uploadFileClient(path, processed.blob);
       atualizarItem(item.id, { progresso: 80 });
-
-      const { data: urlData } = supabase.storage.from("galerias").getPublicUrl(path);
 
       const ordem = proximaOrdemRef.current;
       proximaOrdemRef.current++;
@@ -120,7 +116,7 @@ export function LaminasUpload({ selecaoId, fotografoId, ensureSelecaoId, onLamin
           selecao_id:    selecaoIdRef.current,
           tipo:          "spread",
           storage_path:  path,
-          url_publica:   urlData.publicUrl,
+          url_publica:   url_publica,
           nome_arquivo:  item.file.name,
           tamanho_bytes: processed.tamanho_bytes,
           largura:       processed.largura,

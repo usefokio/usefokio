@@ -6,6 +6,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { processarImagem } from "@/lib/imageResize";
+import { uploadFileClient } from "@/lib/storage/uploadClient";
 import exifr from "exifr";
 import { PLANOS, BETA_RESOLUCAO_MAXIMA, limiteEfetivo, type PlanoId } from "@/lib/planos";
 import type { GaleriaSelecao, GaleriaSelecaoFoto, Cliente, Categoria } from "@/lib/supabase/types";
@@ -202,22 +203,17 @@ function GaleriaSelecaoConteudo() {
         const mainPath  = `${fotografo.id}/${galeria.id}/${uuid}.jpg`;
         const thumbPath = `${fotografo.id}/${galeria.id}/thumbs/${uuid}.jpg`;
 
-        const { error: e1 } = await supabase.storage.from("galerias").upload(mainPath, processed.blob, { contentType: "image/jpeg", upsert: false });
-        if (e1) throw new Error(e1.message);
+        const { url_publica: mainUrlPublica } = await uploadFileClient(mainPath, processed.blob);
         setP(70);
 
-        const { error: e2 } = await supabase.storage.from("galerias").upload(thumbPath, processed.thumbnail, { contentType: "image/jpeg", upsert: false });
-        if (e2) throw new Error(e2.message);
+        const { url_publica: thumbUrlPublica } = await uploadFileClient(thumbPath, processed.thumbnail);
         setP(85);
-
-        const { data: mainUrl }  = supabase.storage.from("galerias").getPublicUrl(mainPath);
-        const { data: thumbUrl } = supabase.storage.from("galerias").getPublicUrl(thumbPath);
 
         const { data: fotoSalva, error: e3 } = await supabase
           .from("galerias_selecao_fotos")
           .insert({
             galeria_id: galeria.id, storage_path: mainPath,
-            thumbnail_path: thumbUrl.publicUrl, url_publica: mainUrl.publicUrl,
+            thumbnail_path: thumbUrlPublica, url_publica: mainUrlPublica,
             nome_arquivo: file.name, largura: processed.largura, altura: processed.altura,
             tamanho_bytes: processed.tamanho_bytes, resolucao: resolucaoUpload,
             rating, ordem: 0,

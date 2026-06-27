@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { useUnsavedGuard } from "@/lib/hooks/useUnsavedGuard";
+import { uploadFileClient } from "@/lib/storage/uploadClient";
 import { Field } from "@/components/ui/Field";
 import { inputStyle } from "@/lib/styles";
 import { ClienteSelect } from "../../_components/ClienteSelect";
@@ -181,11 +182,14 @@ export default function EditarEntregaPage() {
     const supabase = createClient();
     const ext = capaFile.type === "image/png" ? "png" : capaFile.type === "image/webp" ? "webp" : "jpg";
     const path = `entrega/${fotografo.id}/${idGaleria}/capa.${ext}`;
-    const { error } = await supabase.storage.from("galerias").upload(path, capaFile, { upsert: true, contentType: capaFile.type });
-    setUploadandoCapa(false);
-    if (error) return capaUrl;
-    const { data: { publicUrl } } = supabase.storage.from("galerias").getPublicUrl(path);
-    return publicUrl;
+    try {
+      const { url_publica } = await uploadFileClient(path, capaFile, capaFile.type);
+      setUploadandoCapa(false);
+      return url_publica;
+    } catch {
+      setUploadandoCapa(false);
+      return capaUrl;
+    }
   }
 
   async function handleSalvar() {

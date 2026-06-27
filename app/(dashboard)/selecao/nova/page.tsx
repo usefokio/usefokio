@@ -7,6 +7,7 @@ import { useFotografo } from "@/lib/context/FotografoContext";
 import { useUnsavedGuard } from "@/lib/hooks/useUnsavedGuard";
 import type { Categoria, ConfigVendaFotos, ResolucaoExibicao } from "@/lib/supabase/types";
 import { processarImagem, aplicarMarcaDagua, formatBytes } from "@/lib/imageResize";
+import { uploadFileClient } from "@/lib/storage/uploadClient";
 import { BETA_RESOLUCAO_MAXIMA } from "@/lib/planos";
 import { Field } from "@/components/ui/Field";
 import { ClienteSelect } from "@/components/ui/ClienteSelect";
@@ -272,20 +273,15 @@ function NovaSelecaoConteudo() {
         const mainPath  = `${fotoAtual.id}/${data.id}/${uuid}.jpg`;
         const thumbPath = `${fotoAtual.id}/${data.id}/thumbs/${uuid}.jpg`;
 
-        const { error: e1 } = await supabase.storage.from("galerias").upload(mainPath, processed.blob, { contentType: "image/jpeg", upsert: false });
-        if (e1) throw new Error(e1.message);
+        const { url_publica: mainUrlPublica } = await uploadFileClient(mainPath, processed.blob);
         updateItem({ progresso: 65 });
 
-        const { error: e2 } = await supabase.storage.from("galerias").upload(thumbPath, processed.thumbnail, { contentType: "image/jpeg", upsert: false });
-        if (e2) throw new Error(e2.message);
+        const { url_publica: thumbUrlPublica } = await uploadFileClient(thumbPath, processed.thumbnail);
         updateItem({ progresso: 80 });
-
-        const { data: mainUrl }  = supabase.storage.from("galerias").getPublicUrl(mainPath);
-        const { data: thumbUrl } = supabase.storage.from("galerias").getPublicUrl(thumbPath);
 
         const { error: e3 } = await supabase.from("galerias_selecao_fotos").insert({
           galeria_id: data.id, storage_path: mainPath,
-          thumbnail_path: thumbUrl.publicUrl, url_publica: mainUrl.publicUrl,
+          thumbnail_path: thumbUrlPublica, url_publica: mainUrlPublica,
           nome_arquivo: item.file.name, largura: processed.largura, altura: processed.altura,
           tamanho_bytes: processed.tamanho_bytes, resolucao: resolucaoUpload, ordem: 0,
         });
