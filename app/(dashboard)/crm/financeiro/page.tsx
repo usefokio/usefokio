@@ -187,11 +187,13 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
       e.descricao.toLowerCase().includes(busca.toLowerCase()) ||
       (e.crm_orders?.nome ?? "").toLowerCase().includes(busca.toLowerCase());
 
+    const dataRef = (aba === "recebidas" || aba === "pagas") && e.pago_em ? e.pago_em : e.vencimento;
+
     let matchPeriodo = true;
-    if      (periodoRapido === "vencidas")  matchPeriodo = e.vencimento < hoje;
-    else if (periodoRapido === "este-mes")  matchPeriodo = e.vencimento.startsWith(mesAtual);
-    else if (periodoRapido === "prox-mes")  matchPeriodo = e.vencimento.startsWith(proxMes);
-    else if (mesFiltro !== "")              matchPeriodo = e.vencimento.startsWith(mesFiltro);
+    if      (periodoRapido === "vencidas")  matchPeriodo = dataRef < hoje;
+    else if (periodoRapido === "este-mes")  matchPeriodo = dataRef.startsWith(mesAtual);
+    else if (periodoRapido === "prox-mes")  matchPeriodo = dataRef.startsWith(proxMes);
+    else if (mesFiltro !== "")              matchPeriodo = dataRef.startsWith(mesFiltro);
 
     return matchBusca && matchPeriodo;
   });
@@ -385,6 +387,7 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
     const email = conf.entry.crm_orders?.clientes?.email ?? conf.entry.clientes?.email ?? "";
     if (!email) { alert("Este lançamento não tem email de cliente vinculado."); return; }
     const nome = conf.entry.crm_orders?.clientes?.nome ?? conf.entry.clientes?.nome ?? null;
+    setModalConfirmacao(null);
     setEmailModal({
       para: email,
       nome,
