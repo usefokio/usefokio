@@ -125,12 +125,19 @@ export default function PanoramaPage() {
     const anosSet = new Set<number>();
 
     if (regime === "caixa") {
-      type Row = { conta_id: string | null; tipo: string; valor: number; pago_em: string };
-      const entries = await fetchAllRows<Row>((sbc, f, t) =>
-        sbc.from("crm_financial_entries")
-          .select("conta_id, tipo, valor, pago_em")
+      type Row = { conta_id: string | null; valor: number; pago_em: string };
+      // temDRE: usar apenas entradas DRE (únicas com conta_id no histórico) agrupadas por pago_em
+      // sem temDRE: entradas normais (excluindo DRE) com conta_id
+      const entries = await fetchAllRows<Row>((sbc, f, t) => {
+        const q = sbc.from("crm_financial_entries")
+          .select("conta_id, valor, pago_em")
           .eq("fotografo_id", fid).eq("status", "pago")
-          .not("pago_em", "is", null).range(f, t), sb);
+          .not("pago_em", "is", null);
+        return (temDRELocal
+          ? q.eq("num_documento", "DRE")
+          : q.or("num_documento.is.null,num_documento.neq.DRE")
+        ).range(f, t);
+      }, sb);
 
       for (const e of entries) {
         if (!e.pago_em || !e.conta_id) continue;
