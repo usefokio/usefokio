@@ -10,6 +10,23 @@ function fmtBRL(v: number) {
   return v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+function fmtData(d: string | null) {
+  if (!d) return "—";
+  const [y, m, day] = d.slice(0, 10).split("-");
+  return `${day}/${m}/${y}`;
+}
+
+type DrillEntry = {
+  id: string;
+  descricao: string | null;
+  valor: number;
+  pago_em: string;
+  pedido_id: string | null;
+  pedido_nome?: string | null;
+};
+
+type DrillCell = { tipo: "entrada" | "saida"; mes: number } | null;
+
 export default function FluxoPage() {
   const { fotografo } = useFotografo();
   const anoAtual = new Date().getFullYear();
@@ -17,6 +34,11 @@ export default function FluxoPage() {
   const [entradas, setEntradas] = useState<number[]>(Array(12).fill(0));
   const [saidas, setSaidas] = useState<number[]>(Array(12).fill(0));
   const [loading, setLoading] = useState(true);
+
+  // Drill-down state
+  const [drillCell, setDrillCell] = useState<DrillCell>(null);
+  const [drillItems, setDrillItems] = useState<DrillEntry[]>([]);
+  const [drillLoading, setDrillLoading] = useState(false);
 
   const carregar = useCallback(async () => {
     if (!fotografo) return;
@@ -44,7 +66,6 @@ export default function FluxoPage() {
       } else if (codigo.startsWith("4") || codigo.startsWith("5")) {
         sai[mes] += e.valor;
       } else {
-        // fallback por tipo
         if (e.tipo === "receita") ent[mes] += e.valor;
         else sai[mes] += e.valor;
       }
@@ -56,6 +77,78 @@ export default function FluxoPage() {
   }, [fotografo, ano]);
 
   useEffect(() => { carregar(); }, [carregar]);
+
+  const abrirDrill = useCallback(async (tipo: "entrada" | "saida", mes: number) => {
+    if (!fotografo) return;
+    setDrillCell({ tipo, mes });
+    setDrillLoading(true);
+    setDrillItems([]);
+
+    const sb = createClient();
+    const mesStr = String(mes + 1).padStart(2, "0");
+    const mesStart = `${ano}-${mesStr}-01`;
+    const mesEnd   = `${ano}-${mesStr}-31`;
+
+    // Buscar entries com conta contábil (classifica por código)
+    const { data: dataComConta } = await sb
+      .from("crm_financial_entries")
+      .select("id, descricao, valor, pago_em, pedido_id, crm_chart_of_accounts(codigo), crm_orders(nome)")
+      .eq("fotografo_id", fotografo.id)
+      .eq("status", "pago")
+      .or("num_documento.is.null,num_documento.neq.DRE")
+      .gte("pago_em", mesStart)
+      .lte("pago_em", mesEnd)
+      .not("pago_em", "is", null)
+      .not("conta_id", "is", null)
+      .order("pago_em", { ascending: true });
+
+    type RawComConta = {
+      id: string; descricao: string | null; valor: number; pago_em: string;
+      pedido_id: string | null;
+      crm_chart_of_accounts: { codigo: string } | null;
+      crm_orders: { nome: string } | null;
+    };
+
+    const filtrados: DrillEntry[] = [];
+    for (const e of (dataComConta ?? []) as unknown as RawComConta[]) {
+      const codigo = e.crm_chart_of_accounts?.codigo ?? "";
+      const isEntrada = codigo.startsWith("3");
+      const isSaida = codigo.startsWith("4") || codigo.startsWith("5");
+      if (tipo === "entrada" && isEntrada) {
+        filtrados.push({ id: e.id, descricao: e.descricao, valor: e.valor, pago_em: e.pago_em, pedido_id: e.pedido_id, pedido_nome: e.crm_orders?.nome });
+      } else if (tipo === "saida" && isSaida) {
+        filtrados.push({ id: e.id, descricao: e.descricao, valor: e.valor, pago_em: e.pago_em, pedido_id: e.pedido_id, pedido_nome: e.crm_orders?.nome });
+      }
+    }
+
+    // Buscar entries sem conta contábil (fallback por tipo)
+    const { data: dataSemConta } = await sb
+      .from("crm_financial_entries")
+      .select("id, descricao, valor, pago_em, pedido_id, crm_orders(nome)")
+      .eq("fotografo_id", fotografo.id)
+      .eq("status", "pago")
+      .eq("tipo", tipo === "entrada" ? "receita" : "despesa")
+      .or("num_documento.is.null,num_documento.neq.DRE")
+      .gte("pago_em", mesStart)
+      .lte("pago_em", mesEnd)
+      .not("pago_em", "is", null)
+      .is("conta_id", null)
+      .order("pago_em", { ascending: true });
+
+    type RawSemConta = {
+      id: string; descricao: string | null; valor: number; pago_em: string;
+      pedido_id: string | null;
+      crm_orders: { nome: string } | null;
+    };
+
+    for (const e of (dataSemConta ?? []) as unknown as RawSemConta[]) {
+      filtrados.push({ id: e.id, descricao: e.descricao, valor: e.valor, pago_em: e.pago_em, pedido_id: e.pedido_id, pedido_nome: e.crm_orders?.nome });
+    }
+
+    filtrados.sort((a, b) => a.pago_em.localeCompare(b.pago_em));
+    setDrillItems(filtrados);
+    setDrillLoading(false);
+  }, [fotografo, ano]);
 
   const saldoMes = entradas.map((e, i) => e - saidas[i]);
   const saldoAcumulado = saldoMes.reduce<number[]>((acc, v, i) => {
@@ -84,6 +177,9 @@ export default function FluxoPage() {
     borderBottom: "0.5px solid var(--color-border-tertiary)",
     color: "var(--color-text-primary)", whiteSpace: "nowrap", fontWeight: 600,
   };
+
+  const drillTotal = drillItems.reduce((a, b) => a + b.valor, 0);
+  const drillCor = drillCell?.tipo === "entrada" ? "#059669" : "#EF4444";
 
   return (
     <div style={{ padding: "28px 32px", fontFamily: "var(--font-sans)", minWidth: 0 }}>
@@ -135,7 +231,10 @@ export default function FluxoPage() {
               <tr style={{ background: "var(--color-background-primary)" }}>
                 <td style={{ ...tdLabel, color: "#059669" }}>Entradas</td>
                 {entradas.map((v, i) => (
-                  <td key={i} style={{ ...tdStyle, color: v > 0 ? "#059669" : "var(--color-text-secondary)", fontWeight: v > 0 ? 600 : 400 }}>
+                  <td key={i}
+                    onClick={() => v > 0 ? abrirDrill("entrada", i) : undefined}
+                    style={{ ...tdStyle, color: v > 0 ? "#059669" : "var(--color-text-secondary)", fontWeight: v > 0 ? 600 : 400, cursor: v > 0 ? "pointer" : "default", textDecoration: v > 0 ? "underline dotted" : "none" }}
+                    title={v > 0 ? "Ver lançamentos" : undefined}>
                     {v > 0 ? fmtBRL(v) : "—"}
                   </td>
                 ))}
@@ -148,7 +247,10 @@ export default function FluxoPage() {
               <tr style={{ background: "var(--color-background-primary)" }}>
                 <td style={{ ...tdLabel, color: "#EF4444" }}>Saídas</td>
                 {saidas.map((v, i) => (
-                  <td key={i} style={{ ...tdStyle, color: v > 0 ? "#EF4444" : "var(--color-text-secondary)", fontWeight: v > 0 ? 600 : 400 }}>
+                  <td key={i}
+                    onClick={() => v > 0 ? abrirDrill("saida", i) : undefined}
+                    style={{ ...tdStyle, color: v > 0 ? "#EF4444" : "var(--color-text-secondary)", fontWeight: v > 0 ? 600 : 400, cursor: v > 0 ? "pointer" : "default", textDecoration: v > 0 ? "underline dotted" : "none" }}
+                    title={v > 0 ? "Ver lançamentos" : undefined}>
                     {v > 0 ? `-${fmtBRL(v)}` : "—"}
                   </td>
                 ))}
@@ -184,6 +286,74 @@ export default function FluxoPage() {
               </tr>
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* Modal drill-down */}
+      {drillCell && (
+        <div
+          onClick={e => { if (e.target === e.currentTarget) setDrillCell(null); }}
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+          <div style={{ background: "var(--color-background-primary)", borderRadius: 16, border: "0.5px solid var(--color-border-tertiary)", width: "100%", maxWidth: 680, maxHeight: "80vh", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+            <div style={{ padding: "20px 24px 16px", borderBottom: "0.5px solid var(--color-border-tertiary)", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+              <div>
+                <p style={{ margin: "0 0 2px", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--color-text-secondary)" }}>
+                  {drillCell.tipo === "entrada" ? "Entradas" : "Saídas"} — {MESES[drillCell.mes]} {ano}
+                </p>
+                <p style={{ margin: 0, fontSize: 22, fontWeight: 800, color: drillCor, letterSpacing: "-0.02em" }}>
+                  {drillCell.tipo === "saida" ? "-" : ""}R$ {fmtBRL(drillTotal)}
+                </p>
+              </div>
+              <button onClick={() => setDrillCell(null)} style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: "var(--color-text-secondary)", lineHeight: 1, padding: 4 }}>×</button>
+            </div>
+
+            <div style={{ overflowY: "auto", flex: 1 }}>
+              {drillLoading ? (
+                <div style={{ padding: "40px 0", textAlign: "center", fontSize: 13, color: "var(--color-text-secondary)" }}>Carregando…</div>
+              ) : drillItems.length === 0 ? (
+                <div style={{ padding: "40px 0", textAlign: "center", fontSize: 13, color: "var(--color-text-secondary)" }}>Nenhum lançamento encontrado</div>
+              ) : (
+                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <thead>
+                    <tr>
+                      {["Data", "Descrição / Pedido", "Valor"].map(h => (
+                        <th key={h} style={{ fontSize: 10, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.04em", padding: "8px 16px", textAlign: h === "Valor" ? "right" : "left", borderBottom: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-secondary)", whiteSpace: "nowrap" }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {drillItems.map((e, idx) => (
+                      <tr key={e.id} style={{ background: idx % 2 === 0 ? "var(--color-background-primary)" : "var(--color-background-secondary)" }}>
+                        <td style={{ padding: "10px 16px", fontSize: 12, color: "var(--color-text-secondary)", whiteSpace: "nowrap", borderBottom: "0.5px solid var(--color-border-tertiary)" }}>
+                          {fmtData(e.pago_em)}
+                        </td>
+                        <td style={{ padding: "10px 16px", fontSize: 13, borderBottom: "0.5px solid var(--color-border-tertiary)" }}>
+                          <span style={{ color: "var(--color-text-primary)" }}>{e.descricao ?? "—"}</span>
+                          {e.pedido_id && e.pedido_nome && (
+                            <a href={`/crm/pedidos/${e.pedido_id}`} style={{ display: "block", fontSize: 11, color: "var(--color-text-secondary)", textDecoration: "none", marginTop: 1 }}>
+                              {e.pedido_nome}
+                            </a>
+                          )}
+                        </td>
+                        <td style={{ padding: "10px 16px", fontSize: 13, fontWeight: 600, textAlign: "right", whiteSpace: "nowrap", color: drillCor, borderBottom: "0.5px solid var(--color-border-tertiary)" }}>
+                          R$ {fmtBRL(e.valor)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+
+            {!drillLoading && drillItems.length > 0 && (
+              <div style={{ padding: "12px 24px", borderTop: "0.5px solid var(--color-border-tertiary)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>{drillItems.length} lançamento{drillItems.length !== 1 ? "s" : ""}</span>
+                <span style={{ fontSize: 14, fontWeight: 700, color: drillCor }}>
+                  {drillCell.tipo === "saida" ? "-" : ""}R$ {fmtBRL(drillTotal)}
+                </span>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
