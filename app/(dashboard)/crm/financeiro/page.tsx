@@ -77,6 +77,8 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
   const [busca,         setBusca]         = usePersistState(`financeiro:${tipoMenu}:busca`,         "");
   const [mesFiltro,     setMesFiltro]     = usePersistState(`financeiro:${tipoMenu}:mesFiltro`,     "");
   const [periodoRapido, setPeriodoRapido] = usePersistState<"vencidas" | "este-mes" | "prox-mes" | "">(`financeiro:${tipoMenu}:periodoRapido`, "este-mes");
+  const [dataInicio,    setDataInicio]    = usePersistState(`financeiro:${tipoMenu}:dataInicio`, "");
+  const [dataFim,       setDataFim]       = usePersistState(`financeiro:${tipoMenu}:dataFim`,    "");
 
   // Modais
   const [modalEditar,      setModalEditar]      = useState<ModalEditar | null>(null);
@@ -190,10 +192,13 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
     const dataRef = (aba === "recebidas" || aba === "pagas") && e.pago_em ? e.pago_em : e.vencimento;
 
     let matchPeriodo = true;
-    if      (periodoRapido === "vencidas")  matchPeriodo = dataRef < hoje;
-    else if (periodoRapido === "este-mes")  matchPeriodo = dataRef.startsWith(mesAtual);
-    else if (periodoRapido === "prox-mes")  matchPeriodo = dataRef.startsWith(proxMes);
-    else if (mesFiltro !== "")              matchPeriodo = dataRef.startsWith(mesFiltro);
+    if      (periodoRapido === "vencidas")         matchPeriodo = dataRef < hoje;
+    else if (periodoRapido === "este-mes")         matchPeriodo = dataRef.startsWith(mesAtual);
+    else if (periodoRapido === "prox-mes")         matchPeriodo = dataRef.startsWith(proxMes);
+    else if (mesFiltro !== "")                     matchPeriodo = dataRef.startsWith(mesFiltro);
+    else if (dataInicio && dataFim)                matchPeriodo = dataRef >= dataInicio && dataRef <= dataFim;
+    else if (dataInicio)                           matchPeriodo = dataRef >= dataInicio;
+    else if (dataFim)                              matchPeriodo = dataRef <= dataFim;
 
     return matchBusca && matchPeriodo;
   });
@@ -453,16 +458,14 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
 
       {/* Filtros rápidos */}
       <div style={{ display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap" }}>
-          {([
-            { key: "",          label: "Todos"      },
-            { key: "vencidas",  label: "Vencidas",  apenasNaoPago: true },
-            { key: "este-mes",  label: "Este mês"   },
-            { key: "prox-mes",  label: "Próx. mês"  },
-          ] as const).filter(f => !("apenasNaoPago" in f && f.apenasNaoPago && (aba === "recebidas" || aba === "pagas"))).map(({ key, label }) => {
-            const ativo = periodoRapido === key && (key !== "" || mesFiltro === "");
+          {(aba === "recebidas" || aba === "pagas"
+            ? [{ key: "" as const, label: "Todos" }, { key: "este-mes" as const, label: "Este mês" }]
+            : [{ key: "" as const, label: "Todos" }, { key: "vencidas" as const, label: "Vencidas" }, { key: "este-mes" as const, label: "Este mês" }, { key: "prox-mes" as const, label: "Próx. mês" }]
+          ).map(({ key, label }) => {
+            const ativo = periodoRapido === key && (key !== "" || (mesFiltro === "" && !dataInicio && !dataFim));
             return (
               <button key={key}
-                onClick={() => { setPeriodoRapido(key); setMesFiltro(""); }}
+                onClick={() => { setPeriodoRapido(key); setMesFiltro(""); setDataInicio(""); setDataFim(""); }}
                 style={{
                   padding: "6px 14px", borderRadius: 20, fontSize: 12,
                   fontWeight: ativo ? 700 : 500, cursor: "pointer",
@@ -503,12 +506,25 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
           {busca && <button onClick={() => setBusca("")} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--color-text-secondary)", fontSize: 18, lineHeight: 1, padding: 0 }}>×</button>}
         </div>
         {meses.length > 1 && (
-          <select value={mesFiltro} onChange={(e) => { setMesFiltro(e.target.value); setPeriodoRapido(""); }}
+          <select value={mesFiltro} onChange={(e) => { setMesFiltro(e.target.value); setPeriodoRapido(""); setDataInicio(""); setDataFim(""); }}
             style={{ padding: "8px 12px", borderRadius: 9, border: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-primary)", fontSize: 13, color: "var(--color-text-primary)", cursor: "pointer", outline: "none" }}>
             <option value="">Todos os meses</option>
             {meses.map(m => <option key={m} value={m}>{fmtMes(m)}</option>)}
           </select>
         )}
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <input type="date" value={dataInicio}
+            onChange={e => { setDataInicio(e.target.value); setPeriodoRapido(""); setMesFiltro(""); }}
+            style={{ padding: "8px 10px", borderRadius: 9, border: `0.5px solid ${dataInicio ? "var(--color-text-primary)" : "var(--color-border-tertiary)"}`, background: "var(--color-background-primary)", fontSize: 12, color: "var(--color-text-primary)", outline: "none", cursor: "pointer" }} />
+          <span style={{ fontSize: 11, color: "var(--color-text-secondary)" }}>até</span>
+          <input type="date" value={dataFim}
+            onChange={e => { setDataFim(e.target.value); setPeriodoRapido(""); setMesFiltro(""); }}
+            style={{ padding: "8px 10px", borderRadius: 9, border: `0.5px solid ${dataFim ? "var(--color-text-primary)" : "var(--color-border-tertiary)"}`, background: "var(--color-background-primary)", fontSize: 12, color: "var(--color-text-primary)", outline: "none", cursor: "pointer" }} />
+          {(dataInicio || dataFim) && (
+            <button onClick={() => { setDataInicio(""); setDataFim(""); }}
+              style={{ background: "none", border: "none", cursor: "pointer", color: "var(--color-text-secondary)", fontSize: 16, lineHeight: 1, padding: "0 4px" }}>×</button>
+          )}
+        </div>
       </div>
 
       {/* Lista */}
