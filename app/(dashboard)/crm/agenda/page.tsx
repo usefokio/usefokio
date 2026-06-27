@@ -389,13 +389,16 @@ export default function AgendaPage() {
                             else if (ev.dados) { setModal({ modo: "editar", evento: ev }); }
                           }}
                           style={{
-                            fontSize: 10, fontWeight: 600, padding: "2px 6px", borderRadius: 4,
+                            fontSize: 11, fontWeight: 600, padding: "4px 8px", borderRadius: 5,
                             background: ev.bg, color: ev.cor,
-                            marginBottom: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-                            cursor: "pointer",
+                            borderLeft: `3px solid ${ev.cor}`,
+                            marginBottom: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                            cursor: "pointer", lineHeight: 1.3,
                           }}
                         >
-                          {ev.titulo}
+                          {ev.dados?.inicio && !ev.dados?.dia_todo
+                            ? <><span style={{ opacity: 0.75, fontSize: 10, marginRight: 4 }}>{ev.dados.inicio.slice(11, 16)}</span>{ev.titulo}</>
+                            : ev.titulo}
                         </div>
                       ))}
 
@@ -430,9 +433,15 @@ export default function AgendaPage() {
                                 if (ev.navegarPara) router.push(ev.navegarPara);
                                 else if (ev.dados) setModal({ modo: "editar", evento: ev });
                               }}
-                              style={{ fontSize: 11, padding: "4px 6px", borderRadius: 4, background: ev.bg, color: ev.cor, marginBottom: 3, cursor: "pointer", fontWeight: 500 }}
+                              style={{ fontSize: 11, padding: "6px 8px", borderRadius: 5, background: ev.bg, color: ev.cor, marginBottom: 4, cursor: "pointer", borderLeft: `3px solid ${ev.cor}` }}
                             >
-                              {ev.titulo}
+                              {ev.dados?.inicio && !ev.dados?.dia_todo && (
+                                <div style={{ fontSize: 10, opacity: 0.75, marginBottom: 2 }}>{ev.dados.inicio.slice(11, 16)}{ev.dados.fim ? ` – ${ev.dados.fim.slice(11, 16)}` : ""}</div>
+                              )}
+                              <div style={{ fontWeight: 600 }}>{ev.titulo}</div>
+                              {ev.dados?.local && (
+                                <div style={{ fontSize: 10, opacity: 0.7, marginTop: 2 }}>📍 {ev.dados.local}</div>
+                              )}
                             </div>
                           ))}
                         </div>
