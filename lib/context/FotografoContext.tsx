@@ -25,6 +25,34 @@ export function FotografoProvider({ children }: { children: ReactNode }) {
   const firstLoadDone             = useRef(false);
 
   const load = useCallback(async () => {
+    if (process.env.NODE_ENV === "development") {
+      setFotografo({
+        id: "00000000-0000-0000-0000-000000000001",
+        nome_completo: "Dev Local",
+        nome_empresa: "Estúdio Dev",
+        email: "dev@local.dev",
+        telefone: null, whatsapp: null, cep: null, rua: null, numero: null,
+        complemento: null, bairro: null, cidade: null, estado: null,
+        instagram: null, facebook: null, tiktok: null, youtube: null, site: null,
+        aceita_emails: false, email_confirmado: true,
+        plano: "estudio",
+        total_fotos_usadas: 0,
+        aprovado: true,
+        mensagem_padrao_entrega: null, renewal_fee_padrao: null,
+        templates_mensagem: null, asaas_api_key_enc: null,
+        asaas_ambiente: "sandbox", asaas_ativo: false,
+        limite_fotos_custom: null,
+        crm_email_config: null,
+        recursos: { selecao: true, entrega: true, album: true, contatos: true, pagamentos: true, crm: true },
+        logo_url: null, watermark_url: null, ical_url: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
+      firstLoadDone.current = true;
+      setLoading(false);
+      return;
+    }
+
     // Só mostra spinner na primeira carga; recargas de token são silenciosas
     if (!firstLoadDone.current) setLoading(true);
     try {
@@ -72,6 +100,7 @@ export function FotografoProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     load();
+    if (process.env.NODE_ENV === "development") return;
 
     const supabase = createClient();
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {

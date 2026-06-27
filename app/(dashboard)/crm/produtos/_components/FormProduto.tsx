@@ -4,16 +4,14 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
-import type { CrmProduct, CrmChartOfAccount, CrmProductCategory, CrmAgendamentoCategoria, CrmProductCusto } from "@/lib/supabase/types";
+import type { CrmProduct, CrmChartOfAccount, CrmProductCategory, CrmProductCusto } from "@/lib/supabase/types";
 
-type Tab = "info" | "precos" | "agendamento" | "custos";
+type Tab = "info" | "custos";
 
 interface Props { produto?: CrmProduct; }
 
 const LABELS: Record<Tab, string> = {
   info: "Informação básica",
-  precos: "Lista de preços",
-  agendamento: "Agendamento Automático",
   custos: "Custos",
 };
 
@@ -39,7 +37,7 @@ export function FormProduto({ produto }: Props) {
   const [contasVendas, setContasVendas]       = useState<CrmChartOfAccount[]>([]);
   const [contasDespesa, setContasDespesa]     = useState<CrmChartOfAccount[]>([]);
   const [categorias, setCategorias]           = useState<CrmProductCategory[]>([]);
-  const [agendaCats, setAgendaCats]           = useState<CrmAgendamentoCategoria[]>([]);
+
 
   // Campos info
   const [categoria,     setCategoria]     = useState(produto?.categoria     ?? "");
@@ -51,17 +49,6 @@ export function FormProduto({ produto }: Props) {
   const [preco,         setPreco]         = useState(produto ? String(produto.preco) : "");
   const [contaVendas,   setContaVendas]   = useState(produto?.conta_vendas_id ?? "");
   const [ativo,         setAtivo]         = useState(produto?.ativo         ?? true);
-  const [listaPrecos,   setListaPrecos]   = useState(produto?.lista_precos  ?? false);
-
-  // Campos agendamento
-  const [agendaAtivo,       setAgendaAtivo]       = useState(produto?.agenda_ativo        ?? false);
-  const [agendaUsuarioId,   setAgendaUsuarioId]   = useState(produto?.agenda_usuario_id   ?? "");
-  const [agendaDias,        setAgendaDias]        = useState(produto?.agenda_dias         ?? 0);
-  const [agendaDuracao,     setAgendaDuracao]     = useState(
-    produto?.agenda_duracao ? produto.agenda_duracao.substring(0, 5) : "01:00"
-  );
-  const [agendaCategoriaId, setAgendaCategoriaId] = useState(produto?.agenda_categoria_id ?? "");
-
   // Campos custos
   const [custos,        setCustos]        = useState<(CrmProductCusto | typeof EMPTY_CUSTO & { _tmpId?: string })[]>([]);
   const [custosRemover, setCustosRemover] = useState<string[]>([]); // IDs a deletar
@@ -92,13 +79,6 @@ export function FormProduto({ produto }: Props) {
       .order("ordem")
       .then(({ data }) => setCategorias((data ?? []) as CrmProductCategory[]));
 
-    sb.from("crm_agendamento_categorias")
-      .select("*")
-      .or("fotografo_id.is.null,fotografo_id.eq." + fotografo.id)
-      .eq("ativo", true)
-      .order("ordem")
-      .then(({ data }) => setAgendaCats((data ?? []) as CrmAgendamentoCategoria[]));
-
     if (editando && produto) {
       sb.from("crm_product_custos")
         .select("*")
@@ -114,6 +94,7 @@ export function FormProduto({ produto }: Props) {
     if (!fotografo) return;
     if (!nome.trim())      { setErro("Nome é obrigatório."); setAba("info"); return; }
     if (!categoria.trim()) { setErro("Categoria é obrigatória."); setAba("info"); return; }
+    if (!contaVendas)      { setErro("Conta de vendas é obrigatória."); setAba("info"); return; }
     if (precoNum() < 0)    { setErro("Preço inválido."); return; }
 
     setSaving(true);
@@ -131,12 +112,7 @@ export function FormProduto({ produto }: Props) {
       preco:                precoNum(),
       conta_vendas_id:      contaVendas || null,
       ativo,
-      lista_precos:         listaPrecos,
-      agenda_ativo:         agendaAtivo,
-      agenda_usuario_id:    agendaAtivo && agendaUsuarioId ? agendaUsuarioId : null,
-      agenda_dias:          agendaDias,
-      agenda_duracao:       agendaDuracao + ":00",
-      agenda_categoria_id:  agendaAtivo && agendaCategoriaId ? agendaCategoriaId : null,
+
     };
 
     const sb = createClient();
@@ -231,7 +207,7 @@ export function FormProduto({ produto }: Props) {
 
       {/* Abas */}
       <div style={{ display: "flex", gap: 2, marginBottom: 24, borderBottom: "0.5px solid var(--color-border-tertiary)", paddingBottom: 0 }}>
-        {(["info", "precos", "agendamento", "custos"] as Tab[]).map((t) => (
+        {(["info", "custos"] as Tab[]).map((t) => (
           <button
             key={t}
             onClick={() => setAba(t)}
@@ -317,8 +293,9 @@ export function FormProduto({ produto }: Props) {
               </div>
             </div>
             <div>
-              <label style={labelStyle}>CONTA DE VENDAS</label>
-              <select value={contaVendas} onChange={(e) => setContaVendas(e.target.value)} style={inputStyle}>
+              <label style={labelStyle}>CONTA DE VENDAS *</label>
+              <select value={contaVendas} onChange={(e) => setContaVendas(e.target.value)}
+                style={{ ...inputStyle, borderColor: !contaVendas ? "rgba(239,68,68,0.5)" : undefined }}>
                 <option value="">Selecione…</option>
                 {contasVendas.filter((c) => c.codigo.startsWith("3.1")).map((c) => (
                   <option key={c.id} value={c.id}>{c.codigo} — {c.nome}</option>
@@ -335,92 +312,7 @@ export function FormProduto({ produto }: Props) {
                 <div style={{ fontSize: 11, color: "var(--color-text-secondary)" }}>Produto disponível para uso em pedidos</div>
               </div>
             </label>
-            <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", userSelect: "none" }}>
-              <Toggle value={listaPrecos} onChange={setListaPrecos} />
-              <div>
-                <div style={{ fontSize: 13, color: "var(--color-text-primary)", fontWeight: 500 }}>Lista de preços</div>
-                <div style={{ fontSize: 11, color: "var(--color-text-secondary)" }}>Tem variações de preço</div>
-              </div>
-            </label>
           </div>
-        </div>
-      )}
-
-      {/* Aba: Lista de preços */}
-      {aba === "precos" && (
-        <div style={{ padding: "32px 0", textAlign: "center", color: "var(--color-text-secondary)", fontSize: 13 }}>
-          Lista de preços diferenciados — disponível em breve.
-        </div>
-      )}
-
-      {/* Aba: Agendamento Automático */}
-      {aba === "agendamento" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-          <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", userSelect: "none" }}>
-            <Toggle value={agendaAtivo} onChange={setAgendaAtivo} />
-            <div>
-              <div style={{ fontSize: 13, color: "var(--color-text-primary)", fontWeight: 600 }}>Adicionar Agendamento</div>
-              <div style={{ fontSize: 11, color: "var(--color-text-secondary)" }}>Ao vender este produto, criar agendamento automaticamente</div>
-            </div>
-          </label>
-
-          {agendaAtivo && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 14, paddingLeft: 0 }}>
-              <div>
-                <label style={labelStyle}>USUÁRIO</label>
-                <select
-                  value={agendaUsuarioId || fotografo?.id || ""}
-                  onChange={(e) => setAgendaUsuarioId(e.target.value)}
-                  style={inputStyle}
-                >
-                  {fotografo && <option value={fotografo.id}>{fotografo.nome_completo}</option>}
-                </select>
-              </div>
-
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-                <div>
-                  <label style={labelStyle}>DIAS ANTES DO EVENTO</label>
-                  <input
-                    type="number"
-                    min={0}
-                    value={agendaDias}
-                    onChange={(e) => setAgendaDias(parseInt(e.target.value) || 0)}
-                    style={inputStyle}
-                  />
-                  <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 4 }}>0 = no dia do evento</div>
-                </div>
-                <div>
-                  <label style={labelStyle}>DURAÇÃO</label>
-                  <input
-                    type="time"
-                    value={agendaDuracao}
-                    onChange={(e) => setAgendaDuracao(e.target.value)}
-                    style={inputStyle}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label style={labelStyle}>CATEGORIA DO AGENDAMENTO</label>
-                <select
-                  value={agendaCategoriaId}
-                  onChange={(e) => setAgendaCategoriaId(e.target.value)}
-                  style={inputStyle}
-                >
-                  <option value="">Selecione…</option>
-                  {agendaCats.map((c) => (
-                    <option key={c.id} value={c.id}>{c.nome}{c.sistema ? " (sistema)" : ""}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-          )}
-
-          {!agendaAtivo && (
-            <div style={{ padding: "20px 0", color: "var(--color-text-secondary)", fontSize: 13 }}>
-              Ative o toggle acima para configurar o agendamento automático deste produto.
-            </div>
-          )}
         </div>
       )}
 

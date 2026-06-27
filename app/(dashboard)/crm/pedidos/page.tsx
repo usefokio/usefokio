@@ -4,8 +4,22 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
+import { useWindowWidth } from "@/lib/hooks/useWindowWidth";
+import { usePersistState } from "@/lib/hooks/usePersistState";
+import { PEDIDO_STATUS_MAP } from "@/lib/constants/statusMaps";
+import { formatBRL, formatData } from "@/lib/utils/format";
+import { IcoEdit, IcoTrash, IcoOpen } from "@/app/(dashboard)/crm/_components/Icons";
+import { Paginacao } from "@/app/(dashboard)/crm/_components/Paginacao";
 import type { CrmOrder } from "@/lib/supabase/types";
-import { normalizar } from "@/lib/utils/normalizar";
+
+const btnIcon = (extra?: React.CSSProperties): React.CSSProperties => ({
+  display: "flex", alignItems: "center", justifyContent: "center",
+  width: 26, height: 26, borderRadius: 6,
+  border: "0.5px solid var(--color-border-secondary)",
+  background: "transparent", cursor: "pointer",
+  color: "var(--color-text-secondary)",
+  ...extra,
+});
 
 type OrderWithCliente = CrmOrder & {
   clientes?: { nome: string } | null;
@@ -13,55 +27,93 @@ type OrderWithCliente = CrmOrder & {
 
 type StatusFiltro = "" | CrmOrder["status"];
 
-const STATUS_MAP: Record<string, { label: string; color: string; bg: string }> = {
-  aguardando_sinal: { label: "Aguardando sinal", color: "#D97706", bg: "rgba(217,119,6,0.08)"   },
-  em_producao:      { label: "Em produção",      color: "#2563EB", bg: "rgba(37,99,235,0.08)"   },
-  entregue:         { label: "Entregue",          color: "#059669", bg: "rgba(16,185,129,0.08)"  },
-  cancelado:        { label: "Cancelado",         color: "#EF4444", bg: "rgba(239,68,68,0.08)"   },
-  concluido:        { label: "Concluído",         color: "#6B7280", bg: "rgba(107,114,128,0.08)" },
-};
+const STATUS_MAP = PEDIDO_STATUS_MAP;
 
 export default function PedidosPage() {
   const router        = useRouter();
   const { fotografo } = useFotografo();
 
-  const [pedidos,  setPedidos]  = useState<OrderWithCliente[]>([]);
-  const [loading,  setLoading]  = useState(true);
-  const [busca,    setBusca]    = useState("");
-  const [status,   setStatus]   = useState<StatusFiltro>("");
-  const [catFiltro, setCatFiltro] = useState("");
+  const [pedidos,    setPedidos]    = useState<OrderWithCliente[]>([]);
+  const [loading,    setLoading]    = useState(true);
   const [categorias, setCategorias] = useState<string[]>([]);
+  const [page,     setPage]     = useState(1);
+  const [pageSize, setPageSize] = usePersistState<25|50|100>("pedidos:pageSize", 50);
+  const [busca,      setBusca]      = usePersistState("pedidos:busca",    "");
+  const [status,     setStatus]     = usePersistState<StatusFiltro>("pedidos:status",   "");
+  const [catFiltro,  setCatFiltro]  = usePersistState("pedidos:catFiltro", "");
+  const largura = useWindowWidth();
+  const [sortCol, setSortCol] = usePersistState("pedidos:sortCol", "created_at");
+  const [sortDir, setSortDir] = usePersistState<"asc" | "desc">("pedidos:sortDir", "desc");
+  const toggleSort = (col: string) => {
+    if (sortCol === col) setSortDir(d => d === "asc" ? "desc" : "asc");
+    else { setSortCol(col); setSortDir("asc"); }
+  };
+
+  const excluir = async (id: string, ev: React.MouseEvent) => {
+    ev.stopPropagation();
+    if (!confirm("Excluir este pedido? Os lançamentos financeiros vinculados também serão removidos.")) return;
+    const sb = createClient();
+    const pedido = pedidos.find(p => p.id === id);
+    await sb.from("crm_schedules").delete().eq("pedido_id", id);
+    await sb.from("crm_financial_entries").delete().eq("pedido_id", id);
+    await sb.from("crm_order_items").delete().eq("pedido_id", id);
+    await sb.from("crm_orders").delete().eq("id", id);
+    if (pedido?.oportunidade_id) {
+      await sb.from("crm_opportunities").update({ status: "em_aberto" }).eq("id", pedido.oportunidade_id);
+    }
+    carregar();
+  };
 
   const carregar = useCallback(async () => {
     if (!fotografo) return;
     setLoading(true);
-    const sb = createClient();
-    let q = sb
+    const { data } = await createClient()
       .from("crm_orders")
       .select("*, clientes(nome)")
       .eq("fotografo_id", fotografo.id)
-      .order("created_at", { ascending: false });
-    if (status)    q = q.eq("status", status);
-    if (catFiltro) q = q.eq("categoria", catFiltro);
-    const { data } = await q;
+      .order("created_at", { ascending: false })
+      .range(0, 4999);
     const items = (data ?? []) as OrderWithCliente[];
     setPedidos(items);
     const cats = [...new Set(items.map(o => o.categoria).filter(Boolean) as string[])].sort();
     setCategorias(cats);
     setLoading(false);
-  }, [fotografo, status, catFiltro]);
+  }, [fotografo]);
 
   useEffect(() => { carregar(); }, [carregar]);
+  useEffect(() => { setPage(1); }, [busca, status, catFiltro, sortCol, sortDir]);
 
-  const filtrados = pedidos.filter(p =>
-    busca === "" ||
-    normalizar(p.nome ?? "").includes(normalizar(busca)) ||
-    normalizar(p.clientes?.nome ?? "").includes(normalizar(busca)) ||
-    normalizar(p.numero ?? "").includes(normalizar(busca))
-  );
+  const filtrados = pedidos.filter(p => {
+    if (status    && p.status    !== status)    return false;
+    if (catFiltro && p.categoria !== catFiltro) return false;
+    if (busca !== "" &&
+      !(p.nome ?? "").toLowerCase().includes(busca.toLowerCase()) &&
+      !(p.clientes?.nome ?? "").toLowerCase().includes(busca.toLowerCase()) &&
+      !(p.numero ?? "").toLowerCase().includes(busca.toLowerCase())
+    ) return false;
+    return true;
+  });
 
-  const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-  const fmtData = (s: string) => new Date(s + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" });
+  const ordenados = [...filtrados].sort((a, b) => {
+    let va: string | number | null | undefined;
+    let vb: string | number | null | undefined;
+    if      (sortCol === "numero")      { va = a.legacy_id ?? (a.numero ? parseInt(a.numero) : null); vb = b.legacy_id ?? (b.numero ? parseInt(b.numero) : null); }
+    else if (sortCol === "nome")        { va = a.nome;            vb = b.nome; }
+    else if (sortCol === "cliente")     { va = a.clientes?.nome;  vb = b.clientes?.nome; }
+    else if (sortCol === "data_evento") { va = a.data_evento;     vb = b.data_evento; }
+    else if (sortCol === "total")       { va = a.total;           vb = b.total; }
+    else if (sortCol === "status")      { va = a.status;          vb = b.status; }
+    else                                { va = a.created_at;      vb = b.created_at; }
+    if (va == null) return 1;
+    if (vb == null) return -1;
+    const cmp = typeof va === "number" ? va - (vb as number) : String(va).localeCompare(String(vb), "pt-BR");
+    return sortDir === "asc" ? cmp : -cmp;
+  });
+
+  const paginados = ordenados.slice((page - 1) * pageSize, page * pageSize);
+
+  const fmt = formatBRL;
+  const fmtData = formatData;
 
   const contagens: Record<string, number> = { "": pedidos.length };
   for (const p of pedidos) contagens[p.status] = (contagens[p.status] ?? 0) + 1;
@@ -76,6 +128,21 @@ export default function PedidosPage() {
   ];
 
   const totalFiltrado = filtrados.reduce((s, p) => s + (p.total ?? 0), 0);
+
+  const verLarge  = largura >= 1100;
+  const verMedium = largura >= 700 && largura < 1100;
+
+  const gridTemplate = verLarge
+    ? "80px 1fr 160px 130px 120px 120px 100px"
+    : verMedium
+    ? "80px 1fr 120px 120px 100px"
+    : "80px 1fr 120px 80px";
+
+  const cabecalhos = verLarge
+    ? [{ label: "Nº", col: "numero" }, { label: "Pedido", col: "nome" }, { label: "Cliente", col: "cliente" }, { label: "Evento", col: "data_evento" }, { label: "Total", col: "total" }, { label: "Status", col: "status" }, { label: "", col: "" }]
+    : verMedium
+    ? [{ label: "Nº", col: "numero" }, { label: "Pedido", col: "nome" }, { label: "Total", col: "total" }, { label: "Status", col: "status" }, { label: "", col: "" }]
+    : [{ label: "Nº", col: "numero" }, { label: "Pedido", col: "nome" }, { label: "Status", col: "status" }, { label: "", col: "" }];
 
   return (
     <div style={{ padding: "28px 32px", maxWidth: 1100, fontFamily: "var(--font-sans)" }}>
@@ -163,49 +230,73 @@ export default function PedidosPage() {
         </div>
       ) : (
         <div style={{ border: "0.5px solid var(--color-border-tertiary)", borderRadius: 12, overflow: "hidden" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 160px 130px 120px 120px 48px", padding: "8px 16px", borderBottom: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-secondary)" }}>
-            {["Pedido", "Cliente", "Evento", "Total", "Status", ""].map((h) => (
-              <span key={h} style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.04em" }}>{h}</span>
+          <div style={{ display: "grid", gridTemplateColumns: gridTemplate, padding: "8px 16px", borderBottom: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-secondary)" }}>
+            {cabecalhos.map(({ label, col }) => (
+              <div key={label || "acoes"} onClick={() => col && toggleSort(col)}
+                style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.04em", cursor: col ? "pointer" : "default", userSelect: "none" }}>
+                {label}
+                {col && sortCol === col && <span style={{ fontSize: 9, opacity: 0.7 }}>{sortDir === "asc" ? "↑" : "↓"}</span>}
+              </div>
             ))}
           </div>
-          {filtrados.map((p, i) => {
+          {paginados.map((p, i) => {
             const st = STATUS_MAP[p.status] ?? STATUS_MAP.aguardando_sinal;
             return (
               <div
                 key={p.id}
-                onClick={() => router.push(`/crm/pedidos/${p.id}`)}
-                style={{ display: "grid", gridTemplateColumns: "1fr 160px 130px 120px 120px 48px", padding: "12px 16px", borderBottom: i < filtrados.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", cursor: "pointer", background: "var(--color-background-primary)", transition: "background 0.1s" }}
+                style={{ display: "grid", gridTemplateColumns: gridTemplate, padding: "12px 16px", borderBottom: i < paginados.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", background: "var(--color-background-primary)", transition: "background 0.1s", alignItems: "center" }}
                 onMouseEnter={(e) => (e.currentTarget.style.background = "var(--color-background-secondary)")}
                 onMouseLeave={(e) => (e.currentTarget.style.background = "var(--color-background-primary)")}
               >
-                <div>
+                <div style={{ fontSize: 12, fontFamily: "var(--font-mono)", color: "var(--color-text-secondary)", cursor: "pointer" }} onClick={() => router.push(`/crm/pedidos/${p.id}`)}>
+                  {p.legacy_id ?? p.numero ?? "—"}
+                </div>
+                <div style={{ cursor: "pointer", minWidth: 0 }} onClick={() => router.push(`/crm/pedidos/${p.id}`)}>
                   <div style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {p.nome ?? p.numero ?? `Pedido #${p.id.slice(0, 8)}`}
                   </div>
                   {p.categoria && <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 2 }}>{p.categoria}</div>}
                 </div>
-                <div style={{ display: "flex", alignItems: "center" }}>
-                  <span style={{ fontSize: 13, color: "var(--color-text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.clientes?.nome ?? "—"}</span>
-                </div>
-                <div style={{ display: "flex", alignItems: "center" }}>
-                  <span style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>
-                    {p.data_evento ? fmtData(p.data_evento) : "—"}
-                  </span>
-                </div>
-                <div style={{ display: "flex", alignItems: "center" }}>
+                {verLarge && (
+                  <div style={{ cursor: "pointer" }} onClick={() => router.push(`/crm/pedidos/${p.id}`)}>
+                    <span style={{ fontSize: 13, color: "var(--color-text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.clientes?.nome ?? "—"}</span>
+                  </div>
+                )}
+                {verLarge && (
+                  <div style={{ cursor: "pointer" }} onClick={() => router.push(`/crm/pedidos/${p.id}`)}>
+                    <span style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>
+                      {p.data_evento ? fmtData(p.data_evento) : "—"}
+                    </span>
+                  </div>
+                )}
+                <div style={{ cursor: "pointer" }} onClick={() => router.push(`/crm/pedidos/${p.id}`)}>
                   <span style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)" }}>
                     {fmt(p.total ?? 0)}
                   </span>
                 </div>
-                <div style={{ display: "flex", alignItems: "center" }}>
+                <div style={{ cursor: "pointer" }} onClick={() => router.push(`/crm/pedidos/${p.id}`)}>
                   <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 8px", borderRadius: 10, background: st.bg, color: st.color, whiteSpace: "nowrap" }}>{st.label}</span>
                 </div>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end" }}>
-                  <span style={{ fontSize: 12, color: "#2563EB" }}>→</span>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 5 }}>
+                  <button onClick={() => router.push(`/crm/pedidos/${p.id}`)} title="Abrir"
+                    style={btnIcon({ color: "#2563EB", border: "0.5px solid var(--color-border-secondary)" })}>
+                    <IcoOpen />
+                  </button>
+                  <button onClick={() => router.push(`/crm/pedidos/${p.id}?editar=1`)} title="Editar"
+                    style={btnIcon()}>
+                    <IcoEdit />
+                  </button>
+                  <button onClick={(ev) => excluir(p.id, ev)} title="Excluir"
+                    style={btnIcon({ color: "#EF4444", border: "0.5px solid rgba(239,68,68,0.3)", opacity: 0.6 })}
+                    onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
+                    onMouseLeave={(e) => (e.currentTarget.style.opacity = "0.6")}>
+                    <IcoTrash />
+                  </button>
                 </div>
               </div>
             );
           })}
+          <Paginacao pagina={page} total={ordenados.length} pageSize={pageSize} onPagina={setPage} onPageSize={setPageSize} />
         </div>
       )}
     </div>

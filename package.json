@@ -4,13 +4,20 @@
   "private": true,
   "scripts": {
     "dev": "cross-env NODE_OPTIONS=--max-old-space-size=4096 next dev",
+    "dev:crm": "cross-env NODE_OPTIONS=--max-old-space-size=4096 next dev -p 3001",
     "build": "next build",
     "start": "next start"
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.107.0",
+    "@tiptap/extension-text-align": "^3.27.1",
+    "@tiptap/extension-underline": "^3.27.1",
+    "@tiptap/pm": "^3.27.1",
+    "@tiptap/react": "^3.27.1",
+    "@tiptap/starter-kit": "^3.27.1",
     "@types/archiver": "^8.0.0",
+    "@types/nodemailer": "^8.0.1",
     "archiver": "^8.0.0",
     "exifr": "^7.1.3",
     "jszip": "^3.10.1",
@@ -19,6 +26,7 @@
     "piexifjs": "^1.0.6",
     "react": "19.2.4",
     "react-dom": "19.2.4",
+    "recharts": "^3.9.0",
     "resend": "^6.12.4"
   },
   "devDependencies": {

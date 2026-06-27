@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { Field } from "@/components/ui/Field";
@@ -21,6 +22,8 @@ const TIPO_LABEL: Record<string, string> = {
   outros:         "Outros",
 };
 
+type SaldoConta = { receitas: number; despesas: number };
+
 type FormData = {
   nome: string;
   tipo: CrmContaBancaria["tipo"];
@@ -38,8 +41,10 @@ const EMPTY: FormData = {
 
 export default function ContasBancariasPage() {
   const { fotografo } = useFotografo();
+  const router = useRouter();
 
   const [contas,   setContas]   = useState<CrmContaBancaria[]>([]);
+  const [saldos,   setSaldos]   = useState<Record<string, SaldoConta>>({});
   const [loading,  setLoading]  = useState(true);
   const [modal,    setModal]    = useState(false);
   const [editId,   setEditId]   = useState<string | null>(null);
@@ -51,12 +56,19 @@ export default function ContasBancariasPage() {
   const carregar = useCallback(async () => {
     if (!fotografo) return;
     setLoading(true);
-    const { data } = await createClient()
-      .from("crm_contas_bancarias")
-      .select("*")
-      .eq("fotografo_id", fotografo.id)
-      .order("nome");
-    setContas((data ?? []) as CrmContaBancaria[]);
+    const sb = createClient();
+    const [{ data: contasData }, { data: movData }] = await Promise.all([
+      sb.from("crm_contas_bancarias").select("*").eq("fotografo_id", fotografo.id).order("nome"),
+      sb.from("crm_financial_entries").select("conta_bancaria_id, tipo, valor").eq("fotografo_id", fotografo.id).eq("status", "pago").not("conta_bancaria_id", "is", null),
+    ]);
+    setContas((contasData ?? []) as CrmContaBancaria[]);
+    const acc: Record<string, SaldoConta> = {};
+    for (const m of (movData ?? []) as { conta_bancaria_id: string; tipo: string; valor: number }[]) {
+      if (!acc[m.conta_bancaria_id]) acc[m.conta_bancaria_id] = { receitas: 0, despesas: 0 };
+      if (m.tipo === "receita") acc[m.conta_bancaria_id].receitas += m.valor;
+      else acc[m.conta_bancaria_id].despesas += m.valor;
+    }
+    setSaldos(acc);
     setLoading(false);
   }, [fotografo]);
 
@@ -184,7 +196,7 @@ export default function ContasBancariasPage() {
               </div>
 
               {/* Dados principais */}
-              <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ flex: 1, minWidth: 0, cursor: "pointer" }} onClick={() => router.push(`/crm/contas/${c.id}`)}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <span style={{ fontSize: 14, fontWeight: 600, color: "var(--color-text-primary)" }}>{c.nome}</span>
                   <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 6, background: "var(--color-background-secondary)", color: "var(--color-text-secondary)", border: "0.5px solid var(--color-border-tertiary)" }}>
@@ -203,6 +215,20 @@ export default function ContasBancariasPage() {
                   {c.fone        && <span style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>{c.fone}</span>}
                 </div>
               </div>
+
+              {/* Saldo */}
+              {(() => {
+                const s = saldos[c.id];
+                const saldoInicial = c.saldo_inicial ?? 0;
+                const saldo = saldoInicial + (s ? s.receitas - s.despesas : 0);
+                const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+                return (
+                  <div style={{ textAlign: "right", flexShrink: 0, minWidth: 120 }}>
+                    <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginBottom: 2 }}>Saldo</div>
+                    <div style={{ fontSize: 15, fontWeight: 700, color: saldo >= 0 ? "#059669" : "#EF4444" }}>{fmt(saldo)}</div>
+                  </div>
+                );
+              })()}
 
               {/* Ações */}
               <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>

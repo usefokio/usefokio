@@ -7,13 +7,14 @@ import { useFotografo } from "@/lib/context/FotografoContext";
 import FormOportunidade from "../_components/FormOportunidade";
 import type { CrmOpportunity, CrmFunnel, CrmFunnelStage, CrmFunnelProgress } from "@/lib/supabase/types";
 
-const STATUS_MAP: Record<string, { label: string; color: string; bg: string }> = {
-  em_aberto:      { label: "Em aberto",   color: "#2563EB", bg: "rgba(37,99,235,0.08)"  },
-  venda_efetuada: { label: "Efetivada",   color: "#059669", bg: "rgba(16,185,129,0.08)" },
-  perdido:        { label: "Perdida",     color: "#EF4444", bg: "rgba(239,68,68,0.08)"  },
-  abandonado:     { label: "Desistência", color: "#6B7280", bg: "rgba(107,114,128,0.08)"},
-  suspensa:       { label: "Suspensa",    color: "#D97706", bg: "rgba(217,119,6,0.08)"  },
+const CORES_PADRAO: Record<string, { color: string; bg: string }> = {
+  em_aberto:      { color: "#2563EB", bg: "rgba(37,99,235,0.08)"  },
+  venda_efetuada: { color: "#059669", bg: "rgba(16,185,129,0.08)" },
+  perdido:        { color: "#EF4444", bg: "rgba(239,68,68,0.08)"  },
+  abandonado:     { color: "#6B7280", bg: "rgba(107,114,128,0.08)"},
+  suspensa:       { color: "#D97706", bg: "rgba(217,119,6,0.08)"  },
 };
+const COR_CUSTOM = { color: "#6B7280", bg: "rgba(107,114,128,0.08)" };
 
 type ProgressWithStage = CrmFunnelProgress & { etapa?: { nome: string; ordem: number } | null };
 
@@ -34,8 +35,10 @@ export default function OportunidadeDetailPage() {
   const [funis,    setFunis]    = useState<CrmFunnel[]>([]);
   const [etapas,   setEtapas]   = useState<CrmFunnelStage[]>([]);
   const [progress, setProgress] = useState<ProgressWithStage[]>([]);
-  const [avancando, setAvancando] = useState(false);
-  const [obsTexto,  setObsTexto]  = useState("");
+  const [avancando,    setAvancando]    = useState(false);
+  const [obsTexto,     setObsTexto]     = useState("");
+  const [temPedido,    setTemPedido]    = useState(false);
+  const [statusMap,    setStatusMap]    = useState<Record<string, { label: string; color: string; bg: string }>>({});
 
   const carregarOpp = useCallback(async () => {
     const sb = createClient();
@@ -48,11 +51,12 @@ export default function OportunidadeDetailPage() {
       const d = data as CrmOpportunity & { clientes?: { nome: string } | null; indicado?: { nome: string } | null };
       setOpp(d);
       setClienteNome(d.clientes?.nome ?? null);
-      // se indicado_por_nome não preenchido mas tem cadastro, usa o nome
       if (!d.indicado_por_nome && d.indicado?.nome) {
         (d as CrmOpportunity).indicado_por_nome = d.indicado.nome;
       }
     }
+    const { count } = await sb.from("crm_orders").select("id", { count: "exact", head: true }).eq("oportunidade_id", id);
+    setTemPedido((count ?? 0) > 0);
   }, [id]);
 
   const carregarFunil = useCallback(async () => {
@@ -92,6 +96,30 @@ export default function OportunidadeDetailPage() {
     if (!fotografo || funis.length > 0) return;
     createClient().rpc("criar_funil_padrao", { p_fotografo_id: fotografo.id }).then(() => carregarFunil());
   }, [fotografo, funis.length, carregarFunil]);
+
+  useEffect(() => {
+    if (!fotografo) return;
+    createClient()
+      .from("crm_oportunidade_status")
+      .select("chave, label")
+      .eq("fotografo_id", fotografo.id)
+      .eq("ativo", true)
+      .order("ordem")
+      .then(({ data }) => {
+        const map: Record<string, { label: string; color: string; bg: string }> = {};
+        for (const s of (data ?? []) as { chave: string; label: string; cor: string | null }[]) {
+          if (s.cor) {
+            const hex = s.cor;
+            const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+            map[s.chave] = { label: s.label, color: hex, bg: `rgba(${r},${g},${b},0.1)` };
+          } else {
+            const cor = CORES_PADRAO[s.chave] ?? COR_CUSTOM;
+            map[s.chave] = { label: s.label, ...cor };
+          }
+        }
+        setStatusMap(map);
+      });
+  }, [fotografo]);
 
   const handleDelete = async () => {
     setDeleting(true);
@@ -155,7 +183,8 @@ export default function OportunidadeDetailPage() {
     </div>
   );
 
-  const st = STATUS_MAP[opp.status] ?? STATUS_MAP.em_aberto;
+  const stInfo = statusMap[opp.status];
+  const st = { label: stInfo?.label ?? opp.status, color: stInfo?.color ?? COR_CUSTOM.color, bg: stInfo?.bg ?? COR_CUSTOM.bg };
   const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
   const proximaEtapa = etapaAtualIdx + 1 < etapas.length ? etapas[etapaAtualIdx + 1] : null;
   const etapaAtual   = etapas[etapaAtualIdx] ?? null;
@@ -188,9 +217,11 @@ export default function OportunidadeDetailPage() {
             </div>
           </div>
           <div style={{ display: "flex", gap: 8, flexShrink: 0, flexWrap: "wrap", justifyContent: "flex-end" }}>
-            <button onClick={handleGerarPedido} style={{ padding: "8px 16px", borderRadius: 8, background: "#2563EB", color: "#fff", border: "none", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
-              📋 Gerar pedido
-            </button>
+            {!temPedido && (
+              <button onClick={handleGerarPedido} style={{ padding: "8px 16px", borderRadius: 8, background: "#2563EB", color: "#fff", border: "none", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+                📋 Gerar pedido
+              </button>
+            )}
             <button onClick={() => setEditing(!editing)} style={{ padding: "8px 14px", borderRadius: 8, background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-secondary)", fontSize: 12, fontWeight: 500, cursor: "pointer", color: "var(--color-text-primary)" }}>
               {editing ? "Cancelar edição" : "✏️ Editar"}
             </button>

@@ -19,6 +19,11 @@ type FormData = {
   discount: string;
   other_expenses: string;
   data_evento: string;
+  hora_evento: string;
+  local_evento: string;
+  convidados: string;
+  local_cerimonia: string;
+  local_recepcao: string;
   observacoes: string;
 };
 
@@ -52,7 +57,8 @@ type ParcelaPreview = { vencimento: string; valor: number; label: string };
 const EMPTY: FormData = {
   nome: "", cliente_id: "", categoria: "", status: "aguardando_sinal",
   total: "", discount: "0", other_expenses: "0",
-  data_evento: "", observacoes: "",
+  data_evento: "", hora_evento: "", local_evento: "", convidados: "",
+  local_cerimonia: "", local_recepcao: "", observacoes: "",
 };
 
 const EMPTY_PLANO: Omit<PlanoItem, "tmpId"> = {
@@ -66,10 +72,22 @@ const FORMAS_PAGAMENTO = [
 ];
 
 const CATEGORIAS_PADRAO = [
-  "Aniversário Adulto", "Aniversário Infantil", "Batizado",
-  "Casamento - Foto", "Casamento - Foto e Vídeo", "Casamento - Vídeo",
-  "Consultoria", "Ensaio 15 anos", "Ensaio Casal", "Ensaio Família", "Ensaio/Book",
-  "Evento Corporativo", "Eventos", "Outro",
+  // Casamentos
+  "Casamento - foto", "Casamento - Foto e Video", "Casamento - Video", "Bodas",
+  // Eventos
+  "Aniversário Adulto", "Aniversário Infantil", "Aniversário 15 anos", "Batizado", "Evento Corporativo",
+  // Books/Ensaios
+  "Ensaio/Book", "Ensaio Casal", "Ensaio Familia", "Ensaio Gestante", "Ensaio Infantil", "Ensaio Newborn", "Ensaio 15 anos", "Acompanhamento",
+  // Albuns
+  "Diagramação de livro/álbum",
+  // Consultoria
+  "Consultoria",
+  // Cursos
+  "Cursos e Treinamento",
+  // Vídeos
+  "Video Casamento", "Video cultural", "Video Geral",
+  // Outros
+  "Foto Produto", "Vendas Extras", "Outros Serviços",
 ];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -87,8 +105,8 @@ function addIntervalo(dateStr: string, n: number, intervalo: Intervalo): string 
 }
 
 function calcParcelas(plano: PlanoItem): ParcelaPreview[] {
+  if (!plano.dataPrazo || plano.numParcelas < 1) return [];
   const total = parseFloat(plano.valor.replace(",", ".")) || 0;
-  if (!total || !plano.dataPrazo || plano.numParcelas < 1) return [];
   const n = plano.numParcelas;
   const vUnit = +(total / n).toFixed(2);
   return Array.from({ length: n }, (_, i) => ({
@@ -102,7 +120,7 @@ function calcParcelas(plano: PlanoItem): ParcelaPreview[] {
 
 type Props = {
   inicial?: Partial<FormData & { id: string; oportunidade_id: string }>;
-  onSalvo?: (id: string) => void;
+  onSalvo?: (id: string, agendaAtualizado?: boolean) => void;
 };
 
 // ── Componente ────────────────────────────────────────────────────────────────
@@ -138,24 +156,53 @@ export default function FormPedido({ inicial, onSalvo }: Props) {
   // Ref para saber se a última mudança foi de config (regenera) ou de override (não regenera)
   const regenerarRef = useRef(true);
 
+  // Controla quais planos têm parcelas em modo de edição
+  const [parcelasEmEdicao, setParcelasEmEdicao] = useState<Set<number>>(new Set());
+
   const isEditing = !!inicial?.id;
 
   // ── Efeito de carregamento ──────────────────────────────────────────────────
   useEffect(() => {
     if (!fotografo) return;
     const sb = createClient();
-    Promise.all([
-      sb.from("clientes").select("id, nome").eq("fotografo_id", fotografo.id).order("nome"),
-      sb.from("crm_products").select("*").eq("fotografo_id", fotografo.id).eq("ativo", true).order("nome"),
-    ]).then(([{ data: cls }, { data: prods }]) => {
-      setClientes((cls ?? []) as Pick<Cliente, "id" | "nome">[]);
-      setProdutos((prods ?? []) as CrmProduct[]);
-      if (inicial?.cliente_id) {
-        const c = (cls ?? []).find((x: { id: string }) => x.id === inicial!.cliente_id);
-        if (c) setClienteNomeSelecionado((c as Pick<Cliente, "id" | "nome">).nome);
-      }
-    });
-  }, [fotografo, inicial?.cliente_id]);
+    const p1 = sb.from("clientes").select("id, nome").eq("fotografo_id", fotografo.id).order("nome");
+    const p2 = sb.from("crm_products").select("*").eq("fotografo_id", fotografo.id).eq("ativo", true).order("nome");
+
+    const base = Promise.all([p1, p2]);
+
+    if (isEditing && inicial?.id) {
+      const p3 = sb.from("crm_financial_entries")
+        .select("id, descricao, valor, vencimento")
+        .eq("pedido_id", inicial.id)
+        .eq("tipo", "receita")
+        .order("vencimento");
+      Promise.all([base, p3]).then(([[r1, r2], r3]) => {
+        setClientes((r1.data ?? []) as Pick<Cliente, "id" | "nome">[]);
+        setProdutos((r2.data ?? []) as CrmProduct[]);
+        if (inicial?.cliente_id) {
+          const c = (r1.data ?? []).find(x => (x as { id: string }).id === inicial!.cliente_id);
+          if (c) setClienteNomeSelecionado((c as Pick<Cliente, "id" | "nome">).nome);
+        }
+        const entries = (r3.data ?? []) as { id: string; descricao: string; valor: number; vencimento: string }[];
+        if (entries.length > 0) {
+          setPlanos(entries.map(e => ({
+            tmpId: e.id, forma: "", dataPrazo: e.vencimento, numDocumento: "",
+            numParcelas: 1, intervalo: "unico" as Intervalo, percentual: "",
+            valor: String(e.valor), obs: e.descricao, parcelasOverride: null,
+          })));
+        }
+      });
+    } else {
+      base.then(([r1, r2]) => {
+        setClientes((r1.data ?? []) as Pick<Cliente, "id" | "nome">[]);
+        setProdutos((r2.data ?? []) as CrmProduct[]);
+        if (inicial?.cliente_id) {
+          const c = (r1.data ?? []).find(x => (x as { id: string }).id === inicial!.cliente_id);
+          if (c) setClienteNomeSelecionado((c as Pick<Cliente, "id" | "nome">).nome);
+        }
+      });
+    }
+  }, [fotografo, inicial?.cliente_id, inicial?.id, isEditing]);
 
   // ── Helpers de UI ───────────────────────────────────────────────────────────
   const upd = (k: keyof FormData, v: string) => setForm(f => ({ ...f, [k]: v }));
@@ -220,6 +267,18 @@ export default function FormPedido({ inicial, onSalvo }: Props) {
 
   const removerPlano = (idx: number) => setPlanos(prev => prev.filter((_, i) => i !== idx));
 
+  // Atualiza data ou valor de uma parcela individual dentro de um plano salvo
+  const atualizarParcelaSalva = (planoIdx: number, parcelaIdx: number, campo: "vencimento" | "valor", val: string) => {
+    setPlanos(prev => prev.map((p, i) => {
+      if (i !== planoIdx) return p;
+      const base = p.parcelasOverride ?? calcParcelas(p);
+      const novas = base.map((pc, j) =>
+        j !== parcelaIdx ? pc : campo === "vencimento" ? { ...pc, vencimento: val } : { ...pc, valor: parseFloat(val) || 0 }
+      );
+      return { ...p, parcelasOverride: novas };
+    }));
+  };
+
   const salvarPlano = () => {
     if (!modalPlano) return;
     const { editIdx, ...plano } = modalPlano;
@@ -282,11 +341,26 @@ export default function FormPedido({ inicial, onSalvo }: Props) {
     setError("");
 
     const sb = createClient();
+
+    // Gerar número sequencial apenas para novos pedidos
+    let proximoNumero: number | null = null;
+    if (!isEditing) {
+      const { data: maxRow } = await sb.from("crm_orders")
+        .select("legacy_id")
+        .eq("fotografo_id", fotografo.id)
+        .not("legacy_id", "is", null)
+        .order("legacy_id", { ascending: false })
+        .limit(1)
+        .single();
+      proximoNumero = ((maxRow as { legacy_id: number } | null)?.legacy_id ?? 0) + 1;
+    }
+
     const payload = {
       fotografo_id:    fotografo.id,
       nome:            form.nome.trim(),
       cliente_id:      form.cliente_id || null,
       oportunidade_id: inicial?.oportunidade_id ?? null,
+      ...(proximoNumero !== null ? { legacy_id: proximoNumero, numero: String(proximoNumero) } : {}),
       categoria:       form.categoria || null,
       status:          form.status,
       total:           itens.length > 0 ? totalItens : parseMoney(form.total),
@@ -294,19 +368,86 @@ export default function FormPedido({ inicial, onSalvo }: Props) {
       other_expenses:  parseMoney(form.other_expenses),
       payment_method:  planos.length > 0 ? (planos[0].forma || null) : null,
       data_evento:     form.data_evento || null,
+      hora_evento:     form.hora_evento.trim() || null,
+      local_evento:    form.local_evento.trim() || null,
+      convidados:      form.convidados ? parseInt(form.convidados) || null : null,
+      local_cerimonia: form.local_cerimonia.trim() || null,
+      local_recepcao:  form.local_recepcao.trim() || null,
       data_entrega:    null,
       observacoes:     form.observacoes.trim() || null,
       updated_at:      new Date().toISOString(),
     };
 
+    const dataEventoAnterior = inicial?.data_evento ?? null;
+    const dataEventoNova = form.data_evento || null;
+    let agendaAtualizado = false;
+
     let id = inicial?.id;
     if (isEditing && id) {
       const { error: err } = await sb.from("crm_orders").update(payload).eq("id", id);
       if (err) { setError(err.message); setSaving(false); return; }
+
+      // Atualizar agendamento vinculado se data_evento mudou
+      if (dataEventoNova && dataEventoNova !== dataEventoAnterior) {
+        const { data: sched } = await sb.from("crm_schedules").select("id").eq("pedido_id", id).maybeSingle();
+        if (sched) {
+          await sb.from("crm_schedules").update({ inicio: dataEventoNova + "T08:00:00", fim: dataEventoNova + "T18:00:00" }).eq("id", sched.id);
+          agendaAtualizado = true;
+        }
+      } else if (!dataEventoNova && dataEventoAnterior) {
+        await sb.from("crm_schedules").delete().eq("pedido_id", id);
+        agendaAtualizado = true;
+      }
+
+      // Recriar lançamentos financeiros
+      await sb.from("crm_financial_entries").delete().eq("pedido_id", id).eq("tipo", "receita");
+      if (planos.length > 0) {
+        const contaVendasId = itens.map(i => produtos.find(p => p.id === i.produto_id)?.conta_vendas_id).find(Boolean) ?? null;
+        const entries: object[] = [];
+        for (const plano of planos) {
+          const ps = plano.parcelasOverride ?? calcParcelas(plano);
+          if (ps.length > 0) {
+            for (const p of ps) {
+              entries.push({ fotografo_id: fotografo.id, pedido_id: id, tipo: "receita", descricao: p.label, valor: p.valor, vencimento: p.vencimento, status: "pendente", parcela: plano.numParcelas > 1 ? p.label.match(/Parcela (\d+)/)?.[1] ?? null : null, internal_account_type: "pedido", conta_id: contaVendasId });
+            }
+          } else {
+            entries.push({ fotografo_id: fotografo.id, pedido_id: id, tipo: "receita", descricao: plano.obs || "Pagamento", valor: parseFloat(plano.valor) || 0, vencimento: plano.dataPrazo, status: "pendente", parcela: null, internal_account_type: "pedido", conta_id: contaVendasId });
+          }
+        }
+        if (entries.length > 0) await sb.from("crm_financial_entries").insert(entries);
+      }
     } else {
       const { data, error: err } = await sb.from("crm_orders").insert(payload).select("id").single();
       if (err) { setError(err.message); setSaving(false); return; }
       id = (data as { id: string }).id;
+
+      // Mover oportunidade para última etapa do funil e gravar venda_efetuada
+      if (inicial?.oportunidade_id) {
+        const { data: opp } = await sb.from("crm_opportunities").select("funil_id").eq("id", inicial.oportunidade_id).single();
+        if (opp?.funil_id) {
+          const { data: etapas } = await sb.from("crm_funnel_stages").select("id, ordem").eq("funil_id", opp.funil_id).order("ordem", { ascending: false }).limit(1);
+          const ultimaEtapa = etapas?.[0];
+          await sb.from("crm_opportunities").update({
+            status:   "venda_efetuada",
+            etapa_id: ultimaEtapa?.id ?? null,
+          }).eq("id", inicial.oportunidade_id);
+        }
+      }
+
+      // Criar agendamento vinculado ao pedido se tiver data do evento
+      if (dataEventoNova && id) {
+        await sb.from("crm_schedules").insert({
+          fotografo_id: fotografo.id,
+          pedido_id:    id,
+          cliente_id:   form.cliente_id || null,
+          titulo:       form.nome.trim() || "Evento",
+          descricao:    form.categoria || null,
+          inicio:       dataEventoNova + "T08:00:00",
+          fim:          dataEventoNova + "T18:00:00",
+          dia_todo:     false,
+          tipo:         "evento",
+        });
+      }
 
       // Itens
       if (itens.length > 0) {
@@ -318,10 +459,44 @@ export default function FormPedido({ inicial, onSalvo }: Props) {
           preco_unit: i.preco_unit,
           total:      +(i.quantidade * i.preco_unit).toFixed(2),
         })));
+
+        // Gerar contas a pagar a partir dos custos dos produtos
+        const produtoIds = itens.map(i => i.produto_id).filter(Boolean) as string[];
+        if (produtoIds.length > 0) {
+          const { data: custos } = await sb.from("crm_product_custos").select("*").in("produto_id", produtoIds);
+          if (custos && custos.length > 0) {
+            const hoje = new Date().toISOString().slice(0, 10);
+            const despesas: object[] = [];
+            for (const custo of custos as { id: string; produto_id: string; fotografo_id: string; descricao: string; valor: number; percentual: number | null; conta_id: string | null; referencia: string; dias_offset: number; dias_direcao: string }[]) {
+              const item = itens.find(i => i.produto_id === custo.produto_id);
+              if (!item) continue;
+              const baseDate = custo.referencia === "data_evento" ? (form.data_evento || hoje) : hoje;
+              const d = new Date(baseDate + "T12:00:00");
+              if (custo.dias_direcao === "antes") d.setDate(d.getDate() - custo.dias_offset);
+              else if (custo.dias_direcao === "apos") d.setDate(d.getDate() + custo.dias_offset);
+              const vencimento = d.toISOString().slice(0, 10);
+              const valorCusto = custo.valor > 0 ? custo.valor * item.quantidade : custo.percentual ? (liquido * custo.percentual / 100) : 0;
+              if (valorCusto <= 0) continue;
+              despesas.push({
+                fotografo_id:          fotografo.id,
+                pedido_id:             id,
+                tipo:                  "despesa",
+                descricao:             custo.descricao || item.descricao,
+                valor:                 +valorCusto.toFixed(2),
+                vencimento,
+                status:                "pendente",
+                conta_id:              custo.conta_id,
+                internal_account_type: "pedido",
+              });
+            }
+            if (despesas.length > 0) await sb.from("crm_financial_entries").insert(despesas);
+          }
+        }
       }
 
       // Lançamentos financeiros a partir dos planos
       if (planos.length > 0 && id) {
+        const contaVendasId = itens.map(i => produtos.find(p => p.id === i.produto_id)?.conta_vendas_id).find(Boolean) ?? null;
         const entries: object[] = [];
         for (const plano of planos) {
           const ps = plano.parcelasOverride ?? calcParcelas(plano);
@@ -336,6 +511,7 @@ export default function FormPedido({ inicial, onSalvo }: Props) {
               status:                "pendente",
               parcela:               plano.numParcelas > 1 ? p.label.match(/Parcela (\d+)/)?.[1] ?? null : null,
               internal_account_type: "pedido",
+              conta_id:              contaVendasId,
             });
           }
         }
@@ -344,7 +520,7 @@ export default function FormPedido({ inicial, onSalvo }: Props) {
     }
 
     setSaving(false);
-    onSalvo ? onSalvo(id!) : router.push(`/crm/pedidos/${id}`);
+    onSalvo ? onSalvo(id!, agendaAtualizado) : router.push(`/crm/pedidos/${id}`);
   };
 
   // ── Helpers de layout ───────────────────────────────────────────────────────
@@ -397,9 +573,31 @@ export default function FormPedido({ inicial, onSalvo }: Props) {
             </select>
           </Field>
         </div>
-        <Field label="Data do evento">
-          <input type="date" value={form.data_evento} onChange={e => upd("data_evento", e.target.value)} style={{ ...inputStyle, maxWidth: 240 }} />
-        </Field>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14 }}>
+          <Field label="Data do evento">
+            <input type="date" value={form.data_evento} onChange={e => upd("data_evento", e.target.value)} style={inputStyle} />
+          </Field>
+          <Field label="Horário">
+            <input value={form.hora_evento} onChange={e => upd("hora_evento", e.target.value)} placeholder="Ex: 16h" style={inputStyle} />
+          </Field>
+          <Field label="Convidados">
+            <input type="number" min="0" value={form.convidados} onChange={e => upd("convidados", e.target.value)} placeholder="Ex: 150" style={inputStyle} />
+          </Field>
+        </div>
+        {(form.categoria.toLowerCase().includes("casamento") || form.categoria === "Bodas") ? (
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+            <Field label="Local da cerimônia">
+              <input value={form.local_cerimonia} onChange={e => upd("local_cerimonia", e.target.value)} placeholder="Ex: Igreja São Francisco" style={inputStyle} />
+            </Field>
+            <Field label="Local da recepção">
+              <input value={form.local_recepcao} onChange={e => upd("local_recepcao", e.target.value)} placeholder="Ex: Clube Náutico" style={inputStyle} />
+            </Field>
+          </div>
+        ) : (
+          <Field label="Local do evento">
+            <input value={form.local_evento} onChange={e => upd("local_evento", e.target.value)} placeholder="Ex: Espaço Villa dos Sonhos" style={inputStyle} />
+          </Field>
+        )}
       </div>
 
       {/* ── Cliente ── */}
@@ -538,39 +736,109 @@ export default function FormPedido({ inicial, onSalvo }: Props) {
       </div>
 
       {/* ── Plano de pagamento ── */}
-      {!isEditing && (
-        <div style={{ marginTop: 24, borderTop: "0.5px solid var(--color-border-tertiary)", paddingTop: 20 }}>
+      <div style={{ marginTop: 24, borderTop: "0.5px solid var(--color-border-tertiary)", paddingTop: 20 }}>
           {sec("Pagamentos")}
 
-          {/* Tabela de planos */}
+          {/* Tabela expandida de parcelas */}
           <div style={{ border: "0.5px solid var(--color-border-tertiary)", borderRadius: 8, overflow: "hidden", marginBottom: 10 }}>
             {/* Header */}
-            <div style={{ display: "grid", gridTemplateColumns: "110px 1fr 120px 1fr 100px 64px", padding: "8px 14px", background: "var(--color-background-secondary)", borderBottom: "0.5px solid var(--color-border-tertiary)" }}>
-              {["Vencimento", "Forma de pagamento", "Nº documento", "Obs", "Valor", ""].map(h => (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 150px 100px 64px", padding: "8px 14px", background: "var(--color-background-secondary)", borderBottom: "0.5px solid var(--color-border-tertiary)" }}>
+              {["Descrição / Parcela", "Vencimento", "Valor", ""].map(h => (
                 <div key={h} style={{ fontSize: 10, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.04em" }}>{h}</div>
               ))}
             </div>
 
-            {/* Linhas */}
             {planos.length === 0 ? (
               <div style={{ padding: "16px 14px", fontSize: 13, color: "var(--color-text-secondary)", textAlign: "center" }}>
                 Nenhum pagamento adicionado
               </div>
-            ) : planos.map((p, idx) => (
-              <div key={p.tmpId} style={{ display: "grid", gridTemplateColumns: "110px 1fr 120px 1fr 100px 64px", padding: "10px 14px", alignItems: "center", borderBottom: idx < planos.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none" }}>
-                <div style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>{p.dataPrazo ? fmtDate(p.dataPrazo) : "—"}</div>
-                <div style={{ fontSize: 13, color: "var(--color-text-primary)" }}>{p.forma || "—"}{p.numParcelas > 1 ? ` (${p.numParcelas}×)` : ""}</div>
-                <div style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>{p.numDocumento || "—"}</div>
-                <div style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>{p.obs || "—"}</div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: "#059669" }}>{fmt(parseFloat(p.valor) || 0)}</div>
-                <div style={{ display: "flex", gap: 6 }}>
-                  <button onClick={() => abrirEditarPlano(idx)}
-                    style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, color: "var(--color-text-secondary)", padding: "2px 4px" }}>✏️</button>
-                  <button onClick={() => removerPlano(idx)}
-                    style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, color: "#EF4444", padding: "2px 4px" }}>×</button>
+            ) : planos.map((p, planoIdx) => {
+              const parcelas = p.parcelasOverride ?? calcParcelas(p);
+              const isSimples = parcelas.length === 0; // plano sem parcelas calculadas (ex: carregado do banco como entrada simples)
+              return (
+                <div key={p.tmpId}>
+                  {/* Cabeçalho do plano */}
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 150px 100px 64px", padding: "8px 14px", background: "rgba(37,99,235,0.04)", borderBottom: "0.5px solid var(--color-border-tertiary)", alignItems: "center" }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: "var(--color-text-primary)" }}>
+                      {p.forma || "Pagamento"}{p.numParcelas > 1 ? ` — ${p.numParcelas}×` : ""}
+                      {p.obs ? <span style={{ fontWeight: 400, color: "var(--color-text-secondary)", marginLeft: 6 }}>{p.obs}</span> : null}
+                    </div>
+                    <div style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>{isSimples && p.dataPrazo ? fmtDate(p.dataPrazo) : ""}</div>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: "#059669" }}>{fmt(parseFloat(p.valor) || 0)}</div>
+                    <div style={{ display: "flex", gap: 4, justifyContent: "flex-end" }}>
+                      <button
+                        onClick={() => setParcelasEmEdicao(prev => { const s = new Set(prev); s.has(planoIdx) ? s.delete(planoIdx) : s.add(planoIdx); return s; })}
+                        title={parcelasEmEdicao.has(planoIdx) ? "Bloquear edição" : "Editar parcelas"}
+                        style={{ background: parcelasEmEdicao.has(planoIdx) ? "rgba(37,99,235,0.1)" : "none", border: parcelasEmEdicao.has(planoIdx) ? "0.5px solid rgba(37,99,235,0.3)" : "none", cursor: "pointer", fontSize: 11, color: parcelasEmEdicao.has(planoIdx) ? "#2563EB" : "var(--color-text-secondary)", padding: "2px 7px", borderRadius: 5, fontWeight: 600 }}>
+                        {parcelasEmEdicao.has(planoIdx) ? "✓ Editando" : "Editar"}
+                      </button>
+                      <button onClick={() => abrirEditarPlano(planoIdx)} title="Editar plano"
+                        style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, color: "var(--color-text-secondary)", padding: "2px 4px" }}>✏️</button>
+                      <button onClick={() => removerPlano(planoIdx)} title="Remover plano"
+                        style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, color: "#EF4444", padding: "2px 4px" }}>×</button>
+                    </div>
+                  </div>
+
+                  {/* Linhas de parcelas */}
+                  {parcelas.map((pc, pcIdx) => {
+                    const editando = parcelasEmEdicao.has(planoIdx);
+                    return (
+                      <div key={pcIdx} style={{ display: "grid", gridTemplateColumns: "1fr 150px 100px 64px", padding: "6px 14px 6px 28px", alignItems: "center", borderBottom: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-primary)" }}>
+                        <div style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>{pc.label}</div>
+                        {editando ? (
+                          <input
+                            type="date"
+                            value={pc.vencimento}
+                            onChange={e => atualizarParcelaSalva(planoIdx, pcIdx, "vencimento", e.target.value)}
+                            style={{ ...inputStyle, fontSize: 11, padding: "4px 7px", borderRadius: 6 }}
+                          />
+                        ) : (
+                          <div style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>{fmtDate(pc.vencimento)}</div>
+                        )}
+                        {editando ? (
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={pc.valor}
+                            onChange={e => atualizarParcelaSalva(planoIdx, pcIdx, "valor", e.target.value)}
+                            style={{ ...inputStyle, fontSize: 12, padding: "4px 7px", borderRadius: 6, fontWeight: 600, color: "#059669" }}
+                          />
+                        ) : (
+                          <div style={{ fontSize: 12, fontWeight: 600, color: "#059669" }}>{fmt(pc.valor)}</div>
+                        )}
+                        <div />
+                      </div>
+                    );
+                  })}
+
+                  {/* Plano simples (sem parcelas calculadas) — linha com read-only por padrão */}
+                  {isSimples && (() => {
+                    const editando = parcelasEmEdicao.has(planoIdx);
+                    return (
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 150px 100px 64px", padding: "6px 14px 6px 28px", alignItems: "center", borderBottom: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-primary)" }}>
+                        <div style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>{p.obs || "Pagamento"}</div>
+                        {editando ? (
+                          <input type="date" value={p.dataPrazo}
+                            onChange={e => setPlanos(prev => prev.map((x, i) => i === planoIdx ? { ...x, dataPrazo: e.target.value } : x))}
+                            style={{ ...inputStyle, fontSize: 11, padding: "4px 7px", borderRadius: 6 }} />
+                        ) : (
+                          <div style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>{p.dataPrazo ? fmtDate(p.dataPrazo) : "—"}</div>
+                        )}
+                        {editando ? (
+                          <input type="number" min="0" step="0.01" value={p.valor}
+                            onChange={e => setPlanos(prev => prev.map((x, i) => i === planoIdx ? { ...x, valor: e.target.value } : x))}
+                            style={{ ...inputStyle, fontSize: 12, padding: "4px 7px", borderRadius: 6, fontWeight: 600, color: "#059669" }} />
+                        ) : (
+                          <div style={{ fontSize: 12, fontWeight: 600, color: "#059669" }}>{fmt(parseFloat(p.valor) || 0)}</div>
+                        )}
+                        <div />
+                      </div>
+                    );
+                  })()}
                 </div>
-              </div>
-            ))}
+              );
+            })}
 
             {/* Rodapé */}
             <div style={{ padding: "10px 14px", borderTop: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-secondary)", display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 28 }}>
@@ -589,7 +857,6 @@ export default function FormPedido({ inicial, onSalvo }: Props) {
             </div>
           </div>
         </div>
-      )}
 
       {/* ── Observações ── */}
       <div style={{ marginTop: 24, borderTop: "0.5px solid var(--color-border-tertiary)", paddingTop: 20 }}>
@@ -691,9 +958,17 @@ export default function FormPedido({ inicial, onSalvo }: Props) {
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 12 }}>
               <Field label="Número de parcelas">
-                <input type="number" min="1" value={modalPlano.numParcelas}
-                  onChange={e => updPlano("numParcelas", Math.max(1, parseInt(e.target.value) || 1))}
-                  style={inputStyle} />
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={modalPlano.numParcelas === 0 ? "" : String(modalPlano.numParcelas)}
+                  onChange={e => {
+                    const raw = e.target.value.replace(/\D/g, "");
+                    updPlano("numParcelas", raw === "" ? 0 : Math.max(1, parseInt(raw)));
+                  }}
+                  placeholder="Ex: 3"
+                  style={inputStyle}
+                />
               </Field>
               <Field label="Intervalos de Pagamento">
                 <select value={modalPlano.intervalo} onChange={e => updPlano("intervalo", e.target.value)} style={inputStyle}>

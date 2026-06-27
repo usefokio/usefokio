@@ -50,6 +50,17 @@ export type Fotografo = {
   smtp_from: string | null;
   smtp_ativo: boolean;
   limite_fotos_custom: number | null;
+  crm_email_config: {
+    nome_remetente: string;
+    email_from: string | null;
+    email_resposta: string;
+    assinatura: string | null;
+    smtp_host: string | null;
+    smtp_port: number | null;
+    smtp_user: string | null;
+    smtp_pass: string | null;
+    smtp_secure: boolean;
+  } | null;
   recursos: RecursosFotografo;
   logo_url: string | null;
   watermark_url: string | null;
@@ -93,7 +104,7 @@ export type Cliente = {
   cidade: string | null;
   estado: string | null;
   // CRM
-  tipo_contato: "oportunidade" | "cliente" | "parceiro" | "fornecedor";
+  tipo_contato: "oportunidade" | "cliente" | "parceiro" | "fornecedor" | "fotografo" | "videografo";
   empresa: string | null;
   cargo: string | null;
   crm_ativo: boolean;
@@ -477,6 +488,7 @@ export type CrmOportunidadeStatus = {
   label: string;
   ordem: number;
   ativo: boolean;
+  cor: string | null;
 };
 
 export type CrmContaBancaria = {
@@ -490,6 +502,7 @@ export type CrmContaBancaria = {
   fone: string | null;
   gerente: string | null;
   ativo: boolean;
+  saldo_inicial: number | null;
   created_at: string;
   updated_at: string;
 };
@@ -516,11 +529,17 @@ export type CrmOrder = {
   payment_method: string | null;
   categoria: string | null;
   data_evento: string | null;
+  hora_evento: string | null;
+  local_evento: string | null;
+  convidados: number | null;
+  local_cerimonia: string | null;
+  local_recepcao: string | null;
   data_entrega: string | null;
   observacoes: string | null;
   plano_parcelas: Record<string, unknown> | null;
   galeria_entrega_id: string | null;
   legacy_id: number | null;
+  data_lancamento: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -539,17 +558,21 @@ export type CrmFinancialEntry = {
   id: string;
   fotografo_id: string;
   pedido_id: string | null;
+  cliente_id: string | null;
   tipo: "receita" | "despesa";
   descricao: string;
   valor: number;
   vencimento: string;
   pago_em: string | null;
   conta_id: string | null;
-  status: "pendente" | "pago" | "cancelado";
+  status: "pendente" | "vencido" | "pago" | "cancelado";
   parcela: string | null;
   document_type_id: number | null;
   internal_account_type: "direto" | "pedido";
   legacy_id: number | null;
+  conta_bancaria_id: string | null;
+  forma_pagamento: string | null;
+  num_documento: string | null;
   created_at: string;
 };
 
@@ -565,5 +588,9 @@ export type CrmSchedule = {
   dia_todo: boolean;
   local: string | null;
   tipo: string;
+  pedido_id: string | null;
   created_at: string;
 };
+
+export type CrmContractTemplate = { id: string; fotografo_id: string; nome: string; corpo: string; created_at: string; updated_at: string };
+export type CrmContract = { id: string; fotografo_id: string; pedido_id: string; template_id: string | null; nome_template: string | null; corpo_gerado: string; created_at: string };

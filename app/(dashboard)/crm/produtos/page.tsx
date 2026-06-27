@@ -4,24 +4,43 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
+import { IcoEdit, IcoTrash, IcoOpen } from "@/app/(dashboard)/crm/_components/Icons";
+import { Paginacao } from "@/app/(dashboard)/crm/_components/Paginacao";
+import { usePersistState } from "@/lib/hooks/usePersistState";
 import type { CrmProduct, CrmProductCategory } from "@/lib/supabase/types";
-import { normalizar } from "@/lib/utils/normalizar";
+
+const btnIcon = (extra?: React.CSSProperties): React.CSSProperties => ({
+  display: "flex", alignItems: "center", justifyContent: "center",
+  width: 26, height: 26, borderRadius: 6,
+  border: "0.5px solid var(--color-border-secondary)",
+  background: "transparent", cursor: "pointer",
+  color: "var(--color-text-secondary)",
+  ...extra,
+});
 
 export default function ProdutosPage() {
   const router                              = useRouter();
   const { fotografo }                       = useFotografo();
-  const [produtos, setProdutos]             = useState<CrmProduct[]>([]);
-  const [categorias, setCategorias]         = useState<CrmProductCategory[]>([]);
-  const [loading, setLoading]               = useState(true);
-  const [busca, setBusca]                   = useState("");
-  const [categFiltro, setCategFiltro]       = useState("");
-  const [somenteAtivos, setSomenteAtivos]   = useState(true);
+  const [produtos,   setProdutos]   = useState<CrmProduct[]>([]);
+  const [categorias, setCategorias] = useState<CrmProductCategory[]>([]);
+  const [loading,    setLoading]    = useState(true);
+  const [page,     setPage]     = useState(1);
+  const [pageSize, setPageSize] = usePersistState<25|50|100>("produtos:pageSize", 50);
+  const [busca,         setBusca]         = usePersistState("produtos:busca",         "");
+  const [categFiltro,   setCategFiltro]   = usePersistState("produtos:categFiltro",   "");
+  const [somenteAtivos, setSomenteAtivos] = usePersistState("produtos:somenteAtivos", true);
+  const [sortCol, setSortCol] = usePersistState("produtos:sortCol", "nome");
+  const [sortDir, setSortDir] = usePersistState<"asc" | "desc">("produtos:sortDir", "asc");
+  const toggleSort = (col: string) => {
+    if (sortCol === col) setSortDir(d => d === "asc" ? "desc" : "asc");
+    else { setSortCol(col); setSortDir("asc"); }
+  };
 
   const carregar = useCallback(async () => {
     if (!fotografo) return;
     setLoading(true);
     const sb = createClient();
-    let q = sb.from("crm_products").select("*").eq("fotografo_id", fotografo.id).order("nome");
+    let q = sb.from("crm_products").select("*").eq("fotografo_id", fotografo.id).order("nome").range(0, 4999);
     if (somenteAtivos) q = q.eq("ativo", true);
     const [{ data }, { data: cats }] = await Promise.all([
       q,
@@ -33,11 +52,36 @@ export default function ProdutosPage() {
   }, [fotografo, somenteAtivos]);
 
   useEffect(() => { carregar(); }, [carregar]);
+  useEffect(() => { setPage(1); }, [busca, categFiltro, somenteAtivos, sortCol, sortDir]);
 
-  const filtrados = produtos.filter((p) => {
-    const ok = busca === "" || normalizar(p.nome).includes(normalizar(busca)) || normalizar(p.codigo ?? "").includes(normalizar(busca));
+  const filtrados = produtos.filter((p: CrmProduct) => {
+    const ok = busca === "" || p.nome.toLowerCase().includes(busca.toLowerCase()) || (p.codigo ?? "").toLowerCase().includes(busca.toLowerCase());
     const okCat = categFiltro === "" || p.categoria === categFiltro;
     return ok && okCat;
+  });
+
+  const ordenados = [...filtrados].sort((a, b) => {
+    let va: string | number | null | undefined;
+    let vb: string | number | null | undefined;
+    if      (sortCol === "codigo")    { va = a.codigo;    vb = b.codigo; }
+    else if (sortCol === "nome")      { va = a.nome;      vb = b.nome; }
+    else if (sortCol === "categoria") { va = a.categoria; vb = b.categoria; }
+    else if (sortCol === "preco")     { va = a.preco;     vb = b.preco; }
+    else if (sortCol === "pacote")    { va = a.pacote ? 1 : 0; vb = b.pacote ? 1 : 0; }
+    else if (sortCol === "ativo")     { va = a.ativo ? 1 : 0;  vb = b.ativo ? 1 : 0; }
+    else                              { va = a.nome;      vb = b.nome; }
+    if (va == null) return 1;
+    if (vb == null) return -1;
+    const cmp = typeof va === "number" ? va - (vb as number) : String(va).localeCompare(String(vb), "pt-BR");
+    return sortDir === "asc" ? cmp : -cmp;
+  });
+
+  const paginados = ordenados.slice((page - 1) * pageSize, page * pageSize);
+
+  const thSort = (): React.CSSProperties => ({
+    padding: "9px 14px", textAlign: "left", fontSize: 11, fontWeight: 600,
+    color: "var(--color-text-secondary)", letterSpacing: "0.04em",
+    whiteSpace: "nowrap", cursor: "pointer", userSelect: "none",
   });
 
   const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -64,7 +108,7 @@ export default function ProdutosPage() {
         </div>
         <button
           onClick={() => router.push("/crm/produtos/novo")}
-          style={{ padding: "8px 16px", borderRadius: 8, background: "#111", color: "#fff", border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer" }}
+          style={{ padding: "9px 18px", borderRadius: 8, background: "#111", color: "#fff", border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer" }}
         >
           + Novo produto
         </button>
@@ -104,22 +148,33 @@ export default function ProdutosPage() {
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead>
               <tr style={{ background: "var(--color-background-secondary)", borderBottom: "0.5px solid var(--color-border-tertiary)" }}>
-                {["Código","Nome","Categoria","Preço","Pacote","Status",""].map((h) => (
-                  <th key={h} style={{ padding: "9px 14px", textAlign: "left", fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", letterSpacing: "0.04em", whiteSpace: "nowrap" }}>{h}</th>
+                {([
+                  { label: "Código", col: "codigo" }, { label: "Nome", col: "nome" },
+                  { label: "Categoria", col: "categoria" }, { label: "Preço", col: "preco" },
+                  { label: "Pacote", col: "pacote" }, { label: "Status", col: "ativo" },
+                  { label: "", col: "" },
+                ] as const).map(({ label, col }) => (
+                  <th key={label || "acoes"} onClick={() => col && toggleSort(col)} style={col ? thSort() : { ...thSort(), cursor: "default" }}>
+                    {label}
+                    {col && sortCol === col && <span style={{ fontSize: 9, opacity: 0.7, marginLeft: 3 }}>{sortDir === "asc" ? "↑" : "↓"}</span>}
+                  </th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {filtrados.map((p, i) => (
+              {paginados.map((p, i) => (
                 <tr
                   key={p.id}
-                  style={{ borderBottom: i < filtrados.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", background: "var(--color-background-primary)" }}
+                  style={{ borderBottom: i < paginados.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", background: "var(--color-background-primary)" }}
                   onMouseEnter={(e) => (e.currentTarget.style.background = "var(--color-background-secondary)")}
                   onMouseLeave={(e) => (e.currentTarget.style.background = "var(--color-background-primary)")}
                 >
                   <td style={{ padding: "10px 14px", color: "var(--color-text-secondary)", fontFamily: "var(--font-mono)", fontSize: 12 }}>{p.codigo ?? "—"}</td>
                   <td style={{ padding: "10px 14px", fontWeight: 500, color: "var(--color-text-primary)" }}>
                     {p.nome}
+                    {!p.conta_vendas_id && (
+                      <span title="Conta de vendas não configurada" style={{ marginLeft: 6, fontSize: 10, padding: "2px 6px", borderRadius: 10, background: "rgba(234,179,8,0.12)", color: "#CA8A04", fontWeight: 700, border: "0.5px solid rgba(234,179,8,0.3)" }}>!</span>
+                    )}
                     {p.pacote && <span style={{ marginLeft: 6, fontSize: 10, padding: "2px 6px", borderRadius: 10, background: "rgba(37,99,235,0.1)", color: "#2563EB", fontWeight: 600 }}>pacote</span>}
                     {p.tags?.length > 0 && <span style={{ marginLeft: 6, fontSize: 10, color: "var(--color-text-secondary)" }}>{p.tags.join(", ")}</span>}
                   </td>
@@ -139,22 +194,20 @@ export default function ProdutosPage() {
                     </span>
                   </td>
                   <td style={{ padding: "10px 14px" }}>
-                    <div style={{ display: "flex", gap: 8 }}>
-                      <button
-                        onClick={() => router.push(`/crm/produtos/${p.id}`)}
-                        style={{ background: "none", border: "none", cursor: "pointer", color: "var(--color-text-secondary)", fontSize: 12, padding: "3px 8px", borderRadius: 6 }}
-                        onMouseEnter={(e) => (e.currentTarget.style.background = "var(--color-background-secondary)")}
-                        onMouseLeave={(e) => (e.currentTarget.style.background = "none")}
-                      >
-                        Editar
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 5 }}>
+                      <button onClick={() => router.push(`/crm/produtos/${p.id}`)} title="Abrir"
+                        style={btnIcon({ color: "#2563EB", border: "0.5px solid var(--color-border-secondary)" })}>
+                        <IcoOpen />
                       </button>
-                      <button
-                        onClick={() => excluir(p.id)}
-                        style={{ background: "none", border: "none", cursor: "pointer", color: "#EF4444", fontSize: 12, padding: "3px 8px", borderRadius: 6 }}
-                        onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(239,68,68,0.07)")}
-                        onMouseLeave={(e) => (e.currentTarget.style.background = "none")}
-                      >
-                        Excluir
+                      <button onClick={() => router.push(`/crm/produtos/${p.id}`)} title="Editar"
+                        style={btnIcon()}>
+                        <IcoEdit />
+                      </button>
+                      <button onClick={() => excluir(p.id)} title="Excluir"
+                        style={btnIcon({ color: "#EF4444", border: "0.5px solid rgba(239,68,68,0.3)", opacity: 0.6 })}
+                        onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
+                        onMouseLeave={(e) => (e.currentTarget.style.opacity = "0.6")}>
+                        <IcoTrash />
                       </button>
                     </div>
                   </td>
@@ -162,6 +215,7 @@ export default function ProdutosPage() {
               ))}
             </tbody>
           </table>
+          <Paginacao pagina={page} total={ordenados.length} pageSize={pageSize} onPagina={setPage} onPageSize={setPageSize} />
         </div>
       )}
     </div>

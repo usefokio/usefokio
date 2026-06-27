@@ -4,8 +4,9 @@ import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import type { CrmProductCategory, CrmChartOfAccount, CrmOportunidadeStatus, CrmFunnel, CrmFunnelStage, CrmAgendamentoCategoria } from "@/lib/supabase/types";
+import { AbaContratos } from "./_components/AbaContratos";
 
-type Tab = "produtos" | "plano" | "canais" | "opp_cats" | "status" | "funis" | "agenda_cats";
+type Tab = "produtos" | "plano" | "canais" | "opp_cats" | "status" | "funis" | "agenda_cats" | "email" | "contratos";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -174,10 +175,11 @@ const STATUS_SEED = [
 function AbaStatus({ fotografoId }: { fotografoId: string }) {
   const [itens, setItens]       = useState<CrmOportunidadeStatus[]>([]);
   const [loading, setLoading]   = useState(true);
-  const [editId, setEditId]     = useState<string | null>(null);
+  const [editId, setEditId]       = useState<string | null>(null);
   const [editLabel, setEditLabel] = useState("");
+  const [editCor,   setEditCor]   = useState<string>("#6B7280");
   const [novoLabel, setNovoLabel] = useState("");
-  const [saving, setSaving]     = useState(false);
+  const [saving, setSaving]       = useState(false);
   const sb = createClient();
 
   const carregar = useCallback(async () => {
@@ -199,7 +201,7 @@ function AbaStatus({ fotografoId }: { fotografoId: string }) {
   async function salvarEdicao(id: string) {
     if (!editLabel.trim()) return;
     setSaving(true);
-    await sb.from("crm_oportunidade_status").update({ label: editLabel.trim() }).eq("id", id);
+    await sb.from("crm_oportunidade_status").update({ label: editLabel.trim(), cor: editCor || null }).eq("id", id);
     setEditId(null);
     setSaving(false);
     carregar();
@@ -259,23 +261,37 @@ function AbaStatus({ fotografoId }: { fotografoId: string }) {
                 </div>
 
                 {editId === item.id ? (
-                  <div style={{ display: "flex", gap: 6, flex: 1, alignItems: "center" }}>
+                  <div style={{ display: "flex", gap: 6, flex: 1, alignItems: "center", flexWrap: "wrap" }}>
                     <span style={{ fontSize: 11, color: "var(--color-text-secondary)", fontFamily: "var(--font-mono)", minWidth: 120, flexShrink: 0 }}>{item.chave}</span>
-                    <input value={editLabel} onChange={(e) => setEditLabel(e.target.value)} style={{ ...inputSt, flex: 1 }} autoFocus
+                    <input value={editLabel} onChange={(e) => setEditLabel(e.target.value)} style={{ ...inputSt, flex: 1, minWidth: 120 }} autoFocus
                       onKeyDown={(e) => { if (e.key === "Enter") salvarEdicao(item.id); if (e.key === "Escape") setEditId(null); }} />
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+                      <input type="color" value={editCor} onChange={(e) => setEditCor(e.target.value)}
+                        style={{ width: 32, height: 32, padding: 2, border: "0.5px solid var(--color-border-tertiary)", borderRadius: 6, cursor: "pointer", background: "var(--color-background-primary)" }} />
+                      <span style={{ fontSize: 11, padding: "3px 9px", borderRadius: 10, background: `${editCor}18`, color: editCor, fontWeight: 700, border: `0.5px solid ${editCor}40` }}>
+                        {editLabel || item.label}
+                      </span>
+                    </div>
                     <button onClick={() => salvarEdicao(item.id)} style={{ ...btnPrimary, padding: "5px 12px", fontSize: 12 }}>✓ Salvar</button>
                     <button onClick={() => setEditId(null)} style={btnGhost}>Cancelar</button>
                   </div>
                 ) : (
                   <>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 13, fontWeight: 500, color: "var(--color-text-primary)" }}>{item.label}</div>
-                      <div style={{ fontSize: 11, color: "var(--color-text-secondary)", fontFamily: "var(--font-mono)", marginTop: 1 }}>{item.chave}</div>
+                    <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 10 }}>
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 500, color: "var(--color-text-primary)" }}>{item.label}</div>
+                        <div style={{ fontSize: 11, color: "var(--color-text-secondary)", fontFamily: "var(--font-mono)", marginTop: 1 }}>{item.chave}</div>
+                      </div>
+                      {item.cor && (
+                        <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 10, background: `${item.cor}18`, color: item.cor, fontWeight: 700, border: `0.5px solid ${item.cor}40` }}>
+                          {item.label}
+                        </span>
+                      )}
                     </div>
                     <span style={{ fontSize: 11, padding: "2px 7px", borderRadius: 10, background: item.ativo ? "rgba(34,197,94,0.1)" : "rgba(156,163,175,0.15)", color: item.ativo ? "#16a34a" : "var(--color-text-secondary)", fontWeight: 600 }}>
                       {item.ativo ? "Ativo" : "Inativo"}
                     </span>
-                    <button onClick={() => { setEditId(item.id); setEditLabel(item.label); }} style={btnGhost}>Editar</button>
+                    <button onClick={() => { setEditId(item.id); setEditLabel(item.label); setEditCor(item.cor ?? "#6B7280"); }} style={btnGhost}>Editar</button>
                     <button onClick={() => toggle(item)} style={btnGhost}>{item.ativo ? "Desativar" : "Ativar"}</button>
                   </>
                 )}
@@ -669,8 +685,11 @@ function buildTree(contas: (CrmChartOfAccount & { sistema: boolean })[]): ContaN
   const map: Record<string, ContaNode> = {};
   contas.forEach((c) => { map[c.id] = { ...c, filhos: [] }; });
   const roots: ContaNode[] = [];
+  const visited = new Set<string>();
   contas.forEach((c) => {
-    if (c.pai_id && map[c.pai_id]) map[c.pai_id].filhos.push(map[c.id]);
+    if (visited.has(c.id)) return;
+    visited.add(c.id);
+    if (c.pai_id && map[c.pai_id] && c.pai_id !== c.id) map[c.pai_id].filhos.push(map[c.id]);
     else roots.push(map[c.id]);
   });
   return roots;
@@ -798,6 +817,149 @@ function ContaRow({
   );
 }
 
+// ── Aba Email ────────────────────────────────────────────────────────────────
+
+function AbaEmail({ fotografoId }: { fotografoId: string }) {
+  const sb = createClient();
+  const [nomeRemetente, setNomeRemetente] = useState("");
+  const [emailFrom,     setEmailFrom]     = useState("");
+  const [emailResposta, setEmailResposta] = useState("");
+  const [assinatura,    setAssinatura]    = useState("");
+  const [smtpHost,      setSmtpHost]      = useState("");
+  const [smtpPort,      setSmtpPort]      = useState("587");
+  const [smtpUser,      setSmtpUser]      = useState("");
+  const [smtpPass,      setSmtpPass]      = useState("");
+  const [smtpSecure,    setSmtpSecure]    = useState(false);
+  const [loading,       setLoading]       = useState(true);
+  const [saving,        setSaving]        = useState(false);
+  const [ok,            setOk]            = useState(false);
+
+  useEffect(() => {
+    sb.from("fotografos")
+      .select("crm_email_config, email, nome_empresa")
+      .eq("id", fotografoId)
+      .single()
+      .then(({ data }) => {
+        const cfg = data?.crm_email_config as {
+          nome_remetente?: string; email_from?: string; email_resposta?: string; assinatura?: string;
+          smtp_host?: string; smtp_port?: number; smtp_user?: string; smtp_pass?: string; smtp_secure?: boolean;
+        } | null;
+        setNomeRemetente(cfg?.nome_remetente ?? data?.nome_empresa ?? "");
+        setEmailFrom(cfg?.email_from ?? "");
+        setEmailResposta(cfg?.email_resposta ?? data?.email ?? "");
+        setAssinatura(cfg?.assinatura ?? "");
+        setSmtpHost(cfg?.smtp_host ?? "");
+        setSmtpPort(String(cfg?.smtp_port ?? 587));
+        setSmtpUser(cfg?.smtp_user ?? "");
+        setSmtpPass(cfg?.smtp_pass ?? "");
+        setSmtpSecure(cfg?.smtp_secure ?? false);
+        setLoading(false);
+      });
+  }, [fotografoId]);
+
+  const salvar = async () => {
+    setSaving(true); setOk(false);
+    await sb.from("fotografos").update({
+      crm_email_config: {
+        nome_remetente: nomeRemetente.trim(),
+        email_from: emailFrom.trim() || null,
+        email_resposta: emailResposta.trim(),
+        assinatura: assinatura.trim() || null,
+        smtp_host: smtpHost.trim() || null,
+        smtp_port: smtpHost.trim() ? (parseInt(smtpPort) || 587) : null,
+        smtp_user: smtpUser.trim() || null,
+        smtp_pass: smtpPass.trim() || null,
+        smtp_secure: smtpSecure,
+      },
+    }).eq("id", fotografoId);
+    setSaving(false); setOk(true);
+    setTimeout(() => setOk(false), 2500);
+  };
+
+  const labelSt: React.CSSProperties = { fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", letterSpacing: "0.04em", display: "block", marginBottom: 5 };
+  const temSMTP = smtpHost.trim() && smtpUser.trim() && smtpPass.trim();
+
+  if (loading) return <div style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>Carregando…</div>;
+
+  const previewFrom = emailFrom
+    ? `${nomeRemetente || "Seu Estúdio"} <${emailFrom}>`
+    : `${nomeRemetente || "Seu Estúdio"} via UseFokio <noreply@usefokio.com.br>`;
+
+  return (
+    <div style={{ maxWidth: 560 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+
+        {/* Seção: Identidade */}
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "var(--color-text-primary)", marginBottom: 14 }}>Identidade do remetente</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <div>
+              <label style={labelSt}>NOME DO REMETENTE</label>
+              <input value={nomeRemetente} onChange={(e) => setNomeRemetente(e.target.value)} placeholder="Ex: Fernando Agrela Fotografia" style={{ ...inputSt, width: "100%", boxSizing: "border-box" }} />
+            </div>
+            <div>
+              <label style={labelSt}>E-MAIL DO REMETENTE</label>
+              <input value={emailFrom} onChange={(e) => setEmailFrom(e.target.value)} placeholder="contato@seudominio.com.br" type="email" style={{ ...inputSt, width: "100%", boxSizing: "border-box" }} />
+              <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 4 }}>Deixe vazio para usar noreply@usefokio.com.br (via Resend).</div>
+            </div>
+            <div>
+              <label style={labelSt}>E-MAIL PARA RESPOSTAS</label>
+              <input value={emailResposta} onChange={(e) => setEmailResposta(e.target.value)} placeholder="seu@email.com.br" type="email" style={{ ...inputSt, width: "100%", boxSizing: "border-box" }} />
+            </div>
+            <div style={{ padding: "10px 14px", borderRadius: 8, background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-tertiary)", fontSize: 12, color: "var(--color-text-secondary)" }}>
+              Prévia: <strong style={{ color: "var(--color-text-primary)" }}>{previewFrom}</strong>
+            </div>
+            <div>
+              <label style={labelSt}>ASSINATURA (opcional)</label>
+              <textarea value={assinatura} onChange={(e) => setAssinatura(e.target.value)} rows={3} placeholder={"Atenciosamente,\nSeu Nome\n(11) 99999-9999"} style={{ ...inputSt, width: "100%", boxSizing: "border-box", resize: "vertical" }} />
+            </div>
+          </div>
+        </div>
+
+        {/* Seção: SMTP */}
+        <div style={{ borderTop: "0.5px solid var(--color-border-tertiary)", paddingTop: 20 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "var(--color-text-primary)", marginBottom: 4 }}>Servidor SMTP próprio</div>
+          <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginBottom: 14, lineHeight: 1.6 }}>
+            Configure para enviar diretamente pelo seu provedor de e-mail (Gmail, Locaweb, Kinghost etc.), sem intermediários.
+            {temSMTP && <span style={{ marginLeft: 8, color: "#059669", fontWeight: 600 }}>● Ativo</span>}
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 120px", gap: 10 }}>
+              <div>
+                <label style={labelSt}>HOST SMTP</label>
+                <input value={smtpHost} onChange={(e) => setSmtpHost(e.target.value)} placeholder="smtp.seudominio.com.br" style={{ ...inputSt, width: "100%", boxSizing: "border-box" }} />
+              </div>
+              <div>
+                <label style={labelSt}>PORTA</label>
+                <input value={smtpPort} onChange={(e) => setSmtpPort(e.target.value)} placeholder="587" style={{ ...inputSt, width: "100%", boxSizing: "border-box" }} />
+              </div>
+            </div>
+            <div>
+              <label style={labelSt}>USUÁRIO</label>
+              <input value={smtpUser} onChange={(e) => setSmtpUser(e.target.value)} placeholder="contato@seudominio.com.br" style={{ ...inputSt, width: "100%", boxSizing: "border-box" }} />
+            </div>
+            <div>
+              <label style={labelSt}>SENHA</label>
+              <input value={smtpPass} onChange={(e) => setSmtpPass(e.target.value)} type="password" placeholder="••••••••" style={{ ...inputSt, width: "100%", boxSizing: "border-box" }} />
+            </div>
+            <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 13, color: "var(--color-text-primary)" }}>
+              <input type="checkbox" checked={smtpSecure} onChange={(e) => setSmtpSecure(e.target.checked)} style={{ accentColor: "#2563EB", width: 15, height: 15 }} />
+              SSL/TLS (porta 465)
+            </label>
+          </div>
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <button onClick={salvar} disabled={saving} style={{ ...btnPrimary, opacity: saving ? 0.7 : 1 }}>
+            {saving ? "Salvando…" : "Salvar configurações"}
+          </button>
+          {ok && <span style={{ fontSize: 13, color: "#059669", fontWeight: 600 }}>✓ Salvo!</span>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Página principal ──────────────────────────────────────────────────────────
 
 export default function CrmConfigPage() {
@@ -920,6 +1082,8 @@ export default function CrmConfigPage() {
         <button style={TAB_ST(tab === "produtos")} onClick={() => setTab("produtos")}>🏷 Cat. Produtos</button>
         <button style={TAB_ST(tab === "agenda_cats")} onClick={() => setTab("agenda_cats")}>📅 Cat. Agendamento</button>
         <button style={TAB_ST(tab === "plano")} onClick={() => setTab("plano")}>📊 Plano de Contas</button>
+        <button style={TAB_ST(tab === "email")} onClick={() => setTab("email")}>✉️ E-mail</button>
+        <button style={TAB_ST(tab === "contratos")} onClick={() => setTab("contratos")}>📄 Contratos</button>
       </div>
 
       {/* ── Funis ── */}
@@ -1027,6 +1191,16 @@ export default function CrmConfigPage() {
             </div>
           )}
         </div>
+      )}
+
+      {/* ── E-mail ── */}
+      {tab === "email" && fotografo && (
+        <AbaEmail fotografoId={fotografo.id} />
+      )}
+
+      {/* ── Contratos ── */}
+      {tab === "contratos" && fotografo && (
+        <AbaContratos fotografoId={fotografo.id} />
       )}
     </div>
   );
