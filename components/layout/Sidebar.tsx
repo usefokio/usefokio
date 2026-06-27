@@ -411,8 +411,7 @@ export function Sidebar() {
                   <span style={{ opacity: active ? 1 : 0.5, flexShrink: 0 }}>{icon}</span>
                   {!collapsed && <span style={{ lineHeight: 1.3, whiteSpace: "nowrap", overflow: "hidden" }}>{label}</span>}
                 </Link>
-                {/* Sub-itens: visíveis quando módulo está ativo e sidebar expandida */}
-                {active && !collapsed && children}
+                {!collapsed && children}
               </div>
             );
           };

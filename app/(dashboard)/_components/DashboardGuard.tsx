@@ -61,7 +61,11 @@ function ModalAceiteTermos({ onAceito }: { onAceito: () => void }) {
 export function DashboardGuard({ children }: { children: React.ReactNode }) {
   const { fotografo, loading } = useFotografo();
   const router = useRouter();
-  const [termosVerificados, setTermosVerificados] = useState(process.env.NODE_ENV === "development");
+  const [termosVerificados, setTermosVerificados] = useState(() => {
+    if (process.env.NODE_ENV === "development") return true;
+    if (typeof window === "undefined") return false;
+    return sessionStorage.getItem(`termos_${TERMOS_VERSAO}`) === "1";
+  });
   const [precisaAceitar,    setPrecisaAceitar]    = useState(false);
 
   useEffect(() => {
@@ -100,6 +104,7 @@ export function DashboardGuard({ children }: { children: React.ReactNode }) {
       .maybeSingle()
       .then(({ data }) => {
         if (!data) setPrecisaAceitar(true);
+        sessionStorage.setItem(`termos_${TERMOS_VERSAO}`, "1");
         setTermosVerificados(true);
       });
   }, [fotografo, loading, router]);
