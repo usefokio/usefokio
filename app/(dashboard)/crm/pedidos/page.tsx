@@ -133,15 +133,15 @@ export default function PedidosPage() {
   const verMedium = largura >= 700 && largura < 1100;
 
   const gridTemplate = verLarge
-    ? "80px 1fr 160px 130px 120px 120px 100px"
+    ? "80px 1fr 160px 130px 120px 100px"
     : verMedium
-    ? "80px 1fr 120px 120px 100px"
+    ? "80px 1fr 120px 100px"
     : "80px 1fr 120px 80px";
 
   const cabecalhos = verLarge
-    ? [{ label: "Nº", col: "numero" }, { label: "Pedido", col: "nome" }, { label: "Cliente", col: "cliente" }, { label: "Evento", col: "data_evento" }, { label: "Total", col: "total" }, { label: "Status", col: "status" }, { label: "", col: "" }]
+    ? [{ label: "Nº", col: "numero" }, { label: "Pedido", col: "nome" }, { label: "Cliente", col: "cliente" }, { label: "Evento", col: "data_evento" }, { label: "Status", col: "status" }, { label: "", col: "" }]
     : verMedium
-    ? [{ label: "Nº", col: "numero" }, { label: "Pedido", col: "nome" }, { label: "Total", col: "total" }, { label: "Status", col: "status" }, { label: "", col: "" }]
+    ? [{ label: "Nº", col: "numero" }, { label: "Pedido", col: "nome" }, { label: "Status", col: "status" }, { label: "", col: "" }]
     : [{ label: "Nº", col: "numero" }, { label: "Pedido", col: "nome" }, { label: "Status", col: "status" }, { label: "", col: "" }];
 
   return (
@@ -152,7 +152,7 @@ export default function PedidosPage() {
         <div>
           <h1 style={{ fontSize: 20, fontWeight: 800, letterSpacing: "-0.03em", color: "var(--color-text-primary)", margin: "0 0 4px" }}>Pedidos</h1>
           <p style={{ fontSize: 13, color: "var(--color-text-secondary)", margin: 0 }}>
-            {loading ? "Carregando…" : `${filtrados.length} pedido${filtrados.length !== 1 ? "s" : ""}${filtrados.length > 0 ? ` · ${fmt(totalFiltrado)}` : ""}`}
+            {loading ? "Carregando…" : `${filtrados.length} pedido${filtrados.length !== 1 ? "s" : ""}`}
           </p>
         </div>
         <button
@@ -269,11 +269,6 @@ export default function PedidosPage() {
                     </span>
                   </div>
                 )}
-                <div style={{ cursor: "pointer" }} onClick={() => router.push(`/crm/pedidos/${p.id}`)}>
-                  <span style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)" }}>
-                    {fmt(p.total ?? 0)}
-                  </span>
-                </div>
                 <div style={{ cursor: "pointer" }} onClick={() => router.push(`/crm/pedidos/${p.id}`)}>
                   <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 8px", borderRadius: 10, background: st.bg, color: st.color, whiteSpace: "nowrap" }}>{st.label}</span>
                 </div>
