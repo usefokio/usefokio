@@ -88,7 +88,6 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
   const [modalExcluir,     setModalExcluir]     = useState<EntryWithPedido | null>(null);
   const [emailModal, setEmailModal] = useState<{ para: string; nome?: string | null; assunto: string; corpo: string } | null>(null);
   const [excluindo,        setExcluindo]        = useState(false);
-  const [baixaCategorias,  setBaixaCategorias]  = useState<ChartAccount[]>([]);
   const [copiado,          setCopiado]          = useState(false);
   const [drillEntry,       setDrillEntry]       = useState<EntryWithPedido | null>(null);
   const [chartAccounts,    setChartAccounts]    = useState<ChartAccount[]>([]);
@@ -104,7 +103,6 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
   const [novoRecorrente,  setNovoRecorrente]  = useState(false);
   const [novoQtdParc,     setNovoQtdParc]     = useState("2");
   const [novoPeriodo,     setNovoPeriodo]     = useState("30");
-  const [novoCategorias,  setNovoCategorias]  = useState<ChartAccount[]>([]);
   const [novoClienteId,   setNovoClienteId]   = useState("");
   const [novoClienteBusca,setNovoClienteBusca]= useState("");
   const [novoClientesOpts,setNovoClientesOpts]= useState<{ id: string; nome: string }[]>([]);
@@ -242,18 +240,6 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
 
   const abrirEditar = async (e: EntryWithPedido) => {
     setModalEditar({ entry: e, descricao: e.descricao, valor: String(e.valor), vencimento: e.vencimento, contaPlanoId: e.conta_id ?? "" });
-    if (fotografo && baixaCategorias.length === 0) {
-      const prefixos = e.tipo === "receita" ? ["3"] : ["4", "5"];
-      const { data } = await createClient()
-        .from("crm_chart_of_accounts")
-        .select("id, codigo, nome")
-        .or(`fotografo_id.is.null,fotografo_id.eq.${fotografo.id}`)
-        .eq("ativo", true)
-        .order("codigo");
-      setBaixaCategorias(
-        ((data ?? []) as ChartAccount[]).filter(c => prefixos.some(p => c.codigo.startsWith(p)))
-      );
-    }
   };
 
   // Abrir modal de receber/pagar
@@ -265,17 +251,6 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
       contaPlanoId: e.conta_id ?? "",
     });
     setErroPagamento("");
-    if (e.tipo === "despesa" && !e.conta_id && fotografo) {
-      const { data } = await createClient()
-        .from("crm_chart_of_accounts")
-        .select("id, codigo, nome")
-        .or(`fotografo_id.is.null,fotografo_id.eq.${fotografo.id}`)
-        .eq("ativo", true)
-        .order("codigo");
-      setBaixaCategorias(
-        ((data ?? []) as ChartAccount[]).filter(c => c.codigo.startsWith("4") || c.codigo.startsWith("5"))
-      );
-    }
   };
 
   // Confirmar pagamento
@@ -313,18 +288,6 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
   // Novo lançamento — abrir modal
   const abrirNovo = async () => {
     if (!fotografo) return;
-    const tipo = ABA_CONFIG[aba].tipo;
-    const prefixos = tipo === "receita" ? ["3"] : ["4", "5"];
-    const { data } = await createClient()
-      .from("crm_chart_of_accounts")
-      .select("id, codigo, nome")
-      .or(`fotografo_id.is.null,fotografo_id.eq.${fotografo.id}`)
-      .eq("ativo", true)
-      .order("codigo");
-    const filtradas = ((data ?? []) as ChartAccount[]).filter(c =>
-      prefixos.some(p => c.codigo.startsWith(p))
-    );
-    setNovoCategorias(filtradas);
     const { data: clisData } = await createClient()
       .from("clientes").select("id, nome")
       .eq("fotografo_id", fotografo.id).eq("crm_ativo", true).order("nome");
@@ -686,7 +649,7 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
             </div>
 
             {/* Plano de contas — só para despesas sem categoria */}
-            {aba === "pagar" && !modalReceber.entry.conta_id && baixaCategorias.length > 0 && (
+            {aba === "pagar" && !modalReceber.entry.conta_id && (
               <div style={{ marginBottom: 18 }}>
                 <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>
                   Plano de contas *
@@ -700,7 +663,7 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
                   style={{ width: "100%", boxSizing: "border-box", padding: "9px 12px", borderRadius: 8, border: `0.5px solid ${modalReceber.contaPlanoId ? "var(--color-border-secondary)" : "#D97706"}`, background: "var(--color-background-primary)", fontSize: 13, color: "var(--color-text-primary)", outline: "none" }}
                 >
                   <option value="">Selecione a categoria…</option>
-                  {baixaCategorias.map(c => (
+                  {chartAccounts.filter(c => c.codigo.startsWith("4") || c.codigo.startsWith("5")).map(c => (
                     <option key={c.id} value={c.id}>{c.codigo} — {c.nome}</option>
                   ))}
                 </select>
@@ -847,7 +810,7 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
                     style={{ width: "100%", boxSizing: "border-box", padding: "9px 12px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", fontSize: 13, color: "var(--color-text-primary)", outline: "none" }} />
                 </div>
               </div>
-              {baixaCategorias.length > 0 && (
+              {chartAccounts.length > 0 && (
                 <div>
                   <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>Plano de contas</div>
                   <select
@@ -856,7 +819,7 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
                     style={{ width: "100%", boxSizing: "border-box", padding: "9px 12px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", fontSize: 13, color: "var(--color-text-primary)", outline: "none" }}
                   >
                     <option value="">Sem categoria</option>
-                    {baixaCategorias.map(c => (
+                    {chartAccounts.filter(c => modalEditar.entry.tipo === "receita" ? c.codigo.startsWith("3") : (c.codigo.startsWith("4") || c.codigo.startsWith("5"))).map(c => (
                       <option key={c.id} value={c.id}>{c.codigo} — {c.nome}</option>
                     ))}
                   </select>
@@ -961,7 +924,7 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
                 <select value={novoCategoriaId} onChange={e => setNovoCategoriaId(e.target.value)}
                   style={{ width: "100%", boxSizing: "border-box", padding: "9px 12px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", fontSize: 13, color: "var(--color-text-primary)", outline: "none" }}>
                   <option value="">Selecione…</option>
-                  {novoCategorias.map(c => (
+                  {chartAccounts.filter(c => ABA_CONFIG[aba].tipo === "receita" ? c.codigo.startsWith("3") : (c.codigo.startsWith("4") || c.codigo.startsWith("5"))).map(c => (
                     <option key={c.id} value={c.id}>{c.codigo} — {c.nome}</option>
                   ))}
                 </select>
