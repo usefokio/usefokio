@@ -386,8 +386,7 @@ export default function AgendaPage() {
                           title={ev.titulo}
                           onClick={(e) => {
                             e.stopPropagation();
-                            if (ev.navegarPara) { setPopupEvento(ev); }
-                            else if (ev.dados) { setModal({ modo: "editar", evento: ev }); }
+                            setPopupEvento(ev);
                           }}
                           style={{
                             fontSize: 11, fontWeight: 600, padding: "4px 8px", borderRadius: 5,
@@ -431,8 +430,7 @@ export default function AgendaPage() {
                               key={ev.id}
                               onClick={() => {
                                 setTooltipId(null);
-                                if (ev.navegarPara) { setPopupEvento(ev); }
-                                else if (ev.dados) setModal({ modo: "editar", evento: ev });
+                                setPopupEvento(ev);
                               }}
                               style={{ fontSize: 11, padding: "6px 8px", borderRadius: 5, background: ev.bg, color: ev.cor, marginBottom: 4, cursor: "pointer", borderLeft: `3px solid ${ev.cor}` }}
                             >
@@ -471,66 +469,122 @@ export default function AgendaPage() {
       </div>
 
       {/* Popup de detalhes do evento */}
-      {popupEvento && (
-        <div
-          onClick={() => setPopupEvento(null)}
-          style={{ position: "fixed", inset: 0, zIndex: 100, background: "rgba(0,0,0,0.35)", display: "flex", alignItems: "center", justifyContent: "center" }}
-        >
+      {popupEvento && (() => {
+        const d = popupEvento.dados;
+        const fmtDataHora = (iso: string) => {
+          const [date, time] = iso.split("T");
+          const [y, m, day] = date.split("-");
+          return `${day}/${m}/${y}${time ? " " + time.slice(0, 5) : ""}`;
+        };
+        const isAgendamento = popupEvento.tipo === "agendamento" || popupEvento.tipo === "tarefa";
+        return (
           <div
-            onClick={(e) => e.stopPropagation()}
-            style={{ background: "var(--color-background-primary)", borderRadius: 14, padding: "24px 28px", width: 340, maxWidth: "90vw", boxShadow: "0 16px 48px rgba(0,0,0,0.18)", border: "0.5px solid var(--color-border-tertiary)", position: "relative" }}
+            onClick={() => setPopupEvento(null)}
+            style={{ position: "fixed", inset: 0, zIndex: 100, background: "rgba(0,0,0,0.35)", display: "flex", alignItems: "center", justifyContent: "center" }}
           >
-            {/* Barra de tipo */}
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
-              <div style={{ width: 4, height: 32, borderRadius: 2, background: popupEvento.cor, flexShrink: 0 }} />
-              <div>
-                <div style={{ fontSize: 10, fontWeight: 700, color: popupEvento.cor, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{ background: "var(--color-background-primary)", borderRadius: 14, width: 380, maxWidth: "92vw", boxShadow: "0 16px 48px rgba(0,0,0,0.18)", border: "0.5px solid var(--color-border-tertiary)", position: "relative", overflow: "hidden" }}
+            >
+              {/* Cabeçalho colorido */}
+              <div style={{ background: popupEvento.bg, borderBottom: `2px solid ${popupEvento.cor}`, padding: "16px 20px 14px" }}>
+                <button
+                  onClick={() => setPopupEvento(null)}
+                  style={{ position: "absolute", top: 12, right: 14, background: "none", border: "none", cursor: "pointer", fontSize: 18, color: popupEvento.cor, lineHeight: 1, opacity: 0.7 }}
+                >×</button>
+                <div style={{ fontSize: 10, fontWeight: 700, color: popupEvento.cor, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 4 }}>
                   {TIPO_CONFIG[popupEvento.tipo].label}
+                  {d?.tipo ? ` · ${d.tipo}` : ""}
                 </div>
-                <div style={{ fontSize: 15, fontWeight: 700, color: "var(--color-text-primary)", lineHeight: 1.3 }}>
+                <div style={{ fontSize: 16, fontWeight: 700, color: "var(--color-text-primary)", lineHeight: 1.3, paddingRight: 20 }}>
                   {popupEvento.titulo}
                 </div>
               </div>
-              <button
-                onClick={() => setPopupEvento(null)}
-                style={{ position: "absolute", top: 14, right: 16, background: "none", border: "none", cursor: "pointer", fontSize: 18, color: "var(--color-text-secondary)", lineHeight: 1 }}
-              >×</button>
-            </div>
 
-            {/* Infos */}
-            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
-              <div style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>
-                📅 {new Date(popupEvento.dia + "T12:00:00").toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
+              {/* Corpo com campos */}
+              <div style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 10 }}>
+
+                {/* Início / Término */}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                  <div>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 3 }}>Início</div>
+                    <div style={{ fontSize: 13, color: "var(--color-text-primary)", fontWeight: 500 }}>
+                      {d ? fmtDataHora(d.inicio) : fmtDataHora(popupEvento.dia + "T00:00")}
+                    </div>
+                  </div>
+                  {(d?.fim || !isAgendamento) && (
+                    <div>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 3 }}>Término</div>
+                      <div style={{ fontSize: 13, color: "var(--color-text-primary)", fontWeight: 500 }}>
+                        {d?.fim ? fmtDataHora(d.fim) : "—"}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Dia inteiro */}
+                {d && (
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Dia inteiro:</div>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: d.dia_todo ? popupEvento.cor : "var(--color-text-secondary)" }}>{d.dia_todo ? "Sim" : "Não"}</div>
+                  </div>
+                )}
+
+                {/* Local */}
+                {d?.local && (
+                  <div>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 3 }}>Local</div>
+                    <div style={{ fontSize: 13, color: "var(--color-text-primary)" }}>📍 {d.local}</div>
+                  </div>
+                )}
+
+                {/* Detalhes */}
+                {d?.descricao && (
+                  <div>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 3 }}>Detalhes</div>
+                    <div style={{ fontSize: 13, color: "var(--color-text-primary)", lineHeight: 1.5 }}>{d.descricao}</div>
+                  </div>
+                )}
+
+                {/* Origem (pedido vinculado) */}
+                {d?.pedido_id && (
+                  <div>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 3 }}>Origem</div>
+                    <button
+                      onClick={() => { setPopupEvento(null); router.push(`/crm/pedidos/${d.pedido_id}`); }}
+                      style={{ fontSize: 12, fontWeight: 600, color: "#2563EB", background: "rgba(37,99,235,0.08)", border: "none", borderRadius: 6, padding: "3px 10px", cursor: "pointer" }}
+                    >
+                      🛒 Pedido
+                    </button>
+                  </div>
+                )}
               </div>
-              {popupEvento.dados?.inicio && !popupEvento.dados?.dia_todo && (
-                <div style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>
-                  🕐 {popupEvento.dados.inicio.slice(11, 16)}{popupEvento.dados.fim ? ` – ${popupEvento.dados.fim.slice(11, 16)}` : ""}
-                </div>
-              )}
-              {popupEvento.dados?.local && (
-                <div style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>
-                  📍 {popupEvento.dados.local}
-                </div>
-              )}
-              {popupEvento.dados?.descricao && (
-                <div style={{ fontSize: 13, color: "var(--color-text-secondary)", marginTop: 4, lineHeight: 1.5 }}>
-                  {popupEvento.dados.descricao}
-                </div>
-              )}
-            </div>
 
-            {/* Botão de navegação */}
-            <button
-              onClick={() => { setPopupEvento(null); router.push(popupEvento.navegarPara!); }}
-              style={{ width: "100%", padding: "10px 0", borderRadius: 9, background: "#111", color: "#fff", border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer" }}
-            >
-              {popupEvento.tipo === "evento_pedido" ? "Ir para o pedido →" :
-               popupEvento.tipo === "a_receber" || popupEvento.tipo === "a_pagar" ? "Ir para o financeiro →" :
-               "Ver detalhes →"}
-            </button>
+              {/* Rodapé com botões */}
+              <div style={{ padding: "0 20px 18px", display: "flex", gap: 8 }}>
+                {isAgendamento && (
+                  <button
+                    onClick={() => { setPopupEvento(null); setModal({ modo: "editar", evento: popupEvento }); }}
+                    style={{ flex: 1, padding: "9px 0", borderRadius: 9, background: "none", color: "var(--color-text-primary)", border: "0.5px solid var(--color-border-secondary)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}
+                  >
+                    Editar
+                  </button>
+                )}
+                {popupEvento.navegarPara && (
+                  <button
+                    onClick={() => { setPopupEvento(null); router.push(popupEvento.navegarPara!); }}
+                    style={{ flex: 1, padding: "9px 0", borderRadius: 9, background: "#111", color: "#fff", border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer" }}
+                  >
+                    {popupEvento.tipo === "evento_pedido" ? "Ir para o pedido →" :
+                     popupEvento.tipo === "a_receber" || popupEvento.tipo === "a_pagar" ? "Ir para o financeiro →" :
+                     "Ver detalhes →"}
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Modal de criar/editar evento */}
       {modal.modo !== "fechado" && (
