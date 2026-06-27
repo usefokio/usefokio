@@ -134,12 +134,12 @@ export async function GET(req: Request) {
 
     const porFotografo: Record<string, { hoje: Schedule[]; amanha: Schedule[] }> = {};
 
-    for (const ev of (eventosHoje ?? []) as Schedule[]) {
+    for (const ev of (eventosHoje ?? []) as unknown as Schedule[]) {
       if (!ev.inicio) continue;
       porFotografo[ev.fotografo_id] ??= { hoje: [], amanha: [] };
       porFotografo[ev.fotografo_id].hoje.push(ev);
     }
-    for (const ev of (eventosAmanha ?? []) as Schedule[]) {
+    for (const ev of (eventosAmanha ?? []) as unknown as Schedule[]) {
       if (!ev.inicio) continue;
       porFotografo[ev.fotografo_id] ??= { hoje: [], amanha: [] };
       porFotografo[ev.fotografo_id].amanha.push(ev);
