@@ -755,8 +755,8 @@ export default function AcessoEntregaPage() {
               onClick={() => { setModoSelecao(true); setSelecionadas(new Set()); }}
               style={{ padding: "8px 14px", borderRadius: 8, background: "transparent", border: "1px solid #ddd", color: "#444", fontSize: 12, fontWeight: 600, cursor: "pointer" }}
             >
-              Selecionar
-            </button>
+              Selecionar para baixar
+</button>
           </div>
         )}
         {/* Modo seleção ativo */}
