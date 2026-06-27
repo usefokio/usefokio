@@ -130,7 +130,6 @@ export default function PanoramaPage() {
         sbc.from("crm_financial_entries")
           .select("conta_id, tipo, valor, pago_em")
           .eq("fotografo_id", fid).eq("status", "pago")
-          .or("num_documento.is.null,num_documento.neq.DRE")
           .not("pago_em", "is", null).range(f, t), sb);
 
       for (const e of entries) {
