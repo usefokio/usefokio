@@ -264,6 +264,8 @@ export function Sidebar() {
   const router        = useRouter();
   const { fotografo } = useFotografo();
   const [collapsed, setCollapsed] = useState(false);
+  const [usefokioOpen, setUsefokioOpen] = useState(true);
+  const [crmOpen,      setCrmOpen]      = useState(true);
 
   async function handleLogout() {
     const supabase = createClient();
@@ -375,13 +377,15 @@ export function Sidebar() {
             icon: React.ReactNode,
             children: React.ReactNode,
             moduleActive: boolean,
+            sectionOpen: boolean,
+            onToggle: () => void,
           ) => {
             const active = moduleActive;
             return (
               <div key={href}>
-                <Link
-                  href={href}
+                <div
                   title={collapsed ? label : undefined}
+                  onClick={collapsed ? undefined : onToggle}
                   style={{
                     display: "flex", alignItems: "center",
                     justifyContent: collapsed ? "center" : "flex-start",
@@ -389,15 +393,23 @@ export function Sidebar() {
                     borderRadius: 7, marginBottom: 1,
                     background: active ? "var(--color-background-secondary)" : "transparent",
                     color: active ? "var(--color-text-primary)" : "var(--color-text-secondary)",
-                    fontSize: 12, fontWeight: active ? 600 : 400, textDecoration: "none",
+                    fontSize: 12, fontWeight: active ? 600 : 400,
+                    cursor: collapsed ? "default" : "pointer",
+                    userSelect: "none",
                   }}
-                  onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = "var(--color-background-secondary)"; }}
-                  onMouseLeave={(e) => { if (!active) e.currentTarget.style.background = "transparent"; }}
+                  onMouseEnter={(e) => { if (!active && !collapsed) e.currentTarget.style.background = "var(--color-background-secondary)"; }}
+                  onMouseLeave={(e) => { if (!active) e.currentTarget.style.background = active ? "var(--color-background-secondary)" : "transparent"; }}
                 >
                   <span style={{ opacity: active ? 1 : 0.5, flexShrink: 0 }}>{icon}</span>
-                  {!collapsed && <span style={{ lineHeight: 1.3, whiteSpace: "nowrap", overflow: "hidden" }}>{label}</span>}
-                </Link>
-                {!collapsed && children}
+                  {!collapsed && <span style={{ lineHeight: 1.3, whiteSpace: "nowrap", overflow: "hidden", flex: 1 }}>{label}</span>}
+                  {!collapsed && (
+                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none"
+                      style={{ flexShrink: 0, opacity: 0.4, transition: "transform 0.2s", transform: sectionOpen ? "none" : "rotate(-90deg)" }}>
+                      <path d="M4 6l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  )}
+                </div>
+                {!collapsed && sectionOpen && children}
               </div>
             );
           };
@@ -455,7 +467,7 @@ export function Sidebar() {
 
           // Em dev: só módulo CRM (sempre expandido)
           if (process.env.NODE_ENV === "development") {
-            return renderModule("/crm/agenda", "CRM", icoCRM, crmChildren, true);
+            return renderModule("/crm/agenda", "CRM", icoCRM, crmChildren, true, crmOpen, () => setCrmOpen(v => !v));
           }
 
           // Em prod: UseFokio + CRM (se habilitado)
@@ -463,11 +475,11 @@ export function Sidebar() {
 
           return (
             <>
-              {renderModule("/dashboard", "UseFokio", icoUseFokio, usefokioChildren, !inCRM)}
+              {renderModule("/dashboard", "UseFokio", icoUseFokio, usefokioChildren, !inCRM, usefokioOpen, () => setUsefokioOpen(v => !v))}
               {crmHabilitado && (
                 <>
                   <div style={{ margin: "4px 0", borderTop: "0.5px solid var(--color-border-tertiary)" }} />
-                  {renderModule("/crm/agenda", "CRM", icoCRM, crmChildren, inCRM)}
+                  {renderModule("/crm/agenda", "CRM", icoCRM, crmChildren, inCRM, crmOpen, () => setCrmOpen(v => !v))}
                 </>
               )}
             </>
