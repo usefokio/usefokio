@@ -131,7 +131,8 @@ export default function ResultadosPage() {
         .eq("fotografo_id", fid)
         .gte("data_lancamento", `${ano}-01-01`).lte("data_lancamento", `${ano}-12-31`)
         .not("data_lancamento", "is", null);
-      qOrders = temDRE ? q.eq("crm_nativo", true) : sb.from("crm_orders").select("categoria").eq("fotografo_id", fid).limit(0);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      qOrders = temDRE ? (q as any).eq("crm_nativo", true) : sb.from("crm_orders").select("categoria").eq("fotografo_id", fid).limit(0);
     } else {
       qOrders = sb.from("crm_orders").select("categoria").eq("fotografo_id", fid).limit(0);
     }
