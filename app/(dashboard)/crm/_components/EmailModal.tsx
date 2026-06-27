@@ -11,15 +11,16 @@ interface Props {
   onClose: () => void;
 }
 
-export function EmailModal({ para, nomeDestinatario, assuntoInicial, corpoInicial, onClose }: Props) {
+export function EmailModal({ para: paraInicial, nomeDestinatario, assuntoInicial, corpoInicial, onClose }: Props) {
   const { fotografo } = useFotografo();
+  const [para,    setPara]    = useState(paraInicial);
   const [assunto, setAssunto] = useState(assuntoInicial);
   const [corpo,   setCorpo]   = useState(corpoInicial);
   const [status,  setStatus]  = useState<"idle" | "enviando" | "ok" | "erro">("idle");
   const [erro,    setErro]    = useState("");
 
   const enviar = async () => {
-    if (!assunto.trim() || !corpo.trim()) return;
+    if (!para.trim() || !assunto.trim() || !corpo.trim()) return;
     setStatus("enviando");
     setErro("");
     try {
@@ -28,7 +29,7 @@ export function EmailModal({ para, nomeDestinatario, assuntoInicial, corpoInicia
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           fotografo_id: fotografo?.id,
-          para,
+          para: para.trim(),
           assunto,
           corpo,
         }),
@@ -83,9 +84,19 @@ export function EmailModal({ para, nomeDestinatario, assuntoInicial, corpoInicia
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <div>
             <label style={label}>PARA</label>
-            <div style={{ ...inputSt, background: "var(--color-background-secondary)", color: "var(--color-text-secondary)", cursor: "default" }}>
-              {nomeDestinatario ? `${nomeDestinatario} <${para}>` : para}
-            </div>
+            {paraInicial ? (
+              <div style={{ ...inputSt, background: "var(--color-background-secondary)", color: "var(--color-text-secondary)", cursor: "default" }}>
+                {nomeDestinatario ? `${nomeDestinatario} <${para}>` : para}
+              </div>
+            ) : (
+              <input
+                value={para}
+                onChange={e => setPara(e.target.value)}
+                placeholder="email@cliente.com.br"
+                type="email"
+                style={inputSt}
+              />
+            )}
           </div>
 
           <div>

@@ -552,9 +552,8 @@ function FinanceiroInner() {
             const clienteEmail = e.crm_orders?.clientes?.email ?? e.clientes?.email ?? null;
 
             const abrirEmailLembrete = () => {
-              if (!clienteEmail) return;
               setEmailModal({
-                para: clienteEmail,
+                para: clienteEmail ?? "",
                 nome: clienteNome,
                 assunto: `Lembrete de pagamento — ${e.descricao}`,
                 corpo: `Olá${clienteNome ? ` ${clienteNome}` : ""},\n\nEste é um lembrete sobre o pagamento pendente:\n\nDescrição: ${e.descricao}${e.parcela ? ` (Parcela ${e.parcela})` : ""}\nValor: ${fmt(e.valor)}\nVencimento: ${fmtData(e.vencimento)}\n\nPor favor, entre em contato caso tenha dúvidas.\n\nAtenciosamente`,
@@ -589,8 +588,10 @@ function FinanceiroInner() {
                       <IcoCheck />
                     </button>
                   )}
-                  {aba === "receber" && clienteEmail && (
-                    <button onClick={abrirEmailLembrete} title={`Enviar email para ${clienteEmail}`}
+                  {aba === "receber" && (
+                    <button
+                      onClick={abrirEmailLembrete}
+                      title={clienteEmail ? `Enviar cobrança para ${clienteEmail}` : "Enviar email de cobrança"}
                       style={btnIcon({ color: "#2563EB", border: "0.5px solid rgba(37,99,235,0.3)" })}>
                       <IcoMail />
                     </button>
