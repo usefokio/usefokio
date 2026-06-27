@@ -9,7 +9,17 @@ import { useFotografo } from "@/lib/context/FotografoContext";
 import type { GaleriaSelecao, Cliente } from "@/lib/supabase/types";
 import { ModalEnviarAcesso } from "./[id]/_components/ModalEnviarAcesso";
 
-type GaleriaComCliente = GaleriaSelecao & { cliente?: Pick<Cliente, "nome" | "email" | "senha_acesso" | "telefone" | "whatsapp"> | null };
+type GaleriaComCliente = GaleriaSelecao & {
+  cliente?: Pick<Cliente, "nome" | "email" | "senha_acesso" | "telefone" | "whatsapp"> | null;
+  capa_foto?: { thumbnail_path: string | null; url_publica: string | null } | null;
+};
+
+const STORAGE_BASE = "https://fhsoqlttxggjpgrupjse.supabase.co/storage/v1/object/public/galerias/";
+function resolveThumb(thumb: string | null | undefined, pub: string | null | undefined): string | null {
+  if (pub) return pub.startsWith("http") ? pub : STORAGE_BASE + pub;
+  if (thumb) return STORAGE_BASE + thumb;
+  return null;
+}
 type Filtro = "todas" | GaleriaSelecao["status"];
 
 const STATUS_LABEL: Record<GaleriaSelecao["status"], string> = {
@@ -75,7 +85,7 @@ function SelecaoConteudo() {
     const supabase = createClient();
     supabase
       .from("galerias_selecao")
-      .select("*, cliente:clientes(nome, email, senha_acesso, telefone, whatsapp)")
+      .select("*, cliente:clientes(nome, email, senha_acesso, telefone, whatsapp), capa_foto:galerias_selecao_fotos!foto_capa_id(thumbnail_path, url_publica)")
       .eq("fotografo_id", fotografo.id)
       .order("created_at", { ascending: false })
       .then(({ data }) => {
@@ -284,10 +294,15 @@ function SelecaoConteudo() {
                 onMouseEnter={(e) => (e.currentTarget.style.borderColor = aguardando ? "#F59E0B" : "#2563EB")}
                 onMouseLeave={(e) => (e.currentTarget.style.borderColor = aguardando ? "rgba(245,158,11,0.35)" : "var(--color-border-tertiary)")}
               >
-                {/* Ícone */}
-                <div style={{ width: 42, height: 42, borderRadius: 9, background: aguardando ? "rgba(245,158,11,0.15)" : "rgba(37,99,235,0.08)", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>
-                  🖼
-                </div>
+                {/* Thumbnail */}
+                {(() => {
+                  const url = resolveThumb(g.capa_foto?.thumbnail_path, g.capa_foto?.url_publica);
+                  return url ? (
+                    <img src={url} alt={g.titulo} style={{ width: 52, height: 52, borderRadius: 8, objectFit: "cover", flexShrink: 0, border: "0.5px solid var(--color-border-tertiary)" }} />
+                  ) : (
+                    <div style={{ width: 52, height: 52, borderRadius: 8, background: aguardando ? "rgba(245,158,11,0.15)" : "rgba(37,99,235,0.08)", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, border: "0.5px solid var(--color-border-tertiary)" }}>🖼</div>
+                  );
+                })()}
 
                 {/* Info */}
                 <div style={{ flex: 1, minWidth: 0, cursor: "pointer" }} onClick={() => router.push(`/selecao/${g.id}`)}>
