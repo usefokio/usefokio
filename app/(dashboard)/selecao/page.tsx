@@ -88,8 +88,24 @@ function SelecaoConteudo() {
       .select("*, cliente:clientes(nome, email, senha_acesso, telefone, whatsapp), capa_foto:galerias_selecao_fotos!foto_capa_id(thumbnail_path, url_publica)")
       .eq("fotografo_id", fotografo.id)
       .order("created_at", { ascending: false })
-      .then(({ data }) => {
-        setGalerias((data as GaleriaComCliente[]) ?? []);
+      .then(async ({ data }) => {
+        const lista = (data as GaleriaComCliente[]) ?? [];
+        const semCapa = lista.filter(g => !g.foto_capa_id && g.total_fotos > 0).map(g => g.id);
+        if (semCapa.length > 0) {
+          const { data: fbs } = await supabase
+            .from("galerias_selecao_fotos")
+            .select("galeria_id, thumbnail_path, url_publica")
+            .in("galeria_id", semCapa)
+            .order("galeria_id").order("ordem")
+            .limit(500);
+          const mapa: Record<string, { thumbnail_path: string | null; url_publica: string | null }> = {};
+          for (const f of (fbs ?? []) as any[]) {
+            if (!mapa[f.galeria_id]) mapa[f.galeria_id] = f;
+          }
+          setGalerias(lista.map(g => g.foto_capa_id ? g : { ...g, capa_foto: mapa[g.id] ?? null }));
+        } else {
+          setGalerias(lista);
+        }
         setLoading(false);
       });
   }, [fotografo]);
