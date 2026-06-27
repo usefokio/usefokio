@@ -228,6 +228,7 @@ const RECURSOS_LABELS: { chave: string; label: string }[] = [
   { chave: "entrega",    label: "Entrega" },
   { chave: "pagamentos", label: "Pagamentos" },
   { chave: "selecao",    label: "Seleção" },
+  { chave: "crm",        label: "CRM" },
 ];
 
 function RecursosCell({ fotografoId }: { fotografoId: string }) {

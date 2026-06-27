@@ -8,7 +8,7 @@ import { Avatar } from "@/components/ui/Avatar";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { PLANOS, pctUso, corBarra, limiteEfetivo, type PlanoId } from "@/lib/planos";
 
-const NAV_ITEMS = [
+const USEFOKIO_ITEMS = [
   {
     href: "/dashboard",
     label: "Dashboard",
@@ -101,17 +101,6 @@ const NAV_ITEMS = [
     ),
   },
   {
-    href: "/crm",
-    label: "CRM",
-    icon: (
-      <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
-        <path d="M2 4h12M2 8h8M2 12h5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" opacity=".8" />
-        <circle cx="13" cy="11" r="2.5" stroke="currentColor" strokeWidth="1.2" fill="none" opacity=".8" />
-        <path d="M15 13l1.2 1.2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" opacity=".7" />
-      </svg>
-    ),
-  },
-  {
     href: "/config",
     label: "Configurações",
     icon: (
@@ -125,6 +114,18 @@ const NAV_ITEMS = [
     ),
   },
 ];
+
+const CRM_NAV_ITEM = {
+  href: "/crm",
+  label: "CRM",
+  icon: (
+    <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+      <path d="M2 4h12M2 8h8M2 12h5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" opacity=".8" />
+      <circle cx="13" cy="11" r="2.5" stroke="currentColor" strokeWidth="1.2" fill="none" opacity=".8" />
+      <path d="M15 13l1.2 1.2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" opacity=".7" />
+    </svg>
+  ),
+};
 
 function FinanceiroSubItems({ pathname }: { pathname: string }) {
   const searchParams = useSearchParams();
@@ -270,125 +271,143 @@ export function Sidebar() {
       </div>
 
       {/* Nav */}
-      <nav style={{ padding: collapsed ? "8px 6px" : 8, flex: 1 }}>
-        {NAV_ITEMS.filter((item) => {
-          if (process.env.NODE_ENV === "development") return item.href === "/crm";
-          // Oculta itens cujo recurso foi desativado pelo webmaster para este fotógrafo
-          const recursoPorRota: Record<string, keyof NonNullable<typeof fotografo>["recursos"]> = {
-            "/selecao": "selecao", "/entrega": "entrega", "/album": "album", "/contatos": "contatos", "/crm": "crm",
+      <nav style={{ padding: collapsed ? "8px 6px" : 8, flex: 1, overflowY: "auto" }}>
+        {(() => {
+          const recursosPorRota: Record<string, keyof NonNullable<typeof fotografo>["recursos"]> = {
+            "/selecao": "selecao", "/entrega": "entrega", "/album": "album", "/contatos": "contatos",
           };
-          const chave = recursoPorRota[item.href];
-          if (!chave || !fotografo?.recursos) return true;
-          return fotografo.recursos[chave] !== false;
-        }).map((item) => {
-          const active = isActive(item.href);
+
+          const renderItem = (item: typeof USEFOKIO_ITEMS[number] | typeof CRM_NAV_ITEM) => {
+            const active = isActive(item.href);
+            return (
+              <div key={item.href}>
+                <Link
+                  href={item.href}
+                  title={collapsed ? item.label : undefined}
+                  style={{
+                    display: "flex", alignItems: "center",
+                    justifyContent: collapsed ? "center" : "flex-start",
+                    gap: 9, padding: collapsed ? "8px 0" : "7px 10px",
+                    borderRadius: 7, marginBottom: 1,
+                    background: active ? "var(--color-background-secondary)" : "transparent",
+                    color: active ? "var(--color-text-primary)" : "var(--color-text-secondary)",
+                    fontSize: 12, fontWeight: active ? 500 : 400, textDecoration: "none",
+                  }}
+                  onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = "var(--color-background-secondary)"; }}
+                  onMouseLeave={(e) => { if (!active) e.currentTarget.style.background = "transparent"; }}
+                >
+                  <span style={{ opacity: active ? 1 : 0.5, flexShrink: 0 }}>{item.icon}</span>
+                  {!collapsed && <span style={{ lineHeight: 1.3, whiteSpace: "nowrap", overflow: "hidden" }}>{item.label}</span>}
+                </Link>
+
+                {/* Sub-itens do CRM */}
+                {item.href === "/crm" && !collapsed && pathname.startsWith("/crm") && (() => {
+                  const crmSubs = [
+                    { href: "/crm/agenda",        label: "Agenda" },
+                    { href: "/crm/oportunidades", label: "Oportunidades" },
+                    { href: "/crm/clientes",      label: "Contatos" },
+                    { href: "/crm/pedidos",       label: "Pedidos" },
+                    { href: "/crm/produtos",      label: "Produtos" },
+                    { href: "/crm/contas",        label: "Contas Bancárias" },
+                    { href: "/crm/financeiro",    label: "Financeiro" },
+                    { href: "/crm/config",        label: "Config. CRM" },
+                  ];
+                  return (
+                    <>
+                      {crmSubs.map((sub) => {
+                        const subPath = sub.href.split("?")[0];
+                        const subActive = pathname === subPath || pathname.startsWith(subPath + "/");
+                        return (
+                          <div key={sub.href}>
+                            <Link
+                              href={sub.href}
+                              style={{
+                                display: "flex", alignItems: "center", gap: 7,
+                                padding: "5px 10px 5px 28px", borderRadius: 7, marginBottom: 1,
+                                background: subActive ? "var(--color-background-secondary)" : "transparent",
+                                color: subActive ? "var(--color-text-primary)" : "var(--color-text-secondary)",
+                                fontSize: 11, fontWeight: subActive ? 500 : 400, textDecoration: "none",
+                              }}
+                              onMouseEnter={(e) => { if (!subActive) e.currentTarget.style.background = "var(--color-background-secondary)"; }}
+                              onMouseLeave={(e) => { if (!subActive) e.currentTarget.style.background = "transparent"; }}
+                            >
+                              <span style={{ whiteSpace: "nowrap" }}>{sub.label}</span>
+                            </Link>
+                            {sub.href === "/crm/financeiro" && (
+                              <Suspense><FinanceiroSubItems pathname={pathname} /></Suspense>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </>
+                  );
+                })()}
+
+                {/* Sub-item: Funil de Campanha */}
+                {item.href === "/entrega" && !collapsed && (() => {
+                  const subActive = pathname === "/entrega/campanha";
+                  return (
+                    <Link
+                      href="/entrega/campanha"
+                      style={{
+                        display: "flex", alignItems: "center", gap: 7,
+                        padding: "5px 10px 5px 28px", borderRadius: 7, marginBottom: 1,
+                        background: subActive ? "var(--color-background-secondary)" : "transparent",
+                        color: subActive ? "var(--color-text-primary)" : "var(--color-text-secondary)",
+                        fontSize: 11, fontWeight: subActive ? 500 : 400, textDecoration: "none",
+                      }}
+                      onMouseEnter={(e) => { if (!subActive) e.currentTarget.style.background = "var(--color-background-secondary)"; }}
+                      onMouseLeave={(e) => { if (!subActive) e.currentTarget.style.background = "transparent"; }}
+                    >
+                      <span style={{ opacity: subActive ? 1 : 0.5, fontSize: 11 }}>📢</span>
+                      <span style={{ whiteSpace: "nowrap" }}>Funil de Campanha</span>
+                    </Link>
+                  );
+                })()}
+              </div>
+            );
+          };
+
+          const sectionLabel = (label: string) =>
+            !collapsed ? (
+              <div style={{
+                fontSize: 10, fontWeight: 600, letterSpacing: "0.07em", textTransform: "uppercase",
+                color: "var(--color-text-secondary)", opacity: 0.45,
+                padding: "10px 10px 3px",
+              }}>
+                {label}
+              </div>
+            ) : null;
+
+          // Em dev: só a seção CRM (sem label)
+          if (process.env.NODE_ENV === "development") {
+            return renderItem(CRM_NAV_ITEM);
+          }
+
+          // Em prod: seção UseFokio + seção CRM (se habilitada)
+          const usefokioItems = USEFOKIO_ITEMS.filter((item) => {
+            const chave = recursosPorRota[item.href];
+            if (!chave || !fotografo?.recursos) return true;
+            return fotografo.recursos[chave] !== false;
+          });
+
+          const crmHabilitado = fotografo?.recursos?.crm !== false;
+
           return (
-            <div key={item.href}>
-              <Link
-                href={item.href}
-                title={collapsed ? item.label : undefined}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: collapsed ? "center" : "flex-start",
-                  gap: 9,
-                  padding: collapsed ? "8px 0" : "7px 10px",
-                  borderRadius: 7,
-                  marginBottom: 1,
-                  background: active ? "var(--color-background-secondary)" : "transparent",
-                  color: active ? "var(--color-text-primary)" : "var(--color-text-secondary)",
-                  fontSize: 12,
-                  fontWeight: active ? 500 : 400,
-                  textDecoration: "none",
-                }}
-                onMouseEnter={(e) => {
-                  if (!active) e.currentTarget.style.background = "var(--color-background-secondary)";
-                }}
-                onMouseLeave={(e) => {
-                  if (!active) e.currentTarget.style.background = "transparent";
-                }}
-              >
-                <span style={{ opacity: active ? 1 : 0.5, flexShrink: 0 }}>{item.icon}</span>
-                {!collapsed && <span style={{ lineHeight: 1.3, whiteSpace: "nowrap", overflow: "hidden" }}>{item.label}</span>}
-              </Link>
+            <>
+              {sectionLabel("UseFokio")}
+              {usefokioItems.map(renderItem)}
 
-              {/* Sub-itens do CRM */}
-              {item.href === "/crm" && !collapsed && pathname.startsWith("/crm") && (() => {
-                const crmSubs = [
-                  { href: "/crm/agenda",        label: "Agenda" },
-                  { href: "/crm/oportunidades", label: "Oportunidades" },
-                  { href: "/crm/clientes",      label: "Contatos" },
-                  { href: "/crm/pedidos",       label: "Pedidos" },
-                  { href: "/crm/produtos",      label: "Produtos" },
-                  { href: "/crm/contas",        label: "Contas Bancárias" },
-                  { href: "/crm/financeiro",    label: "Financeiro" },
-                  { href: "/crm/config",        label: "Config. CRM" },
-                ];
-                return (
-                  <>
-                    {crmSubs.map((sub) => {
-                      const subPath = sub.href.split("?")[0];
-                      const subActive = pathname === subPath || pathname.startsWith(subPath + "/");
-                      return (
-                        <div key={sub.href}>
-                          <Link
-                            href={sub.href}
-                            style={{
-                              display: "flex", alignItems: "center", gap: 7,
-                              padding: "5px 10px 5px 28px",
-                              borderRadius: 7, marginBottom: 1,
-                              background: subActive ? "var(--color-background-secondary)" : "transparent",
-                              color: subActive ? "var(--color-text-primary)" : "var(--color-text-secondary)",
-                              fontSize: 11, fontWeight: subActive ? 500 : 400,
-                              textDecoration: "none",
-                            }}
-                            onMouseEnter={(e) => { if (!subActive) e.currentTarget.style.background = "var(--color-background-secondary)"; }}
-                            onMouseLeave={(e) => { if (!subActive) e.currentTarget.style.background = "transparent"; }}
-                          >
-                            <span style={{ whiteSpace: "nowrap" }}>{sub.label}</span>
-                          </Link>
-                          {sub.href === "/crm/financeiro" && (
-                            <Suspense>
-                              <FinanceiroSubItems pathname={pathname} />
-                            </Suspense>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </>
-                );
-              })()}
-
-              {/* Sub-item: Funil de Campanha (só para Galerias de Entrega, expandido) */}
-              {item.href === "/entrega" && !collapsed && (() => {
-                const subActive = pathname === "/entrega/campanha";
-                return (
-                  <Link
-                    href="/entrega/campanha"
-                    style={{
-                      display: "flex", alignItems: "center", gap: 7,
-                      padding: "5px 10px 5px 28px",
-                      borderRadius: 7, marginBottom: 1,
-                      background: subActive ? "var(--color-background-secondary)" : "transparent",
-                      color: subActive ? "var(--color-text-primary)" : "var(--color-text-secondary)",
-                      fontSize: 11, fontWeight: subActive ? 500 : 400,
-                      textDecoration: "none",
-                    }}
-                    onMouseEnter={(e) => {
-                      if (!subActive) e.currentTarget.style.background = "var(--color-background-secondary)";
-                    }}
-                    onMouseLeave={(e) => {
-                      if (!subActive) e.currentTarget.style.background = "transparent";
-                    }}
-                  >
-                    <span style={{ opacity: subActive ? 1 : 0.5, fontSize: 11 }}>📢</span>
-                    <span style={{ whiteSpace: "nowrap" }}>Funil de Campanha</span>
-                  </Link>
-                );
-              })()}
-            </div>
+              {crmHabilitado && (
+                <>
+                  <div style={{ margin: "6px 0 0", borderTop: "0.5px solid var(--color-border-tertiary)" }} />
+                  {sectionLabel("CRM")}
+                  {renderItem(CRM_NAV_ITEM)}
+                </>
+              )}
+            </>
           );
-        })}
+        })()}
       </nav>
 
       {/* User + barra de uso */}
