@@ -349,6 +349,15 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
   };
 
   // Excluir lançamento
+  const estornarPagamento = async (e: EntryWithPedido) => {
+    if (!confirm(`Estornar pagamento de "${e.descricao}"? Ela voltará para ${e.tipo === "receita" ? "A Receber" : "A Pagar"}.`)) return;
+    await createClient()
+      .from("crm_financial_entries")
+      .update({ status: "pendente", pago_em: null, conta_bancaria_id: null })
+      .eq("id", e.id);
+    carregar();
+  };
+
   const confirmarExclusao = async () => {
     if (!modalExcluir) return;
     setExcluindo(true);
@@ -594,7 +603,14 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
                   <button onClick={() => abrirEditar(e)} title="Editar" style={btnIcon()}>
                     <IcoEdit />
                   </button>
-                  {!e.pedido_id && (
+                  {(aba === "recebidas" || aba === "pagas") ? (
+                    <button onClick={() => estornarPagamento(e)} title="Estornar pagamento"
+                      style={btnIcon({ color: "#D97706", border: "0.5px solid rgba(217,119,6,0.3)", opacity: 0.6, fontSize: 14 })}
+                      onMouseEnter={(ev) => (ev.currentTarget.style.opacity = "1")}
+                      onMouseLeave={(ev) => (ev.currentTarget.style.opacity = "0.6")}>
+                      ↩
+                    </button>
+                  ) : !e.pedido_id && (
                     <button onClick={() => setModalExcluir(e)} title="Excluir"
                       style={btnIcon({ color: "#EF4444", border: "0.5px solid rgba(239,68,68,0.3)", opacity: 0.6 })}
                       onMouseEnter={(ev) => (ev.currentTarget.style.opacity = "1")}
