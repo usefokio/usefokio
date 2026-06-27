@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { fetchAllRows } from "@/lib/supabase/fetchAll";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { useWindowWidth } from "@/lib/hooks/useWindowWidth";
 import { usePersistState } from "@/lib/hooks/usePersistState";
@@ -67,13 +68,13 @@ export default function PedidosPage() {
   const carregar = useCallback(async () => {
     if (!fotografo) return;
     setLoading(true);
-    const { data } = await createClient()
-      .from("crm_orders")
-      .select("*, clientes(nome)")
-      .eq("fotografo_id", fotografo.id)
-      .order("created_at", { ascending: false })
-      .range(0, 4999);
-    const items = (data ?? []) as OrderWithCliente[];
+    const fid = fotografo.id;
+    const items = await fetchAllRows<OrderWithCliente>(
+      (sb, from, to) => sb.from("crm_orders").select("*, clientes(nome)")
+        .eq("fotografo_id", fid)
+        .order("created_at", { ascending: false }).range(from, to),
+      createClient()
+    );
     setPedidos(items);
     const cats = [...new Set(items.map(o => o.categoria).filter(Boolean) as string[])].sort();
     setCategorias(cats);

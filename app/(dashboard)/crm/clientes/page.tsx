@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { fetchAllRows } from "@/lib/supabase/fetchAll";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { IcoEdit, IcoTrash, IcoOpen } from "@/app/(dashboard)/crm/_components/Icons";
 import { Paginacao } from "@/app/(dashboard)/crm/_components/Paginacao";
@@ -54,15 +55,18 @@ export default function CrmClientesPage() {
     if (!fotografo) return;
     setLoading(true);
     const supabase = createClient();
-    const q = supabase
-      .from("clientes")
-      .select("*")
-      .eq("fotografo_id", fotografo.id)
-      .eq("crm_ativo", true)
-      .order("nome");
-    if (tipoFiltro) q.eq("tipo_contato", tipoFiltro);
-    const { data } = await q.range(0, 4999);
-    setClientes(data ?? []);
+    const fid = fotografo.id;
+    const tf = tipoFiltro;
+    const data = await fetchAllRows<Cliente>(
+      (sb, from, to) => {
+        const q = sb.from("clientes").select("*")
+          .eq("fotografo_id", fid).eq("crm_ativo", true).order("nome");
+        if (tf) q.eq("tipo_contato", tf);
+        return q.range(from, to);
+      },
+      supabase
+    );
+    setClientes(data);
     setLoading(false);
   }, [fotografo, tipoFiltro]);
 

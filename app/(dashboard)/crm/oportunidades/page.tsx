@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { fetchAllRows } from "@/lib/supabase/fetchAll";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { useWindowWidth } from "@/lib/hooks/useWindowWidth";
 import { usePersistState } from "@/lib/hooks/usePersistState";
@@ -80,19 +81,23 @@ export default function OportunidadesPage() {
     if (!fotografo) return;
     setLoading(true);
     const sb = createClient();
-    const [{ data }, { data: sts }] = await Promise.all([
-      sb.from("crm_opportunities")
-        .select("*, clientes!cliente_id(nome), etapa:crm_funnel_stages!etapa_id(nome, ordem)")
-        .eq("fotografo_id", fotografo.id)
-        .order("created_at", { ascending: false })
-        .range(0, 4999),
+    const fid = fotografo.id;
+    const [data, { data: sts }] = await Promise.all([
+      fetchAllRows<OppWithRelations>(
+        (sbc, from, to) => sbc.from("crm_opportunities")
+          .select("*, clientes!cliente_id(nome), etapa:crm_funnel_stages!etapa_id(nome, ordem)")
+          .eq("fotografo_id", fid)
+          .order("created_at", { ascending: false })
+          .range(from, to),
+        sb
+      ),
       sb.from("crm_oportunidade_status")
         .select("chave, label, cor")
         .eq("fotografo_id", fotografo.id)
         .eq("ativo", true)
         .order("ordem"),
     ]);
-    const items = (data ?? []) as OppWithRelations[];
+    const items = data;
     setOpps(items);
     const cats = [...new Set(items.map(o => o.categoria).filter(Boolean) as string[])].sort();
     setCategorias(cats);

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { fetchAllRows } from "@/lib/supabase/fetchAll";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { GraficoPanorama } from "./_components/GraficoPanorama";
 import { GraficoMensal } from "./_components/GraficoMensal";
@@ -92,47 +93,41 @@ export default function ResultadosPage() {
       .eq("ativo", true)
       .order("codigo");
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let qDespesas: any;
-    if (regime === "caixa") {
-      qDespesas = sb.from("crm_financial_entries")
-        .select("conta_id, valor, pago_em")
-        .eq("fotografo_id", fid).eq("tipo", "despesa").eq("status", "pago")
-        .or("num_documento.is.null,num_documento.neq.DRE")
-        .gte("pago_em", `${ano}-01-01`).lte("pago_em", `${ano}-12-31`).range(0, 9999);
-    } else if (temDRELocal) {
-      qDespesas = sb.from("crm_financial_entries")
-        .select("conta_id, valor, vencimento, pago_em")
-        .eq("fotografo_id", fid).eq("tipo", "despesa").eq("num_documento", "DRE")
-        .gte("vencimento", `${ano}-01-01`).lte("vencimento", `${ano}-12-31`).range(0, 9999);
-    } else {
-      qDespesas = sb.from("crm_financial_entries")
-        .select("conta_id, valor, vencimento, pago_em")
-        .eq("fotografo_id", fid).eq("tipo", "despesa").eq("status", "pago")
-        .gte("vencimento", `${ano}-01-01`).lte("vencimento", `${ano}-12-31`).range(0, 9999);
-    }
+    type DespRow = { conta_id: string; valor: number; pago_em?: string; vencimento?: string };
+    type RecRow  = { conta_id: string; valor: number; pago_em?: string; vencimento?: string };
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let qReceitas: any;
-    if (regime === "caixa") {
-      qReceitas = sb.from("crm_financial_entries")
-        .select("conta_id, valor, pago_em")
-        .eq("fotografo_id", fid).eq("tipo", "receita").eq("status", "pago")
-        .or("num_documento.is.null,num_documento.neq.DRE")
-        .gte("pago_em", `${ano}-01-01`).lte("pago_em", `${ano}-12-31`).range(0, 9999);
-    } else if (temDRELocal) {
-      qReceitas = sb.from("crm_financial_entries")
-        .select("conta_id, valor, vencimento")
-        .eq("fotografo_id", fid).eq("tipo", "receita").eq("num_documento", "DRE")
-        .gte("vencimento", `${ano}-01-01`).lte("vencimento", `${ano}-12-31`).range(0, 9999);
-    } else {
-      // Novos usuários: receitas de crm_financial_entries com conta_id direto
-      qReceitas = sb.from("crm_financial_entries")
-        .select("conta_id, valor, vencimento")
-        .eq("fotografo_id", fid).eq("tipo", "receita")
-        .or("num_documento.is.null,num_documento.neq.DRE")
-        .gte("vencimento", `${ano}-01-01`).lte("vencimento", `${ano}-12-31`).range(0, 9999);
-    }
+    const pDespesas = regime === "caixa"
+      ? fetchAllRows<DespRow>((sbc, f, t) => sbc.from("crm_financial_entries")
+          .select("conta_id, valor, pago_em")
+          .eq("fotografo_id", fid).eq("tipo", "despesa").eq("status", "pago")
+          .or("num_documento.is.null,num_documento.neq.DRE")
+          .gte("pago_em", `${ano}-01-01`).lte("pago_em", `${ano}-12-31`).range(f, t), sb)
+      : temDRELocal
+        ? fetchAllRows<DespRow>((sbc, f, t) => sbc.from("crm_financial_entries")
+            .select("conta_id, valor, vencimento, pago_em")
+            .eq("fotografo_id", fid).eq("tipo", "despesa").eq("num_documento", "DRE")
+            .gte("vencimento", `${ano}-01-01`).lte("vencimento", `${ano}-12-31`).range(f, t), sb)
+        : fetchAllRows<DespRow>((sbc, f, t) => sbc.from("crm_financial_entries")
+            .select("conta_id, valor, vencimento, pago_em")
+            .eq("fotografo_id", fid).eq("tipo", "despesa").eq("status", "pago")
+            .gte("vencimento", `${ano}-01-01`).lte("vencimento", `${ano}-12-31`).range(f, t), sb);
+
+    const pReceitas = regime === "caixa"
+      ? fetchAllRows<RecRow>((sbc, f, t) => sbc.from("crm_financial_entries")
+          .select("conta_id, valor, pago_em")
+          .eq("fotografo_id", fid).eq("tipo", "receita").eq("status", "pago")
+          .or("num_documento.is.null,num_documento.neq.DRE")
+          .gte("pago_em", `${ano}-01-01`).lte("pago_em", `${ano}-12-31`).range(f, t), sb)
+      : temDRELocal
+        ? fetchAllRows<RecRow>((sbc, f, t) => sbc.from("crm_financial_entries")
+            .select("conta_id, valor, vencimento")
+            .eq("fotografo_id", fid).eq("tipo", "receita").eq("num_documento", "DRE")
+            .gte("vencimento", `${ano}-01-01`).lte("vencimento", `${ano}-12-31`).range(f, t), sb)
+        : fetchAllRows<RecRow>((sbc, f, t) => sbc.from("crm_financial_entries")
+            .select("conta_id, valor, vencimento")
+            .eq("fotografo_id", fid).eq("tipo", "receita")
+            .or("num_documento.is.null,num_documento.neq.DRE")
+            .gte("vencimento", `${ano}-01-01`).lte("vencimento", `${ano}-12-31`).range(f, t), sb);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let qOrders: any;
@@ -150,8 +145,8 @@ export default function ResultadosPage() {
       qOrders = sb.from("crm_orders").select("categoria").eq("fotografo_id", fid).limit(0);
     }
 
-    const [{ data: contasData }, { data: despesasData }, { data: receitasData }, { data: ordersData }] = await Promise.all([
-      qContas, qDespesas, qReceitas, qOrders,
+    const [{ data: contasData }, { data: ordersData }, despesasData, receitasData] = await Promise.all([
+      qContas, qOrders, pDespesas, pReceitas,
     ]);
 
     const contasArr = (contasData ?? []) as Conta[];
