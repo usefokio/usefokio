@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import type { GaleriaSelecao, Cliente } from "@/lib/supabase/types";
 import { ModalEnviarAcesso } from "./[id]/_components/ModalEnviarAcesso";
+import { fetchAllRows } from "@/lib/supabase/fetchAll";
 
 type GaleriaComCliente = GaleriaSelecao & {
   cliente?: Pick<Cliente, "nome" | "email" | "senha_acesso" | "telefone" | "whatsapp"> | null;
@@ -83,13 +84,15 @@ function SelecaoConteudo() {
   useEffect(() => {
     if (!fotografo) return;
     const supabase = createClient();
-    supabase
-      .from("galerias_selecao")
-      .select("*, cliente:clientes(nome, email, senha_acesso, telefone, whatsapp), capa_foto:galerias_selecao_fotos!foto_capa_id(thumbnail_path, url_publica)")
-      .eq("fotografo_id", fotografo.id)
-      .order("created_at", { ascending: false })
-      .then(async ({ data }) => {
-        const lista = (data as GaleriaComCliente[]) ?? [];
+    fetchAllRows<GaleriaComCliente>(
+      (sbc, f, t) => sbc
+        .from("galerias_selecao")
+        .select("*, cliente:clientes(nome, email, senha_acesso, telefone, whatsapp), capa_foto:galerias_selecao_fotos!foto_capa_id(thumbnail_path, url_publica)")
+        .eq("fotografo_id", fotografo.id)
+        .order("created_at", { ascending: false })
+        .range(f, t),
+      supabase
+    ).then(async (lista) => {
         const semCapa = lista.filter(g => !g.foto_capa_id && g.total_fotos > 0).map(g => g.id);
         if (semCapa.length > 0) {
           const { data: fbs } = await supabase

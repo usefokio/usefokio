@@ -8,6 +8,7 @@ import { IcoEdit, IcoTrash, IcoOpen } from "@/app/(dashboard)/crm/_components/Ic
 import { Paginacao } from "@/app/(dashboard)/crm/_components/Paginacao";
 import { usePersistState } from "@/lib/hooks/usePersistState";
 import type { CrmProduct, CrmProductCategory } from "@/lib/supabase/types";
+import { fetchAllRows } from "@/lib/supabase/fetchAll";
 
 const btnIcon = (extra?: React.CSSProperties): React.CSSProperties => ({
   display: "flex", alignItems: "center", justifyContent: "center",
@@ -40,10 +41,12 @@ export default function ProdutosPage() {
     if (!fotografo) return;
     setLoading(true);
     const sb = createClient();
-    let q = sb.from("crm_products").select("*").eq("fotografo_id", fotografo.id).order("nome").range(0, 4999);
-    if (somenteAtivos) q = q.eq("ativo", true);
-    const [{ data }, { data: cats }] = await Promise.all([
-      q,
+    const [data, { data: cats }] = await Promise.all([
+      fetchAllRows<CrmProduct>((sbc, f, t) => {
+        let q = sbc.from("crm_products").select("*").eq("fotografo_id", fotografo.id).order("nome");
+        if (somenteAtivos) q = q.eq("ativo", true);
+        return q.range(f, t);
+      }, sb),
       sb.from("crm_product_categories").select("*").eq("fotografo_id", fotografo.id).eq("ativo", true).order("ordem"),
     ]);
     setProdutos(data ?? []);

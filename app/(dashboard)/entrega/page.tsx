@@ -10,6 +10,7 @@ import type { GaleriaEntrega } from "@/lib/supabase/types";
 import { ModalEnviarAcesso } from "./_components/ModalEnviarAcesso";
 import { normalizar } from "@/lib/utils/normalizar";
 import { ModalEmailCliente } from "./_components/ModalEmailCliente";
+import { fetchAllRows } from "@/lib/supabase/fetchAll";
 
 // ─── Helpers de status ────────────────────────────────────────────────────────
 type StatusEntrega = "ativo" | "expirando" | "expirado" | "sem_prazo" | "suspensa" | "rascunho";
@@ -158,12 +159,16 @@ export default function EntregaPage() {
     if (!fotografo) return;
     const supabase = createClient();
 
-    const [{ data }, { data: rcData }] = await Promise.all([
-      supabase
-        .from("galerias_entrega")
-        .select("*, clientes(id, nome, email, telefone, whatsapp), galerias_entrega_fotos(count)")
-        .eq("fotografo_id", fotografo.id)
-        .eq("rascunho", false),
+    const [data, { data: rcData }] = await Promise.all([
+      fetchAllRows<any>(
+        (sbc, f, t) => sbc
+          .from("galerias_entrega")
+          .select("*, clientes(id, nome, email, telefone, whatsapp), galerias_entrega_fotos(count)")
+          .eq("fotografo_id", fotografo.id)
+          .eq("rascunho", false)
+          .range(f, t),
+        supabase
+      ),
       supabase
         .from("respostas_campanha")
         .select("galeria_id, token, estagio, resposta, respondido_em, email_1_em, email_2_em")
@@ -174,7 +179,7 @@ export default function EntregaPage() {
     const rcPorGaleria: Record<string, any> = {};
     for (const rc of (rcData ?? [])) rcPorGaleria[(rc as any).galeria_id] = rc;
 
-    const lista = ((data ?? []) as any[]).map((g) => ({
+    const lista = (data as any[]).map((g) => ({
       ...g,
       respostas_campanha: rcPorGaleria[g.id] ? [rcPorGaleria[g.id]] : [],
     })) as GaleriaEntrega[];
