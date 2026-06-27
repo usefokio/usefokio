@@ -120,12 +120,15 @@ export default function ResultadosPage() {
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let qOrders: any;
-    if (regime === "competencia" && !temDRE) {
-      qOrders = sb.from("crm_orders")
+    if (regime === "competencia") {
+      // Sempre inclui pedidos nativos do CRM (crm_nativo=true).
+      // Quando temDRE=false, também inclui pedidos legados com data_lancamento.
+      const q = sb.from("crm_orders")
         .select("categoria, total, data_lancamento")
         .eq("fotografo_id", fid)
         .gte("data_lancamento", `${ano}-01-01`).lte("data_lancamento", `${ano}-12-31`)
         .not("data_lancamento", "is", null);
+      qOrders = temDRE ? q.eq("crm_nativo", true) : q;
     } else {
       qOrders = sb.from("crm_orders").select("categoria").eq("fotografo_id", fid).limit(0);
     }
@@ -158,7 +161,15 @@ export default function ResultadosPage() {
         novoMapa[e.conta_id][mes] = (novoMapa[e.conta_id][mes] ?? 0) + e.valor;
       }
     } else {
-      // Receitas competência sem DRE: de crm_orders por data_lancamento
+      // Receitas competência: DRE entries (legado) + pedidos nativos do CRM
+      // receitasData = DRE entries quando temDRE=true; vazio quando temDRE=false
+      for (const e of (receitasData ?? []) as { conta_id: string; valor: number; vencimento: string }[]) {
+        if (!e.conta_id) continue;
+        const mes = parseInt(e.vencimento.slice(5, 7));
+        novoMapa[e.conta_id] ??= {};
+        novoMapa[e.conta_id][mes] = (novoMapa[e.conta_id][mes] ?? 0) + e.valor;
+      }
+      // ordersData = crm_nativo=true quando temDRE; todos com data_lancamento quando !temDRE
       for (const o of (ordersData ?? []) as { categoria: string; total: number; data_lancamento: string }[]) {
         const codigo = CATEGORIA_CODIGO[o.categoria];
         if (!codigo) { semMapeamento[o.categoria || "(sem categoria)"] = (semMapeamento[o.categoria || "(sem categoria)"] ?? 0) + o.total; continue; }

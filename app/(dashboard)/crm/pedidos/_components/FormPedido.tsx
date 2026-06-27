@@ -376,6 +376,7 @@ export default function FormPedido({ inicial, onSalvo }: Props) {
       data_entrega:    null,
       observacoes:     form.observacoes.trim() || null,
       updated_at:      new Date().toISOString(),
+      ...(!isEditing ? { data_lancamento: new Date().toISOString().slice(0, 10), crm_nativo: true } : {}),
     };
 
     const dataEventoAnterior = inicial?.data_evento ?? null;
