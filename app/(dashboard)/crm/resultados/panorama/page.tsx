@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { fetchAllRows } from "@/lib/supabase/fetchAll";
@@ -11,6 +11,7 @@ type PanoramaItem = { ano: number; receitas: number; despesas: number; lucro: nu
 type Conta = { id: string; codigo: string; nome: string };
 type Regime = "competencia" | "caixa";
 type DrillEntry = { id: string; descricao: string | null; valor: number; data: string; pedido_id?: string | null };
+type Periodo = { label: string; anos: number[] };
 
 const CATEGORIA_CODIGO: Record<string, string> = {
   "Casamento - foto": "3.1.1", "Casamento - Foto": "3.1.1", "Bodas": "3.1.1",
@@ -70,8 +71,11 @@ export default function PanoramaPage() {
   const [dreLoading, setDreLoading] = useState(true);
   const [temDRE, setTemDRE]       = useState(false);
 
+  // Agrupamento de períodos
+  const [agrupamento, setAgrupamento] = useState<1 | 3 | 5>(3);
+
   // Drill-down
-  const [drillCell, setDrillCell]   = useState<{ conta: Conta; ano: number } | null>(null);
+  const [drillCell, setDrillCell]   = useState<{ conta: Conta; anos: number[]; label: string } | null>(null);
   const [drillItems, setDrillItems] = useState<DrillEntry[]>([]);
   const [drillLoading, setDrillLoading] = useState(false);
 
@@ -200,17 +204,35 @@ export default function PanoramaPage() {
 
   useEffect(() => { carregarDRE(); }, [carregarDRE]);
 
+  const periodos = useMemo((): Periodo[] => {
+    if (agrupamento === 1) return anos.map(a => ({ label: String(a), anos: [a] }));
+    if (anos.length === 0) return [];
+    const inicio = anos[0];
+    const fim = anos[anos.length - 1];
+    const result: Periodo[] = [];
+    for (let y = inicio; y <= fim; y += agrupamento) {
+      const grupo = anos.filter(a => a >= y && a < y + agrupamento);
+      if (grupo.length === 0) continue;
+      const label = grupo.length === 1 ? String(grupo[0]) : `${grupo[0]}–${grupo[grupo.length - 1]}`;
+      result.push({ label, anos: grupo });
+    }
+    return result;
+  }, [anos, agrupamento]);
+
+  const valorPeriodo = (contaId: string, p: Periodo) =>
+    p.anos.reduce((s, a) => s + (mapaAnual[contaId]?.[a] ?? 0), 0);
+
   // Drill-down
-  const abrirDrill = useCallback(async (conta: Conta, ano: number) => {
+  const abrirDrill = useCallback(async (conta: Conta, anosP: number[], label: string) => {
     if (!fotografo) return;
-    setDrillCell({ conta, ano });
+    setDrillCell({ conta, anos: anosP, label });
     setDrillLoading(true);
     setDrillItems([]);
     const sb = createClient();
     const fid = fotografo.id;
     const entries: DrillEntry[] = [];
-    const anoStart = `${ano}-01-01`;
-    const anoEnd   = `${ano + 1}-01-01`;
+    const anoStart = `${Math.min(...anosP)}-01-01`;
+    const anoEnd   = `${Math.max(...anosP) + 1}-01-01`;
     const tipo = conta.codigo.startsWith("3") ? "receita" : "despesa";
 
     if (regime === "caixa") {
@@ -267,15 +289,15 @@ export default function PanoramaPage() {
     entries.sort((a, b) => a.data.localeCompare(b.data));
     setDrillItems(entries);
     setDrillLoading(false);
-  }, [fotografo, regime, temDRE, contas]);
+  }, [fotografo, regime, temDRE, contas, anos]);
 
   // Export CSV
   const exportCSV = useCallback(() => {
-    const cols = ["Conta", "Código", ...anos.map(String), "Total"];
+    const cols = ["Conta", "Código", ...periodos.map(p => p.label), "Total"];
     const rows: string[][] = [];
 
     for (const c of contas) {
-      const vals = anos.map(a => mapaAnual[c.id]?.[a] ?? 0);
+      const vals = periodos.map(p => valorPeriodo(c.id, p));
       const total = vals.reduce((s, v) => s + v, 0);
       if (total === 0) continue;
       rows.push([c.nome, c.codigo, ...vals.map(v => v.toFixed(2)), total.toFixed(2)]);
@@ -287,7 +309,7 @@ export default function PanoramaPage() {
     const a = document.createElement("a");
     a.href = url; a.download = "dre_anual.csv"; a.click();
     URL.revokeObjectURL(url);
-  }, [contas, anos, mapaAnual]);
+  }, [contas, periodos, mapaAnual]);
 
   const totalReceitas = dados.reduce((s, d) => s + d.receitas, 0);
   const totalDespesas = dados.reduce((s, d) => s + d.despesas, 0);
@@ -299,9 +321,9 @@ export default function PanoramaPage() {
   const custos   = contas.filter(c => c.codigo.startsWith("4"));
   const despesas = contas.filter(c => c.codigo.startsWith("5"));
 
-  // Totais por seção por ano
-  const somaSecao = (lista: Conta[], ano: number) =>
-    lista.reduce((s, c) => s + (mapaAnual[c.id]?.[ano] ?? 0), 0);
+  // Totais por seção por período
+  const somaSecaoPeriodo = (lista: Conta[], p: Periodo) =>
+    lista.reduce((s, c) => s + valorPeriodo(c.id, p), 0);
 
   const thStyle: React.CSSProperties = {
     fontSize: 10, fontWeight: 700, color: "var(--color-text-secondary)",
@@ -322,21 +344,32 @@ export default function PanoramaPage() {
   const drillTotal = drillItems.reduce((s, e) => s + e.valor, 0);
   const drillCor = drillCell?.conta.codigo.startsWith("3") ? "#059669" : "#EF4444";
 
+  const stickyCol: React.CSSProperties = {
+    position: "sticky", left: 0, zIndex: 1,
+    background: "var(--color-background-primary)",
+    boxShadow: "2px 0 4px rgba(0,0,0,0.06)",
+  };
+  const stickyColSecondary: React.CSSProperties = {
+    position: "sticky", left: 0, zIndex: 1,
+    background: "var(--color-background-secondary)",
+    boxShadow: "2px 0 4px rgba(0,0,0,0.06)",
+  };
+
   const renderContaRow = (c: Conta, cor: string) => {
-    const vals = anos.map(a => mapaAnual[c.id]?.[a] ?? 0);
+    const vals = periodos.map(p => valorPeriodo(c.id, p));
     const total = vals.reduce((s, v) => s + v, 0);
     if (total === 0) return null;
     return (
       <tr key={c.id} style={{ background: "var(--color-background-primary)" }}>
-        <td style={{ ...tdLabel, paddingLeft: 22, fontSize: 12, color: "var(--color-text-primary)" }}>
+        <td style={{ ...tdLabel, ...stickyCol, paddingLeft: 22, fontSize: 12, color: "var(--color-text-primary)" }}>
           <span style={{ color: "var(--color-text-secondary)", fontSize: 10, marginRight: 6 }}>{c.codigo}</span>
           {c.nome}
         </td>
         {vals.map((v, i) => (
           <td key={i}
-            onClick={() => v > 0 ? abrirDrill(c, anos[i]) : undefined}
+            onClick={() => v > 0 ? abrirDrill(c, periodos[i].anos, periodos[i].label) : undefined}
             style={{ ...tdStyle, color: v > 0 ? cor : "var(--color-text-secondary)", fontWeight: v > 0 ? 500 : 400, cursor: v > 0 ? "pointer" : "default", textDecoration: v > 0 ? "underline dotted" : "none" }}
-            title={v > 0 ? `Ver lançamentos de ${anos[i]}` : undefined}>
+            title={v > 0 ? `Ver lançamentos de ${periodos[i].label}` : undefined}>
             {v > 0 ? fmtVal(v) : "—"}
           </td>
         ))}
@@ -349,7 +382,7 @@ export default function PanoramaPage() {
 
   const renderSaldoRow = (label: string, vals: number[], total: number) => (
     <tr style={{ background: "var(--color-background-secondary)", borderTop: "1.5px solid var(--color-border-secondary)" }}>
-      <td style={{ ...tdLabel, fontWeight: 700, fontSize: 12 }}>{label}</td>
+      <td style={{ ...tdLabel, ...stickyColSecondary, fontWeight: 700, fontSize: 12 }}>{label}</td>
       {vals.map((v, i) => (
         <td key={i} style={{ ...tdStyle, fontWeight: 700, color: v >= 0 ? "#059669" : "#EF4444" }}>
           {fmtVal(v)}
@@ -363,7 +396,7 @@ export default function PanoramaPage() {
 
   const renderSecaoHeader = (label: string, cor: string) => (
     <tr>
-      <td colSpan={anos.length + 2} style={{ padding: "6px 14px", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: cor, background: "var(--color-background-secondary)", borderBottom: "0.5px solid var(--color-border-tertiary)" }}>
+      <td colSpan={periodos.length + 2} style={{ padding: "6px 14px", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: cor, background: "var(--color-background-secondary)", borderBottom: "0.5px solid var(--color-border-tertiary)" }}>
         {label}
       </td>
     </tr>
@@ -444,6 +477,15 @@ export default function PanoramaPage() {
           </p>
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          {/* Seletor de agrupamento */}
+          <div style={{ display: "flex", background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 8, padding: 2, gap: 2 }}>
+            {([1, 3, 5] as const).map(n => (
+              <button key={n} onClick={() => setAgrupamento(n)}
+                style={{ padding: "6px 12px", borderRadius: 6, fontSize: 12, fontWeight: 600, border: "none", cursor: "pointer", background: agrupamento === n ? "var(--color-background-primary)" : "transparent", color: agrupamento === n ? "var(--color-text-primary)" : "var(--color-text-secondary)", boxShadow: agrupamento === n ? "0 1px 3px rgba(0,0,0,0.1)" : "none", whiteSpace: "nowrap" }}>
+                {n === 1 ? "1 ano" : `${n} anos`}
+              </button>
+            ))}
+          </div>
           {/* Toggle regime */}
           <div style={{ display: "flex", background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 8, padding: 2, gap: 2 }}>
             {(["competencia", "caixa"] as Regime[]).map(r => (
@@ -467,8 +509,8 @@ export default function PanoramaPage() {
           <table style={{ width: "100%", borderCollapse: "collapse", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 12, overflow: "hidden" }}>
             <thead>
               <tr>
-                <th style={{ ...thStyle, textAlign: "left", minWidth: 220 }}>Conta</th>
-                {anos.map(a => <th key={a} style={thStyle}>{a}</th>)}
+                <th style={{ ...thStyle, textAlign: "left", minWidth: 220, position: "sticky", left: 0, zIndex: 2, background: "var(--color-background-secondary)", boxShadow: "2px 0 4px rgba(0,0,0,0.06)" }}>Conta</th>
+                {periodos.map(p => <th key={p.label} style={thStyle}>{p.label}</th>)}
                 <th style={{ ...thStyle, borderLeft: "0.5px solid var(--color-border-tertiary)" }}>Total</th>
               </tr>
             </thead>
@@ -478,7 +520,7 @@ export default function PanoramaPage() {
               {receitas.map(c => renderContaRow(c, "#059669"))}
               {renderSaldoRow(
                 "Total Receitas",
-                anos.map(a => somaSecao(receitas, a)),
+                periodos.map(p => somaSecaoPeriodo(receitas, p)),
                 receitas.reduce((s, c) => s + Object.values(mapaAnual[c.id] ?? {}).reduce((a, b) => a + b, 0), 0)
               )}
 
@@ -487,7 +529,7 @@ export default function PanoramaPage() {
               {custos.map(c => renderContaRow(c, "#EF4444"))}
               {custos.length > 0 && renderSaldoRow(
                 "Total Custos",
-                anos.map(a => somaSecao(custos, a)),
+                periodos.map(p => somaSecaoPeriodo(custos, p)),
                 custos.reduce((s, c) => s + Object.values(mapaAnual[c.id] ?? {}).reduce((a, b) => a + b, 0), 0)
               )}
 
@@ -496,14 +538,14 @@ export default function PanoramaPage() {
               {despesas.map(c => renderContaRow(c, "#D97706"))}
               {despesas.length > 0 && renderSaldoRow(
                 "Total Despesas",
-                anos.map(a => somaSecao(despesas, a)),
+                periodos.map(p => somaSecaoPeriodo(despesas, p)),
                 despesas.reduce((s, c) => s + Object.values(mapaAnual[c.id] ?? {}).reduce((a, b) => a + b, 0), 0)
               )}
 
               {/* Resultado */}
               {renderSaldoRow(
                 "Resultado",
-                anos.map(a => somaSecao(receitas, a) - somaSecao(custos, a) - somaSecao(despesas, a)),
+                periodos.map(p => somaSecaoPeriodo(receitas, p) - somaSecaoPeriodo(custos, p) - somaSecaoPeriodo(despesas, p)),
                 receitas.reduce((s, c) => s + Object.values(mapaAnual[c.id] ?? {}).reduce((a, b) => a + b, 0), 0) -
                 [...custos, ...despesas].reduce((s, c) => s + Object.values(mapaAnual[c.id] ?? {}).reduce((a, b) => a + b, 0), 0)
               )}
@@ -520,7 +562,7 @@ export default function PanoramaPage() {
             <div style={{ padding: "20px 24px 16px", borderBottom: "0.5px solid var(--color-border-tertiary)", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
               <div>
                 <p style={{ margin: "0 0 2px", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--color-text-secondary)" }}>
-                  {drillCell.conta.codigo} — {drillCell.conta.nome} • {drillCell.ano}
+                  {drillCell.conta.codigo} — {drillCell.conta.nome} • {drillCell.label}
                 </p>
                 <p style={{ margin: 0, fontSize: 22, fontWeight: 800, color: drillCor, letterSpacing: "-0.02em" }}>
                   R$ {drillTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
