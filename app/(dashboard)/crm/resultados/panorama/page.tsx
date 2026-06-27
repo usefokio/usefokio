@@ -386,15 +386,15 @@ export default function PanoramaPage() {
     );
   };
 
-  const renderSaldoRow = (label: string, vals: number[], total: number) => (
+  const renderSaldoRow = (label: string, vals: number[], total: number, corFixa?: string) => (
     <tr style={{ background: "var(--color-background-secondary)", borderTop: "1.5px solid var(--color-border-secondary)" }}>
       <td style={{ ...tdLabel, ...stickyColSecondary, fontWeight: 700, fontSize: 12 }}>{label}</td>
       {vals.map((v, i) => (
-        <td key={i} style={{ ...tdStyle, fontWeight: 700, color: v >= 0 ? "#059669" : "#EF4444" }}>
+        <td key={i} style={{ ...tdStyle, fontWeight: 700, color: corFixa ?? (v >= 0 ? "#059669" : "#EF4444") }}>
           {fmtVal(v)}
         </td>
       ))}
-      <td style={{ ...tdStyle, fontWeight: 800, color: total >= 0 ? "#059669" : "#EF4444", borderLeft: "0.5px solid var(--color-border-tertiary)" }}>
+      <td style={{ ...tdStyle, fontWeight: 800, color: corFixa ?? (total >= 0 ? "#059669" : "#EF4444"), borderLeft: "0.5px solid var(--color-border-tertiary)" }}>
         {fmtVal(total)}
       </td>
     </tr>
@@ -536,7 +536,8 @@ export default function PanoramaPage() {
               {custos.length > 0 && renderSaldoRow(
                 "Total Custos",
                 periodos.map(p => somaSecaoPeriodo(custos, p)),
-                custos.reduce((s, c) => s + Object.values(mapaAnual[c.id] ?? {}).reduce((a, b) => a + b, 0), 0)
+                custos.reduce((s, c) => s + Object.values(mapaAnual[c.id] ?? {}).reduce((a, b) => a + b, 0), 0),
+                "#EF4444"
               )}
 
               {/* Despesas */}
@@ -545,7 +546,8 @@ export default function PanoramaPage() {
               {despesas.length > 0 && renderSaldoRow(
                 "Total Despesas",
                 periodos.map(p => somaSecaoPeriodo(despesas, p)),
-                despesas.reduce((s, c) => s + Object.values(mapaAnual[c.id] ?? {}).reduce((a, b) => a + b, 0), 0)
+                despesas.reduce((s, c) => s + Object.values(mapaAnual[c.id] ?? {}).reduce((a, b) => a + b, 0), 0),
+                "#D97706"
               )}
 
               {/* Resultado */}
