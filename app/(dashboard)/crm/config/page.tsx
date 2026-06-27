@@ -1073,7 +1073,13 @@ export default function CrmConfigPage() {
     if (!fotografo) return;
     setLoadingContas(true);
     const { data } = await sb.from("crm_chart_of_accounts").select("*").or(`fotografo_id.is.null,fotografo_id.eq.${fotografo.id}`).order("codigo");
-    const flat = (data ?? []).map((c: CrmChartOfAccount) => ({ ...c, sistema: c.fotografo_id === null })) as (CrmChartOfAccount & { sistema: boolean })[];
+    const seen = new Set<string>();
+    const unique = (data ?? []).filter((c: CrmChartOfAccount) => {
+      if (seen.has(c.codigo)) return false;
+      seen.add(c.codigo);
+      return true;
+    });
+    const flat = unique.map((c: CrmChartOfAccount) => ({ ...c, sistema: c.fotografo_id === null })) as (CrmChartOfAccount & { sistema: boolean })[];
     setContas(buildTree(flat));
     setLoadingContas(false);
   }, [fotografo]);

@@ -149,7 +149,12 @@ export default function ResultadosPage() {
       qContas, qOrders, pDespesas, pReceitas,
     ]);
 
-    const contasArr = (contasData ?? []) as Conta[];
+    const seen = new Set<string>();
+    const contasArr = ((contasData ?? []) as Conta[]).filter(c => {
+      if (seen.has(c.codigo)) return false;
+      seen.add(c.codigo);
+      return true;
+    });
     const cpCodigo: Record<string, string> = {};
     for (const c of contasArr) cpCodigo[c.codigo] = c.id;
 
