@@ -151,7 +151,7 @@ export default function EntregaPage() {
     const [{ data }, { data: rcData }] = await Promise.all([
       supabase
         .from("galerias_entrega")
-        .select("*, clientes(id, nome, email, telefone, whatsapp)")
+        .select("*, clientes(id, nome, email, telefone, whatsapp), galerias_entrega_fotos(count)")
         .eq("fotografo_id", fotografo.id)
         .eq("rascunho", false),
       supabase
@@ -557,6 +557,7 @@ export default function EntregaPage() {
                   </div>
                   <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 1 }}>
                     {g.clientes ? <Link href={`/clientes/${g.clientes.id}`} style={{ color: "inherit", textDecoration: "none" }} onMouseEnter={e => (e.currentTarget.style.textDecoration = "underline")} onMouseLeave={e => (e.currentTarget.style.textDecoration = "none")}>{g.clientes.nome}</Link> : "Sem cliente"}
+                    {((g.galerias_entrega_fotos?.[0]?.count ?? 0) > 0) && <span> · {g.galerias_entrega_fotos![0].count} foto{g.galerias_entrega_fotos![0].count !== 1 ? "s" : ""}</span>}
                     {g.total_acessos > 0 && <span> · {g.total_acessos} acesso{g.total_acessos !== 1 ? "s" : ""}</span>}
                     {g.downloads > 0 && <span> · {g.downloads} download{g.downloads !== 1 ? "s" : ""}</span>}
                     {g.data_evento && <span> · {new Date(g.data_evento + "T12:00:00").toLocaleDateString("pt-BR")}</span>}

@@ -171,6 +171,7 @@ export type GaleriaEntrega = {
   // joined
   clientes?: { id: string; nome: string; email: string | null; telefone: string | null; whatsapp: string | null } | null;
   respostas_campanha?: { token: string; estagio: EstagioFunil; resposta: "renovar" | "tem_arquivos" | null; respondido_em: string | null }[] | null;
+  galerias_entrega_fotos?: [{ count: number }] | null;
 };
 
 export type Pagamento = {
