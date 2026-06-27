@@ -149,17 +149,13 @@ export default function NovaEntregaPage() {
               upd({ status: "enviando", progresso: 50 });
 
               const path = `entrega/${fotoId}/${idGaleria}/${crypto.randomUUID()}.jpg`;
-              const { error: upErr } = await supabase.storage
-                .from("galerias")
-                .upload(path, processed.blob, { contentType: processed.blob.type || "image/jpeg", upsert: false });
-              if (upErr) throw new Error(upErr.message);
+              const { storage_path, url_publica } = await uploadFileClient(path, processed.blob, processed.blob.type || "image/jpeg");
               upd({ progresso: 80 });
 
-              const { data: urlData } = supabase.storage.from("galerias").getPublicUrl(path);
               const { error: dbErr } = await supabase.from("galerias_entrega_fotos").insert({
                 galeria_id:    idGaleria,
-                storage_path:  path,
-                url_publica:   urlData.publicUrl,
+                storage_path,
+                url_publica,
                 nome_arquivo:  item.file.name,
                 tamanho_bytes: processed.tamanho_bytes,
                 largura:       processed.largura,
@@ -182,8 +178,6 @@ export default function NovaEntregaPage() {
         }
       };
 
-      // Quando a aba volta ao foco, re-bombeia o semáforo
-      // (canvas é throttled pelo browser quando a janela está minimizada)
       proximoRef.current = proximo;
       proximo();
     });
@@ -197,6 +191,7 @@ export default function NovaEntregaPage() {
     if (!titulo.trim() || !fotografo) return;
     setSaving(true);
     const supabase = createClient();
+    try {
 
     const expires_at = dataExpiracao ? dataExpiracao.toISOString() : null;
     const { data, error } = await supabase.from("galerias_entrega")
@@ -229,8 +224,12 @@ export default function NovaEntregaPage() {
       await supabase.from("galerias_entrega").update({ foto_capa_url: capaUrlPublica }).eq("id", data.id);
     }
 
-    await enviarFila(data.id);
-    router.push(`/entrega/${data.id}`);
+      await enviarFila(data.id);
+      router.push(`/entrega/${data.id}`);
+    } catch (e) {
+      console.error("Erro ao publicar galeria:", e);
+      setSaving(false);
+    }
   }
 
   return (
