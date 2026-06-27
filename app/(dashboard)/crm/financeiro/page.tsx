@@ -382,9 +382,9 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
   };
 
   const enviarEmail = (conf: ModalConfirmacao) => {
-    const email = conf.entry.crm_orders?.clientes?.email ?? "";
-    if (!email) return;
-    const nome = conf.entry.crm_orders?.clientes?.nome ?? null;
+    const email = conf.entry.crm_orders?.clientes?.email ?? conf.entry.clientes?.email ?? "";
+    if (!email) { alert("Este lançamento não tem email de cliente vinculado."); return; }
+    const nome = conf.entry.crm_orders?.clientes?.nome ?? conf.entry.clientes?.nome ?? null;
     setEmailModal({
       para: email,
       nome,
