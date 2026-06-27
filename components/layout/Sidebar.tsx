@@ -357,15 +357,45 @@ export function Sidebar() {
             "/selecao": "selecao", "/entrega": "entrega", "/album": "album", "/contatos": "contatos",
           };
 
-          type NavItem = { href: string; label: string; icon: React.ReactNode };
+          const inCRM = pathname.startsWith("/crm");
 
-          const renderNavItem = (item: NavItem) => {
-            const active = isActive(item.href);
+          // ── Renderiza sub-item ────────────────────────────────────────────────
+          const renderSub = (href: string, label: string) => {
+            const subPath = href.split("?")[0];
+            const active = pathname === subPath || pathname.startsWith(subPath + "/");
             return (
-              <div key={item.href}>
+              <Link
+                key={href}
+                href={href}
+                style={{
+                  display: "flex", alignItems: "center", gap: 7,
+                  padding: "5px 10px 5px 32px", borderRadius: 7, marginBottom: 1,
+                  background: active ? "var(--color-background-secondary)" : "transparent",
+                  color: active ? "var(--color-text-primary)" : "var(--color-text-secondary)",
+                  fontSize: 11, fontWeight: active ? 500 : 400, textDecoration: "none",
+                }}
+                onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = "var(--color-background-secondary)"; }}
+                onMouseLeave={(e) => { if (!active) e.currentTarget.style.background = "transparent"; }}
+              >
+                <span style={{ whiteSpace: "nowrap" }}>{label}</span>
+              </Link>
+            );
+          };
+
+          // ── Renderiza item de módulo (pai) ───────────────────────────────────
+          const renderModule = (
+            href: string,
+            label: string,
+            icon: React.ReactNode,
+            children: React.ReactNode,
+            moduleActive: boolean,
+          ) => {
+            const active = moduleActive;
+            return (
+              <div key={href}>
                 <Link
-                  href={item.href}
-                  title={collapsed ? item.label : undefined}
+                  href={href}
+                  title={collapsed ? label : undefined}
                   style={{
                     display: "flex", alignItems: "center",
                     justifyContent: collapsed ? "center" : "flex-start",
@@ -373,84 +403,86 @@ export function Sidebar() {
                     borderRadius: 7, marginBottom: 1,
                     background: active ? "var(--color-background-secondary)" : "transparent",
                     color: active ? "var(--color-text-primary)" : "var(--color-text-secondary)",
-                    fontSize: 12, fontWeight: active ? 500 : 400, textDecoration: "none",
+                    fontSize: 12, fontWeight: active ? 600 : 400, textDecoration: "none",
                   }}
                   onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = "var(--color-background-secondary)"; }}
                   onMouseLeave={(e) => { if (!active) e.currentTarget.style.background = "transparent"; }}
                 >
-                  <span style={{ opacity: active ? 1 : 0.5, flexShrink: 0 }}>{item.icon}</span>
-                  {!collapsed && <span style={{ lineHeight: 1.3, whiteSpace: "nowrap", overflow: "hidden" }}>{item.label}</span>}
+                  <span style={{ opacity: active ? 1 : 0.5, flexShrink: 0 }}>{icon}</span>
+                  {!collapsed && <span style={{ lineHeight: 1.3, whiteSpace: "nowrap", overflow: "hidden" }}>{label}</span>}
                 </Link>
-
-                {/* Sub-itens do Financeiro (A Receber, A Pagar, Resultados, Fluxo) */}
-                {item.href === "/crm/financeiro" && !collapsed && (
-                  <Suspense><FinanceiroSubItems pathname={pathname} /></Suspense>
-                )}
-
-                {/* Sub-item: Funil de Campanha */}
-                {item.href === "/entrega" && !collapsed && (() => {
-                  const subActive = pathname === "/entrega/campanha";
-                  return (
-                    <Link
-                      href="/entrega/campanha"
-                      style={{
-                        display: "flex", alignItems: "center", gap: 7,
-                        padding: "5px 10px 5px 28px", borderRadius: 7, marginBottom: 1,
-                        background: subActive ? "var(--color-background-secondary)" : "transparent",
-                        color: subActive ? "var(--color-text-primary)" : "var(--color-text-secondary)",
-                        fontSize: 11, fontWeight: subActive ? 500 : 400, textDecoration: "none",
-                      }}
-                      onMouseEnter={(e) => { if (!subActive) e.currentTarget.style.background = "var(--color-background-secondary)"; }}
-                      onMouseLeave={(e) => { if (!subActive) e.currentTarget.style.background = "transparent"; }}
-                    >
-                      <span style={{ opacity: subActive ? 1 : 0.5, fontSize: 11 }}>📢</span>
-                      <span style={{ whiteSpace: "nowrap" }}>Funil de Campanha</span>
-                    </Link>
-                  );
-                })()}
+                {/* Sub-itens: visíveis quando módulo está ativo e sidebar expandida */}
+                {active && !collapsed && children}
               </div>
             );
           };
 
-          const sectionLabel = (label: string) =>
-            !collapsed ? (
-              <div style={{
-                fontSize: 10, fontWeight: 600, letterSpacing: "0.07em", textTransform: "uppercase",
-                color: "var(--color-text-secondary)", opacity: 0.45,
-                padding: "10px 10px 3px",
-              }}>
-                {label}
-              </div>
-            ) : null;
-
-          const sectionDivider = () => (
-            <div style={{ margin: "6px 0 0", borderTop: "0.5px solid var(--color-border-tertiary)" }} />
+          // ── Ícone UseFokio ───────────────────────────────────────────────────
+          const icoUseFokio = (
+            <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+              <rect x="1" y="1" width="6" height="6" rx="1.5" fill="currentColor" opacity=".8" />
+              <rect x="9" y="1" width="6" height="6" rx="1.5" fill="currentColor" opacity=".5" />
+              <rect x="1" y="9" width="6" height="6" rx="1.5" fill="currentColor" opacity=".5" />
+              <rect x="9" y="9" width="6" height="6" rx="1.5" fill="currentColor" opacity=".8" />
+            </svg>
           );
 
-          // Em dev: só seção CRM como matriz plana (sem label)
-          if (process.env.NODE_ENV === "development") {
-            return CRM_ITEMS.map(renderNavItem);
-          }
+          // ── Ícone CRM ────────────────────────────────────────────────────────
+          const icoCRM = (
+            <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+              <path d="M2 4h12M2 8h8M2 12h5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" opacity=".8" />
+              <circle cx="13" cy="11" r="2.5" stroke="currentColor" strokeWidth="1.2" fill="none" opacity=".8" />
+              <path d="M15 13l1.2 1.2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" opacity=".7" />
+            </svg>
+          );
 
-          // Em prod: seção UseFokio + seção CRM (se habilitada)
+          // ── Sub-itens UseFokio ───────────────────────────────────────────────
           const usefokioItems = USEFOKIO_ITEMS.filter((item) => {
             const chave = recursosPorRota[item.href];
             if (!chave || !fotografo?.recursos) return true;
             return fotografo.recursos[chave] !== false;
           });
 
+          const usefokioChildren = (
+            <>
+              {usefokioItems.map((item) => (
+                <div key={item.href}>
+                  {renderSub(item.href, item.label)}
+                  {item.href === "/entrega" && renderSub("/entrega/campanha", "Funil de Campanha")}
+                </div>
+              ))}
+            </>
+          );
+
+          // ── Sub-itens CRM ────────────────────────────────────────────────────
+          const crmChildren = (
+            <>
+              {CRM_ITEMS.map((item) => (
+                <div key={item.href}>
+                  {renderSub(item.href, item.label)}
+                  {item.href === "/crm/financeiro" && (
+                    <Suspense><FinanceiroSubItems pathname={pathname} /></Suspense>
+                  )}
+                </div>
+              ))}
+            </>
+          );
+
+          // Em dev: só módulo CRM (sempre expandido)
+          if (process.env.NODE_ENV === "development") {
+            return renderModule("/crm/agenda", "CRM", icoCRM, crmChildren, true);
+          }
+
+          // Em prod: UseFokio + CRM (se habilitado)
           const crmHabilitado = fotografo?.recursos?.crm !== false;
 
           return (
             <>
-              {sectionLabel("UseFokio")}
-              {usefokioItems.map(renderNavItem)}
-
+              {renderModule("/dashboard", "UseFokio", icoUseFokio, usefokioChildren, !inCRM)}
               {crmHabilitado && (
                 <>
-                  {sectionDivider()}
-                  {sectionLabel("CRM")}
-                  {CRM_ITEMS.map(renderNavItem)}
+                  <div style={{ margin: "4px 0", borderTop: "0.5px solid var(--color-border-tertiary)" }} />
+                  {renderModule("/crm/agenda", "CRM", icoCRM, crmChildren, inCRM)}
                 </>
               )}
             </>
