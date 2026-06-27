@@ -326,6 +326,23 @@ export default function FormOportunidade({ inicial, onSalvo }: Props) {
         </div>
       )}
 
+      {/* Botões topo */}
+      <div style={{ display: "flex", gap: 10, marginBottom: 28 }}>
+        <button
+          onClick={handleSave}
+          disabled={saving || !form.titulo.trim()}
+          style={{ padding: "10px 28px", borderRadius: 8, background: saving || !form.titulo.trim() ? "#93C5FD" : "#111", color: "#fff", border: "none", fontSize: 13, fontWeight: 700, cursor: saving || !form.titulo.trim() ? "not-allowed" : "pointer" }}
+        >
+          {saving ? "Salvando…" : isEditing ? "Salvar alterações" : "Criar oportunidade"}
+        </button>
+        <button
+          onClick={() => router.back()}
+          style={{ padding: "10px 18px", borderRadius: 8, background: "transparent", color: "var(--color-text-secondary)", border: "0.5px solid var(--color-border-secondary)", fontSize: 13, cursor: "pointer" }}
+        >
+          Cancelar
+        </button>
+      </div>
+
       {/* Dados principais */}
       {sec("Oportunidade")}
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>

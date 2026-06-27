@@ -196,13 +196,25 @@ export function FormProduto({ produto }: Props) {
 
   return (
     <div style={{ padding: "28px 32px", maxWidth: 680, fontFamily: "var(--font-sans)" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
-        <button onClick={() => router.push("/crm/produtos")} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--color-text-secondary)", fontSize: 13, padding: 0 }}>
-          ← Produtos
-        </button>
-        <h1 style={{ fontSize: 18, fontWeight: 800, letterSpacing: "-0.03em", color: "var(--color-text-primary)", margin: 0 }}>
-          {editando ? "Editar produto" : "Novo produto"}
-        </h1>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <button onClick={() => router.push("/crm/produtos")} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--color-text-secondary)", fontSize: 13, padding: 0 }}>
+            ← Produtos
+          </button>
+          <h1 style={{ fontSize: 18, fontWeight: 800, letterSpacing: "-0.03em", color: "var(--color-text-primary)", margin: 0 }}>
+            {editando ? "Editar produto" : "Novo produto"}
+          </h1>
+        </div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={() => router.push("/crm/produtos")}
+            style={{ padding: "8px 16px", borderRadius: 8, background: "transparent", color: "var(--color-text-secondary)", border: "0.5px solid var(--color-border-secondary)", fontSize: 13, cursor: "pointer" }}>
+            Cancelar
+          </button>
+          <button onClick={salvar} disabled={saving}
+            style={{ padding: "8px 20px", borderRadius: 8, background: saving ? "#93C5FD" : "#111", color: "#fff", border: "none", fontSize: 13, fontWeight: 700, cursor: saving ? "not-allowed" : "pointer" }}>
+            {saving ? "Salvando…" : editando ? "Salvar alterações" : "Criar produto"}
+          </button>
+        </div>
       </div>
 
       {/* Abas */}

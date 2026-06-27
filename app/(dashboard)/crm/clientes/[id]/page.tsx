@@ -160,16 +160,29 @@ export default function ClienteDetailPage() {
           </div>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
-          {!editing && (
-            <button onClick={() => setEditing(true)}
-              style={{ ...btnBase, background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-secondary)", color: "var(--color-text-primary)" }}>
-              Editar
-            </button>
+          {editing ? (
+            <>
+              <button onClick={() => { setEditing(false); carregar(); }}
+                style={{ ...btnBase, background: "none", border: "0.5px solid var(--color-border-secondary)", color: "var(--color-text-secondary)" }}>
+                Cancelar
+              </button>
+              <button onClick={salvar} disabled={salvando || !nome.trim()}
+                style={{ ...btnBase, background: "#111", color: "#fff", opacity: salvando ? 0.6 : 1 }}>
+                {salvando ? "Salvando…" : "Salvar alterações"}
+              </button>
+            </>
+          ) : (
+            <>
+              <button onClick={() => setEditing(true)}
+                style={{ ...btnBase, background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-secondary)", color: "var(--color-text-primary)" }}>
+                Editar
+              </button>
+              <button onClick={() => setConfirmDel(true)}
+                style={{ ...btnBase, background: "rgba(239,68,68,0.08)", border: "0.5px solid rgba(239,68,68,0.3)", color: "#EF4444" }}>
+                Excluir
+              </button>
+            </>
           )}
-          <button onClick={() => setConfirmDel(true)}
-            style={{ ...btnBase, background: "rgba(239,68,68,0.08)", border: "0.5px solid rgba(239,68,68,0.3)", color: "#EF4444" }}>
-            Excluir
-          </button>
         </div>
       </div>
 

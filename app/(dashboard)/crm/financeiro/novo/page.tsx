@@ -113,12 +113,24 @@ export default function NovoLancamentoPage() {
   return (
     <div style={{ padding: "28px 32px", maxWidth: 640, fontFamily: "var(--font-sans)" }}>
       {/* Breadcrumb */}
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 24 }}>
-        <button onClick={() => router.back()} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--color-text-secondary)", fontSize: 13, padding: 0 }}>
-          ← Financeiro
-        </button>
-        <span style={{ color: "var(--color-border-secondary)" }}>/</span>
-        <span style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)" }}>Novo lançamento</span>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <button onClick={() => router.back()} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--color-text-secondary)", fontSize: 13, padding: 0 }}>
+            ← Financeiro
+          </button>
+          <span style={{ color: "var(--color-border-secondary)" }}>/</span>
+          <span style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)" }}>Novo lançamento</span>
+        </div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={() => router.back()}
+            style={{ padding: "8px 16px", borderRadius: 8, background: "transparent", color: "var(--color-text-secondary)", border: "0.5px solid var(--color-border-secondary)", fontSize: 13, cursor: "pointer" }}>
+            Cancelar
+          </button>
+          <button onClick={handleSave} disabled={saving || !descricao.trim()}
+            style={{ padding: "8px 20px", borderRadius: 8, background: saving || !descricao.trim() ? "var(--color-border-secondary)" : "#111", color: "#fff", border: "none", fontSize: 13, fontWeight: 700, cursor: saving || !descricao.trim() ? "not-allowed" : "pointer" }}>
+            {saving ? "Salvando…" : recorrente ? `Criar ${numParcelas || 1} lançamentos` : "Criar lançamento"}
+          </button>
+        </div>
       </div>
 
       <div style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 14, padding: "28px 32px" }}>
