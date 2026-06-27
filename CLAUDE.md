@@ -1,8 +1,10 @@
-# UseFokio — CRM (Módulo em Desenvolvimento)
+# UseFokio — CRM (Em Produção)
 
 ## Visão Geral
 
-SaaS para fotógrafos. Este repositório é o projeto Next.js principal (`usefokio`), branch `feature/crm`. O desenvolvimento atual é focado no módulo CRM.
+SaaS para fotógrafos. Este repositório é o projeto Next.js principal (`usefokio`), branch **master** (produção ativa em usefokio.com.br). O CRM está em produção — todas as alterações vão para `master` e são deployadas diretamente.
+
+**Fluxo de trabalho:** editar → commit → `git push origin master` → deploy automático.
 
 ## Como rodar localmente
 
@@ -80,7 +82,7 @@ Dados copiados da produção (fotógrafo `contato@fernandoagrelafotografia.com.b
 ## Produção
 
 - **Supabase prod:** project id `fhsoqlttxggjpgrupjse`
-- **Branch:** `feature/crm` → merge para `main` quando pronto
+- **Branch:** `master` (produção ativa)
 - Nunca alterar o `.env.local` para apontar para produção durante o desenvolvimento
 
 ## Convenções
@@ -88,7 +90,7 @@ Dados copiados da produção (fotógrafo `contato@fernandoagrelafotografia.com.b
 - Sem comentários desnecessários no código
 - Sem login/auth em dev — qualquer chamada ao Supabase Auth deve ser protegida por `if (process.env.NODE_ENV === "development") return`
 - Commits em português no estilo `feat(crm): descrição`
-- Push para `origin feature/crm` após cada alteração
+- Push para `origin master` após cada alteração (deploy automático)
 
 ---
 
