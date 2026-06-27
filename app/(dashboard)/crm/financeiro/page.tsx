@@ -66,19 +66,17 @@ const STATUS_MAP: Record<string, { label: string; color: string; bg: string }> =
   cancelado: { label: "Cancelado", color: "#EF4444", bg: "rgba(239,68,68,0.08)"   },
 };
 
-function FinanceiroInner() {
-  const searchParams  = useSearchParams();
+function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
   const { fotografo } = useFotografo();
 
-  const tipoMenu   = searchParams.get("tipo") === "pagar" ? "pagar" : "receber";
   const abasVisiveis: Aba[] = tipoMenu === "pagar" ? ["pagar", "pagas"] : ["receber", "recebidas"];
-  const [aba,        setAba]        = useState<Aba>(tipoMenu as Aba);
+  const [aba,        setAba]        = usePersistState<Aba>(`financeiro:${tipoMenu}:aba`, tipoMenu as Aba);
   const [entries,    setEntries]    = useState<EntryWithPedido[]>([]);
   const [contas,     setContas]     = useState<ContaBancaria[]>([]);
   const [loading,    setLoading]    = useState(true);
-  const [busca,         setBusca]         = usePersistState("financeiro:busca",         "");
-  const [mesFiltro,     setMesFiltro]     = usePersistState("financeiro:mesFiltro",     "");
-  const [periodoRapido, setPeriodoRapido] = usePersistState<"vencidas" | "este-mes" | "prox-mes" | "">("financeiro:periodoRapido", "");
+  const [busca,         setBusca]         = usePersistState(`financeiro:${tipoMenu}:busca`,         "");
+  const [mesFiltro,     setMesFiltro]     = usePersistState(`financeiro:${tipoMenu}:mesFiltro`,     "");
+  const [periodoRapido, setPeriodoRapido] = usePersistState<"vencidas" | "este-mes" | "prox-mes" | "">(`financeiro:${tipoMenu}:periodoRapido`, "este-mes");
 
   // Modais
   const [modalEditar,      setModalEditar]      = useState<ModalEditar | null>(null);
@@ -111,10 +109,10 @@ function FinanceiroInner() {
   const [salvandonovo,    setSalvandoNovo]    = useState(false);
   const [erroNovo,        setErroNovo]        = useState("");
   const largura = useWindowWidth();
-  const [sortCol, setSortCol] = usePersistState("financeiro:sortCol", "vencimento");
-  const [sortDir, setSortDir] = usePersistState<"asc" | "desc">("financeiro:sortDir", "asc");
+  const [sortCol, setSortCol] = usePersistState(`financeiro:${tipoMenu}:sortCol`, "vencimento");
+  const [sortDir, setSortDir] = usePersistState<"asc" | "desc">(`financeiro:${tipoMenu}:sortDir`, "asc");
   const [page,     setPage]     = useState(1);
-  const [pageSize, setPageSize] = usePersistState<25|50|100>("financeiro:pageSize", 50);
+  const [pageSize, setPageSize] = usePersistState<25|50|100>(`financeiro:${tipoMenu}:pageSize`, 50);
   const toggleSort = (col: string) => {
     if (sortCol === col) setSortDir(d => d === "asc" ? "desc" : "asc");
     else { setSortCol(col); setSortDir("asc"); }
@@ -145,7 +143,7 @@ function FinanceiroInner() {
     setLoading(false);
   }, [fotografo, aba]);
 
-  useEffect(() => { setAba(tipoMenu as Aba); setMesFiltro(""); setBusca(""); setPeriodoRapido(""); setPage(1); }, [tipoMenu]);
+  useEffect(() => { setPage(1); }, [tipoMenu]);
   useEffect(() => { carregar(); }, [carregar]);
   useEffect(() => { setPage(1); }, [busca, mesFiltro, periodoRapido, sortCol, sortDir]);
 
@@ -1056,10 +1054,16 @@ function FinanceiroInner() {
   );
 }
 
+function FinanceiroContent() {
+  const searchParams = useSearchParams();
+  const tipoMenu = searchParams.get("tipo") === "pagar" ? "pagar" : "receber";
+  return <FinanceiroInner key={tipoMenu} tipoMenu={tipoMenu} />;
+}
+
 export default function FinanceiroPage() {
   return (
     <Suspense fallback={<div style={{ padding: "48px 32px", fontSize: 13, color: "var(--color-text-secondary)" }}>Carregando…</div>}>
-      <FinanceiroInner />
+      <FinanceiroContent />
     </Suspense>
   );
 }
