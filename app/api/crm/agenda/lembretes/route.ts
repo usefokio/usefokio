@@ -181,10 +181,8 @@ export async function GET(req: Request) {
       }
     }
 
-    const updates: Promise<unknown>[] = [];
-    if (idsHoje.length > 0) updates.push(sb.from("crm_schedules").update({ lembrete_dia_enviado: true }).in("id", idsHoje));
-    if (idsAmanha.length > 0) updates.push(sb.from("crm_schedules").update({ lembrete_1d_enviado: true }).in("id", idsAmanha));
-    await Promise.all(updates);
+    if (idsHoje.length > 0) await sb.from("crm_schedules").update({ lembrete_dia_enviado: true }).in("id", idsHoje);
+    if (idsAmanha.length > 0) await sb.from("crm_schedules").update({ lembrete_1d_enviado: true }).in("id", idsAmanha);
 
     return Response.json({ ok: true, enviados, hoje: idsHoje.length, amanha: idsAmanha.length });
   } catch (err: unknown) {
