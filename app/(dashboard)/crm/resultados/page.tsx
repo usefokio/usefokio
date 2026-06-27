@@ -113,9 +113,12 @@ export default function ResultadosPage() {
         .eq("fotografo_id", fid).eq("tipo", "receita").eq("num_documento", "DRE")
         .gte("vencimento", `${ano}-01-01`).lte("vencimento", `${ano}-12-31`).range(0, 9999);
     } else {
+      // Novos usuários: receitas de crm_financial_entries com conta_id direto
       qReceitas = sb.from("crm_financial_entries")
-        .select("conta_id, valor, vencimento").eq("fotografo_id", fid)
-        .gte("vencimento", `${ano}-01-01`).lte("vencimento", `${ano}-01-01`).limit(0);
+        .select("conta_id, valor, vencimento")
+        .eq("fotografo_id", fid).eq("tipo", "receita")
+        .or("num_documento.is.null,num_documento.neq.DRE")
+        .gte("vencimento", `${ano}-01-01`).lte("vencimento", `${ano}-12-31`).range(0, 9999);
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -128,7 +131,7 @@ export default function ResultadosPage() {
         .eq("fotografo_id", fid)
         .gte("data_lancamento", `${ano}-01-01`).lte("data_lancamento", `${ano}-12-31`)
         .not("data_lancamento", "is", null);
-      qOrders = temDRE ? q.eq("crm_nativo", true) : q;
+      qOrders = temDRE ? q.eq("crm_nativo", true) : sb.from("crm_orders").select("categoria").eq("fotografo_id", fid).limit(0);
     } else {
       qOrders = sb.from("crm_orders").select("categoria").eq("fotografo_id", fid).limit(0);
     }
@@ -153,23 +156,13 @@ export default function ResultadosPage() {
         novoMapa[e.conta_id][mes] = (novoMapa[e.conta_id][mes] ?? 0) + e.valor;
       }
     } else if (temDRE) {
-      // Receitas competência com DRE: por vencimento
+      // Competência com DRE (Fernando): entradas DRE legadas + pedidos crm_nativo
       for (const e of (receitasData ?? []) as { conta_id: string; valor: number; vencimento: string }[]) {
         if (!e.conta_id) continue;
         const mes = parseInt(e.vencimento.slice(5, 7));
         novoMapa[e.conta_id] ??= {};
         novoMapa[e.conta_id][mes] = (novoMapa[e.conta_id][mes] ?? 0) + e.valor;
       }
-    } else {
-      // Receitas competência: DRE entries (legado) + pedidos nativos do CRM
-      // receitasData = DRE entries quando temDRE=true; vazio quando temDRE=false
-      for (const e of (receitasData ?? []) as { conta_id: string; valor: number; vencimento: string }[]) {
-        if (!e.conta_id) continue;
-        const mes = parseInt(e.vencimento.slice(5, 7));
-        novoMapa[e.conta_id] ??= {};
-        novoMapa[e.conta_id][mes] = (novoMapa[e.conta_id][mes] ?? 0) + e.valor;
-      }
-      // ordersData = crm_nativo=true quando temDRE; todos com data_lancamento quando !temDRE
       for (const o of (ordersData ?? []) as { categoria: string; total: number; data_lancamento: string }[]) {
         const codigo = CATEGORIA_CODIGO[o.categoria];
         if (!codigo) { semMapeamento[o.categoria || "(sem categoria)"] = (semMapeamento[o.categoria || "(sem categoria)"] ?? 0) + o.total; continue; }
@@ -178,6 +171,14 @@ export default function ResultadosPage() {
         const mes = parseInt(o.data_lancamento.slice(5, 7));
         novoMapa[cid] ??= {};
         novoMapa[cid][mes] = (novoMapa[cid][mes] ?? 0) + o.total;
+      }
+    } else {
+      // Competência sem DRE (novos usuários): crm_financial_entries com conta_id direto
+      for (const e of (receitasData ?? []) as { conta_id: string; valor: number; vencimento: string }[]) {
+        if (!e.conta_id) continue;
+        const mes = parseInt(e.vencimento.slice(5, 7));
+        novoMapa[e.conta_id] ??= {};
+        novoMapa[e.conta_id][mes] = (novoMapa[e.conta_id][mes] ?? 0) + e.valor;
       }
     }
     setNaoMapeados(Object.entries(semMapeamento).map(([categoria, total]) => ({ categoria, total })));
