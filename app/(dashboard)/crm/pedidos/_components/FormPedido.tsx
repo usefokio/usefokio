@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
+import { isValidDate } from "@/lib/utils/format";
 import { Field } from "@/components/ui/Field";
 import { inputStyle } from "@/lib/styles";
 import type { CrmOrder, CrmProduct, Cliente } from "@/lib/supabase/types";
@@ -336,6 +337,14 @@ export default function FormPedido({ inicial, onSalvo }: Props) {
   // ── Salvar pedido ───────────────────────────────────────────────────────────
   const handleSave = async () => {
     if (!form.nome.trim()) { setError("Nome é obrigatório."); return; }
+    if (form.data_evento && !isValidDate(form.data_evento)) { setError("Data do evento inválida."); return; }
+    for (const plano of planos) {
+      if (plano.dataPrazo && !isValidDate(plano.dataPrazo)) { setError("Data de vencimento do plano de pagamento inválida."); return; }
+      const ps = plano.parcelasOverride ?? calcParcelas(plano);
+      for (const p of ps) {
+        if (!isValidDate(p.vencimento)) { setError(`Vencimento de parcela inválido: ${p.vencimento}`); return; }
+      }
+    }
     if (!fotografo) return;
     setSaving(true);
     setError("");

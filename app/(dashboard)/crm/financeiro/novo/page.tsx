@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
+import { isValidDate } from "@/lib/utils/format";
 
 type ChartOfAccounts = { id: string; codigo: string; nome: string; tipo: string };
 
@@ -78,6 +79,7 @@ export default function NovoLancamentoPage() {
     if (!descricao.trim()) { setError("Descrição é obrigatória."); return; }
     const v = parseFloat(valor.replace(",", "."));
     if (!v || v <= 0) { setError("Informe um valor válido."); return; }
+    if (!isValidDate(vencimento)) { setError("Data de vencimento inválida."); return; }
     if (!fotografo) return;
     setSaving(true);
     setError("");

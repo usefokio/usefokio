@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
+import { isValidDate } from "@/lib/utils/format";
 import { Field } from "@/components/ui/Field";
 import { inputStyle } from "@/lib/styles";
 import type { CrmOpportunity, Cliente } from "@/lib/supabase/types";
@@ -188,6 +189,7 @@ export default function FormOportunidade({ inicial, onSalvo }: Props) {
 
   const handleSave = async () => {
     if (!form.titulo.trim()) { setError("Título é obrigatório."); return; }
+    if (form.data_evento && !isValidDate(form.data_evento)) { setError("Data do evento inválida."); return; }
     if (!fotografo) return;
     setSaving(true);
     setError("");

@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { useWindowWidth } from "@/lib/hooks/useWindowWidth";
 import { usePersistState } from "@/lib/hooks/usePersistState";
-import { formatBRL } from "@/lib/utils/format";
+import { formatBRL, isValidDate } from "@/lib/utils/format";
 import { fetchAllRows } from "@/lib/supabase/fetchAll";
 import { IcoEdit, IcoTrash, IcoMail, IcoCheck } from "@/app/(dashboard)/crm/_components/Icons";
 import { Paginacao } from "@/app/(dashboard)/crm/_components/Paginacao";
@@ -279,6 +279,10 @@ function FinanceiroInner() {
       setErroPagamento("Selecione o plano de contas para registrar a despesa.");
       return;
     }
+    if (!isValidDate(modalReceber.dataPagamento)) {
+      setErroPagamento("Data de pagamento inválida.");
+      return;
+    }
     setSalvandoPag(true);
     setErroPagamento("");
     const { entry, dataPagamento, contaId, contaPlanoId } = modalReceber;
@@ -332,9 +336,9 @@ function FinanceiroInner() {
   const salvarNovo = async () => {
     if (!fotografo) return;
     const v = parseFloat(novoValor.replace(",", "."));
-    if (!novoDescricao.trim()) { setErroNovo("Informe a descrição."); return; }
-    if (!novoVencimento)       { setErroNovo("Informe o vencimento."); return; }
-    if (!v || v <= 0)          { setErroNovo("Informe um valor válido."); return; }
+    if (!novoDescricao.trim())         { setErroNovo("Informe a descrição."); return; }
+    if (!isValidDate(novoVencimento))  { setErroNovo("Vencimento inválido."); return; }
+    if (!v || v <= 0)                  { setErroNovo("Informe um valor válido."); return; }
     setSalvandoNovo(true); setErroNovo("");
     const tipo = ABA_CONFIG[aba].tipo;
     const n    = novoRecorrente ? (parseInt(novoQtdParc) || 2) : 1;

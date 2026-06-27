@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
+import { isValidDate } from "@/lib/utils/format";
 import type { Cliente } from "@/lib/supabase/types";
 
 const TIPO_MAP: Record<string, { label: string; color: string; bg: string }> = {
@@ -43,6 +44,7 @@ export default function ClienteDetailPage() {
   const [loading,   setLoading]   = useState(true);
   const [editing,   setEditing]   = useState(false);
   const [salvando,  setSalvando]  = useState(false);
+  const [erroSalvar, setErroSalvar] = useState("");
   const [confirmDel, setConfirmDel] = useState(false);
   const [deleting,  setDeleting]  = useState(false);
 
@@ -103,6 +105,8 @@ export default function ClienteDetailPage() {
 
   const salvar = async () => {
     if (!nome.trim()) return;
+    if (dataNasc && !isValidDate(dataNasc)) { setErroSalvar("Data de nascimento inválida."); return; }
+    setErroSalvar("");
     setSalvando(true);
     await createClient().from("clientes").update({
       nome: nome.trim(), email: email || null, telefone: telefone || null,
@@ -272,6 +276,9 @@ export default function ClienteDetailPage() {
               {salvando ? "Salvando…" : "Salvar alterações"}
             </button>
           </div>
+          {erroSalvar && (
+            <div style={{ marginTop: 8, fontSize: 12, color: "#EF4444", textAlign: "right" }}>{erroSalvar}</div>
+          )}
         </div>
       ) : (
         /* ── VISUALIZAÇÃO ── */
