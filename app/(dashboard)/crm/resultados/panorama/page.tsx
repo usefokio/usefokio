@@ -114,7 +114,12 @@ export default function PanoramaPage() {
         .eq("fotografo_id", fid).eq("num_documento", "DRE"),
     ]);
 
-    const contasArr = (contasData ?? []) as Conta[];
+    const seen = new Set<string>();
+    const contasArr = ((contasData ?? []) as Conta[]).filter(c => {
+      if (seen.has(c.codigo)) return false;
+      seen.add(c.codigo);
+      return true;
+    });
     const temDRELocal = (dreCount ?? 0) > 0;
     setTemDRE(temDRELocal);
 

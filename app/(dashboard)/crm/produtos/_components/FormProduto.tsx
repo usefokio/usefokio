@@ -58,19 +58,24 @@ export function FormProduto({ produto }: Props) {
     if (!fotografo) return;
     const sb = createClient();
 
+    const dedup = (data: CrmChartOfAccount[]) => {
+      const seen = new Set<string>();
+      return data.filter(c => { if (seen.has(c.codigo)) return false; seen.add(c.codigo); return true; });
+    };
+
     sb.from("crm_chart_of_accounts")
       .select("*")
       .eq("tipo", "receita")
       .or("fotografo_id.is.null,fotografo_id.eq." + fotografo.id)
       .order("codigo")
-      .then(({ data }) => setContasVendas((data ?? []) as CrmChartOfAccount[]));
+      .then(({ data }) => setContasVendas(dedup((data ?? []) as CrmChartOfAccount[])));
 
     sb.from("crm_chart_of_accounts")
       .select("*")
       .eq("tipo", "despesa")
       .or("fotografo_id.is.null,fotografo_id.eq." + fotografo.id)
       .order("codigo")
-      .then(({ data }) => setContasDespesa((data ?? []) as CrmChartOfAccount[]));
+      .then(({ data }) => setContasDespesa(dedup((data ?? []) as CrmChartOfAccount[])));
 
     sb.from("crm_product_categories")
       .select("*")
