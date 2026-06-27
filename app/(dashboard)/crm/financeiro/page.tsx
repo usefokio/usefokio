@@ -591,6 +591,17 @@ function FinanceiroInner() {
                       <IcoMail />
                     </button>
                   )}
+                  {aba === "recebidas" && (
+                    <button
+                      onClick={() => {
+                        const contaNome = contas.find(c => c.id === e.conta_bancaria_id)?.nome ?? "Conta";
+                        setModalConfirmacao({ entry: e, contaNome, dataPagamento: e.pago_em ?? e.vencimento });
+                      }}
+                      title="Enviar recibo"
+                      style={btnIcon({ color: "#2563EB", border: "0.5px solid rgba(37,99,235,0.3)" })}>
+                      <IcoMail />
+                    </button>
+                  )}
                   <button onClick={() => abrirEditar(e)} title="Editar" style={btnIcon()}>
                     <IcoEdit />
                   </button>
