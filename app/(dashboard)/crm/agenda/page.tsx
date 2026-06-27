@@ -125,6 +125,7 @@ export default function AgendaPage() {
   const [loading, setLoading] = useState(true);
   const [modal,   setModal]   = useState<ModalState>({ modo: "fechado" });
   const [tooltipId, setTooltipId] = useState<string | null>(null);
+  const [popupEvento, setPopupEvento] = useState<EventoCalendario | null>(null);
 
   // Abre modal de novo evento se ?novo=1 na URL
   useEffect(() => {
@@ -385,7 +386,7 @@ export default function AgendaPage() {
                           title={ev.titulo}
                           onClick={(e) => {
                             e.stopPropagation();
-                            if (ev.navegarPara) { router.push(ev.navegarPara); }
+                            if (ev.navegarPara) { setPopupEvento(ev); }
                             else if (ev.dados) { setModal({ modo: "editar", evento: ev }); }
                           }}
                           style={{
@@ -430,7 +431,7 @@ export default function AgendaPage() {
                               key={ev.id}
                               onClick={() => {
                                 setTooltipId(null);
-                                if (ev.navegarPara) router.push(ev.navegarPara);
+                                if (ev.navegarPara) { setPopupEvento(ev); }
                                 else if (ev.dados) setModal({ modo: "editar", evento: ev });
                               }}
                               style={{ fontSize: 11, padding: "6px 8px", borderRadius: 5, background: ev.bg, color: ev.cor, marginBottom: 4, cursor: "pointer", borderLeft: `3px solid ${ev.cor}` }}
@@ -468,6 +469,68 @@ export default function AgendaPage() {
           );
         })}
       </div>
+
+      {/* Popup de detalhes do evento */}
+      {popupEvento && (
+        <div
+          onClick={() => setPopupEvento(null)}
+          style={{ position: "fixed", inset: 0, zIndex: 100, background: "rgba(0,0,0,0.35)", display: "flex", alignItems: "center", justifyContent: "center" }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{ background: "var(--color-background-primary)", borderRadius: 14, padding: "24px 28px", width: 340, maxWidth: "90vw", boxShadow: "0 16px 48px rgba(0,0,0,0.18)", border: "0.5px solid var(--color-border-tertiary)", position: "relative" }}
+          >
+            {/* Barra de tipo */}
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+              <div style={{ width: 4, height: 32, borderRadius: 2, background: popupEvento.cor, flexShrink: 0 }} />
+              <div>
+                <div style={{ fontSize: 10, fontWeight: 700, color: popupEvento.cor, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                  {TIPO_CONFIG[popupEvento.tipo].label}
+                </div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: "var(--color-text-primary)", lineHeight: 1.3 }}>
+                  {popupEvento.titulo}
+                </div>
+              </div>
+              <button
+                onClick={() => setPopupEvento(null)}
+                style={{ position: "absolute", top: 14, right: 16, background: "none", border: "none", cursor: "pointer", fontSize: 18, color: "var(--color-text-secondary)", lineHeight: 1 }}
+              >×</button>
+            </div>
+
+            {/* Infos */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
+              <div style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>
+                📅 {new Date(popupEvento.dia + "T12:00:00").toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
+              </div>
+              {popupEvento.dados?.inicio && !popupEvento.dados?.dia_todo && (
+                <div style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>
+                  🕐 {popupEvento.dados.inicio.slice(11, 16)}{popupEvento.dados.fim ? ` – ${popupEvento.dados.fim.slice(11, 16)}` : ""}
+                </div>
+              )}
+              {popupEvento.dados?.local && (
+                <div style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>
+                  📍 {popupEvento.dados.local}
+                </div>
+              )}
+              {popupEvento.dados?.descricao && (
+                <div style={{ fontSize: 13, color: "var(--color-text-secondary)", marginTop: 4, lineHeight: 1.5 }}>
+                  {popupEvento.dados.descricao}
+                </div>
+              )}
+            </div>
+
+            {/* Botão de navegação */}
+            <button
+              onClick={() => { setPopupEvento(null); router.push(popupEvento.navegarPara!); }}
+              style={{ width: "100%", padding: "10px 0", borderRadius: 9, background: "#111", color: "#fff", border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer" }}
+            >
+              {popupEvento.tipo === "evento_pedido" ? "Ir para o pedido →" :
+               popupEvento.tipo === "a_receber" || popupEvento.tipo === "a_pagar" ? "Ir para o financeiro →" :
+               "Ver detalhes →"}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Modal de criar/editar evento */}
       {modal.modo !== "fechado" && (
