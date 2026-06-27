@@ -334,7 +334,8 @@ export default function AgendaPage() {
       {loading ? (
         <div style={{ padding: "60px 0", textAlign: "center", fontSize: 13, color: "var(--color-text-secondary)" }}>Carregando…</div>
       ) : (
-        <div style={{ border: "0.5px solid var(--color-border-tertiary)", borderRadius: 12, overflow: "hidden" }}>
+        <div style={{ border: "0.5px solid var(--color-border-tertiary)", borderRadius: 12, overflowX: "auto" }}>
+          <div style={{ minWidth: 560 }}>
           {/* Cabeçalho dos dias da semana */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", background: "var(--color-background-secondary)", borderBottom: "0.5px solid var(--color-border-tertiary)" }}>
             {["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"].map((d) => (
@@ -451,6 +452,7 @@ export default function AgendaPage() {
                 </div>
               );
             })}
+          </div>
           </div>
         </div>
       )}
