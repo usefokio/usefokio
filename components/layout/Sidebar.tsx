@@ -115,17 +115,97 @@ const USEFOKIO_ITEMS = [
   },
 ];
 
-const CRM_NAV_ITEM = {
-  href: "/crm",
-  label: "CRM",
-  icon: (
-    <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
-      <path d="M2 4h12M2 8h8M2 12h5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" opacity=".8" />
-      <circle cx="13" cy="11" r="2.5" stroke="currentColor" strokeWidth="1.2" fill="none" opacity=".8" />
-      <path d="M15 13l1.2 1.2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" opacity=".7" />
-    </svg>
-  ),
-};
+const CRM_ITEMS = [
+  {
+    href: "/crm/agenda",
+    label: "Agenda",
+    icon: (
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+        <rect x="1" y="2" width="14" height="12" rx="2" stroke="currentColor" strokeWidth="1.3" fill="none" opacity=".8" />
+        <path d="M1 6h14" stroke="currentColor" strokeWidth="1.3" opacity=".5" />
+        <path d="M5 1v2M11 1v2" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" opacity=".7" />
+        <rect x="4" y="9" width="2" height="2" rx=".4" fill="currentColor" opacity=".7" />
+        <rect x="7" y="9" width="2" height="2" rx=".4" fill="currentColor" opacity=".5" />
+        <rect x="10" y="9" width="2" height="2" rx=".4" fill="currentColor" opacity=".4" />
+      </svg>
+    ),
+  },
+  {
+    href: "/crm/oportunidades",
+    label: "Oportunidades",
+    icon: (
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+        <path d="M1 13L4 9l3 2 3-4 4-4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" opacity=".8" />
+        <circle cx="13" cy="3" r="1.5" fill="currentColor" opacity=".7" />
+      </svg>
+    ),
+  },
+  {
+    href: "/crm/clientes",
+    label: "Contatos",
+    icon: (
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+        <circle cx="6" cy="5" r="2.5" fill="currentColor" opacity=".8" />
+        <path d="M1 13c0-2.761 2.239-5 5-5s5 2.239 5 5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" fill="none" opacity=".8" />
+        <circle cx="12" cy="5" r="1.8" fill="currentColor" opacity=".4" />
+      </svg>
+    ),
+  },
+  {
+    href: "/crm/pedidos",
+    label: "Pedidos",
+    icon: (
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+        <rect x="2" y="1" width="12" height="14" rx="1.5" stroke="currentColor" strokeWidth="1.3" fill="none" opacity=".8" />
+        <path d="M5 5h6M5 8h6M5 11h3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" opacity=".6" />
+      </svg>
+    ),
+  },
+  {
+    href: "/crm/produtos",
+    label: "Produtos",
+    icon: (
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+        <path d="M8 1L14 4.5v7L8 15 2 11.5v-7L8 1z" stroke="currentColor" strokeWidth="1.3" fill="none" opacity=".8" />
+        <path d="M8 1v14M2 4.5l6 3.5 6-3.5" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" opacity=".5" />
+      </svg>
+    ),
+  },
+  {
+    href: "/crm/contas",
+    label: "Contas Bancárias",
+    icon: (
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+        <rect x="1" y="4" width="14" height="9" rx="1.5" stroke="currentColor" strokeWidth="1.3" fill="none" opacity=".8" />
+        <path d="M1 7h14" stroke="currentColor" strokeWidth="1.3" opacity=".5" />
+        <rect x="3" y="9.5" width="3" height="1.5" rx=".5" fill="currentColor" opacity=".6" />
+        <path d="M8 2l4 2H4l4-2z" fill="currentColor" opacity=".4" />
+      </svg>
+    ),
+  },
+  {
+    href: "/crm/financeiro",
+    label: "Financeiro",
+    icon: (
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+        <rect x="1" y="3" width="14" height="10" rx="2" stroke="currentColor" strokeWidth="1.3" fill="none" opacity=".8" />
+        <path d="M1 6h14" stroke="currentColor" strokeWidth="1.3" opacity=".5" />
+        <rect x="3" y="9" width="3" height="1.5" rx=".5" fill="currentColor" opacity=".6" />
+        <rect x="8" y="9" width="5" height="1.5" rx=".5" fill="currentColor" opacity=".4" />
+      </svg>
+    ),
+  },
+  {
+    href: "/crm/config",
+    label: "Config. CRM",
+    icon: (
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+        <circle cx="8" cy="8" r="2" stroke="currentColor" strokeWidth="1.3" fill="none" />
+        <path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.41 1.41M11.54 11.54l1.41 1.41M3.05 12.95l1.41-1.41M11.54 4.46l1.41-1.41" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+      </svg>
+    ),
+  },
+];
 
 function FinanceiroSubItems({ pathname }: { pathname: string }) {
   const searchParams = useSearchParams();
@@ -277,7 +357,9 @@ export function Sidebar() {
             "/selecao": "selecao", "/entrega": "entrega", "/album": "album", "/contatos": "contatos",
           };
 
-          const renderItem = (item: typeof USEFOKIO_ITEMS[number] | typeof CRM_NAV_ITEM) => {
+          type NavItem = { href: string; label: string; icon: React.ReactNode };
+
+          const renderNavItem = (item: NavItem) => {
             const active = isActive(item.href);
             return (
               <div key={item.href}>
@@ -300,48 +382,10 @@ export function Sidebar() {
                   {!collapsed && <span style={{ lineHeight: 1.3, whiteSpace: "nowrap", overflow: "hidden" }}>{item.label}</span>}
                 </Link>
 
-                {/* Sub-itens do CRM */}
-                {item.href === "/crm" && !collapsed && pathname.startsWith("/crm") && (() => {
-                  const crmSubs = [
-                    { href: "/crm/agenda",        label: "Agenda" },
-                    { href: "/crm/oportunidades", label: "Oportunidades" },
-                    { href: "/crm/clientes",      label: "Contatos" },
-                    { href: "/crm/pedidos",       label: "Pedidos" },
-                    { href: "/crm/produtos",      label: "Produtos" },
-                    { href: "/crm/contas",        label: "Contas Bancárias" },
-                    { href: "/crm/financeiro",    label: "Financeiro" },
-                    { href: "/crm/config",        label: "Config. CRM" },
-                  ];
-                  return (
-                    <>
-                      {crmSubs.map((sub) => {
-                        const subPath = sub.href.split("?")[0];
-                        const subActive = pathname === subPath || pathname.startsWith(subPath + "/");
-                        return (
-                          <div key={sub.href}>
-                            <Link
-                              href={sub.href}
-                              style={{
-                                display: "flex", alignItems: "center", gap: 7,
-                                padding: "5px 10px 5px 28px", borderRadius: 7, marginBottom: 1,
-                                background: subActive ? "var(--color-background-secondary)" : "transparent",
-                                color: subActive ? "var(--color-text-primary)" : "var(--color-text-secondary)",
-                                fontSize: 11, fontWeight: subActive ? 500 : 400, textDecoration: "none",
-                              }}
-                              onMouseEnter={(e) => { if (!subActive) e.currentTarget.style.background = "var(--color-background-secondary)"; }}
-                              onMouseLeave={(e) => { if (!subActive) e.currentTarget.style.background = "transparent"; }}
-                            >
-                              <span style={{ whiteSpace: "nowrap" }}>{sub.label}</span>
-                            </Link>
-                            {sub.href === "/crm/financeiro" && (
-                              <Suspense><FinanceiroSubItems pathname={pathname} /></Suspense>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </>
-                  );
-                })()}
+                {/* Sub-itens do Financeiro (A Receber, A Pagar, Resultados, Fluxo) */}
+                {item.href === "/crm/financeiro" && !collapsed && (
+                  <Suspense><FinanceiroSubItems pathname={pathname} /></Suspense>
+                )}
 
                 {/* Sub-item: Funil de Campanha */}
                 {item.href === "/entrega" && !collapsed && (() => {
@@ -379,9 +423,13 @@ export function Sidebar() {
               </div>
             ) : null;
 
-          // Em dev: só a seção CRM (sem label)
+          const sectionDivider = () => (
+            <div style={{ margin: "6px 0 0", borderTop: "0.5px solid var(--color-border-tertiary)" }} />
+          );
+
+          // Em dev: só seção CRM como matriz plana (sem label)
           if (process.env.NODE_ENV === "development") {
-            return renderItem(CRM_NAV_ITEM);
+            return CRM_ITEMS.map(renderNavItem);
           }
 
           // Em prod: seção UseFokio + seção CRM (se habilitada)
@@ -396,13 +444,13 @@ export function Sidebar() {
           return (
             <>
               {sectionLabel("UseFokio")}
-              {usefokioItems.map(renderItem)}
+              {usefokioItems.map(renderNavItem)}
 
               {crmHabilitado && (
                 <>
-                  <div style={{ margin: "6px 0 0", borderTop: "0.5px solid var(--color-border-tertiary)" }} />
+                  {sectionDivider()}
                   {sectionLabel("CRM")}
-                  {renderItem(CRM_NAV_ITEM)}
+                  {CRM_ITEMS.map(renderNavItem)}
                 </>
               )}
             </>
