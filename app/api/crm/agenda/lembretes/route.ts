@@ -19,6 +19,8 @@ type Fotografo = {
   email: string;
   nome_completo: string | null;
   nome_empresa: string | null;
+  lembrete_agenda_dia?: boolean;
+  lembrete_agenda_1d?: boolean;
   crm_email_config?: {
     smtp_host?: string | null;
     smtp_port?: number | null;
@@ -150,7 +152,7 @@ export async function GET(req: Request) {
 
     const { data: fotografos } = await sb
       .from("fotografos")
-      .select("id, email, nome_completo, nome_empresa, crm_email_config")
+      .select("id, email, nome_completo, nome_empresa, crm_email_config, lembrete_agenda_dia, lembrete_agenda_1d")
       .in("id", fids);
 
     let enviados = 0;
@@ -162,7 +164,7 @@ export async function GET(req: Request) {
       const nome = fot.nome_empresa ?? fot.nome_completo ?? "fotógrafo";
       const grupo = porFotografo[fot.id];
 
-      if (grupo.hoje.length > 0) {
+      if (grupo.hoje.length > 0 && fot.lembrete_agenda_dia !== false) {
         const n = grupo.hoje.length;
         const assunto = `Hoje: ${n} evento${n > 1 ? "s" : ""} na sua agenda`;
         const html = buildEmailHtml(nome, grupo.hoje, "hoje");
@@ -171,7 +173,7 @@ export async function GET(req: Request) {
         enviados++;
       }
 
-      if (grupo.amanha.length > 0) {
+      if (grupo.amanha.length > 0 && fot.lembrete_agenda_1d !== false) {
         const n = grupo.amanha.length;
         const assunto = `Amanhã: ${n} evento${n > 1 ? "s" : ""} na sua agenda`;
         const html = buildEmailHtml(nome, grupo.amanha, "amanha");

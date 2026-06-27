@@ -6,7 +6,7 @@ import { useFotografo } from "@/lib/context/FotografoContext";
 import type { CrmProductCategory, CrmChartOfAccount, CrmOportunidadeStatus, CrmFunnel, CrmFunnelStage, CrmAgendamentoCategoria } from "@/lib/supabase/types";
 import { AbaContratos } from "./_components/AbaContratos";
 
-type Tab = "produtos" | "plano" | "canais" | "opp_cats" | "status" | "funis" | "agenda_cats" | "email" | "contratos";
+type Tab = "produtos" | "plano" | "canais" | "opp_cats" | "status" | "funis" | "agenda_cats" | "email" | "contratos" | "notificacoes";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -817,6 +817,86 @@ function ContaRow({
   );
 }
 
+// ── Aba Notificações ─────────────────────────────────────────────────────────
+
+function AbaNotificacoes({ fotografoId }: { fotografoId: string }) {
+  const sb = createClient();
+  const [lembreteDia, setLembreteDia] = useState(true);
+  const [lembrete1d,  setLembrete1d]  = useState(true);
+  const [loading,     setLoading]     = useState(true);
+  const [saving,      setSaving]      = useState(false);
+  const [ok,          setOk]          = useState(false);
+
+  useEffect(() => {
+    sb.from("fotografos")
+      .select("lembrete_agenda_dia, lembrete_agenda_1d")
+      .eq("id", fotografoId)
+      .single()
+      .then(({ data }) => {
+        setLembreteDia(data?.lembrete_agenda_dia ?? true);
+        setLembrete1d(data?.lembrete_agenda_1d ?? true);
+        setLoading(false);
+      });
+  }, [fotografoId]);
+
+  const salvar = async () => {
+    setSaving(true); setOk(false);
+    await sb.from("fotografos")
+      .update({ lembrete_agenda_dia: lembreteDia, lembrete_agenda_1d: lembrete1d })
+      .eq("id", fotografoId);
+    setSaving(false); setOk(true);
+    setTimeout(() => setOk(false), 2500);
+  };
+
+  const Toggle = ({ value, onChange, label, descricao }: { value: boolean; onChange: (v: boolean) => void; label: string; descricao: string }) => (
+    <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, padding: "16px 0", borderBottom: "0.5px solid var(--color-border-tertiary)" }}>
+      <div>
+        <div style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)", marginBottom: 3 }}>{label}</div>
+        <div style={{ fontSize: 12, color: "var(--color-text-secondary)", lineHeight: 1.5 }}>{descricao}</div>
+      </div>
+      <button
+        onClick={() => onChange(!value)}
+        style={{ flexShrink: 0, width: 44, height: 24, borderRadius: 12, border: "none", cursor: "pointer", position: "relative", background: value ? "#6366f1" : "var(--color-border-secondary)", transition: "background 0.2s" }}
+      >
+        <span style={{ position: "absolute", top: 3, left: value ? 22 : 3, width: 18, height: 18, borderRadius: "50%", background: "#fff", transition: "left 0.2s", display: "block" }} />
+      </button>
+    </div>
+  );
+
+  if (loading) return <div style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>Carregando…</div>;
+
+  return (
+    <div style={{ maxWidth: 520 }}>
+      <div style={{ fontSize: 13, color: "var(--color-text-secondary)", marginBottom: 20, lineHeight: 1.6, padding: "12px 16px", background: "var(--color-background-secondary)", borderRadius: 8, border: "0.5px solid var(--color-border-tertiary)" }}>
+        Estas notificações são enviadas <strong>para você</strong> (fotógrafo), não para seus clientes. Os emails chegam no seu endereço cadastrado todos os dias às 8h.
+      </div>
+
+      <div style={{ marginBottom: 24 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>Lembretes da Agenda</div>
+        <Toggle
+          value={lembreteDia}
+          onChange={setLembreteDia}
+          label="Lembrete no dia do evento"
+          descricao="Receba um email na manhã do dia com todos os eventos agendados para hoje."
+        />
+        <Toggle
+          value={lembrete1d}
+          onChange={setLembrete1d}
+          label="Lembrete 1 dia antes"
+          descricao="Receba um email na véspera com os eventos do dia seguinte."
+        />
+      </div>
+
+      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <button onClick={salvar} disabled={saving} style={{ padding: "9px 22px", borderRadius: 8, background: "#111", color: "#fff", border: "none", fontSize: 13, fontWeight: 700, cursor: saving ? "not-allowed" : "pointer", opacity: saving ? 0.6 : 1 }}>
+          {saving ? "Salvando…" : "Salvar preferências"}
+        </button>
+        {ok && <span style={{ fontSize: 13, color: "#059669", fontWeight: 600 }}>✓ Salvo</span>}
+      </div>
+    </div>
+  );
+}
+
 // ── Aba Email ────────────────────────────────────────────────────────────────
 
 function AbaEmail({ fotografoId }: { fotografoId: string }) {
@@ -1083,6 +1163,7 @@ export default function CrmConfigPage() {
         <button style={TAB_ST(tab === "agenda_cats")} onClick={() => setTab("agenda_cats")}>📅 Cat. Agendamento</button>
         <button style={TAB_ST(tab === "plano")} onClick={() => setTab("plano")}>📊 Plano de Contas</button>
         <button style={TAB_ST(tab === "email")} onClick={() => setTab("email")}>✉️ E-mail</button>
+        <button style={TAB_ST(tab === "notificacoes")} onClick={() => setTab("notificacoes")}>🔔 Notificações</button>
         <button style={TAB_ST(tab === "contratos")} onClick={() => setTab("contratos")}>📄 Contratos</button>
       </div>
 
@@ -1196,6 +1277,11 @@ export default function CrmConfigPage() {
       {/* ── E-mail ── */}
       {tab === "email" && fotografo && (
         <AbaEmail fotografoId={fotografo.id} />
+      )}
+
+      {/* ── Notificações ── */}
+      {tab === "notificacoes" && fotografo && (
+        <AbaNotificacoes fotografoId={fotografo.id} />
       )}
 
       {/* ── Contratos ── */}
