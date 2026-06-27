@@ -90,6 +90,8 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
   const [excluindo,        setExcluindo]        = useState(false);
   const [baixaCategorias,  setBaixaCategorias]  = useState<ChartAccount[]>([]);
   const [copiado,          setCopiado]          = useState(false);
+  const [drillEntry,       setDrillEntry]       = useState<EntryWithPedido | null>(null);
+  const [chartAccounts,    setChartAccounts]    = useState<ChartAccount[]>([]);
 
   // Modal novo lançamento
   const [showNovo,        setShowNovo]        = useState(false);
@@ -149,13 +151,19 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
 
   useEffect(() => {
     if (!fotografo) return;
-    createClient()
-      .from("crm_contas_bancarias")
+    const sb = createClient();
+    sb.from("crm_contas_bancarias")
       .select("id, nome, tipo")
       .eq("fotografo_id", fotografo.id)
       .eq("ativo", true)
       .order("nome")
       .then(({ data }) => setContas((data ?? []) as ContaBancaria[]));
+    sb.from("crm_chart_of_accounts")
+      .select("id, codigo, nome")
+      .or(`fotografo_id.is.null,fotografo_id.eq.${fotografo.id}`)
+      .eq("ativo", true)
+      .order("codigo")
+      .then(({ data }) => setChartAccounts((data ?? []) as ChartAccount[]));
   }, [fotografo]);
 
   const meses = [...new Set(entries.map(e => e.vencimento.slice(0, 7)))].sort();
@@ -575,7 +583,11 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
                     {vencido && <div style={{ fontSize: 10 }}>Vencido</div>}
                   </div>
                 )}
-                <div style={{ fontSize: 13, fontWeight: 700, color: (aba === "receber" || aba === "recebidas") ? "#059669" : "#EF4444" }}>
+                <div
+                  onClick={() => setDrillEntry(e)}
+                  title="Ver detalhes"
+                  style={{ fontSize: 13, fontWeight: 700, color: (aba === "receber" || aba === "recebidas") ? "#059669" : "#EF4444", cursor: "pointer", textDecoration: "underline dotted", textUnderlineOffset: 3 }}
+                >
                   {fmt(e.valor)}
                 </div>
                 {/* Ações */}
@@ -1040,6 +1052,89 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
           </div>
         </div>
       )}
+
+      {/* ═══════════════════════════════════════════════
+          MODAL — Detalhes do lançamento (drill-down)
+      ═══════════════════════════════════════════════ */}
+      {drillEntry && (() => {
+        const e = drillEntry;
+        const corDrill = (aba === "receber" || aba === "recebidas") ? "#059669" : "#EF4444";
+        const clienteNome = e.crm_orders?.clientes?.nome ?? e.clientes?.nome ?? null;
+        const contaBancNome = contas.find(c => c.id === e.conta_bancaria_id)?.nome ?? null;
+        const contaPlanoNome = chartAccounts.find(c => c.id === e.conta_id)?.nome ?? null;
+        const contaPlanoCode = chartAccounts.find(c => c.id === e.conta_id)?.codigo ?? null;
+        const statusInfo = STATUS_MAP[e.status] ?? STATUS_MAP["pendente"];
+        const parcelasIrmas = e.pedido_id
+          ? entries.filter(x => x.pedido_id === e.pedido_id && x.id !== e.id).sort((a, b) => a.vencimento.localeCompare(b.vencimento))
+          : [];
+        const campo = (label: string, valor: React.ReactNode) => (
+          <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em" }}>{label}</div>
+            <div style={{ fontSize: 13, color: "var(--color-text-primary)" }}>{valor}</div>
+          </div>
+        );
+        return (
+          <div style={overlay} onClick={ev => ev.target === ev.currentTarget && setDrillEntry(null)}>
+            <div style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 16, padding: "24px 28px", width: "100%", maxWidth: 560, maxHeight: "85vh", overflowY: "auto", boxShadow: "0 8px 40px rgba(0,0,0,0.22)" }}>
+              {/* Cabeçalho */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 22 }}>
+                <div>
+                  <div style={{ fontSize: 26, fontWeight: 800, color: corDrill, letterSpacing: "-0.03em" }}>{fmt(e.valor)}</div>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: "var(--color-text-primary)", marginTop: 4 }}>{e.descricao}</div>
+                </div>
+                <button onClick={() => setDrillEntry(null)} style={{ fontSize: 20, border: "none", background: "none", cursor: "pointer", color: "var(--color-text-secondary)", padding: "0 0 0 16px", lineHeight: 1 }}>✕</button>
+              </div>
+
+              {/* Grade de campos */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 22 }}>
+                {campo("Status",
+                  <span style={{ display: "inline-block", padding: "2px 10px", borderRadius: 20, fontSize: 12, fontWeight: 600, color: statusInfo.color, background: statusInfo.bg }}>{statusInfo.label}</span>
+                )}
+                {campo("Vencimento", fmtData(e.vencimento))}
+                {clienteNome && campo("Cliente", clienteNome)}
+                {e.pedido_id && campo("Pedido",
+                  <a href={`/crm/pedidos/${e.pedido_id}`} style={{ color: "#2563EB", textDecoration: "none", fontWeight: 500 }}>
+                    {e.crm_orders?.nome ?? "Ver pedido →"}
+                  </a>
+                )}
+                {e.pago_em && campo("Pago em", fmtData(e.pago_em))}
+                {e.parcela && campo("Parcela", e.parcela)}
+                {e.forma_pagamento && campo("Forma de pagamento", e.forma_pagamento)}
+                {contaBancNome && campo("Conta bancária", contaBancNome)}
+                {contaPlanoNome && campo("Conta contábil", `${contaPlanoCode} — ${contaPlanoNome}`)}
+                {e.num_documento && campo("Nº Documento", e.num_documento)}
+              </div>
+
+              {/* Outras parcelas do mesmo pedido */}
+              {parcelasIrmas.length > 0 && (
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 10 }}>
+                    Outras parcelas do pedido
+                  </div>
+                  <div style={{ border: "0.5px solid var(--color-border-tertiary)", borderRadius: 10, overflow: "hidden" }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "80px 1fr 100px 80px", padding: "7px 14px", background: "var(--color-background-secondary)", borderBottom: "0.5px solid var(--color-border-tertiary)" }}>
+                      {["Parcela", "Vencimento", "Valor", "Status"].map(h => (
+                        <div key={h} style={{ fontSize: 10, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.04em" }}>{h}</div>
+                      ))}
+                    </div>
+                    {parcelasIrmas.map((p, idx) => {
+                      const pStatus = STATUS_MAP[p.status] ?? STATUS_MAP["pendente"];
+                      return (
+                        <div key={p.id} style={{ display: "grid", gridTemplateColumns: "80px 1fr 100px 80px", padding: "8px 14px", borderBottom: idx < parcelasIrmas.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", alignItems: "center" }}>
+                          <div style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>{p.parcela ?? "—"}</div>
+                          <div style={{ fontSize: 12, color: "var(--color-text-primary)" }}>{fmtData(p.vencimento)}</div>
+                          <div style={{ fontSize: 12, fontWeight: 600, color: corDrill }}>{fmt(p.valor)}</div>
+                          <span style={{ display: "inline-block", padding: "2px 8px", borderRadius: 20, fontSize: 10, fontWeight: 600, color: pStatus.color, background: pStatus.bg }}>{pStatus.label}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })()}
 
       {emailModal && (
         <EmailModal
