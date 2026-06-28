@@ -27,12 +27,14 @@ type Props = {
 export type FotosEntregaUploadHandle = {
   flushFila: (onProgress?: (atual: number, total: number) => void) => Promise<void>;
   filaLength: () => number;
+  cancelarUpload: () => void;
 };
 
 export const FotosEntregaUpload = forwardRef<FotosEntregaUploadHandle, Props>(function FotosEntregaUpload(
   { galeriaId, fotografoId, ensureGaleriaId, onFotosChange, deferred = false },
   ref,
 ) {
+  const canceladoRef = useRef(false);
   const [fotos,          setFotos]          = useState<FotoComStatus[]>([]);
   const [carregando,     setCarregando]     = useState(galeriaId !== null);
   const [dragOver,       setDragOver]       = useState(false);
@@ -182,8 +184,10 @@ export const FotosEntregaUpload = forwardRef<FotosEntregaUploadHandle, Props>(fu
 
   useImperativeHandle(ref, () => ({
     filaLength: () => fotos.filter((f) => f._uploading).length,
+    cancelarUpload: () => { canceladoRef.current = true; },
 
     async flushFila(onProgress) {
+      canceladoRef.current = false;
       const pendentes = fotos.filter((f) => f._uploading && (f as any)._file);
       if (pendentes.length === 0) return;
 
@@ -199,7 +203,7 @@ export const FotosEntregaUpload = forwardRef<FotosEntregaUploadHandle, Props>(fu
       let cursor = 0;
 
       async function proximo(): Promise<void> {
-        if (cursor >= pendentes.length) return;
+        if (canceladoRef.current || cursor >= pendentes.length) return;
         const foto = pendentes[cursor++];
         await processarEEnviar(foto.id, (foto as any)._file, gId ?? undefined);
         concluidos++;

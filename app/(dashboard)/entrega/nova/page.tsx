@@ -61,7 +61,8 @@ export default function NovaEntregaPage() {
   const [uploadTotal, setUploadTotal] = useState(0);
   const [uploadAtual, setUploadAtual] = useState(0);
   const inputFotosRef = useRef<HTMLInputElement>(null);
-  const proximoRef = useRef<(() => void) | null>(null);
+  const proximoRef   = useRef<(() => void) | null>(null);
+  const canceladoRef = useRef(false);
 
   const [capaFile,    setCapaFile]    = useState<File | null>(null);
   const [capaPreview, setCapaPreview] = useState<string | null>(null);
@@ -117,8 +118,15 @@ export default function NovaEntregaPage() {
     });
   }
 
+  function cancelarUpload() {
+    canceladoRef.current = true;
+    setUploadTotal(0);
+    setUploadAtual(0);
+  }
+
   async function enviarFila(idGaleria: string) {
     if (fila.length === 0 || !fotografo) return;
+    canceladoRef.current = false;
     setUploadTotal(fila.length);
     setUploadAtual(0);
     let concluidos = 0;
@@ -136,7 +144,9 @@ export default function NovaEntregaPage() {
       const total = pendentes.length;
 
       const proximo = () => {
+        if (canceladoRef.current) { done(); return; }
         while (slots > 0 && iniciados < total) {
+          if (canceladoRef.current) { done(); return; }
           slots--;
           const item = pendentes[iniciados++];
           const upd = (patch: Partial<ArquivoFila>) =>
@@ -616,6 +626,12 @@ export default function NovaEntregaPage() {
               <div style={{ height: "100%", borderRadius: 4, background: "#2563EB", width: `${Math.round((uploadAtual / uploadTotal) * 100)}%`, transition: "width 0.3s" }} />
             </div>
             <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 12 }}>Não feche esta janela até concluir.</div>
+            <button
+              onClick={cancelarUpload}
+              style={{ marginTop: 16, padding: "7px 18px", borderRadius: 7, border: "0.5px solid var(--color-border-secondary)", background: "transparent", fontSize: 13, color: "var(--color-text-secondary)", cursor: "pointer" }}
+            >
+              Cancelar
+            </button>
           </div>
         </div>
       )}

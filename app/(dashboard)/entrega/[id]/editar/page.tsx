@@ -605,6 +605,12 @@ export default function EditarEntregaPage() {
               <div style={{ height: "100%", borderRadius: 4, background: "#2563EB", width: `${Math.round((uploadAtual / uploadTotal) * 100)}%`, transition: "width 0.3s" }} />
             </div>
             <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 12 }}>Não feche esta janela até concluir.</div>
+            <button
+              onClick={() => { fotosRef.current?.cancelarUpload(); setUploadTotal(0); setUploadAtual(0); }}
+              style={{ marginTop: 16, padding: "7px 18px", borderRadius: 7, border: "0.5px solid var(--color-border-secondary)", background: "transparent", fontSize: 13, color: "var(--color-text-secondary)", cursor: "pointer" }}
+            >
+              Cancelar
+            </button>
           </div>
         </div>
       )}
