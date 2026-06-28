@@ -201,7 +201,7 @@ export const FotosEntregaUpload = forwardRef<FotosEntregaUploadHandle, Props>(fu
       async function proximo(): Promise<void> {
         if (cursor >= pendentes.length) return;
         const foto = pendentes[cursor++];
-        await processarEEnviar(foto.id, (foto as any)._file, gId);
+        await processarEEnviar(foto.id, (foto as any)._file, gId ?? undefined);
         concluidos++;
         onProgress?.(concluidos, total);
         await proximo();
