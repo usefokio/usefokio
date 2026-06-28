@@ -7,6 +7,7 @@ import { useFotografo } from "@/lib/context/FotografoContext";
 import { useUnsavedGuard } from "@/lib/hooks/useUnsavedGuard";
 import { uploadFileClient } from "@/lib/storage/uploadClient";
 import { deleteFilesClient } from "@/lib/storage/deleteClient";
+import { processarImagemEntrega } from "@/lib/imageResize";
 import { Field } from "@/components/ui/Field";
 import { inputStyle } from "@/lib/styles";
 import { ClienteSelect } from "../../_components/ClienteSelect";
@@ -177,19 +178,18 @@ export default function EditarEntregaPage() {
     }
   }
 
-  async function uploadCapa(idGaleria: string): Promise<string | null> {
-    if (!capaFile || !fotografo) return capaUrl;
+  async function uploadCapa(idGaleria: string): Promise<{ url: string; storage_path: string } | null> {
+    if (!capaFile || !fotografo) return null;
     setUploadandoCapa(true);
-    const supabase = createClient();
-    const ext = capaFile.type === "image/png" ? "png" : capaFile.type === "image/webp" ? "webp" : "jpg";
-    const path = `entrega/${fotografo.id}/${idGaleria}/capa.${ext}`;
     try {
-      const { url_publica } = await uploadFileClient(path, capaFile, capaFile.type);
+      const processed = await processarImagemEntrega(capaFile, 1920);
+      const path = `entrega/${fotografo.id}/${idGaleria}/capa.jpg`;
+      const { url_publica, storage_path } = await uploadFileClient(path, processed.blob, "image/jpeg");
       setUploadandoCapa(false);
-      return url_publica;
+      return { url: url_publica, storage_path };
     } catch {
       setUploadandoCapa(false);
-      return capaUrl;
+      return null;
     }
   }
 
@@ -198,7 +198,7 @@ export default function EditarEntregaPage() {
     setSaving(true);
     const supabase = createClient();
 
-    const novaCapaUrl = await uploadCapa(id);
+    const novaCapa = await uploadCapa(id);
 
     await supabase
       .from("galerias_entrega")
@@ -215,7 +215,8 @@ export default function EditarEntregaPage() {
         identificacao_obrigatoria:  identificacaoObrig,
         drive_apenas_identificado:  driveApenasIdentif,
         ordenacao_fotos:            ordenacaoFotos,
-        foto_capa_url:              novaCapaUrl ?? null,
+        foto_capa_url:              novaCapa ? novaCapa.url : capaUrl,
+        foto_capa_storage_path:     novaCapa ? novaCapa.storage_path : undefined,
         categoria_id:               categoriaId || null,
       })
       .eq("id", id)

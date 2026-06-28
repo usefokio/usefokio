@@ -218,10 +218,10 @@ export default function NovaEntregaPage() {
     if (error || !data) { setSaving(false); return; }
 
     if (capaFile && fotografo) {
-      const ext = capaFile.type === "image/png" ? "png" : capaFile.type === "image/webp" ? "webp" : "jpg";
-      const capaPath = `entrega/${fotografo.id}/${data.id}/capa.${ext}`;
-      const { url_publica: capaUrlPublica } = await uploadFileClient(capaPath, capaFile, capaFile.type);
-      await supabase.from("galerias_entrega").update({ foto_capa_url: capaUrlPublica }).eq("id", data.id);
+      const processed = await processarImagemEntrega(capaFile, 1920);
+      const capaPath = `entrega/${fotografo.id}/${data.id}/capa.jpg`;
+      const { url_publica: capaUrlPublica, storage_path: capaStoragePath } = await uploadFileClient(capaPath, processed.blob, "image/jpeg");
+      await supabase.from("galerias_entrega").update({ foto_capa_url: capaUrlPublica, foto_capa_storage_path: capaStoragePath }).eq("id", data.id);
     }
 
       await enviarFila(data.id);
