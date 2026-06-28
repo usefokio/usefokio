@@ -222,7 +222,7 @@ export const FotosEntregaUpload = forwardRef<FotosEntregaUploadHandle, Props>(fu
       return;
     }
     const supabase = createClient();
-    deleteFilesClient([{ storage_path: foto.storage_path, url_publica: foto.url_publica }]);
+    void deleteFilesClient([{ storage_path: foto.storage_path, url_publica: foto.url_publica }]);
     await supabase.from("galerias_entrega_fotos").delete().eq("id", foto.id);
     setFotos((prev) => { const next = prev.filter((f) => f.id !== foto.id); notificar(next); return next; });
   }
@@ -234,7 +234,7 @@ export const FotosEntregaUpload = forwardRef<FotosEntregaUploadHandle, Props>(fu
     const alvo = fotos.filter((f) => ids.has(f.id) && !f._uploading);
     const storageItems = alvo.map((f) => ({ storage_path: f.storage_path, url_publica: f.url_publica }));
     for (let i = 0; i < storageItems.length; i += 100)
-      deleteFilesClient(storageItems.slice(i, i + 100));
+      await deleteFilesClient(storageItems.slice(i, i + 100));
     const alvIds = alvo.map((f) => f.id);
     for (let i = 0; i < alvIds.length; i += 100)
       await supabase.from("galerias_entrega_fotos").delete().in("id", alvIds.slice(i, i + 100));
@@ -250,7 +250,7 @@ export const FotosEntregaUpload = forwardRef<FotosEntregaUploadHandle, Props>(fu
     const salvas = fotos.filter((f) => !f._uploading);
     const storageItems = salvas.map((f) => ({ storage_path: f.storage_path, url_publica: f.url_publica }));
     for (let i = 0; i < storageItems.length; i += 100)
-      deleteFilesClient(storageItems.slice(i, i + 100));
+      await deleteFilesClient(storageItems.slice(i, i + 100));
     const gid = galeriaIdRef.current;
     if (gid) await supabase.from("galerias_entrega_fotos").delete().eq("galeria_id", gid);
     fotos.filter((f) => f._uploading && f._previewUrl).forEach((f) => URL.revokeObjectURL(f._previewUrl!));

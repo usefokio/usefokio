@@ -254,7 +254,7 @@ function GaleriaSelecaoConteudo() {
       foto.storage_path   ? { storage_path: foto.storage_path,   url_publica: foto.url_publica }           : null,
       foto.thumbnail_path ? { storage_path: foto.thumbnail_path, url_publica: foto.url_publica } : null,
     ].filter(Boolean) as { storage_path: string; url_publica: string | null }[];
-    deleteFilesClient(storagItems);
+    void deleteFilesClient(storagItems);
     setFotos((prev) => prev.filter((f) => f.id !== fotoId));
     setGaleria((g) => g ? { ...g, total_fotos: Math.max(0, g.total_fotos - 1) } : g);
     if (galeria?.foto_capa_id === fotoId) setGaleria((g) => g ? { ...g, foto_capa_id: null } : g);
@@ -328,9 +328,8 @@ function GaleriaSelecaoConteudo() {
 
     setDeleteProgresso({ atual: 1, total: 1 });
 
-    // Storage: fire-and-forget em lotes de 100
     for (let i = 0; i < storageItems.length; i += 100)
-      deleteFilesClient(storageItems.slice(i, i + 100));
+      await deleteFilesClient(storageItems.slice(i, i + 100));
 
     setFotos((prev) => prev.filter((f) => !ids.includes(f.id)));
     setGaleria((g) => g ? { ...g, total_fotos: Math.max(0, g.total_fotos - ids.length) } : g);

@@ -350,7 +350,7 @@ export default function EntregaDetailPage() {
     const supabase = createClient();
     const items = fotos.map((f) => ({ storage_path: f.storage_path, url_publica: f.url_publica }));
     for (let i = 0; i < items.length; i += 100)
-      deleteFilesClient(items.slice(i, i + 100));
+      await deleteFilesClient(items.slice(i, i + 100));
     await supabase.from("galerias_entrega_fotos").delete().eq("galeria_id", id);
     setFotos([]);
     setSelecionadas(new Set());
@@ -367,7 +367,7 @@ export default function EntregaDetailPage() {
     const storageItems = alvo.map((f) => ({ storage_path: f.storage_path, url_publica: f.url_publica }));
     const ids          = alvo.map((f) => f.id);
     for (let i = 0; i < storageItems.length; i += 100)
-      deleteFilesClient(storageItems.slice(i, i + 100));
+      await deleteFilesClient(storageItems.slice(i, i + 100));
     for (let i = 0; i < ids.length; i += 100) {
       await supabase.from("galerias_entrega_fotos").delete().in("id", ids.slice(i, i + 100));
     }

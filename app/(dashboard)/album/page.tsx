@@ -94,7 +94,7 @@ export default function AlbumPage() {
       const items = (laminas as { storage_path: string; url_publica: string | null }[])
         .map((l) => ({ storage_path: l.storage_path, url_publica: l.url_publica }));
       for (let i = 0; i < items.length; i += 100)
-        deleteFilesClient(items.slice(i, i + 100));
+        await deleteFilesClient(items.slice(i, i + 100));
     }
     await supabase.from("album_selecoes").delete().eq("id", excluindo.id).eq("fotografo_id", fotografo.id);
     setSelecoes((prev) => prev.filter((s) => s.id !== excluindo.id));

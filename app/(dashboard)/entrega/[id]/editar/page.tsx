@@ -251,7 +251,7 @@ export default function EditarEntregaPage() {
       const items = (fotos as { storage_path: string; url_publica: string | null }[])
         .map((f) => ({ storage_path: f.storage_path, url_publica: f.url_publica }));
       for (let i = 0; i < items.length; i += 100)
-        deleteFilesClient(items.slice(i, i + 100));
+        await deleteFilesClient(items.slice(i, i + 100));
     }
 
     await supabase.from("galerias_entrega").delete().eq("id", id).eq("fotografo_id", fotografo.id);

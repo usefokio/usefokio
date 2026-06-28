@@ -130,7 +130,7 @@ function SelecaoConteudo() {
           f.thumbnail_path ? { storage_path: f.thumbnail_path, url_publica: null } : null,
         ].filter(Boolean)) as { storage_path: string; url_publica: string | null }[];
       for (let i = 0; i < items.length; i += 100)
-        deleteFilesClient(items.slice(i, i + 100));
+        await deleteFilesClient(items.slice(i, i + 100));
     }
     await supabase.from("galerias_selecao").delete().eq("id", excluindo.id).eq("fotografo_id", fotografo.id);
     setGalerias((prev) => prev.filter((g) => g.id !== excluindo.id));
