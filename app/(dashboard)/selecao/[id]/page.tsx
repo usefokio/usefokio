@@ -8,6 +8,7 @@ import { useFotografo } from "@/lib/context/FotografoContext";
 import { processarImagem } from "@/lib/imageResize";
 import { uploadFileClient } from "@/lib/storage/uploadClient";
 import { deleteFilesClient } from "@/lib/storage/deleteClient";
+import { fetchAllRows } from "@/lib/supabase/fetchAll";
 import exifr from "exifr";
 import { PLANOS, BETA_RESOLUCAO_MAXIMA, limiteEfetivo, type PlanoId } from "@/lib/planos";
 import type { GaleriaSelecao, GaleriaSelecaoFoto, Cliente, Categoria } from "@/lib/supabase/types";
@@ -100,13 +101,13 @@ function GaleriaSelecaoConteudo() {
         const supabase = createClient();
         const [
           { data: gal,  error: eGal },
-          { data: fts },
+          fts,
           { data: cats },
           { data: esc },
           { data: evs },
         ] = await Promise.all([
           supabase.from("galerias_selecao").select("*").eq("id", id).single(),
-          supabase.from("galerias_selecao_fotos").select("*").eq("galeria_id", id).order("ordem").order("created_at"),
+          fetchAllRows<GaleriaSelecaoFoto>((sb, from, to) => sb.from("galerias_selecao_fotos").select("*").eq("galeria_id", id).order("ordem").order("created_at").range(from, to), supabase),
           supabase.from("galeria_selecao_categorias").select("categorias(*)").eq("galeria_id", id),
           supabase.from("galerias_selecao_escolhas")
             .select("id, foto_id, comentario, created_at, fotos:galerias_selecao_fotos(nome_arquivo, url_publica, thumbnail_path)")
@@ -119,7 +120,7 @@ function GaleriaSelecaoConteudo() {
         if (eGal || !gal) { setLoading(false); return; }
 
         setGaleria(gal);
-        setFotos((fts ?? []) as FotoComStatus[]);
+        setFotos((fts ?? []) as unknown as FotoComStatus[]);
         setCategorias(((cats ?? []) as any[]).map((r) => r.categorias).filter(Boolean) as Categoria[]);
         setEscolhas((esc ?? []) as unknown as EscolhaItem[]);
         setEventos((evs ?? []) as Evento[]);
@@ -304,7 +305,8 @@ function GaleriaSelecaoConteudo() {
       f.thumbnail_path ? { storage_path: f.thumbnail_path, url_publica: f.url_publica } : null,
     ].filter(Boolean)) as { storage_path: string; url_publica: string | null }[];
     if (storageItems.length > 0) deleteFilesClient(storageItems);
-    await supabase.from("galerias_selecao_fotos").delete().in("id", ids);
+    for (let i = 0; i < ids.length; i += 500)
+      await supabase.from("galerias_selecao_fotos").delete().in("id", ids.slice(i, i + 500));
     setFotos((prev) => prev.filter((f) => !ids.includes(f.id)));
     setGaleria((g) => g ? { ...g, total_fotos: Math.max(0, g.total_fotos - ids.length) } : g);
     setSelecionados(new Set());
