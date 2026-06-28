@@ -4,6 +4,8 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
+import { ClienteSelect } from "@/components/ui/ClienteSelect";
+import { ComboSelect } from "@/components/ui/ComboSelect";
 import type { CrmSchedule, CrmAgendamentoCategoria, Cliente } from "@/lib/supabase/types";
 
 // ─── Tipos internos ────────────────────────────────────────────────────────────
@@ -636,7 +638,6 @@ function ModalEvento({ modo, diaInicial, evento, fotografoId, onFechar, onSalvo 
   const [erro,        setErro]        = useState("");
 
   const [categorias, setCategorias] = useState<CrmAgendamentoCategoria[]>([]);
-  const [clientes,   setClientes]   = useState<Pick<Cliente, "id" | "nome">[]>([]);
   const [opps,       setOpps]       = useState<{ id: string; titulo: string }[]>([]);
 
   useEffect(() => {
@@ -644,11 +645,9 @@ function ModalEvento({ modo, diaInicial, evento, fotografoId, onFechar, onSalvo 
     const sb = createClient();
     Promise.all([
       sb.from("crm_agendamento_categorias").select("*").or(`fotografo_id.is.null,fotografo_id.eq.${fotografo.id}`).eq("ativo", true).order("ordem"),
-      sb.from("clientes").select("id, nome").eq("fotografo_id", fotografo.id).eq("crm_ativo", true).order("nome"),
       sb.from("crm_opportunities").select("id, titulo").eq("fotografo_id", fotografo.id).order("titulo"),
-    ]).then(([{ data: cats }, { data: cls }, { data: opp }]) => {
+    ]).then(([{ data: cats }, { data: opp }]) => {
       setCategorias((cats ?? []) as CrmAgendamentoCategoria[]);
-      setClientes((cls ?? []) as Pick<Cliente, "id" | "nome">[]);
       setOpps((opp ?? []) as { id: string; titulo: string }[]);
     });
   }, [fotografo]);
@@ -720,27 +719,33 @@ function ModalEvento({ modo, diaInicial, evento, fotografoId, onFechar, onSalvo 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <div>
               <label style={labelStyle}>TIPO</label>
-              <select value={tipo} onChange={(e) => setTipo(e.target.value)} style={inputStyle}>
-                <option value="">Selecione…</option>
-                <option value="tarefa">Tarefa</option>
-                {categorias.map((c) => <option key={c.id} value={c.nome}>{c.nome}{c.sistema ? " (sistema)" : ""}</option>)}
-              </select>
+              <ComboSelect
+                options={[
+                  { id: "tarefa", label: "Tarefa" },
+                  ...categorias.map(c => ({ id: c.nome, label: c.nome + (c.sistema ? " (sistema)" : "") })),
+                ]}
+                value={tipo}
+                onChange={setTipo}
+                placeholder="Selecione…"
+              />
             </div>
             <div>
               <label style={labelStyle}>CLIENTE</label>
-              <select value={clienteId} onChange={(e) => setClienteId(e.target.value)} style={inputStyle}>
-                <option value="">Nenhum</option>
-                {clientes.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
-              </select>
+              <ClienteSelect
+                value={clienteId}
+                onChange={id => setClienteId(id)}
+              />
             </div>
           </div>
 
           <div>
             <label style={labelStyle}>OPORTUNIDADE</label>
-            <select value={oppId} onChange={(e) => setOppId(e.target.value)} style={inputStyle}>
-              <option value="">Nenhuma</option>
-              {opps.map((o) => <option key={o.id} value={o.id}>{o.titulo}</option>)}
-            </select>
+            <ComboSelect
+              options={[{ id: "", label: "Nenhuma" }, ...opps.map(o => ({ id: o.id, label: o.titulo }))]}
+              value={oppId}
+              onChange={setOppId}
+              placeholder="Nenhuma"
+            />
           </div>
 
           <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", userSelect: "none" }}>

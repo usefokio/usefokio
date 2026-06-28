@@ -7,6 +7,8 @@ import { useFotografo } from "@/lib/context/FotografoContext";
 import { isValidDate } from "@/lib/utils/format";
 import { Field } from "@/components/ui/Field";
 import { inputStyle } from "@/lib/styles";
+import { ClienteSelect } from "@/components/ui/ClienteSelect";
+import { ComboSelect } from "@/components/ui/ComboSelect";
 import type { CrmOrder, CrmProduct, Cliente } from "@/lib/supabase/types";
 
 // ── Tipos locais ──────────────────────────────────────────────────────────────
@@ -134,10 +136,7 @@ export default function FormPedido({ inicial, onSalvo }: Props) {
   const [saving,   setSaving]   = useState(false);
   const [error,    setError]    = useState("");
 
-  // Clientes
-  const [clientes,               setClientes]               = useState<Pick<Cliente, "id" | "nome">[]>([]);
-  const [buscaCliente,           setBuscaCliente]           = useState("");
-  const [clienteNomeSelecionado, setClienteNomeSelecionado] = useState("");
+  // Clientes — carregados pelo ClienteSelect internamente
 
   // Produtos
   const [produtos,     setProdutos]     = useState<CrmProduct[]>([]);
@@ -166,10 +165,7 @@ export default function FormPedido({ inicial, onSalvo }: Props) {
   useEffect(() => {
     if (!fotografo) return;
     const sb = createClient();
-    const p1 = sb.from("clientes").select("id, nome").eq("fotografo_id", fotografo.id).order("nome");
     const p2 = sb.from("crm_products").select("*").eq("fotografo_id", fotografo.id).eq("ativo", true).order("nome");
-
-    const base = Promise.all([p1, p2]);
 
     if (isEditing && inicial?.id) {
       const p3 = sb.from("crm_financial_entries")
@@ -177,13 +173,8 @@ export default function FormPedido({ inicial, onSalvo }: Props) {
         .eq("pedido_id", inicial.id)
         .eq("tipo", "receita")
         .order("vencimento");
-      Promise.all([base, p3]).then(([[r1, r2], r3]) => {
-        setClientes((r1.data ?? []) as Pick<Cliente, "id" | "nome">[]);
+      Promise.all([p2, p3]).then(([r2, r3]) => {
         setProdutos((r2.data ?? []) as CrmProduct[]);
-        if (inicial?.cliente_id) {
-          const c = (r1.data ?? []).find(x => (x as { id: string }).id === inicial!.cliente_id);
-          if (c) setClienteNomeSelecionado((c as Pick<Cliente, "id" | "nome">).nome);
-        }
         const entries = (r3.data ?? []) as { id: string; descricao: string; valor: number; vencimento: string }[];
         if (entries.length > 0) {
           setPlanos(entries.map(e => ({
@@ -194,16 +185,11 @@ export default function FormPedido({ inicial, onSalvo }: Props) {
         }
       });
     } else {
-      base.then(([r1, r2]) => {
-        setClientes((r1.data ?? []) as Pick<Cliente, "id" | "nome">[]);
+      p2.then(r2 => {
         setProdutos((r2.data ?? []) as CrmProduct[]);
-        if (inicial?.cliente_id) {
-          const c = (r1.data ?? []).find(x => (x as { id: string }).id === inicial!.cliente_id);
-          if (c) setClienteNomeSelecionado((c as Pick<Cliente, "id" | "nome">).nome);
-        }
       });
     }
-  }, [fotografo, inicial?.cliente_id, inicial?.id, isEditing]);
+  }, [fotografo, inicial?.id, isEditing]);
 
   // ── Helpers de UI ───────────────────────────────────────────────────────────
   const upd = (k: keyof FormData, v: string) => setForm(f => ({ ...f, [k]: v }));
@@ -211,9 +197,6 @@ export default function FormPedido({ inicial, onSalvo }: Props) {
   const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
   const fmtDate = (s: string) => new Date(s + "T12:00:00").toLocaleDateString("pt-BR");
 
-  const clientesFiltrados = clientes.filter(c =>
-    buscaCliente === "" || c.nome.toLowerCase().includes(buscaCliente.toLowerCase())
-  );
   const produtosFiltrados = produtos.filter(p =>
     buscaProduto === "" || p.nome.toLowerCase().includes(buscaProduto.toLowerCase())
   );
@@ -580,19 +563,25 @@ export default function FormPedido({ inicial, onSalvo }: Props) {
         </Field>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
           <Field label="Categoria">
-            <select value={form.categoria} onChange={e => upd("categoria", e.target.value)} style={inputStyle}>
-              <option value="">Selecionar…</option>
-              {CATEGORIAS_PADRAO.map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
+            <ComboSelect
+              options={CATEGORIAS_PADRAO.map(c => ({ id: c, label: c }))}
+              value={form.categoria}
+              onChange={v => upd("categoria", v)}
+              placeholder="Selecionar categoria…"
+            />
           </Field>
           <Field label="Status">
-            <select value={form.status} onChange={e => upd("status", e.target.value as FormData["status"])} style={inputStyle}>
-              <option value="aguardando_sinal">Aguardando sinal</option>
-              <option value="em_producao">Em produção</option>
-              <option value="entregue">Entregue</option>
-              <option value="concluido">Concluído</option>
-              <option value="cancelado">Cancelado</option>
-            </select>
+            <ComboSelect
+              options={[
+                { id: "aguardando_sinal", label: "Aguardando sinal" },
+                { id: "em_producao",      label: "Em produção" },
+                { id: "entregue",         label: "Entregue" },
+                { id: "concluido",        label: "Concluído" },
+                { id: "cancelado",        label: "Cancelado" },
+              ]}
+              value={form.status}
+              onChange={v => upd("status", v as FormData["status"])}
+            />
           </Field>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14 }}>
@@ -625,37 +614,12 @@ export default function FormPedido({ inicial, onSalvo }: Props) {
       {/* ── Cliente ── */}
       <div style={{ marginTop: 24, borderTop: "0.5px solid var(--color-border-tertiary)", paddingTop: 20 }}>
         {sec("Cliente")}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 10, alignItems: "end" }}>
-          <Field label="Cliente vinculado">
-            {form.cliente_id ? (
-              <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 12px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-secondary)" }}>
-                <span style={{ flex: 1, fontSize: 13, fontWeight: 500, color: "var(--color-text-primary)" }}>{clienteNomeSelecionado}</span>
-                <button onClick={() => { upd("cliente_id", ""); setClienteNomeSelecionado(""); setBuscaCliente(""); }}
-                  style={{ background: "none", border: "none", cursor: "pointer", fontSize: 16, color: "var(--color-text-secondary)", padding: 0 }}>×</button>
-              </div>
-            ) : (
-              <div style={{ position: "relative" }}>
-                <input value={buscaCliente} onChange={e => setBuscaCliente(e.target.value)} placeholder="Buscar cliente…" style={inputStyle} />
-                {buscaCliente && clientesFiltrados.length > 0 && (
-                  <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 50, background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-secondary)", borderRadius: 8, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", maxHeight: 200, overflowY: "auto", marginTop: 4 }}>
-                    {clientesFiltrados.slice(0, 8).map(c => (
-                      <div key={c.id} onClick={() => { upd("cliente_id", c.id); setClienteNomeSelecionado(c.nome); setBuscaCliente(""); }}
-                        style={{ padding: "10px 14px", fontSize: 13, cursor: "pointer", borderBottom: "0.5px solid var(--color-border-tertiary)" }}
-                        onMouseEnter={e => (e.currentTarget.style.background = "var(--color-background-secondary)")}
-                        onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
-                        {c.nome}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-          </Field>
-          <button onClick={() => router.push("/clientes/novo")}
-            style={{ padding: "9px 14px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "transparent", fontSize: 12, color: "var(--color-text-secondary)", cursor: "pointer", whiteSpace: "nowrap", marginBottom: 1 }}>
-            + Novo cliente
-          </button>
-        </div>
+        <Field label="Cliente vinculado">
+          <ClienteSelect
+            value={form.cliente_id}
+            onChange={id => upd("cliente_id", id)}
+          />
+        </Field>
       </div>
 
       {/* ── Produtos ── */}
@@ -965,10 +929,12 @@ export default function FormPedido({ inicial, onSalvo }: Props) {
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
               <Field label="Forma de pagamento">
-                <select value={modalPlano.forma} onChange={e => updPlano("forma", e.target.value)} style={inputStyle}>
-                  <option value="">Selecionar…</option>
-                  {FORMAS_PAGAMENTO.map(f => <option key={f} value={f}>{f}</option>)}
-                </select>
+                <ComboSelect
+                  options={FORMAS_PAGAMENTO.map(f => ({ id: f, label: f }))}
+                  value={modalPlano.forma}
+                  onChange={v => updPlano("forma", v)}
+                  placeholder="Selecionar…"
+                />
               </Field>
               <Field label="Data Prazo">
                 <input type="date" value={modalPlano.dataPrazo} onChange={e => updPlano("dataPrazo", e.target.value)} style={inputStyle} />
@@ -993,12 +959,16 @@ export default function FormPedido({ inicial, onSalvo }: Props) {
                 />
               </Field>
               <Field label="Intervalos de Pagamento">
-                <select value={modalPlano.intervalo} onChange={e => updPlano("intervalo", e.target.value)} style={inputStyle}>
-                  <option value="mensal">Mensal</option>
-                  <option value="quinzenal">Quinzenal</option>
-                  <option value="semanal">Semanal</option>
-                  <option value="unico">Único (sem intervalo)</option>
-                </select>
+                <ComboSelect
+                  options={[
+                    { id: "mensal",     label: "Mensal" },
+                    { id: "quinzenal",  label: "Quinzenal" },
+                    { id: "semanal",    label: "Semanal" },
+                    { id: "unico",      label: "Único (sem intervalo)" },
+                  ]}
+                  value={modalPlano.intervalo}
+                  onChange={v => updPlano("intervalo", v)}
+                />
               </Field>
             </div>
 

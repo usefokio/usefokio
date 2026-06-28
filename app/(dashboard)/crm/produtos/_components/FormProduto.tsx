@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
+import { ComboSelect } from "@/components/ui/ComboSelect";
 import type { CrmProduct, CrmChartOfAccount, CrmProductCategory, CrmProductCusto } from "@/lib/supabase/types";
 
 type Tab = "info" | "custos";
@@ -253,10 +254,12 @@ export function FormProduto({ produto }: Props) {
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
             <div>
               <label style={labelStyle}>CATEGORIA *</label>
-              <select value={categoria} onChange={(e) => setCategoria(e.target.value)} style={inputStyle}>
-                <option value="">Selecione…</option>
-                {categorias.map((c) => <option key={c.id} value={c.nome}>{c.nome}</option>)}
-              </select>
+              <ComboSelect
+                options={categorias.map(c => ({ id: c.nome, label: c.nome }))}
+                value={categoria}
+                onChange={setCategoria}
+                placeholder="Selecione…"
+              />
             </div>
             <div>
               <label style={labelStyle}>CÓDIGO</label>
@@ -311,13 +314,12 @@ export function FormProduto({ produto }: Props) {
             </div>
             <div>
               <label style={labelStyle}>CONTA DE VENDAS *</label>
-              <select value={contaVendas} onChange={(e) => setContaVendas(e.target.value)}
-                style={{ ...inputStyle, borderColor: !contaVendas ? "rgba(239,68,68,0.5)" : undefined }}>
-                <option value="">Selecione…</option>
-                {contasVendas.filter((c) => c.codigo.startsWith("3.1")).map((c) => (
-                  <option key={c.id} value={c.id}>{c.codigo} — {c.nome}</option>
-                ))}
-              </select>
+              <ComboSelect
+                options={contasVendas.filter(c => c.codigo.startsWith("3.1")).map(c => ({ id: c.id, label: `${c.codigo} — ${c.nome}` }))}
+                value={contaVendas}
+                onChange={setContaVendas}
+                placeholder="Selecione…"
+              />
             </div>
           </div>
 
@@ -446,16 +448,12 @@ export function FormProduto({ produto }: Props) {
 
               <div>
                 <label style={labelStyle}>CONTA A PAGAR</label>
-                <select
+                <ComboSelect
+                  options={contasDespesa.map(c => ({ id: c.id, label: `${c.codigo} — ${c.nome}` }))}
                   value={custoForm.conta_id ?? ""}
-                  onChange={(e) => setCustoForm((p) => p ? { ...p, conta_id: e.target.value || null } : p)}
-                  style={inputStyle}
-                >
-                  <option value="">Selecione…</option>
-                  {contasDespesa.map((c) => (
-                    <option key={c.id} value={c.id}>{c.codigo} — {c.nome}</option>
-                  ))}
-                </select>
+                  onChange={v => setCustoForm(p => p ? { ...p, conta_id: v || null } : p)}
+                  placeholder="Selecione…"
+                />
               </div>
 
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>

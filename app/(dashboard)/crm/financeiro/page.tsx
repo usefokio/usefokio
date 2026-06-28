@@ -11,6 +11,8 @@ import { fetchAllRows } from "@/lib/supabase/fetchAll";
 import { IcoEdit, IcoTrash, IcoMail, IcoCheck } from "@/app/(dashboard)/crm/_components/Icons";
 import { Paginacao } from "@/app/(dashboard)/crm/_components/Paginacao";
 import { EmailModal } from "@/app/(dashboard)/crm/_components/EmailModal";
+import { ClienteSelect } from "@/components/ui/ClienteSelect";
+import { ComboSelect } from "@/components/ui/ComboSelect";
 import type { CrmFinancialEntry } from "@/lib/supabase/types";
 
 type EntryWithPedido = CrmFinancialEntry & {
@@ -106,8 +108,6 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
   const [novoQtdParc,     setNovoQtdParc]     = useState("2");
   const [novoPeriodo,     setNovoPeriodo]     = useState("30");
   const [novoClienteId,   setNovoClienteId]   = useState("");
-  const [novoClienteBusca,setNovoClienteBusca]= useState("");
-  const [novoClientesOpts,setNovoClientesOpts]= useState<{ id: string; nome: string }[]>([]);
   const [salvandonovo,    setSalvandoNovo]    = useState(false);
   const [erroNovo,        setErroNovo]        = useState("");
   const largura = useWindowWidth();
@@ -303,16 +303,12 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
   // Novo lançamento — abrir modal
   const abrirNovo = async () => {
     if (!fotografo) return;
-    const { data: clisData } = await createClient()
-      .from("clientes").select("id, nome")
-      .eq("fotografo_id", fotografo.id).eq("crm_ativo", true).order("nome");
-    setNovoClientesOpts((clisData ?? []) as { id: string; nome: string }[]);
     const venc = new Date(); venc.setDate(venc.getDate() + 30);
     setNovoVencimento(venc.toISOString().slice(0, 10));
     setNovoCategoriaId(""); setNovoValor(""); setNovoFormaPag("");
     setNovoNumDoc(""); setNovoDescricao(""); setNovoRecorrente(false);
     setNovoQtdParc("2"); setNovoPeriodo("30"); setErroNovo("");
-    setNovoClienteId(""); setNovoClienteBusca("");
+    setNovoClienteId("");
     setShowNovo(true);
   };
 
@@ -700,16 +696,12 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
                 <div style={{ fontSize: 12, color: "#D97706", marginBottom: 8, background: "rgba(217,119,6,0.08)", border: "0.5px solid rgba(217,119,6,0.3)", borderRadius: 8, padding: "8px 12px" }}>
                   Esta despesa não tem categoria — selecione o plano de contas.
                 </div>
-                <select
+                <ComboSelect
+                  options={chartAccounts.filter(c => c.codigo.startsWith("4") || c.codigo.startsWith("5")).map(c => ({ id: c.id, label: `${c.codigo} — ${c.nome}` }))}
                   value={modalReceber.contaPlanoId}
-                  onChange={e => setModalReceber(m => m ? { ...m, contaPlanoId: e.target.value } : m)}
-                  style={{ width: "100%", boxSizing: "border-box", padding: "9px 12px", borderRadius: 8, border: `0.5px solid ${modalReceber.contaPlanoId ? "var(--color-border-secondary)" : "#D97706"}`, background: "var(--color-background-primary)", fontSize: 13, color: "var(--color-text-primary)", outline: "none" }}
-                >
-                  <option value="">Selecione a categoria…</option>
-                  {chartAccounts.filter(c => c.codigo.startsWith("4") || c.codigo.startsWith("5")).map(c => (
-                    <option key={c.id} value={c.id}>{c.codigo} — {c.nome}</option>
-                  ))}
-                </select>
+                  onChange={v => setModalReceber(m => m ? { ...m, contaPlanoId: v } : m)}
+                  placeholder="Selecione a categoria…"
+                />
               </div>
             )}
 
@@ -856,16 +848,12 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
               {chartAccounts.length > 0 && (
                 <div>
                   <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>Plano de contas</div>
-                  <select
+                  <ComboSelect
+                    options={[{ id: "", label: "Sem categoria" }, ...chartAccounts.filter(c => modalEditar.entry.tipo === "receita" ? c.codigo.startsWith("3") : (c.codigo.startsWith("4") || c.codigo.startsWith("5"))).map(c => ({ id: c.id, label: `${c.codigo} — ${c.nome}` }))]}
                     value={modalEditar.contaPlanoId}
-                    onChange={e => setModalEditar(m => m ? { ...m, contaPlanoId: e.target.value } : m)}
-                    style={{ width: "100%", boxSizing: "border-box", padding: "9px 12px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", fontSize: 13, color: "var(--color-text-primary)", outline: "none" }}
-                  >
-                    <option value="">Sem categoria</option>
-                    {chartAccounts.filter(c => modalEditar.entry.tipo === "receita" ? c.codigo.startsWith("3") : (c.codigo.startsWith("4") || c.codigo.startsWith("5"))).map(c => (
-                      <option key={c.id} value={c.id}>{c.codigo} — {c.nome}</option>
-                    ))}
-                  </select>
+                    onChange={v => setModalEditar(m => m ? { ...m, contaPlanoId: v } : m)}
+                    placeholder="Sem categoria"
+                  />
                 </div>
               )}
             </div>
@@ -911,39 +899,10 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
               {/* Cliente */}
               <div>
                 <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>Cliente</div>
-                {novoClienteId ? (
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 12px", borderRadius: 8, border: "0.5px solid #2563EB", background: "rgba(37,99,235,0.06)", fontSize: 13 }}>
-                    <span style={{ flex: 1, color: "var(--color-text-primary)", fontWeight: 500 }}>
-                      {novoClientesOpts.find(c => c.id === novoClienteId)?.nome}
-                    </span>
-                    <button onClick={() => { setNovoClienteId(""); setNovoClienteBusca(""); }}
-                      style={{ background: "none", border: "none", cursor: "pointer", color: "var(--color-text-secondary)", fontSize: 16, lineHeight: 1, padding: 0 }}>×</button>
-                  </div>
-                ) : (
-                  <div style={{ position: "relative" }}>
-                    <input value={novoClienteBusca} onChange={e => setNovoClienteBusca(e.target.value)}
-                      placeholder="Buscar cliente…"
-                      style={{ width: "100%", boxSizing: "border-box", padding: "9px 12px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", fontSize: 13, color: "var(--color-text-primary)", outline: "none" }} />
-                    {novoClienteBusca.length >= 2 && (
-                      <div style={{ position: "absolute", top: "100%", left: 0, right: 0, background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 8, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", zIndex: 10, maxHeight: 200, overflowY: "auto" }}>
-                        {novoClientesOpts
-                          .filter(c => c.nome.toLowerCase().includes(novoClienteBusca.toLowerCase()))
-                          .slice(0, 8)
-                          .map(c => (
-                            <div key={c.id} onClick={() => { setNovoClienteId(c.id); setNovoClienteBusca(""); }}
-                              style={{ padding: "9px 14px", fontSize: 13, cursor: "pointer", color: "var(--color-text-primary)" }}
-                              onMouseEnter={e => (e.currentTarget.style.background = "var(--color-background-secondary)")}
-                              onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
-                              {c.nome}
-                            </div>
-                          ))}
-                        {novoClientesOpts.filter(c => c.nome.toLowerCase().includes(novoClienteBusca.toLowerCase())).length === 0 && (
-                          <div style={{ padding: "9px 14px", fontSize: 13, color: "var(--color-text-secondary)" }}>Nenhum cliente encontrado</div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
+                <ClienteSelect
+                  value={novoClienteId}
+                  onChange={id => setNovoClienteId(id)}
+                />
               </div>
 
               {/* Vencimento + Valor */}
@@ -964,26 +923,24 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
               {/* Categoria */}
               <div>
                 <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>Categoria (Plano de contas)</div>
-                <select value={novoCategoriaId} onChange={e => setNovoCategoriaId(e.target.value)}
-                  style={{ width: "100%", boxSizing: "border-box", padding: "9px 12px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", fontSize: 13, color: "var(--color-text-primary)", outline: "none" }}>
-                  <option value="">Selecione…</option>
-                  {chartAccounts.filter(c => ABA_CONFIG[aba].tipo === "receita" ? c.codigo.startsWith("3") : (c.codigo.startsWith("4") || c.codigo.startsWith("5"))).map(c => (
-                    <option key={c.id} value={c.id}>{c.codigo} — {c.nome}</option>
-                  ))}
-                </select>
+                <ComboSelect
+                  options={[{ id: "", label: "Selecione…" }, ...chartAccounts.filter(c => ABA_CONFIG[aba].tipo === "receita" ? c.codigo.startsWith("3") : (c.codigo.startsWith("4") || c.codigo.startsWith("5"))).map(c => ({ id: c.id, label: `${c.codigo} — ${c.nome}` }))]}
+                  value={novoCategoriaId}
+                  onChange={setNovoCategoriaId}
+                  placeholder="Selecione…"
+                />
               </div>
 
               {/* Forma de pagamento + Nº documento */}
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                 <div>
                   <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>Forma de pagamento</div>
-                  <select value={novoFormaPag} onChange={e => setNovoFormaPag(e.target.value)}
-                    style={{ width: "100%", boxSizing: "border-box", padding: "9px 12px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", fontSize: 13, color: "var(--color-text-primary)", outline: "none" }}>
-                    <option value="">Selecione…</option>
-                    {["Boleto","Carnê","Cartão de crédito","Cartão de débito","Cheque","Dinheiro","Pix","Transferência"].map(f => (
-                      <option key={f} value={f}>{f}</option>
-                    ))}
-                  </select>
+                  <ComboSelect
+                    options={["Boleto","Carnê","Cartão de crédito","Cartão de débito","Cheque","Dinheiro","Pix","Transferência"].map(f => ({ id: f, label: f }))}
+                    value={novoFormaPag}
+                    onChange={setNovoFormaPag}
+                    placeholder="Selecione…"
+                  />
                 </div>
                 <div>
                   <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>Nº Documento</div>
