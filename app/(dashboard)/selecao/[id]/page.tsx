@@ -297,7 +297,6 @@ function GaleriaSelecaoConteudo() {
   const handleDeleteLote = useCallback(async () => {
     if (selecionados.size === 0) return;
     if (!confirm(`Excluir ${selecionados.size} foto${selecionados.size !== 1 ? "s" : ""}? Esta ação não pode ser desfeita.`)) return;
-    const supabase = createClient();
     const ids = Array.from(selecionados);
     const fotosParaDeletar = fotos.filter((f) => ids.includes(f.id));
     const storageItems = fotosParaDeletar.flatMap((f) => [
@@ -306,25 +305,22 @@ function GaleriaSelecaoConteudo() {
     ].filter(Boolean)) as { storage_path: string; url_publica: string | null }[];
 
     setDeletandoLote(true);
+    setDeleteProgresso({ atual: 0, total: 1 });
 
-    // Quando TODAS as fotos da galeria estão selecionadas, deletar por galeria_id
-    // evita o limite do PostgREST com arrays grandes de IDs
     const todasSelecionadas = ids.length === fotos.filter((f) => !f._uploading).length;
 
-    if (todasSelecionadas) {
-      setDeleteProgresso({ atual: 0, total: 1 });
-      await supabase.from("galerias_selecao_fotos").delete().eq("galeria_id", id);
-      setDeleteProgresso({ atual: 1, total: 1 });
-    } else {
-      const BATCH = 200;
-      const totalBatches = Math.ceil(ids.length / BATCH);
-      setDeleteProgresso({ atual: 0, total: totalBatches });
-      for (let i = 0; i < ids.length; i += BATCH) {
-        const { error } = await supabase.from("galerias_selecao_fotos").delete().in("id", ids.slice(i, i + BATCH));
-        if (error) console.error("Erro no delete batch:", error);
-        setDeleteProgresso({ atual: Math.floor(i / BATCH) + 1, total: totalBatches });
-      }
+    const resp = await fetch("/api/selecao/fotos/bulk-delete", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(todasSelecionadas ? { galeria_id: id } : { galeria_id: id, ids }),
+    });
+
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      console.error("Erro no bulk delete:", err);
     }
+
+    setDeleteProgresso({ atual: 1, total: 1 });
 
     // Storage: fire-and-forget em lotes de 100
     for (let i = 0; i < storageItems.length; i += 100)
