@@ -305,14 +305,25 @@ function GaleriaSelecaoConteudo() {
       f.thumbnail_path ? { storage_path: f.thumbnail_path, url_publica: f.url_publica } : null,
     ].filter(Boolean)) as { storage_path: string; url_publica: string | null }[];
 
-    const BATCH = 500;
-    const totalBatches = Math.ceil(ids.length / BATCH);
     setDeletandoLote(true);
-    setDeleteProgresso({ atual: 0, total: totalBatches });
 
-    for (let i = 0; i < ids.length; i += BATCH) {
-      await supabase.from("galerias_selecao_fotos").delete().in("id", ids.slice(i, i + BATCH));
-      setDeleteProgresso({ atual: Math.floor(i / BATCH) + 1, total: totalBatches });
+    // Quando TODAS as fotos da galeria estão selecionadas, deletar por galeria_id
+    // evita o limite do PostgREST com arrays grandes de IDs
+    const todasSelecionadas = ids.length === fotos.filter((f) => !f._uploading).length;
+
+    if (todasSelecionadas) {
+      setDeleteProgresso({ atual: 0, total: 1 });
+      await supabase.from("galerias_selecao_fotos").delete().eq("galeria_id", id);
+      setDeleteProgresso({ atual: 1, total: 1 });
+    } else {
+      const BATCH = 200;
+      const totalBatches = Math.ceil(ids.length / BATCH);
+      setDeleteProgresso({ atual: 0, total: totalBatches });
+      for (let i = 0; i < ids.length; i += BATCH) {
+        const { error } = await supabase.from("galerias_selecao_fotos").delete().in("id", ids.slice(i, i + BATCH));
+        if (error) console.error("Erro no delete batch:", error);
+        setDeleteProgresso({ atual: Math.floor(i / BATCH) + 1, total: totalBatches });
+      }
     }
 
     // Storage: fire-and-forget em lotes de 100
@@ -326,7 +337,7 @@ function GaleriaSelecaoConteudo() {
     setDeletandoLote(false);
     setDeleteProgresso({ atual: 0, total: 0 });
     reload();
-  }, [selecionados, fotos]);
+  }, [selecionados, fotos, id]);
 
   // ── Status ───────────────────────────────────────────────────────────────────
   async function mudarStatus(novoStatus: GaleriaSelecao["status"]) {
