@@ -69,6 +69,7 @@ function GaleriaSelecaoConteudo() {
   const [modoSelecao, setModoSelecao]     = useState(false);
   const [selecionados, setSelecionados]   = useState<Set<string>>(new Set());
   const [deletandoLote, setDeletandoLote] = useState(false);
+  const [deleteProgresso, setDeleteProgresso] = useState({ atual: 0, total: 0 });
 
   // ── Download ─────────────────────────────────────────────────────────────────
   const dlGaleria  = useDownloadFotos();
@@ -296,22 +297,34 @@ function GaleriaSelecaoConteudo() {
   const handleDeleteLote = useCallback(async () => {
     if (selecionados.size === 0) return;
     if (!confirm(`Excluir ${selecionados.size} foto${selecionados.size !== 1 ? "s" : ""}? Esta ação não pode ser desfeita.`)) return;
-    setDeletandoLote(true);
     const supabase = createClient();
     const ids = Array.from(selecionados);
     const fotosParaDeletar = fotos.filter((f) => ids.includes(f.id));
     const storageItems = fotosParaDeletar.flatMap((f) => [
-      f.storage_path   ? { storage_path: f.storage_path,   url_publica: f.url_publica }           : null,
+      f.storage_path   ? { storage_path: f.storage_path,   url_publica: f.url_publica } : null,
       f.thumbnail_path ? { storage_path: f.thumbnail_path, url_publica: f.url_publica } : null,
     ].filter(Boolean)) as { storage_path: string; url_publica: string | null }[];
-    if (storageItems.length > 0) deleteFilesClient(storageItems);
-    for (let i = 0; i < ids.length; i += 500)
-      await supabase.from("galerias_selecao_fotos").delete().in("id", ids.slice(i, i + 500));
+
+    const BATCH = 500;
+    const totalBatches = Math.ceil(ids.length / BATCH);
+    setDeletandoLote(true);
+    setDeleteProgresso({ atual: 0, total: totalBatches });
+
+    for (let i = 0; i < ids.length; i += BATCH) {
+      await supabase.from("galerias_selecao_fotos").delete().in("id", ids.slice(i, i + BATCH));
+      setDeleteProgresso({ atual: Math.floor(i / BATCH) + 1, total: totalBatches });
+    }
+
+    // Storage: fire-and-forget em lotes de 100
+    for (let i = 0; i < storageItems.length; i += 100)
+      deleteFilesClient(storageItems.slice(i, i + 100));
+
     setFotos((prev) => prev.filter((f) => !ids.includes(f.id)));
     setGaleria((g) => g ? { ...g, total_fotos: Math.max(0, g.total_fotos - ids.length) } : g);
     setSelecionados(new Set());
     setModoSelecao(false);
     setDeletandoLote(false);
+    setDeleteProgresso({ atual: 0, total: 0 });
     reload();
   }, [selecionados, fotos]);
 
@@ -669,6 +682,31 @@ function GaleriaSelecaoConteudo() {
       {/* Modal enviar acesso */}
       {modalAcesso && galeria && (
         <ModalEnviarAcesso galeria={galeria} cliente={cliente} onClose={() => setModalAcesso(false)} />
+      )}
+
+      {/* Popup de progresso do delete em lote */}
+      {deletandoLote && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div style={{ background: "var(--color-background-primary)", borderRadius: 16, padding: "32px 40px", minWidth: 320, textAlign: "center", boxShadow: "0 8px 40px rgba(0,0,0,0.2)" }}>
+            <div style={{ fontSize: 28, marginBottom: 12 }}>🗑</div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: "var(--color-text-primary)", marginBottom: 6 }}>
+              Excluindo fotos…
+            </div>
+            <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginBottom: 20 }}>
+              Lote {deleteProgresso.atual} de {deleteProgresso.total}
+            </div>
+            <div style={{ width: "100%", height: 6, background: "var(--color-border-tertiary)", borderRadius: 3, overflow: "hidden" }}>
+              <div style={{
+                height: "100%", borderRadius: 3, background: "#EF4444",
+                width: deleteProgresso.total > 0 ? `${Math.round((deleteProgresso.atual / deleteProgresso.total) * 100)}%` : "0%",
+                transition: "width 0.3s",
+              }} />
+            </div>
+            <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 8 }}>
+              {deleteProgresso.total > 0 ? `${Math.round((deleteProgresso.atual / deleteProgresso.total) * 100)}%` : "0%"}
+            </div>
+          </div>
+        </div>
       )}
 
       {/* ── Tab: Andamento ── */}
