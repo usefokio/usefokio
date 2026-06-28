@@ -73,17 +73,10 @@ export function DashboardGuard({ children }: { children: React.ReactNode }) {
     if (loading) return;
 
     if (!fotografo) {
-      createClient().auth.getUser().then(async ({ data }) => {
+      // Não chamar criar_perfil_fotografo aqui — o perfil é criado apenas no auth/callback
+      // Chamar a RPC aqui sobrescrevia dados reais com fallbacks do user_metadata
+      createClient().auth.getUser().then(({ data }) => {
         if (!data.user) { router.replace("/login"); return; }
-        const meta         = data.user.user_metadata ?? {};
-        const nomeCompleto = meta.nome_completo ?? meta.full_name ?? meta.name ?? (data.user.email?.split("@")[0] ?? "Fotógrafo");
-        const nomeEmpresa  = meta.nome_empresa  ?? nomeCompleto;
-        await createClient().rpc("criar_perfil_fotografo", {
-          p_nome_completo: nomeCompleto,
-          p_nome_empresa:  nomeEmpresa,
-          p_email:         data.user.email ?? "",
-          p_user_id:       data.user.id,
-        });
         router.replace("/aguardando-aprovacao");
       });
       return;

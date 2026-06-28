@@ -23,6 +23,7 @@ export function FotografoProvider({ children }: { children: ReactNode }) {
   const [fotografo, setFotografo] = useState<Fotografo | null>(null);
   const [loading, setLoading]     = useState(true);
   const firstLoadDone             = useRef(false);
+  const lastKnownFotografo        = useRef<Fotografo | null>(null);
 
   const load = useCallback(async () => {
     if (process.env.NODE_ENV === "development") {
@@ -89,13 +90,24 @@ export function FotografoProvider({ children }: { children: ReactNode }) {
 
       if (error) {
         console.error("[FotografoContext] Erro:", error.message);
-        setFotografo(null);
+        // Em erro de rede, mantém o último valor conhecido para não disparar o guard
+        if (firstLoadDone.current && lastKnownFotografo.current) {
+          setFotografo(lastKnownFotografo.current);
+        } else {
+          setFotografo(null);
+        }
       } else {
+        lastKnownFotografo.current = data;
         setFotografo(data);
       }
     } catch (err) {
       console.error("[FotografoContext] Exceção:", err);
-      setFotografo(null);
+      // Idem: mantém valor anterior em recargas silenciosas
+      if (firstLoadDone.current && lastKnownFotografo.current) {
+        setFotografo(lastKnownFotografo.current);
+      } else {
+        setFotografo(null);
+      }
     } finally {
       firstLoadDone.current = true;
       setLoading(false);
