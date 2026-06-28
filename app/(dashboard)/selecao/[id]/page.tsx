@@ -304,23 +304,17 @@ function GaleriaSelecaoConteudo() {
       f.thumbnail_path ? { storage_path: f.thumbnail_path, url_publica: f.url_publica } : null,
     ].filter(Boolean)) as { storage_path: string; url_publica: string | null }[];
 
+    // Batches de 50 IDs — URL fica ~1.8KB, bem abaixo do limite HTTP
+    const BATCH = 50;
+    const totalBatches = Math.ceil(ids.length / BATCH);
     setDeletandoLote(true);
-    setDeleteProgresso({ atual: 0, total: 1 });
+    setDeleteProgresso({ atual: 0, total: totalBatches });
 
-    const todasSelecionadas = ids.length === fotos.filter((f) => !f._uploading).length;
-
-    const resp = await fetch("/api/selecao/fotos/bulk-delete", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(todasSelecionadas ? { galeria_id: id } : { galeria_id: id, ids }),
-    });
-
-    if (!resp.ok) {
-      const err = await resp.json().catch(() => ({}));
-      console.error("Erro no bulk delete:", err);
+    const supabase = createClient();
+    for (let i = 0; i < ids.length; i += BATCH) {
+      await supabase.from("galerias_selecao_fotos").delete().in("id", ids.slice(i, i + BATCH));
+      setDeleteProgresso({ atual: Math.floor(i / BATCH) + 1, total: totalBatches });
     }
-
-    setDeleteProgresso({ atual: 1, total: 1 });
 
     // Storage: fire-and-forget em lotes de 100
     for (let i = 0; i < storageItems.length; i += 100)
