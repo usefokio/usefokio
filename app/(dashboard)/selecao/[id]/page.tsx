@@ -310,18 +310,20 @@ function GaleriaSelecaoConteudo() {
     const BATCH = 50;
     const supabase = createClient();
 
-    // 1. Deletar escolhas do cliente que referenciam essas fotos (FK constraint)
-    const escolhaBatches: string[][] = [];
-    for (let i = 0; i < ids.length; i += BATCH) escolhaBatches.push(ids.slice(i, i + BATCH));
+    // 1. Limpar foto_capa_id — FK de galerias_selecao → galerias_selecao_fotos
+    //    bloqueia o delete quando a capa é uma das fotos sendo apagadas
+    await supabase.from("galerias_selecao").update({ foto_capa_id: null }).eq("id", id);
+
+    // 2. Deletar escolhas do cliente que referenciam essas fotos
+    const batches: string[][] = [];
+    for (let i = 0; i < ids.length; i += BATCH) batches.push(ids.slice(i, i + BATCH));
     await Promise.allSettled(
-      escolhaBatches.map((batch) => supabase.from("galerias_selecao_escolhas").delete().in("foto_id", batch))
+      batches.map((batch) => supabase.from("galerias_selecao_escolhas").delete().in("foto_id", batch))
     );
 
-    // 2. Deletar as fotos
-    const fotoBatches: string[][] = [];
-    for (let i = 0; i < ids.length; i += BATCH) fotoBatches.push(ids.slice(i, i + BATCH));
+    // 3. Deletar as fotos
     await Promise.allSettled(
-      fotoBatches.map((batch) => supabase.from("galerias_selecao_fotos").delete().in("id", batch))
+      batches.map((batch) => supabase.from("galerias_selecao_fotos").delete().in("id", batch))
     );
 
     setDeleteProgresso({ atual: 1, total: 1 });
