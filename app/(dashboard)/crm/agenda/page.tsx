@@ -12,6 +12,10 @@ import type { CrmSchedule, CrmAgendamentoCategoria, Cliente } from "@/lib/supaba
 
 type TipoEvento = "agendamento" | "tarefa" | "evento_opp" | "evento_pedido" | "a_receber" | "a_pagar" | "aniversario" | "feriado";
 
+type ScheduleComCliente = CrmSchedule & {
+  clientes: { nome: string; email: string | null; telefone: string | null; whatsapp: string | null } | null;
+};
+
 interface EventoCalendario {
   id: string;
   dia: string; // YYYY-MM-DD
@@ -20,7 +24,7 @@ interface EventoCalendario {
   cor: string;
   bg: string;
   navegarPara?: string;
-  dados?: CrmSchedule;
+  dados?: ScheduleComCliente;
 }
 
 // ─── Configuração visual por tipo ──────────────────────────────────────────────
@@ -165,7 +169,7 @@ export default function AgendaPage() {
       { data: clientes },
     ] = await Promise.all([
       sb.from("crm_schedules")
-        .select("*")
+        .select("*, clientes(nome, email, telefone, whatsapp)")
         .eq("fotografo_id", fid)
         .gte("inicio", inicio)
         .lte("inicio", fim + "T23:59:59"),
@@ -194,7 +198,7 @@ export default function AgendaPage() {
     const lista: EventoCalendario[] = [];
 
     // Agendamentos e tarefas
-    for (const s of (schedules ?? []) as CrmSchedule[]) {
+    for (const s of (schedules ?? []) as ScheduleComCliente[]) {
       const tipo: TipoEvento = s.tipo === "tarefa" ? "tarefa" : "agendamento";
       const cfg = TIPO_CONFIG[tipo];
       lista.push({ id: s.id, dia: s.inicio.slice(0, 10), titulo: s.titulo, tipo, cor: cfg.cor, bg: cfg.bg, dados: s });
@@ -511,24 +515,35 @@ export default function AgendaPage() {
                   <div>
                     <div style={{ fontSize: 10, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 3 }}>Início</div>
                     <div style={{ fontSize: 13, color: "var(--color-text-primary)", fontWeight: 500 }}>
-                      {d ? fmtDataHora(d.inicio) : fmtDataHora(popupEvento.dia + "T00:00")}
+                      {d?.dia_todo ? "Dia inteiro" : (d ? fmtDataHora(d.inicio) : fmtDataHora(popupEvento.dia + "T00:00"))}
                     </div>
                   </div>
-                  {(d?.fim || !isAgendamento) && (
+                  {d?.fim && !d.dia_todo && (
                     <div>
                       <div style={{ fontSize: 10, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 3 }}>Término</div>
-                      <div style={{ fontSize: 13, color: "var(--color-text-primary)", fontWeight: 500 }}>
-                        {d?.fim ? fmtDataHora(d.fim) : "—"}
-                      </div>
+                      <div style={{ fontSize: 13, color: "var(--color-text-primary)", fontWeight: 500 }}>{fmtDataHora(d.fim)}</div>
                     </div>
                   )}
                 </div>
 
-                {/* Dia inteiro */}
-                {d && (
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <div style={{ fontSize: 10, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Dia inteiro:</div>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: d.dia_todo ? popupEvento.cor : "var(--color-text-secondary)" }}>{d.dia_todo ? "Sim" : "Não"}</div>
+                {/* Cliente */}
+                {(d as ScheduleComCliente)?.clientes && (
+                  <div>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>Cliente</div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)" }}>
+                      👤 {(d as ScheduleComCliente).clientes!.nome}
+                    </div>
+                    {(d as ScheduleComCliente).clientes!.email && (
+                      <a href={`mailto:${(d as ScheduleComCliente).clientes!.email}`}
+                        style={{ fontSize: 12, color: "#2563EB", display: "block", marginTop: 3, textDecoration: "none" }}>
+                        ✉ {(d as ScheduleComCliente).clientes!.email}
+                      </a>
+                    )}
+                    {((d as ScheduleComCliente).clientes!.whatsapp || (d as ScheduleComCliente).clientes!.telefone) && (
+                      <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginTop: 2 }}>
+                        📱 {(d as ScheduleComCliente).clientes!.whatsapp ?? (d as ScheduleComCliente).clientes!.telefone}
+                      </div>
+                    )}
                   </div>
                 )}
 
