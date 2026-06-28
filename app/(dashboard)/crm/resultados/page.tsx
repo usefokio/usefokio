@@ -55,15 +55,10 @@ export default function ResultadosPage() {
   const { fotografo } = useFotografo();
   const anoAtual = new Date().getFullYear();
 
-  const mesAtual = new Date().getMonth() + 1;
-
   const [ano,            setAno]            = useState(anoAtual);
   const [regime,         setRegime]         = useState<Regime>("competencia");
-  const [periodoCustom,  setPeriodoCustom]  = useState(false);
-  const [periodoInicio,  setPeriodoInicio]  = useState({ mes: 1,        ano: anoAtual });
-  const [periodoFim,     setPeriodoFim]     = useState({ mes: mesAtual, ano: anoAtual });
   const [contas,         setContas]         = useState<Conta[]>([]);
-  const [mapa,           setMapa]           = useState<Record<string, Record<string, number>>>({});
+  const [mapa,           setMapa]           = useState<Record<string, Record<number, number>>>({});
   const [loading,        setLoading]        = useState(true);
   const [naoMapeados,    setNaoMapeados]    = useState<{ categoria: string; total: number }[]>([]);
   const [panorama,       setPanorama]       = useState<PanoramaItem[]>([]);
@@ -73,39 +68,22 @@ export default function ResultadosPage() {
   const [drillEntries,   setDrillEntries]   = useState<DrillEntry[]>([]);
   const [drillLoading,   setDrillLoading]   = useState(false);
 
-  const startStr = periodoCustom
-    ? `${periodoInicio.ano}-${String(periodoInicio.mes).padStart(2,"0")}-01`
-    : `${ano}-01-01`;
-  const endStr = periodoCustom
-    ? `${periodoFim.ano}-${String(periodoFim.mes).padStart(2,"0")}-31`
-    : `${ano}-12-31`;
-
-  const colunas = (() => {
-    const cols: { mes: number; ano: number; label: string }[] = [];
-    const [startM, startA] = periodoCustom ? [periodoInicio.mes, periodoInicio.ano] : [1, ano];
-    const [endM,   endA]   = periodoCustom ? [periodoFim.mes,    periodoFim.ano]    : [12, ano];
-    let m = startM, a = startA;
-    while (a < endA || (a === endA && m <= endM)) {
-      cols.push({ mes: m, ano: a, label: periodoCustom ? `${MESES[m-1]}/${String(a).slice(2)}` : MESES[m-1] });
-      m++; if (m > 12) { m = 1; a++; }
-    }
-    return cols;
-  })();
-
   const carregar = useCallback(async () => {
     if (!fotografo) return;
     setLoading(true);
     const sb = createClient();
     const fid = fotografo.id;
 
-    // Verificar se o período tem entradas DRE
+    const dateField = regime === "caixa" ? "pago_em" : "vencimento";
+
+    // Verificar se o ano tem entradas DRE
     const { count: dreCount } = await sb
       .from("crm_financial_entries")
       .select("*", { count: "exact", head: true })
       .eq("fotografo_id", fid)
       .eq("num_documento", "DRE")
-      .gte("vencimento", startStr)
-      .lte("vencimento", endStr);
+      .gte("vencimento", `${ano}-01-01`)
+      .lte("vencimento", `${ano}-12-31`);
     const temDRELocal = (dreCount ?? 0) > 0;
 
     // Queries separadas para evitar erro TypeScript "type instantiation excessively deep"
@@ -123,41 +101,43 @@ export default function ResultadosPage() {
           .select("conta_id, valor, pago_em")
           .eq("fotografo_id", fid).eq("tipo", "despesa").eq("status", "pago")
           .or("num_documento.is.null,num_documento.neq.DRE")
-          .gte("pago_em", startStr).lte("pago_em", endStr).range(f, t), sb)
+          .gte("pago_em", `${ano}-01-01`).lte("pago_em", `${ano}-12-31`).range(f, t), sb)
       : temDRELocal
         ? fetchAllRows<DespRow>((sbc, f, t) => sbc.from("crm_financial_entries")
             .select("conta_id, valor, vencimento, pago_em")
             .eq("fotografo_id", fid).eq("tipo", "despesa").eq("num_documento", "DRE")
-            .gte("vencimento", startStr).lte("vencimento", endStr).range(f, t), sb)
+            .gte("vencimento", `${ano}-01-01`).lte("vencimento", `${ano}-12-31`).range(f, t), sb)
         : fetchAllRows<DespRow>((sbc, f, t) => sbc.from("crm_financial_entries")
             .select("conta_id, valor, vencimento, pago_em")
             .eq("fotografo_id", fid).eq("tipo", "despesa").eq("status", "pago")
-            .gte("vencimento", startStr).lte("vencimento", endStr).range(f, t), sb);
+            .gte("vencimento", `${ano}-01-01`).lte("vencimento", `${ano}-12-31`).range(f, t), sb);
 
     const pReceitas = regime === "caixa"
       ? fetchAllRows<RecRow>((sbc, f, t) => sbc.from("crm_financial_entries")
           .select("conta_id, valor, pago_em")
           .eq("fotografo_id", fid).eq("tipo", "receita").eq("status", "pago")
           .or("num_documento.is.null,num_documento.neq.DRE")
-          .gte("pago_em", startStr).lte("pago_em", endStr).range(f, t), sb)
+          .gte("pago_em", `${ano}-01-01`).lte("pago_em", `${ano}-12-31`).range(f, t), sb)
       : temDRELocal
         ? fetchAllRows<RecRow>((sbc, f, t) => sbc.from("crm_financial_entries")
             .select("conta_id, valor, vencimento")
             .eq("fotografo_id", fid).eq("tipo", "receita").eq("num_documento", "DRE")
-            .gte("vencimento", startStr).lte("vencimento", endStr).range(f, t), sb)
+            .gte("vencimento", `${ano}-01-01`).lte("vencimento", `${ano}-12-31`).range(f, t), sb)
         : fetchAllRows<RecRow>((sbc, f, t) => sbc.from("crm_financial_entries")
             .select("conta_id, valor, vencimento")
             .eq("fotografo_id", fid).eq("tipo", "receita")
             .or("num_documento.is.null,num_documento.neq.DRE")
-            .gte("vencimento", startStr).lte("vencimento", endStr).range(f, t), sb);
+            .gte("vencimento", `${ano}-01-01`).lte("vencimento", `${ano}-12-31`).range(f, t), sb);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let qOrders: any;
     if (regime === "competencia") {
+      // Sempre inclui pedidos nativos do CRM (crm_nativo=true).
+      // Quando temDRE=false, também inclui pedidos legados com data_lancamento.
       const q = sb.from("crm_orders")
         .select("categoria, total, data_lancamento")
         .eq("fotografo_id", fid)
-        .gte("data_lancamento", startStr).lte("data_lancamento", endStr)
+        .gte("data_lancamento", `${ano}-01-01`).lte("data_lancamento", `${ano}-12-31`)
         .not("data_lancamento", "is", null);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       qOrders = temDRELocal ? (q as any).eq("crm_nativo", true) : sb.from("crm_orders").select("categoria").eq("fotografo_id", fid).limit(0);
@@ -178,38 +158,41 @@ export default function ResultadosPage() {
     const cpCodigo: Record<string, string> = {};
     for (const c of contasArr) cpCodigo[c.codigo] = c.id;
 
-    const novoMapa: Record<string, Record<string, number>> = {};
+    const novoMapa: Record<string, Record<number, number>> = {};
     const semMapeamento: Record<string, number> = {};
 
     if (regime === "caixa") {
+      // Receitas caixa: transações individuais reais por pago_em
       for (const e of (receitasData ?? []) as { conta_id: string; valor: number; pago_em: string }[]) {
         if (!e.conta_id || !e.pago_em) continue;
-        const k = e.pago_em.slice(0, 7);
+        const mes = parseInt(e.pago_em.slice(5, 7));
         novoMapa[e.conta_id] ??= {};
-        novoMapa[e.conta_id][k] = (novoMapa[e.conta_id][k] ?? 0) + e.valor;
+        novoMapa[e.conta_id][mes] = (novoMapa[e.conta_id][mes] ?? 0) + e.valor;
       }
     } else if (temDRELocal) {
+      // Competência com DRE (Fernando): entradas DRE legadas + pedidos crm_nativo
       for (const e of (receitasData ?? []) as { conta_id: string; valor: number; vencimento: string }[]) {
         if (!e.conta_id) continue;
-        const k = e.vencimento.slice(0, 7);
+        const mes = parseInt(e.vencimento.slice(5, 7));
         novoMapa[e.conta_id] ??= {};
-        novoMapa[e.conta_id][k] = (novoMapa[e.conta_id][k] ?? 0) + e.valor;
+        novoMapa[e.conta_id][mes] = (novoMapa[e.conta_id][mes] ?? 0) + e.valor;
       }
       for (const o of (ordersData ?? []) as { categoria: string; total: number; data_lancamento: string }[]) {
         const codigo = CATEGORIA_CODIGO[o.categoria];
         if (!codigo) { semMapeamento[o.categoria || "(sem categoria)"] = (semMapeamento[o.categoria || "(sem categoria)"] ?? 0) + o.total; continue; }
         const cid = cpCodigo[codigo];
         if (!cid) continue;
-        const k = o.data_lancamento.slice(0, 7);
+        const mes = parseInt(o.data_lancamento.slice(5, 7));
         novoMapa[cid] ??= {};
-        novoMapa[cid][k] = (novoMapa[cid][k] ?? 0) + o.total;
+        novoMapa[cid][mes] = (novoMapa[cid][mes] ?? 0) + o.total;
       }
     } else {
+      // Competência sem DRE (novos usuários): crm_financial_entries com conta_id direto
       for (const e of (receitasData ?? []) as { conta_id: string; valor: number; vencimento: string }[]) {
         if (!e.conta_id) continue;
-        const k = e.vencimento.slice(0, 7);
+        const mes = parseInt(e.vencimento.slice(5, 7));
         novoMapa[e.conta_id] ??= {};
-        novoMapa[e.conta_id][k] = (novoMapa[e.conta_id][k] ?? 0) + e.valor;
+        novoMapa[e.conta_id][mes] = (novoMapa[e.conta_id][mes] ?? 0) + e.valor;
       }
     }
     setNaoMapeados(Object.entries(semMapeamento).map(([categoria, total]) => ({ categoria, total })));
@@ -218,10 +201,10 @@ export default function ResultadosPage() {
     for (const e of (despesasData ?? []) as { conta_id: string | null; valor: number; vencimento: string; pago_em: string | null }[]) {
       const dataRef = regime === "caixa" ? e.pago_em : e.vencimento;
       if (!dataRef) continue;
-      const k = dataRef.slice(0, 7);
+      const mes = parseInt(dataRef.slice(5, 7));
       const cid = e.conta_id ?? UNCAT_ID;
       novoMapa[cid] ??= {};
-      novoMapa[cid][k] = (novoMapa[cid][k] ?? 0) + e.valor;
+      novoMapa[cid][mes] = (novoMapa[cid][mes] ?? 0) + e.valor;
     }
 
     const contasComUncat = novoMapa[UNCAT_ID]
@@ -232,7 +215,8 @@ export default function ResultadosPage() {
     setTemDRE(temDRELocal);
     setContaPorCodigo(cpCodigo);
     setLoading(false);
-  }, [fotografo, startStr, endStr, regime]);
+    void dateField;
+  }, [fotografo, ano, regime]);
 
   useEffect(() => { carregar(); }, [carregar]);
 
@@ -262,18 +246,18 @@ export default function ResultadosPage() {
       }, console.error);
   }, [fotografo]);
 
-  const abrirDrill = useCallback(async (conta: Conta, col: { mes: number; ano: number } | undefined) => {
+  const abrirDrill = useCallback(async (conta: Conta, mes: number | null) => {
     if (!fotografo) return;
-    setDrillDown({ conta, mes: col?.mes ?? null });
+    setDrillDown({ conta, mes });
     setDrillLoading(true);
     setDrillEntries([]);
     const sb = createClient();
     const fid = fotografo.id;
     const entries: DrillEntry[] = [];
 
-    const mesStart = col ? `${col.ano}-${String(col.mes).padStart(2,"0")}-01` : startStr;
-    const lastDay  = col ? new Date(col.ano, col.mes, 0).getDate() : 31;
-    const mesEnd   = col ? `${col.ano}-${String(col.mes).padStart(2,"0")}-${String(lastDay).padStart(2,"0")}` : endStr;
+    const mesStart = mes !== null ? `${ano}-${String(mes).padStart(2, "0")}-01` : `${ano}-01-01`;
+    const lastDay  = mes !== null ? new Date(ano, mes, 0).getDate() : 31;
+    const mesEnd   = mes !== null ? `${ano}-${String(mes).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}` : `${ano}-12-31`;
     const tipo = conta.codigo.startsWith("3") ? "receita" : "despesa";
 
     if (regime === "caixa") {
@@ -330,20 +314,17 @@ export default function ResultadosPage() {
     entries.sort((a, b) => a.data.localeCompare(b.data));
     setDrillEntries(entries);
     setDrillLoading(false);
-  }, [fotografo, startStr, endStr, regime, temDRE, contaPorCodigo]);
+  }, [fotografo, ano, regime, temDRE, contaPorCodigo]);
 
   const contasPorPrefixo = (prefixo: string) =>
     contas.filter(c => c.codigo.startsWith(prefixo) && mapa[c.id]);
 
-  const colKey = (col: { mes: number; ano: number }) =>
-    `${col.ano}-${String(col.mes).padStart(2,"0")}`;
-
-  const valCol = (contaId: string, col: { mes: number; ano: number }) =>
-    mapa[contaId]?.[colKey(col)] ?? 0;
-
-  const totalSecao = (cs: Conta[], col?: { mes: number; ano: number }) => {
-    if (col !== undefined) return cs.reduce((s, c) => s + valCol(c.id, col), 0);
-    return cs.reduce((s, c) => s + colunas.reduce((a, col2) => a + valCol(c.id, col2), 0), 0);
+  const totalSecao = (cs: Conta[], mes?: number) => {
+    if (mes !== undefined) {
+      return cs.reduce((s, c) => s + (mapa[c.id]?.[mes] ?? 0), 0);
+    }
+    return cs.reduce((s, c) =>
+      s + Object.values(mapa[c.id] ?? {}).reduce((a, b) => a + b, 0), 0);
   };
 
   const receitas  = contasPorPrefixo("3");
@@ -352,30 +333,27 @@ export default function ResultadosPage() {
 
   const exportarCSV = () => {
     const linhas: string[] = [];
-    linhas.push(["Código", "Nome", ...colunas.map(col => col.label), "Total"].join(","));
+    linhas.push(["Código", "Nome", ...MESES.map(m => `${m} ${ano}`), "Total"].join(","));
     const addSecao = (label: string, cs: Conta[]) => {
-      linhas.push(`${label}${",".repeat(2 + colunas.length)}`);
+      linhas.push(`${label},,,,,,,,,,,,,,`);
       for (const c of cs) {
-        const vals = colunas.map(col => valCol(c.id, col));
+        const vals = Array.from({ length: 12 }, (_, i) => mapa[c.id]?.[i + 1] ?? 0);
         const total = vals.reduce((a, b) => a + b, 0);
         linhas.push([c.codigo, `"${c.nome}"`, ...vals.map(v => v.toFixed(2)), total.toFixed(2)].join(","));
       }
-      const tots = colunas.map(col => totalSecao(cs, col).toFixed(2));
+      const tots = Array.from({ length: 12 }, (_, i) => totalSecao(cs, i + 1).toFixed(2));
       linhas.push(["", "Total", ...tots, totalSecao(cs).toFixed(2)].join(","));
     };
     addSecao("Receitas", receitas);
     addSecao("Custos", custos);
     addSecao("Despesas", despesas);
-    const saldoMeses = colunas.map(col =>
-      (totalSecao(receitas, col) - totalSecao(custos, col) - totalSecao(despesas, col)).toFixed(2));
+    const saldoMeses = Array.from({ length: 12 }, (_, i) =>
+      (totalSecao(receitas, i + 1) - totalSecao(custos, i + 1) - totalSecao(despesas, i + 1)).toFixed(2));
     const saldoTotal = (totalSecao(receitas) - totalSecao(custos) - totalSecao(despesas)).toFixed(2);
     linhas.push(["", "Saldo", ...saldoMeses, saldoTotal].join(","));
     const blob = new Blob([linhas.join("\n")], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
-    const fname = periodoCustom
-      ? `resultados_${periodoInicio.ano}${String(periodoInicio.mes).padStart(2,"0")}_${periodoFim.ano}${String(periodoFim.mes).padStart(2,"0")}.csv`
-      : `resultados_${ano}.csv`;
-    const a = document.createElement("a"); a.href = url; a.download = fname; a.click();
+    const a = document.createElement("a"); a.href = url; a.download = `resultados_${ano}.csv`; a.click();
     URL.revokeObjectURL(url);
   };
 
@@ -401,7 +379,7 @@ export default function ResultadosPage() {
 
   const SecaoHeader = ({ label }: { label: string }) => (
     <tr>
-      <td colSpan={3 + colunas.length} style={{
+      <td colSpan={15} style={{
         padding: "12px 10px 4px", fontSize: 11, fontWeight: 800,
         color: "var(--color-text-primary)", textTransform: "uppercase", letterSpacing: "0.06em",
         background: "var(--color-background-secondary)",
@@ -416,8 +394,8 @@ export default function ResultadosPage() {
     <tr style={{ background: "var(--color-background-secondary)" }}>
       <td style={{ ...tdCod, fontWeight: 700 }}></td>
       <td style={{ ...tdNome, fontWeight: 700, color }}>{label}</td>
-      {colunas.map((col, i) => {
-        const v = totalSecao(cs, col);
+      {Array.from({ length: 12 }, (_, i) => {
+        const v = totalSecao(cs, i + 1);
         return <td key={i} style={{ ...tdStyle, fontWeight: 700, color: v !== 0 ? color : "var(--color-text-secondary)" }}>
           {v !== 0 ? fmtBRL(v) : ""}
         </td>;
@@ -427,7 +405,7 @@ export default function ResultadosPage() {
   );
 
   const ContaRow = ({ c, negativo }: { c: Conta; negativo?: boolean }) => {
-    const vals = colunas.map(col => valCol(c.id, col));
+    const vals = Array.from({ length: 12 }, (_, i) => mapa[c.id]?.[i + 1] ?? 0);
     const total = vals.reduce((a, b) => a + b, 0);
     const cor = negativo ? "#EF4444" : "#059669";
     return (
@@ -436,7 +414,7 @@ export default function ResultadosPage() {
         <td style={tdNome}>{c.nome}</td>
         {vals.map((v, i) => (
           <td key={i}
-            onClick={() => { if (v > 0) abrirDrill(c, colunas[i]); }}
+            onClick={() => { if (v > 0) abrirDrill(c, i + 1); }}
             style={{ ...tdStyle, color: v > 0 ? cor : "var(--color-text-secondary)", cursor: v > 0 ? "pointer" : "default" }}
             title={v > 0 ? "Ver lançamentos" : undefined}
           >
@@ -444,7 +422,7 @@ export default function ResultadosPage() {
           </td>
         ))}
         <td
-          onClick={() => { if (total > 0) abrirDrill(c, undefined); }}
+          onClick={() => { if (total > 0) abrirDrill(c, null); }}
           style={{ ...tdStyle, fontWeight: 600, color: total > 0 ? cor : "var(--color-text-secondary)", borderLeft: "0.5px solid var(--color-border-tertiary)", cursor: total > 0 ? "pointer" : "default" }}
           title={total > 0 ? "Ver todos os lançamentos do ano" : undefined}
         >
@@ -456,10 +434,11 @@ export default function ResultadosPage() {
 
   const saldoTotal = totalSecao(receitas) - totalSecao(custos) - totalSecao(despesas);
 
-  const dadosMensais = colunas.map(col => {
-    const rec = totalSecao(receitas, col);
-    const desp = totalSecao(custos, col) + totalSecao(despesas, col);
-    return { mes: col.label, receitas: rec, despesas: desp, lucro: rec - desp };
+  const dadosMensais = MESES.map((mes, i) => {
+    const m = i + 1;
+    const rec = totalSecao(receitas, m);
+    const desp = totalSecao(custos, m) + totalSecao(despesas, m);
+    return { mes, receitas: rec, despesas: desp, lucro: rec - desp };
   });
 
   const drillCor = drillDown?.conta.codigo.startsWith("3") ? "#059669" : "#EF4444";
@@ -483,76 +462,23 @@ export default function ResultadosPage() {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
         <div>
           <h1 style={{ fontSize: 20, fontWeight: 800, letterSpacing: "-0.03em", color: "var(--color-text-primary)", margin: "0 0 4px" }}>
-            {periodoCustom
-              ? `Resultados • ${MESES[periodoInicio.mes-1]}/${String(periodoInicio.ano).slice(2)} – ${MESES[periodoFim.mes-1]}/${String(periodoFim.ano).slice(2)}`
-              : `Resultados • ${ano}`}
+            Resultados • {ano}
           </h1>
           <p style={{ fontSize: 13, color: "var(--color-text-secondary)", margin: 0 }}>
             {regime === "competencia" ? "Regime de Competência" : "Regime de Caixa"}
           </p>
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-          {!periodoCustom && (
-            <div style={{ display: "flex", alignItems: "center", borderRadius: 8, border: "0.5px solid var(--color-border-tertiary)", overflow: "hidden" }}>
-              <button onClick={() => setAno(a => a - 1)} disabled={ano <= 2014}
-                style={{ padding: "7px 10px", fontSize: 13, border: "none", borderRight: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-primary)", color: ano <= 2014 ? "var(--color-text-tertiary)" : "var(--color-text-primary)", cursor: ano <= 2014 ? "default" : "pointer" }}>‹</button>
-              <select value={ano} onChange={e => setAno(Number(e.target.value))}
-                style={{ padding: "7px 8px", fontSize: 13, border: "none", background: "var(--color-background-primary)", color: "var(--color-text-primary)", outline: "none", cursor: "pointer" }}>
-                {Array.from({ length: anoAtual - 2013 }, (_, i) => 2014 + i).map(a => <option key={a} value={a}>{a}</option>)}
-              </select>
-              <button onClick={() => setAno(a => a + 1)} disabled={ano >= anoAtual}
-                style={{ padding: "7px 10px", fontSize: 13, border: "none", borderLeft: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-primary)", color: ano >= anoAtual ? "var(--color-text-tertiary)" : "var(--color-text-primary)", cursor: ano >= anoAtual ? "default" : "pointer" }}>›</button>
-            </div>
-          )}
-          {periodoCustom && (
-            <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-              <span style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>De</span>
-              <select value={periodoInicio.mes} onChange={e => {
-                const m = Number(e.target.value);
-                setPeriodoInicio(p => ({ ...p, mes: m }));
-                if (periodoFim.ano === periodoInicio.ano && m > periodoFim.mes) setPeriodoFim(p => ({ ...p, mes: m }));
-              }} style={{ padding: "6px 6px", fontSize: 12, border: "0.5px solid var(--color-border-tertiary)", borderRadius: 6, background: "var(--color-background-primary)", color: "var(--color-text-primary)", outline: "none" }}>
-                {MESES.map((m, i) => <option key={i} value={i+1}>{m}</option>)}
-              </select>
-              <select value={periodoInicio.ano} onChange={e => {
-                const a = Number(e.target.value);
-                setPeriodoInicio(p => ({ ...p, ano: a }));
-                if (a > periodoFim.ano) setPeriodoFim({ mes: periodoInicio.mes, ano: a });
-              }} style={{ padding: "6px 6px", fontSize: 12, border: "0.5px solid var(--color-border-tertiary)", borderRadius: 6, background: "var(--color-background-primary)", color: "var(--color-text-primary)", outline: "none" }}>
-                {Array.from({ length: anoAtual - 2013 }, (_, i) => 2014 + i).map(a => <option key={a} value={a}>{a}</option>)}
-              </select>
-              <span style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>até</span>
-              <select value={periodoFim.mes} onChange={e => {
-                const m = Number(e.target.value);
-                setPeriodoFim(p => ({ ...p, mes: m }));
-              }} style={{ padding: "6px 6px", fontSize: 12, border: "0.5px solid var(--color-border-tertiary)", borderRadius: 6, background: "var(--color-background-primary)", color: "var(--color-text-primary)", outline: "none" }}>
-                {MESES.map((m, i) => <option key={i} value={i+1}>{m}</option>)}
-              </select>
-              <select value={periodoFim.ano} onChange={e => {
-                const a = Number(e.target.value);
-                setPeriodoFim(p => ({ ...p, ano: a }));
-                if (a < periodoInicio.ano) setPeriodoInicio({ mes: periodoFim.mes, ano: a });
-              }} style={{ padding: "6px 6px", fontSize: 12, border: "0.5px solid var(--color-border-tertiary)", borderRadius: 6, background: "var(--color-background-primary)", color: "var(--color-text-primary)", outline: "none" }}>
-                {Array.from({ length: anoAtual - 2013 }, (_, i) => 2014 + i).map(a => <option key={a} value={a}>{a}</option>)}
-              </select>
-            </div>
-          )}
-          <button
-            onClick={() => {
-              if (periodoCustom) {
-                setPeriodoCustom(false);
-                setPeriodoInicio({ mes: 1, ano });
-                setPeriodoFim({ mes: 12, ano });
-              } else {
-                setPeriodoCustom(true);
-                setPeriodoInicio({ mes: 1, ano });
-                setPeriodoFim({ mes: mesAtual, ano });
-              }
-            }}
-            style={{ padding: "7px 12px", borderRadius: 8, border: "0.5px solid var(--color-border-tertiary)", fontSize: 12, fontWeight: 600, cursor: "pointer", background: periodoCustom ? "#2563EB" : "var(--color-background-primary)", color: periodoCustom ? "#fff" : "var(--color-text-secondary)" }}
-          >
-            {periodoCustom ? "✕ Período" : "Período ▾"}
-          </button>
+          <div style={{ display: "flex", alignItems: "center", borderRadius: 8, border: "0.5px solid var(--color-border-tertiary)", overflow: "hidden" }}>
+            <button onClick={() => setAno(a => a - 1)} disabled={ano <= 2014}
+              style={{ padding: "7px 10px", fontSize: 13, border: "none", borderRight: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-primary)", color: ano <= 2014 ? "var(--color-text-tertiary)" : "var(--color-text-primary)", cursor: ano <= 2014 ? "default" : "pointer" }}>‹</button>
+            <select value={ano} onChange={e => setAno(Number(e.target.value))}
+              style={{ padding: "7px 8px", fontSize: 13, border: "none", background: "var(--color-background-primary)", color: "var(--color-text-primary)", outline: "none", cursor: "pointer" }}>
+              {Array.from({ length: anoAtual - 2013 }, (_, i) => 2014 + i).map(a => <option key={a} value={a}>{a}</option>)}
+            </select>
+            <button onClick={() => setAno(a => a + 1)} disabled={ano >= anoAtual}
+              style={{ padding: "7px 10px", fontSize: 13, border: "none", borderLeft: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-primary)", color: ano >= anoAtual ? "var(--color-text-tertiary)" : "var(--color-text-primary)", cursor: ano >= anoAtual ? "default" : "pointer" }}>›</button>
+          </div>
           <div style={{ display: "flex", borderRadius: 8, border: "0.5px solid var(--color-border-tertiary)", overflow: "hidden" }}>
             {(["competencia", "caixa"] as Regime[]).map(r => (
               <button key={r} onClick={() => setRegime(r)}
@@ -587,7 +513,7 @@ export default function ResultadosPage() {
               <tr>
                 <th style={{ ...thStyle, textAlign: "left", width: 60 }}>Cód.</th>
                 <th style={{ ...thStyle, textAlign: "left", minWidth: 180 }}>Nome</th>
-                {colunas.map((col, i) => <th key={i} style={thStyle}>{col.label}</th>)}
+                {MESES.map(m => <th key={m} style={thStyle}>{m}</th>)}
                 <th style={{ ...thStyle, borderLeft: "0.5px solid var(--color-border-tertiary)" }}>Total</th>
               </tr>
             </thead>
@@ -607,8 +533,8 @@ export default function ResultadosPage() {
               <tr style={{ background: "var(--color-background-secondary)", borderTop: "2px solid var(--color-border-secondary)" }}>
                 <td style={{ ...tdCod, fontWeight: 800 }}></td>
                 <td style={{ ...tdNome, fontWeight: 800, fontSize: 13, color: "var(--color-text-primary)" }}>Saldo</td>
-                {colunas.map((col, i) => {
-                  const v = totalSecao(receitas, col) - totalSecao(custos, col) - totalSecao(despesas, col);
+                {Array.from({ length: 12 }, (_, i) => {
+                  const v = totalSecao(receitas, i + 1) - totalSecao(custos, i + 1) - totalSecao(despesas, i + 1);
                   return (
                     <td key={i} style={{ ...tdStyle, fontWeight: 700, color: v >= 0 ? "#059669" : "#EF4444" }}>
                       {fmtSaldo(v)}
@@ -624,8 +550,8 @@ export default function ResultadosPage() {
         </div>
       )}
 
-      {/* Distribuição mensal do período selecionado */}
-      <GraficoMensal dados={dadosMensais} ano={periodoCustom ? periodoInicio.ano : ano} />
+      {/* Distribuição mensal do ano selecionado */}
+      <GraficoMensal dados={dadosMensais} ano={ano} />
 
       {/* Panorama geral de todos os anos */}
       {panorama.length > 0 && (
@@ -662,11 +588,7 @@ export default function ResultadosPage() {
                   {drillDown.conta.nome}
                 </div>
                 <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginTop: 3 }}>
-                  {drillDown.mes !== null
-                    ? `${MESES[drillDown.mes - 1]} · ${periodoCustom ? "" : ano}`
-                    : periodoCustom
-                      ? `${MESES[periodoInicio.mes-1]}/${periodoInicio.ano} – ${MESES[periodoFim.mes-1]}/${periodoFim.ano}`
-                      : `Ano ${ano}`}
+                  {drillDown.mes !== null ? `${MESES[drillDown.mes - 1]} ${ano}` : `Ano ${ano}`}
                   {" · "}{drillDown.conta.codigo}
                   {" · "}{regime === "competencia" ? "Competência" : "Caixa"}
                 </div>
