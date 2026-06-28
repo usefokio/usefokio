@@ -304,17 +304,20 @@ function GaleriaSelecaoConteudo() {
       f.thumbnail_path ? { storage_path: f.thumbnail_path, url_publica: f.url_publica } : null,
     ].filter(Boolean)) as { storage_path: string; url_publica: string | null }[];
 
-    // Batches de 50 IDs — URL fica ~1.8KB, bem abaixo do limite HTTP
-    const BATCH = 50;
-    const totalBatches = Math.ceil(ids.length / BATCH);
     setDeletandoLote(true);
-    setDeleteProgresso({ atual: 0, total: totalBatches });
+    setDeleteProgresso({ atual: 0, total: 1 });
 
+    // Monta batches de 50 IDs e executa todos em paralelo
+    const BATCH = 50;
     const supabase = createClient();
-    for (let i = 0; i < ids.length; i += BATCH) {
-      await supabase.from("galerias_selecao_fotos").delete().in("id", ids.slice(i, i + BATCH));
-      setDeleteProgresso({ atual: Math.floor(i / BATCH) + 1, total: totalBatches });
-    }
+    const batches: string[][] = [];
+    for (let i = 0; i < ids.length; i += BATCH) batches.push(ids.slice(i, i + BATCH));
+
+    await Promise.allSettled(
+      batches.map((batch) => supabase.from("galerias_selecao_fotos").delete().in("id", batch))
+    );
+
+    setDeleteProgresso({ atual: 1, total: 1 });
 
     // Storage: fire-and-forget em lotes de 100
     for (let i = 0; i < storageItems.length; i += 100)
