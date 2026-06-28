@@ -25,6 +25,7 @@ interface EventoCalendario {
   bg: string;
   navegarPara?: string;
   dados?: ScheduleComCliente;
+  clienteInfo?: { nome: string; email: string | null; telefone: string | null; whatsapp: string | null } | null;
 }
 
 // ─── Configuração visual por tipo ──────────────────────────────────────────────
@@ -175,7 +176,7 @@ export default function AgendaPage() {
         .lte("inicio", fim + "T23:59:59"),
 
       sb.from("crm_orders")
-        .select("id, nome, numero, data_evento, clientes(nome)")
+        .select("id, nome, numero, data_evento, clientes(nome, email, telefone, whatsapp)")
         .eq("fotografo_id", fid)
         .not("data_evento", "is", null)
         .gte("data_evento", inicio)
@@ -201,16 +202,18 @@ export default function AgendaPage() {
     for (const s of (schedules ?? []) as ScheduleComCliente[]) {
       const tipo: TipoEvento = s.tipo === "tarefa" ? "tarefa" : "agendamento";
       const cfg = TIPO_CONFIG[tipo];
-      lista.push({ id: s.id, dia: s.inicio.slice(0, 10), titulo: s.titulo, tipo, cor: cfg.cor, bg: cfg.bg, dados: s });
+      lista.push({ id: s.id, dia: s.inicio.slice(0, 10), titulo: s.titulo, tipo, cor: cfg.cor, bg: cfg.bg, dados: s, clienteInfo: s.clientes });
     }
 
     // Eventos de pedidos
-    for (const p of (orders ?? []) as { id: string; nome: string | null; numero: string | null; data_evento: string | null; clientes: { nome: string }[] | null }[]) {
+    type OrderRow = { id: string; nome: string | null; numero: string | null; data_evento: string | null; clientes: { nome: string; email: string | null; telefone: string | null; whatsapp: string | null } | { nome: string; email: string | null; telefone: string | null; whatsapp: string | null }[] | null };
+    for (const p of (orders ?? []) as OrderRow[]) {
       if (!p.data_evento) continue;
       const nome = p.nome ?? p.numero ?? "Pedido";
-      const clienteNome = Array.isArray(p.clientes) ? p.clientes[0]?.nome : (p.clientes as { nome: string } | null)?.nome;
-      const cliente = clienteNome ? ` — ${clienteNome}` : "";
-      lista.push({ id: `ped-${p.id}`, dia: p.data_evento, titulo: nome + cliente, tipo: "evento_pedido", cor: TIPO_CONFIG.evento_pedido.cor, bg: TIPO_CONFIG.evento_pedido.bg, navegarPara: `/crm/pedidos/${p.id}` });
+      const cli = Array.isArray(p.clientes) ? p.clientes[0] : p.clientes;
+      const clienteNome = cli?.nome ?? null;
+      const clienteLabel = clienteNome ? ` — ${clienteNome}` : "";
+      lista.push({ id: `ped-${p.id}`, dia: p.data_evento, titulo: nome + clienteLabel, tipo: "evento_pedido", cor: TIPO_CONFIG.evento_pedido.cor, bg: TIPO_CONFIG.evento_pedido.bg, navegarPara: `/crm/pedidos/${p.id}`, clienteInfo: cli ?? null });
     }
 
     // Financeiro
@@ -527,21 +530,21 @@ export default function AgendaPage() {
                 </div>
 
                 {/* Cliente */}
-                {(d as ScheduleComCliente)?.clientes && (
+                {popupEvento.clienteInfo && (
                   <div>
                     <div style={{ fontSize: 10, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>Cliente</div>
                     <div style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)" }}>
-                      👤 {(d as ScheduleComCliente).clientes!.nome}
+                      👤 {popupEvento.clienteInfo.nome}
                     </div>
-                    {(d as ScheduleComCliente).clientes!.email && (
-                      <a href={`mailto:${(d as ScheduleComCliente).clientes!.email}`}
+                    {popupEvento.clienteInfo.email && (
+                      <a href={`mailto:${popupEvento.clienteInfo.email}`}
                         style={{ fontSize: 12, color: "#2563EB", display: "block", marginTop: 3, textDecoration: "none" }}>
-                        ✉ {(d as ScheduleComCliente).clientes!.email}
+                        ✉ {popupEvento.clienteInfo.email}
                       </a>
                     )}
-                    {((d as ScheduleComCliente).clientes!.whatsapp || (d as ScheduleComCliente).clientes!.telefone) && (
+                    {(popupEvento.clienteInfo.whatsapp || popupEvento.clienteInfo.telefone) && (
                       <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginTop: 2 }}>
-                        📱 {(d as ScheduleComCliente).clientes!.whatsapp ?? (d as ScheduleComCliente).clientes!.telefone}
+                        📱 {popupEvento.clienteInfo.whatsapp ?? popupEvento.clienteInfo.telefone}
                       </div>
                     )}
                   </div>
