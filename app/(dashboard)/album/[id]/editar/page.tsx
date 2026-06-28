@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { deleteFilesClient } from "@/lib/storage/deleteClient";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { ClienteSelect } from "@/app/(dashboard)/entrega/_components/ClienteSelect";
 import { LaminasUpload } from "@/app/(dashboard)/album/_components/LaminasUpload";
@@ -127,9 +128,10 @@ export default function EditarAlbumPage() {
     setExcluindo(true);
     const supabase = createClient();
     // Remover lâminas do storage
-    const { data: lams } = await supabase.from("album_laminas").select("storage_path").eq("selecao_id", id);
+    const { data: lams } = await supabase.from("album_laminas").select("storage_path, url_publica").eq("selecao_id", id);
     if (lams && lams.length > 0) {
-      await supabase.storage.from("galerias").remove(lams.map((l: any) => l.storage_path));
+      deleteFilesClient((lams as { storage_path: string; url_publica: string | null }[])
+        .map((l) => ({ storage_path: l.storage_path, url_publica: l.url_publica })));
     }
     await supabase.from("album_selecoes").delete().eq("id", id);
     router.push("/album");

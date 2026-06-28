@@ -9,6 +9,7 @@ import { useFotografo } from "@/lib/context/FotografoContext";
 import type { GaleriaSelecao, Cliente } from "@/lib/supabase/types";
 import { ModalEnviarAcesso } from "./[id]/_components/ModalEnviarAcesso";
 import { fetchAllRows } from "@/lib/supabase/fetchAll";
+import { deleteFilesClient } from "@/lib/storage/deleteClient";
 
 type GaleriaComCliente = GaleriaSelecao & {
   cliente?: Pick<Cliente, "nome" | "email" | "senha_acesso" | "telefone" | "whatsapp"> | null;
@@ -120,15 +121,16 @@ function SelecaoConteudo() {
     // Limpar arquivos do storage antes de deletar
     const { data: fotos } = await supabase
       .from("galerias_selecao_fotos")
-      .select("storage_path, thumbnail_path")
+      .select("storage_path, thumbnail_path, url_publica")
       .eq("galeria_id", excluindo.id);
     if (fotos && fotos.length > 0) {
-      const paths = fotos.flatMap((f: { storage_path: string; thumbnail_path: string | null }) =>
-        [f.storage_path, f.thumbnail_path].filter(Boolean) as string[]
-      );
-      for (let i = 0; i < paths.length; i += 100) {
-        await supabase.storage.from("galerias").remove(paths.slice(i, i + 100));
-      }
+      const items = (fotos as { storage_path: string; thumbnail_path: string | null; url_publica: string | null }[])
+        .flatMap((f) => [
+          { storage_path: f.storage_path, url_publica: f.url_publica },
+          f.thumbnail_path ? { storage_path: f.thumbnail_path, url_publica: null } : null,
+        ].filter(Boolean)) as { storage_path: string; url_publica: string | null }[];
+      for (let i = 0; i < items.length; i += 100)
+        deleteFilesClient(items.slice(i, i + 100));
     }
     await supabase.from("galerias_selecao").delete().eq("id", excluindo.id).eq("fotografo_id", fotografo.id);
     setGalerias((prev) => prev.filter((g) => g.id !== excluindo.id));

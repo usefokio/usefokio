@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { processarImagemEntrega, formatBytes } from "@/lib/imageResize";
 import { uploadFileClient } from "@/lib/storage/uploadClient";
+import { deleteFilesClient } from "@/lib/storage/deleteClient";
 import type { AlbumLamina } from "@/lib/supabase/types";
 
 type FilaItem = {
@@ -140,7 +141,7 @@ export function LaminasUpload({ selecaoId, fotografoId, ensureSelecaoId, onLamin
 
   async function removerLamina(lamina: AlbumLamina) {
     const supabase = createClient();
-    await supabase.storage.from("galerias").remove([lamina.storage_path]);
+    deleteFilesClient([{ storage_path: lamina.storage_path, url_publica: (lamina as any).url_publica ?? null }]);
     await supabase.from("album_laminas").delete().eq("id", lamina.id);
     const novas = laminas.filter((l) => l.id !== lamina.id);
     setLaminas(novas);

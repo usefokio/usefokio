@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { useUnsavedGuard } from "@/lib/hooks/useUnsavedGuard";
 import { uploadFileClient } from "@/lib/storage/uploadClient";
+import { deleteFilesClient } from "@/lib/storage/deleteClient";
 import { Field } from "@/components/ui/Field";
 import { inputStyle } from "@/lib/styles";
 import { ClienteSelect } from "../../_components/ClienteSelect";
@@ -243,15 +244,14 @@ export default function EditarEntregaPage() {
     // Buscar storage_paths das fotos antes de deletar a galeria
     const { data: fotos } = await supabase
       .from("galerias_entrega_fotos")
-      .select("storage_path")
+      .select("storage_path, url_publica")
       .eq("galeria_id", id);
 
-    // Remover arquivos do storage em lotes de 100
     if (fotos && fotos.length > 0) {
-      const paths = fotos.map((f: { storage_path: string }) => f.storage_path);
-      for (let i = 0; i < paths.length; i += 100) {
-        await supabase.storage.from("galerias").remove(paths.slice(i, i + 100));
-      }
+      const items = (fotos as { storage_path: string; url_publica: string | null }[])
+        .map((f) => ({ storage_path: f.storage_path, url_publica: f.url_publica }));
+      for (let i = 0; i < items.length; i += 100)
+        deleteFilesClient(items.slice(i, i + 100));
     }
 
     await supabase.from("galerias_entrega").delete().eq("id", id).eq("fotografo_id", fotografo.id);

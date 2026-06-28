@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { processarImagem } from "@/lib/imageResize";
 import { uploadFileClient } from "@/lib/storage/uploadClient";
+import { deleteFilesClient } from "@/lib/storage/deleteClient";
 import exifr from "exifr";
 import { PLANOS, BETA_RESOLUCAO_MAXIMA, limiteEfetivo, type PlanoId } from "@/lib/planos";
 import type { GaleriaSelecao, GaleriaSelecaoFoto, Cliente, Categoria } from "@/lib/supabase/types";
@@ -247,8 +248,11 @@ function GaleriaSelecaoConteudo() {
     if (!foto || foto._uploading) return;
     const supabase = createClient();
     await supabase.from("galerias_selecao_fotos").delete().eq("id", fotoId);
-    if (foto.storage_path)   supabase.storage.from("galerias").remove([foto.storage_path]);
-    if (foto.thumbnail_path) supabase.storage.from("galerias").remove([foto.thumbnail_path]);
+    const storagItems = [
+      foto.storage_path   ? { storage_path: foto.storage_path,   url_publica: foto.url_publica }           : null,
+      foto.thumbnail_path ? { storage_path: foto.thumbnail_path, url_publica: foto.url_publica } : null,
+    ].filter(Boolean) as { storage_path: string; url_publica: string | null }[];
+    deleteFilesClient(storagItems);
     setFotos((prev) => prev.filter((f) => f.id !== fotoId));
     setGaleria((g) => g ? { ...g, total_fotos: Math.max(0, g.total_fotos - 1) } : g);
     if (galeria?.foto_capa_id === fotoId) setGaleria((g) => g ? { ...g, foto_capa_id: null } : g);
@@ -295,8 +299,11 @@ function GaleriaSelecaoConteudo() {
     const supabase = createClient();
     const ids = Array.from(selecionados);
     const fotosParaDeletar = fotos.filter((f) => ids.includes(f.id));
-    const storagePaths = fotosParaDeletar.flatMap((f) => [f.storage_path, f.thumbnail_path ?? ""].filter(Boolean));
-    if (storagePaths.length > 0) await supabase.storage.from("galerias").remove(storagePaths);
+    const storageItems = fotosParaDeletar.flatMap((f) => [
+      f.storage_path   ? { storage_path: f.storage_path,   url_publica: f.url_publica }           : null,
+      f.thumbnail_path ? { storage_path: f.thumbnail_path, url_publica: f.url_publica } : null,
+    ].filter(Boolean)) as { storage_path: string; url_publica: string | null }[];
+    if (storageItems.length > 0) deleteFilesClient(storageItems);
     await supabase.from("galerias_selecao_fotos").delete().in("id", ids);
     setFotos((prev) => prev.filter((f) => !ids.includes(f.id)));
     setGaleria((g) => g ? { ...g, total_fotos: Math.max(0, g.total_fotos - ids.length) } : g);

@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { fetchAllRows } from "@/lib/supabase/fetchAll";
+import { deleteFilesClient } from "@/lib/storage/deleteClient";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import type { GaleriaEntrega, GaleriaEntregaFoto, ContatoCategoria, Pagamento } from "@/lib/supabase/types";
 import { ModalEnviarAcesso } from "../_components/ModalEnviarAcesso";
@@ -347,9 +348,9 @@ export default function EntregaDetailPage() {
     setExcluindoFotos(true);
     setConfirmarTodas(false);
     const supabase = createClient();
-    const paths = fotos.map((f) => f.storage_path);
-    for (let i = 0; i < paths.length; i += 100)
-      await supabase.storage.from("galerias").remove(paths.slice(i, i + 100));
+    const items = fotos.map((f) => ({ storage_path: f.storage_path, url_publica: f.url_publica }));
+    for (let i = 0; i < items.length; i += 100)
+      deleteFilesClient(items.slice(i, i + 100));
     await supabase.from("galerias_entrega_fotos").delete().eq("galeria_id", id);
     setFotos([]);
     setSelecionadas(new Set());
@@ -363,12 +364,10 @@ export default function EntregaDetailPage() {
     setConfirmarExclusao(false);
     const supabase = createClient();
     const alvo = fotos.filter((f) => selecionadas.has(f.id));
-    const paths = alvo.map((f) => f.storage_path);
-    const ids   = alvo.map((f) => f.id);
-
-    for (let i = 0; i < paths.length; i += 100) {
-      await supabase.storage.from("galerias").remove(paths.slice(i, i + 100));
-    }
+    const storageItems = alvo.map((f) => ({ storage_path: f.storage_path, url_publica: f.url_publica }));
+    const ids          = alvo.map((f) => f.id);
+    for (let i = 0; i < storageItems.length; i += 100)
+      deleteFilesClient(storageItems.slice(i, i + 100));
     for (let i = 0; i < ids.length; i += 100) {
       await supabase.from("galerias_entrega_fotos").delete().in("id", ids.slice(i, i + 100));
     }

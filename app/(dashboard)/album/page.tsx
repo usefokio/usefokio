@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { usePersistedState } from "@/lib/hooks/usePersistedState";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { deleteFilesClient } from "@/lib/storage/deleteClient";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import type { AlbumSelecao } from "@/lib/supabase/types";
 
@@ -87,13 +88,13 @@ export default function AlbumPage() {
     // Limpar arquivos do storage antes de deletar
     const { data: laminas } = await supabase
       .from("album_laminas")
-      .select("storage_path")
+      .select("storage_path, url_publica")
       .eq("selecao_id", excluindo.id);
     if (laminas && laminas.length > 0) {
-      const paths = laminas.map((l: { storage_path: string }) => l.storage_path);
-      for (let i = 0; i < paths.length; i += 100) {
-        await supabase.storage.from("galerias").remove(paths.slice(i, i + 100));
-      }
+      const items = (laminas as { storage_path: string; url_publica: string | null }[])
+        .map((l) => ({ storage_path: l.storage_path, url_publica: l.url_publica }));
+      for (let i = 0; i < items.length; i += 100)
+        deleteFilesClient(items.slice(i, i + 100));
     }
     await supabase.from("album_selecoes").delete().eq("id", excluindo.id).eq("fotografo_id", fotografo.id);
     setSelecoes((prev) => prev.filter((s) => s.id !== excluindo.id));
