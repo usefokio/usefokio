@@ -6,8 +6,12 @@ export async function GET(req: NextRequest) {
 
   if (!url) return new Response("url obrigatória", { status: 400 });
 
-  // Só permite URLs do Supabase Storage desta aplicação
-  if (!url.startsWith("https://fhsoqlttxggjpgrupjse.supabase.co/storage/")) {
+  const allowedOrigins = [
+    "https://fhsoqlttxggjpgrupjse.supabase.co/storage/",
+    "https://arquivos.usefokio.com.br/",
+    "https://pub-e66279e0a17e4483ab3779c6326d2f65.r2.dev/",
+  ];
+  if (!allowedOrigins.some((o) => url.startsWith(o))) {
     return new Response("URL não permitida", { status: 403 });
   }
 
