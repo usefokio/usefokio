@@ -20,12 +20,31 @@ const CATEGORIAS_SUGERIDAS = [
   "Aniversário", "Formatura", "Corporativo", "Evento",
 ];
 
-type Step = "categorias" | "taxas" | "email" | "concluido";
+type Step = "renovacao" | "categorias" | "taxas" | "email" | "concluido";
 
 export default function ConfigurarPage() {
   const router       = useRouter();
   const { fotografo, reload } = useFotografo();
-  const [step, setStep]       = useState<Step>("categorias");
+  const [step, setStep]       = useState<Step>("renovacao");
+
+  // ── Step 0: taxa de renovação padrão ───────────────────────────────────────
+  const [taxaPadrao,    setTaxaPadrao]    = useState("20,90");
+  const [salvandoTaxa,  setSalvandoTaxa]  = useState(false);
+
+  useEffect(() => {
+    if (fotografo?.renewal_fee_padrao != null) {
+      setTaxaPadrao(formatarMoeda(fotografo.renewal_fee_padrao));
+    }
+  }, [fotografo]);
+
+  async function salvarTaxaPadrao() {
+    if (!fotografo) return;
+    setSalvandoTaxa(true);
+    const valor = parseMoeda(taxaPadrao) || 20.90;
+    await createClient().from("fotografos").update({ renewal_fee_padrao: valor }).eq("id", fotografo.id);
+    setSalvandoTaxa(false);
+    setStep("categorias");
+  }
 
   // ── Step 1: categorias ──────────────────────────────────────────────────────
   const [categorias,    setCategorias]    = useState<Categoria[]>([]);
@@ -92,7 +111,7 @@ export default function ConfigurarPage() {
     setCategoriasComTaxa((data ?? []).map((c) => ({
       id: c.id as string,
       nome: c.nome as string,
-      taxa: c.taxa_renovacao_padrao ? formatarMoeda(c.taxa_renovacao_padrao as number) : "20,90",
+      taxa: c.taxa_renovacao_padrao ? formatarMoeda(c.taxa_renovacao_padrao as number) : taxaPadrao,
     })));
   }
 
@@ -173,7 +192,7 @@ export default function ConfigurarPage() {
 
         {/* Steps indicator */}
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 32, justifyContent: "center" }}>
-          {([["categorias", "1. Categorias"], ["taxas", "2. Renovação"], ["email", "3. Email"], ["concluido", "4. Pronto"]] as const).map(([s, label]) => (
+          {([["renovacao", "1. Renovação"], ["categorias", "2. Categorias"], ["taxas", "3. Taxas"], ["email", "4. Email"], ["concluido", "5. Pronto"]] as const).map(([s, label]) => (
             <div key={s} style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <span style={{ fontSize: 12, fontWeight: 600, color: step === s ? "var(--color-text-primary)" : "var(--color-text-secondary)", opacity: step === s ? 1 : 0.5 }}>
                 {label}
@@ -185,6 +204,42 @@ export default function ConfigurarPage() {
 
         {/* Card */}
         <div style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 14, padding: "28px 30px" }}>
+
+          {/* ─── Step 0: Taxa de renovação padrão ─── */}
+          {step === "renovacao" && (
+            <>
+              <h2 style={{ fontSize: 16, fontWeight: 800, color: "var(--color-text-primary)", margin: "0 0 6px", letterSpacing: "-0.02em" }}>
+                💰 Taxa de renovação de acesso
+              </h2>
+              <p style={{ fontSize: 13, color: "var(--color-text-secondary)", margin: "0 0 12px", lineHeight: 1.6 }}>
+                Essa é a <strong style={{ color: "var(--color-text-primary)" }}>principal funcionalidade do sistema</strong>: quando o prazo da galeria expira, o cliente paga uma taxa para reabrir o acesso às fotos.
+              </p>
+              <div style={{ background: "rgba(37,99,235,0.05)", border: "0.5px solid rgba(37,99,235,0.2)", borderRadius: 9, padding: "12px 14px", marginBottom: 24, fontSize: 12, color: "var(--color-text-secondary)", lineHeight: 1.6 }}>
+                O link de pagamento é gerado automaticamente. Após o cliente pagar, o acesso é liberado sem nenhuma ação da sua parte. Você pode definir valores diferentes por tipo de trabalho na próxima etapa.
+              </div>
+
+              <label style={{ fontSize: 12, fontWeight: 600, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.04em", display: "block", marginBottom: 7 }}>
+                Valor padrão de renovação
+              </label>
+              <div style={{ position: "relative", width: 180, marginBottom: 24 }}>
+                <span style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", fontSize: 13, color: "var(--color-text-secondary)", pointerEvents: "none" }}>R$</span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={taxaPadrao}
+                  onChange={(e) => setTaxaPadrao(mascaraMoeda(e.target.value))}
+                  style={{ ...inputStyle, paddingLeft: 34 }}
+                  autoFocus
+                />
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                <button onClick={salvarTaxaPadrao} disabled={salvandoTaxa} style={{ padding: "10px 24px", borderRadius: 8, border: "none", background: "#111", color: "#fff", fontSize: 13, fontWeight: 700, cursor: salvandoTaxa ? "not-allowed" : "pointer", opacity: salvandoTaxa ? 0.6 : 1 }}>
+                  {salvandoTaxa ? "Salvando…" : "Próximo →"}
+                </button>
+              </div>
+            </>
+          )}
 
           {/* ─── Step 1: Categorias ─── */}
           {step === "categorias" && (

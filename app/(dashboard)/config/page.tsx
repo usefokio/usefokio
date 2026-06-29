@@ -6,13 +6,13 @@ import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { uploadFileClient } from "@/lib/storage/uploadClient";
 import { PLANOS, pctUso, corBarra, limiteEfetivo, type PlanoId } from "@/lib/planos";
-import type { Categoria, ConfigVendaFotos } from "@/lib/supabase/types";
+import type { Categoria } from "@/lib/supabase/types";
 import { inputStyle } from "@/lib/styles";
 import { mascaraMoeda, parseMoeda, formatarMoeda } from "@/lib/moeda";
 import { aplicarMarcaDagua } from "@/lib/imageResize";
 import { DoacaoDev } from "../_components/DoacaoDev";
 
-type Tab = "categorias" | "entrega" | "identidade" | "pagamentos" | "seguranca" | "mensagens" | "email";
+type Tab = "categorias" | "identidade" | "pagamentos" | "seguranca" | "mensagens" | "email";
 
 // ── Gerenciador de categorias ────────────────────────────────────────────────
 function Categorias() {
@@ -160,256 +160,6 @@ function Categorias() {
           ))}
         </div>
       )}
-    </div>
-  );
-}
-
-// ── Configuração de venda de fotos ───────────────────────────────────────────
-function VendaFotos() {
-  const { fotografo } = useFotografo();
-  const [cfg, setCfg]       = useState<Partial<ConfigVendaFotos>>({ ativa: false });
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving]   = useState(false);
-  const [saved, setSaved]     = useState(false);
-
-  useEffect(() => { carregar(); }, [fotografo]);
-
-  async function carregar() {
-    if (!fotografo) return;
-    const supabase = createClient();
-    const { data } = await supabase
-      .from("config_venda_fotos")
-      .select("*")
-      .eq("fotografo_id", fotografo.id)
-      .maybeSingle();
-    if (data) setCfg(data);
-    setLoading(false);
-  }
-
-  async function salvar() {
-    if (!fotografo) return;
-    setSaving(true);
-    const supabase = createClient();
-    const payload = {
-      fotografo_id:       fotografo.id,
-      ativa:              cfg.ativa ?? false,
-      preco_por_foto:     cfg.ativa ? (cfg.preco_por_foto ?? null) : null,
-      pacote_minimo:      cfg.ativa ? (cfg.pacote_minimo ?? null) : null,
-      descricao_checkout: cfg.ativa ? (cfg.descricao_checkout ?? null) : null,
-      updated_at:         new Date().toISOString(),
-    };
-    await supabase.from("config_venda_fotos").upsert(payload, { onConflict: "fotografo_id" });
-    setSaving(false);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 3000);
-  }
-
-  const upd = (k: keyof ConfigVendaFotos, v: unknown) =>
-    setCfg((c) => ({ ...c, [k]: v }));
-
-  if (loading) return <div style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>Carregando…</div>;
-
-  return (
-    <div>
-      <p style={{ fontSize: 13, color: "var(--color-text-secondary)", marginTop: 0, marginBottom: 24 }}>
-        Configure a venda de fotos extras para seus clientes. Estas configurações servem como padrão e podem ser ajustadas individualmente em cada galeria.
-      </p>
-
-      {/* Toggle ativo */}
-      <div style={{
-        display: "flex", alignItems: "center", justifyContent: "space-between",
-        padding: "14px 18px",
-        background: cfg.ativa ? "rgba(37,99,235,0.05)" : "var(--color-background-secondary)",
-        border: `0.5px solid ${cfg.ativa ? "rgba(37,99,235,0.3)" : "var(--color-border-secondary)"}`,
-        borderRadius: 10, marginBottom: 20, cursor: "pointer",
-        transition: "all 0.2s",
-      }}
-        onClick={() => upd("ativa", !cfg.ativa)}
-      >
-        <div>
-          <div style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)" }}>Venda de fotos extras</div>
-          <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginTop: 2 }}>
-            {cfg.ativa ? "Ativada — clientes poderão comprar fotos adicionais" : "Desativada"}
-          </div>
-        </div>
-        {/* Toggle visual */}
-        <div style={{
-          width: 40, height: 22, borderRadius: 11, flexShrink: 0,
-          background: cfg.ativa ? "#2563EB" : "var(--color-border-secondary)",
-          position: "relative", transition: "background 0.2s",
-        }}>
-          <div style={{
-            position: "absolute", top: 3, width: 16, height: 16, borderRadius: "50%",
-            background: "#fff", transition: "left 0.2s",
-            left: cfg.ativa ? 21 : 3,
-            boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
-          }} />
-        </div>
-      </div>
-
-      {/* Campos — só aparece se ativo */}
-      {cfg.ativa && (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 20 }}>
-
-          <div>
-            <label style={{ fontSize: 12, fontWeight: 600, color: "var(--color-text-secondary)", display: "block", marginBottom: 6 }}>
-              Preço por foto extra (R$) *
-            </label>
-            <div style={{ position: "relative" }}>
-              <span style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", fontSize: 13, color: "var(--color-text-secondary)" }}>R$</span>
-              <input
-                type="number"
-                min={0}
-                step={0.01}
-                value={cfg.preco_por_foto ?? ""}
-                onChange={(e) => upd("preco_por_foto", e.target.value ? parseFloat(e.target.value) : null)}
-                placeholder="0,00"
-                style={{ ...inputStyle, paddingLeft: 32 }}
-              />
-            </div>
-          </div>
-
-          <div>
-            <label style={{ fontSize: 12, fontWeight: 600, color: "var(--color-text-secondary)", display: "block", marginBottom: 6 }}>
-              Venda a partir de (nº de fotos) *
-            </label>
-            <input
-              type="number"
-              min={1}
-              value={cfg.pacote_minimo ?? ""}
-              onChange={(e) => upd("pacote_minimo", e.target.value ? parseInt(e.target.value) : null)}
-              placeholder="Ex: 50"
-              style={inputStyle}
-            />
-            <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: "4px 0 0" }}>
-              O cliente pode comprar extras só após selecionar este mínimo.
-            </p>
-          </div>
-
-          <div style={{ gridColumn: "1 / -1" }}>
-            <label style={{ fontSize: 12, fontWeight: 600, color: "var(--color-text-secondary)", display: "block", marginBottom: 6 }}>
-              Mensagem exibida ao cliente na compra
-            </label>
-            <textarea
-              value={cfg.descricao_checkout ?? ""}
-              onChange={(e) => upd("descricao_checkout", e.target.value)}
-              placeholder="Ex: Cada foto adicional custa R$ 15,00. O pagamento será feito via Pix após a confirmação da seleção."
-              rows={3}
-              style={{ ...inputStyle, resize: "vertical", height: "auto" }}
-            />
-          </div>
-        </div>
-      )}
-
-      {saved && (
-        <div style={{ fontSize: 13, color: "#059669", marginBottom: 14 }}>✓ Configurações salvas!</div>
-      )}
-
-      <button
-        onClick={salvar}
-        disabled={saving}
-        style={{
-          padding: "10px 28px", borderRadius: 8,
-          background: saving ? "#93C5FD" : "#2563EB",
-          color: "#fff", border: "none", fontSize: 13,
-          fontWeight: 700, cursor: saving ? "not-allowed" : "pointer",
-        }}
-      >
-        {saving ? "Salvando…" : "Salvar configurações"}
-      </button>
-    </div>
-  );
-}
-
-// ── Configuração de Entrega ──────────────────────────────────────────────────
-function ConfigEntrega() {
-  const { fotografo, reload } = useFotografo();
-  const [mensagem, setMensagem] = useState("");
-  const [taxaPadrao, setTaxaPadrao] = useState("");
-  const [saving,   setSaving]   = useState(false);
-  const [saved,    setSaved]    = useState(false);
-
-  useEffect(() => {
-    if (fotografo) {
-      setMensagem(fotografo.mensagem_padrao_entrega ?? "");
-      setTaxaPadrao(fotografo.renewal_fee_padrao != null ? formatarMoeda(fotografo.renewal_fee_padrao) : "");
-    }
-  }, [fotografo]);
-
-  async function salvar() {
-    if (!fotografo) return;
-    setSaving(true);
-    const supabase = createClient();
-    await supabase
-      .from("fotografos")
-      .update({
-        mensagem_padrao_entrega: mensagem.trim() || null,
-        renewal_fee_padrao: parseMoeda(taxaPadrao),
-      })
-      .eq("id", fotografo.id);
-    await reload();
-    setSaving(false);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 3000);
-  }
-
-  return (
-    <div>
-      <p style={{ fontSize: 13, color: "var(--color-text-secondary)", marginTop: 0, marginBottom: 24 }}>
-        Configure a mensagem padrão enviada aos clientes nas galerias de entrega. Ela será pré-preenchida automaticamente ao criar uma nova galeria, mas pode ser editada em cada caso.
-      </p>
-
-      <div>
-        <label style={{ fontSize: 12, fontWeight: 600, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.04em", display: "block", marginBottom: 7 }}>
-          Mensagem padrão
-        </label>
-        <textarea
-          value={mensagem}
-          onChange={(e) => setMensagem(e.target.value)}
-          placeholder="Olá {nome}! Suas fotos estão prontas 🎉 Acesse o link abaixo para fazer o download…"
-          rows={6}
-          style={{ ...inputStyle, resize: "vertical", lineHeight: 1.6, width: "100%", boxSizing: "border-box" }}
-        />
-        <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: "6px 0 0" }}>
-          Dica: você pode usar {"{nome}"} para personalizar com o nome do cliente.
-        </p>
-      </div>
-
-      <div style={{ marginTop: 24 }}>
-        <label style={{ fontSize: 12, fontWeight: 600, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.04em", display: "block", marginBottom: 7 }}>
-          Taxa de renovação padrão
-        </label>
-        <div style={{ position: "relative", width: 200 }}>
-          <span style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", fontSize: 13, color: "var(--color-text-secondary)", pointerEvents: "none" }}>R$</span>
-          <input
-            type="text" inputMode="numeric"
-            value={taxaPadrao}
-            onChange={(e) => setTaxaPadrao(mascaraMoeda(e.target.value))}
-            placeholder="0,00"
-            style={{ ...inputStyle, width: "100%", paddingLeft: 34 }}
-          />
-        </div>
-        <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: "6px 0 0" }}>
-          Valor pré-preenchido como taxa de renovação ao criar uma nova galeria de entrega.
-        </p>
-      </div>
-
-      {saved && (
-        <div style={{ fontSize: 13, color: "#059669", marginBottom: 14, marginTop: 14 }}>✓ Configurações salvas!</div>
-      )}
-
-      <button
-        onClick={salvar}
-        disabled={saving}
-        style={{
-          marginTop: 20, padding: "10px 28px", borderRadius: 8,
-          background: saving ? "#93C5FD" : "#2563EB",
-          color: "#fff", border: "none", fontSize: 13,
-          fontWeight: 700, cursor: saving ? "not-allowed" : "pointer",
-        }}
-      >
-        {saving ? "Salvando…" : "Salvar mensagem padrão"}
-      </button>
     </div>
   );
 }
@@ -1653,7 +1403,6 @@ export default function ConfigPage() {
   const tabs: { id: Tab; label: string; icon: string }[] = [
     { id: "categorias",  label: "Categorias de fotos",   icon: "🏷️" },
     { id: "identidade",  label: "Identidade visual",     icon: "🎨" },
-    { id: "entrega",     label: "Galerias de entrega",    icon: "📦" },
     { id: "mensagens",   label: "Modelos de mensagem",   icon: "✉️" },
     { id: "email",       label: "Servidor de e-mail",     icon: "📧" },
     { id: "pagamentos",  label: "Pagamentos (Asaas)",     icon: "💳" },
@@ -1720,7 +1469,6 @@ export default function ConfigPage() {
         }}>
           {tab === "categorias"  && <Categorias />}
           {tab === "identidade"  && <IdentidadeVisual />}
-          {tab === "entrega"     && <ConfigEntrega />}
           {tab === "mensagens"   && <MensagensConfig />}
           {tab === "email"       && <ConfigEmail />}
           {tab === "pagamentos"  && <ConfigPagamentos />}
