@@ -89,10 +89,10 @@ export default function ConfigurarPage() {
       .select("id, nome, taxa_renovacao_padrao")
       .eq("fotografo_id", fotografo.id)
       .order("nome");
-    setCategoriasComTaxa((data ?? []).map((c: Categoria & { taxa_renovacao_padrao: number | null }) => ({
-      id: c.id,
-      nome: c.nome,
-      taxa: c.taxa_renovacao_padrao ? formatarMoeda(c.taxa_renovacao_padrao) : "20,90",
+    setCategoriasComTaxa((data ?? []).map((c) => ({
+      id: c.id as string,
+      nome: c.nome as string,
+      taxa: c.taxa_renovacao_padrao ? formatarMoeda(c.taxa_renovacao_padrao as number) : "20,90",
     })));
   }
 
