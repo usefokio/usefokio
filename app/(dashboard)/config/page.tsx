@@ -9,6 +9,7 @@ import { PLANOS, pctUso, corBarra, limiteEfetivo, type PlanoId } from "@/lib/pla
 import type { Categoria, ConfigVendaFotos } from "@/lib/supabase/types";
 import { inputStyle } from "@/lib/styles";
 import { mascaraMoeda, parseMoeda, formatarMoeda } from "@/lib/moeda";
+import { aplicarMarcaDagua } from "@/lib/imageResize";
 import { DoacaoDev } from "../_components/DoacaoDev";
 
 type Tab = "categorias" | "entrega" | "identidade" | "pagamentos" | "seguranca" | "mensagens" | "email";
@@ -930,6 +931,24 @@ function IdentidadeVisual() {
   const [watermarkUploading, setWatermarkUploading] = useState(false);
   const logoInputRef      = useRef<HTMLInputElement>(null);
   const watermarkInputRef = useRef<HTMLInputElement>(null);
+  const [wmPreviewUrl, setWmPreviewUrl] = useState<string | null>(null);
+
+  const FOTO_EXEMPLO = "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&q=80";
+
+  async function gerarPreviewWatermark(wmUrl: string) {
+    try {
+      const canvas = document.createElement("canvas");
+      const W = 800, H = 533;
+      canvas.width = W; canvas.height = H;
+      const ctx = canvas.getContext("2d")!;
+      const foto = new Image();
+      foto.crossOrigin = "anonymous";
+      await new Promise<void>((res, rej) => { foto.onload = () => res(); foto.onerror = rej; foto.src = FOTO_EXEMPLO; });
+      ctx.drawImage(foto, 0, 0, W, H);
+      await aplicarMarcaDagua(ctx, W, H, wmUrl);
+      setWmPreviewUrl(canvas.toDataURL("image/jpeg", 0.88));
+    } catch { /* silencioso */ }
+  }
 
   // Assinatura de email
   const [assiEmail,   setAssiEmail]   = useState("");
@@ -941,6 +960,7 @@ function IdentidadeVisual() {
     if (fotografo) {
       setLogoUrl(fotografo.logo_url ?? null);
       setWatermarkUrl(fotografo.watermark_url ?? null);
+      if (fotografo.watermark_url) gerarPreviewWatermark(fotografo.watermark_url);
       setAssiEmail(fotografo.email ?? "");
       setAssiSite(fotografo.site ?? "");
     }
@@ -973,7 +993,9 @@ function IdentidadeVisual() {
       const { url_publica } = await uploadFileClient(path, file, file.type);
       const field = tipo === "logo" ? "logo_url" : "watermark_url";
       await supabase.from("fotografos").update({ [field]: url_publica }).eq("id", fotografo.id);
-      setUrl(url_publica + "?t=" + Date.now());
+      const urlFinal = url_publica + "?t=" + Date.now();
+      setUrl(urlFinal);
+      if (tipo === "watermark") gerarPreviewWatermark(urlFinal);
     } catch { /* silencioso */ }
     setUploading(false);
   }
@@ -1003,11 +1025,24 @@ function IdentidadeVisual() {
         <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginBottom: 16, lineHeight: 1.5 }}>{descricao}</div>
 
         {url ? (
-          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-            <div style={{ background: "#F9FAFB", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 8, padding: 8, display: "flex", alignItems: "center", justifyContent: "center", minWidth: 80, minHeight: 60 }}>
-              <img src={url} alt={label} style={{ maxHeight: 56, maxWidth: 140, objectFit: "contain" }} />
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <div style={{ display: "flex", flexDirection: tipo === "watermark" ? "column" : "row", alignItems: tipo === "watermark" ? "stretch" : "center", gap: 16 }}>
+            {tipo === "logo" ? (
+              <div style={{ background: "repeating-conic-gradient(#e0e0e0 0% 25%, #ffffff 0% 50%) 0 0 / 16px 16px", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 8, padding: 8, display: "flex", alignItems: "center", justifyContent: "center", minWidth: 80, minHeight: 60 }}>
+                <img src={url} alt={label} style={{ maxHeight: 56, maxWidth: 140, objectFit: "contain" }} />
+              </div>
+            ) : wmPreviewUrl ? (
+              <div style={{ borderRadius: 8, overflow: "hidden", border: "0.5px solid var(--color-border-tertiary)" }}>
+                <img src={wmPreviewUrl} style={{ width: "100%", display: "block" }} alt="Preview com marca d'água" />
+                <div style={{ fontSize: 11, color: "var(--color-text-secondary)", padding: "6px 10px", background: "var(--color-background-secondary)" }}>
+                  Pré-visualização — proporção e posição reais
+                </div>
+              </div>
+            ) : (
+              <div style={{ background: "#F9FAFB", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 8, padding: 8, display: "flex", alignItems: "center", justifyContent: "center", minWidth: 80, minHeight: 60 }}>
+                <img src={url} alt={label} style={{ maxHeight: 56, maxWidth: 140, objectFit: "contain" }} />
+              </div>
+            )}
+            <div style={{ display: "flex", flexDirection: "row", gap: 8 }}>
               <button
                 type="button"
                 onClick={() => ref.current?.click()}
