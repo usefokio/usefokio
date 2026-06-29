@@ -11,7 +11,7 @@ import { inputStyle } from "@/lib/styles";
 import { mascaraMoeda, parseMoeda, formatarMoeda } from "@/lib/moeda";
 import { DoacaoDev } from "../_components/DoacaoDev";
 
-type Tab = "categorias" | "venda" | "entrega" | "identidade" | "pagamentos" | "seguranca" | "mensagens" | "agenda" | "email";
+type Tab = "categorias" | "entrega" | "identidade" | "pagamentos" | "seguranca" | "mensagens" | "email";
 
 // ── Gerenciador de categorias ────────────────────────────────────────────────
 function Categorias() {
@@ -1565,10 +1565,8 @@ export default function ConfigPage() {
   const tabs: { id: Tab; label: string; icon: string }[] = [
     { id: "categorias",  label: "Categorias de fotos",   icon: "🏷️" },
     { id: "identidade",  label: "Identidade visual",     icon: "🎨" },
-    { id: "venda",       label: "Venda de fotos extras",  icon: "💰" },
     { id: "entrega",     label: "Galerias de entrega",    icon: "📦" },
     { id: "mensagens",   label: "Modelos de mensagem",   icon: "✉️" },
-    { id: "agenda",      label: "Agenda (iCal)",          icon: "📅" },
     { id: "email",       label: "Servidor de e-mail",     icon: "📧" },
     { id: "pagamentos",  label: "Pagamentos (Asaas)",     icon: "💳" },
     { id: "seguranca",   label: "Segurança",              icon: "🔐" },
@@ -1634,10 +1632,8 @@ export default function ConfigPage() {
         }}>
           {tab === "categorias"  && <Categorias />}
           {tab === "identidade"  && <IdentidadeVisual />}
-          {tab === "venda"       && <VendaFotos />}
           {tab === "entrega"     && <ConfigEntrega />}
           {tab === "mensagens"   && <MensagensConfig />}
-          {tab === "agenda"      && <AgendaConfig />}
           {tab === "email"       && <ConfigEmail />}
           {tab === "pagamentos"  && <ConfigPagamentos />}
           {tab === "seguranca"   && <AlterarSenha />}
