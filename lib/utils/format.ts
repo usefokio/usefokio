@@ -11,7 +11,8 @@ export function mascaraTelefone(v: string): string {
   let d = v.replace(/\D/g, "");
   // auto-prepend código do Brasil se número parece completo sem código do país
   // 11 dígitos = DDD(2) + celular(9), 10 dígitos = DDD(2) + fixo(8)
-  if (d.length === 11 || d.length === 10) d = "55" + d;
+  // só prepende se não começa com 55 (evita loop ao apagar dígitos)
+  if ((d.length === 11 || d.length === 10) && !d.startsWith("55")) d = "55" + d;
   d = d.slice(0, 13);
   if (d.length <= 2)  return d;
   if (d.length <= 4)  return `${d.slice(0,2)} ${d.slice(2)}`;
