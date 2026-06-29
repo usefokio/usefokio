@@ -19,15 +19,32 @@ function ModalNovoCliente({
   onFechar: () => void;
 }) {
   const { fotografo } = useFotografo();
-  const [nome,     setNome]     = useState("");
-  const [email,    setEmail]    = useState("");
-  const [telefone, setTelefone] = useState("");
-  const [whatsapp, setWhatsapp] = useState("");
-  const [saving,   setSaving]   = useState(false);
-  const [erro,     setErro]     = useState("");
+  const [nome,       setNome]       = useState("");
+  const [email,      setEmail]      = useState("");
+  const [telefone,   setTelefone]   = useState("");
+  const [whatsapp,   setWhatsapp]   = useState("");
+  const [saving,     setSaving]     = useState(false);
+  const [erro,       setErro]       = useState("");
+  const [erroEmail,  setErroEmail]  = useState("");
+  const [erroWpp,    setErroWpp]    = useState("");
+
+  async function checkEmailDup() {
+    if (!email.trim() || !fotografo) return;
+    const { data: dup } = await createClient().from("clientes").select("id, nome")
+      .eq("fotografo_id", fotografo.id).eq("email", email.trim()).maybeSingle();
+    setErroEmail(dup ? `Email já cadastrado para "${(dup as { nome: string }).nome}"` : "");
+  }
+
+  async function checkWppDup() {
+    if (!whatsapp.replace(/\D/g, "") || !fotografo) return;
+    const { data: dup } = await createClient().from("clientes").select("id, nome")
+      .eq("fotografo_id", fotografo.id).eq("whatsapp", whatsapp).maybeSingle();
+    setErroWpp(dup ? `WhatsApp já cadastrado para "${(dup as { nome: string }).nome}"` : "");
+  }
 
   async function handleSalvar() {
     if (!nome.trim() || !fotografo) return;
+    if (erroEmail || erroWpp) return;
     setSaving(true);
     setErro("");
     const supabase = createClient();
@@ -35,12 +52,12 @@ function ModalNovoCliente({
     if (email.trim()) {
       const { data: dup } = await supabase.from("clientes").select("id, nome")
         .eq("fotografo_id", fid).eq("email", email.trim()).maybeSingle();
-      if (dup) { setErro(`Email já cadastrado para "${(dup as { nome: string }).nome}"`); setSaving(false); return; }
+      if (dup) { setErroEmail(`Email já cadastrado para "${(dup as { nome: string }).nome}"`); setSaving(false); return; }
     }
     if (whatsapp.replace(/\D/g, "")) {
       const { data: dup } = await supabase.from("clientes").select("id, nome")
         .eq("fotografo_id", fid).eq("whatsapp", whatsapp).maybeSingle();
-      if (dup) { setErro(`WhatsApp já cadastrado para "${(dup as { nome: string }).nome}"`); setSaving(false); return; }
+      if (dup) { setErroWpp(`WhatsApp já cadastrado para "${(dup as { nome: string }).nome}"`); setSaving(false); return; }
     }
     const { data, error } = await supabase
       .from("clientes")
@@ -107,10 +124,12 @@ function ModalNovoCliente({
             <input
               type="email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => { setEmail(e.target.value); setErroEmail(""); }}
+              onBlur={checkEmailDup}
               placeholder="cliente@email.com"
-              style={inputStyle}
+              style={{ ...inputStyle, borderColor: erroEmail ? "#EF4444" : undefined }}
             />
+            {erroEmail && <p style={{ margin: "3px 0 0", fontSize: 11, color: "#EF4444" }}>{erroEmail}</p>}
           </div>
 
           <div>
@@ -134,14 +153,16 @@ function ModalNovoCliente({
             <input
               type="tel"
               value={whatsapp}
-              onChange={(e) => setWhatsapp(mascaraTelefone(e.target.value))}
-              onPaste={(e) => { e.preventDefault(); setWhatsapp(mascaraTelefone(e.clipboardData.getData("text"))); }}
+              onChange={(e) => { setWhatsapp(mascaraTelefone(e.target.value)); setErroWpp(""); }}
+              onPaste={(e) => { e.preventDefault(); setWhatsapp(mascaraTelefone(e.clipboardData.getData("text"))); setErroWpp(""); }}
+              onBlur={checkWppDup}
               placeholder="55 11 99999-9999"
-              style={inputStyle}
+              style={{ ...inputStyle, borderColor: erroWpp ? "#EF4444" : undefined }}
             />
-            <p style={{ margin: "3px 0 0", fontSize: 11, color: "var(--color-text-secondary)" }}>
-              Se igual ao telefone, deixe em branco.
-            </p>
+            {erroWpp
+              ? <p style={{ margin: "3px 0 0", fontSize: 11, color: "#EF4444" }}>{erroWpp}</p>
+              : <p style={{ margin: "3px 0 0", fontSize: 11, color: "var(--color-text-secondary)" }}>Se igual ao telefone, deixe em branco.</p>
+            }
           </div>
 
           {erro && (
