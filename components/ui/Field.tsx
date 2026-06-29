@@ -7,7 +7,7 @@ interface FieldProps {
   children: ReactNode;
 }
 
-function TooltipIcon({ text }: { text: string }) {
+export function TooltipIcon({ text }: { text: string }) {
   const [visible, setVisible] = useState(false);
 
   return (

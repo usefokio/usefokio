@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
-import { Field } from "@/components/ui/Field";
+import { Field, TooltipIcon } from "@/components/ui/Field";
 import { inputStyle } from "@/lib/styles";
 import { ClienteSelect } from "../_components/ClienteSelect";
 import { processarImagemEntrega, formatBytes } from "@/lib/imageResize";
@@ -492,26 +492,38 @@ export default function NovaEntregaPage() {
             <label style={{ display: "flex", alignItems: "flex-start", gap: 12, cursor: "pointer" }}>
               <input type="checkbox" checked={identificacaoObrig} onChange={(e) => setIdentificacaoObrig(e.target.checked)} style={{ marginTop: 2, width: 16, height: 16, accentColor: "var(--color-text-primary)", cursor: "pointer", flexShrink: 0 }} />
               <div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)", marginBottom: 3 }}>Exigir identificação</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)" }}>Exigir identificação</span>
+                  <TooltipIcon text="Antes de ver as fotos, o cliente deve informar nome e e-mail. Útil para saber quem acessou a galeria." />
+                </div>
                 <div style={{ fontSize: 12, color: "var(--color-text-secondary)", lineHeight: 1.5 }}>O cliente precisa informar nome e e-mail antes de acessar.</div>
               </div>
             </label>
             <label style={{ display: "flex", alignItems: "flex-start", gap: 12, cursor: "pointer" }}>
               <input type="checkbox" checked={apenaZip} onChange={(e) => setApenaZip(e.target.checked)} style={{ marginTop: 2, width: 16, height: 16, accentColor: "var(--color-text-primary)", cursor: "pointer", flexShrink: 0 }} />
               <div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)", marginBottom: 3 }}>Galeria somente visualização</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)" }}>Galeria somente visualização</span>
+                  <TooltipIcon text="O cliente pode ver as fotos mas não pode baixá-las individualmente. O botão de download fica oculto." />
+                </div>
                 <div style={{ fontSize: 12, color: "var(--color-text-secondary)", lineHeight: 1.5 }}>Desativa o download individual de fotos.</div>
               </div>
             </label>
             <label style={{ display: "flex", alignItems: "flex-start", gap: 12, cursor: "pointer" }}>
               <input type="checkbox" checked={driveApenasIdentif} onChange={(e) => setDriveApenasIdentif(e.target.checked)} style={{ marginTop: 2, width: 16, height: 16, accentColor: "var(--color-text-primary)", cursor: "pointer", flexShrink: 0 }} />
               <div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)", marginBottom: 3 }}>Link do Drive somente após identificação</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)" }}>Link do Drive somente após identificação</span>
+                  <TooltipIcon text="O link do Google Drive (e o botão de baixar todas) só aparece após o cliente informar nome e e-mail. Requer 'Exigir identificação' ativado." />
+                </div>
                 <div style={{ fontSize: 12, color: "var(--color-text-secondary)", lineHeight: 1.5 }}>Oculta o botão "Baixar todas" até o cliente se identificar.</div>
               </div>
             </label>
             <div>
-              <div style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)", marginBottom: 6 }}>Ordem das fotos na galeria</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+                <span style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)" }}>Ordem das fotos na galeria</span>
+                <TooltipIcon text="Define como as fotos são ordenadas quando o cliente abre a galeria. 'Nome do arquivo' mantém a sequência numérica da edição." />
+              </div>
               <select
                 value={ordenacaoFotos}
                 onChange={(e) => setOrdenacaoFotos(e.target.value as "envio" | "nome" | "data")}
