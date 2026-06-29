@@ -61,13 +61,19 @@ export default function DashboardPage() {
     async function load() {
       const supabase = createClient();
 
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const fid = user.id;
+
       const [{ data: clientes }, { data: galerias }, { data: entregas }] = await Promise.all([
-        supabase.from("clientes").select("id, nome, created_at").order("created_at", { ascending: false }),
+        supabase.from("clientes").select("id, nome, created_at").eq("fotografo_id", fid).order("created_at", { ascending: false }),
         supabase.from("galerias_selecao")
           .select("id, titulo, status, selecao_enviada_em, created_at, foto_capa_id, cliente:clientes(nome), capa_foto:galerias_selecao_fotos!foto_capa_id(thumbnail_path, url_publica)")
+          .eq("fotografo_id", fid)
           .order("created_at", { ascending: false }),
         supabase.from("galerias_entrega")
           .select("id, rascunho, suspensa, expires_at")
+          .eq("fotografo_id", fid)
           .eq("rascunho", false),
       ]);
 
