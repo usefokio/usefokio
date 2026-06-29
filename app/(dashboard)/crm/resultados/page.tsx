@@ -91,7 +91,8 @@ export default function ResultadosPage() {
       .select("id, codigo, nome")
       .or(`fotografo_id.is.null,fotografo_id.eq.${fid}`)
       .eq("ativo", true)
-      .order("codigo");
+      .order("codigo")
+      .order("fotografo_id", { nullsFirst: false });
 
     type DespRow = { conta_id: string; valor: number; pago_em?: string; vencimento?: string };
     type RecRow  = { conta_id: string; valor: number; pago_em?: string; vencimento?: string };
