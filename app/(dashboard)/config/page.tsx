@@ -931,55 +931,11 @@ function IdentidadeVisual() {
   const [watermarkUploading, setWatermarkUploading] = useState(false);
   const logoInputRef      = useRef<HTMLInputElement>(null);
   const watermarkInputRef = useRef<HTMLInputElement>(null);
-  const [wmEscala,    setWmEscala]    = useState(0.30);
-  const [wmPreviewH,  setWmPreviewH]  = useState<string | null>(null);
-  const [wmPreviewV,  setWmPreviewV]  = useState<string | null>(null);
+  const [wmEscala, setWmEscala] = useState(0.30);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const FOTO_EXEMPLO_H = "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&q=80";
   const FOTO_EXEMPLO_V = "https://images.unsplash.com/photo-1502920917128-1aa500764cbd?w=533&q=80";
-
-  async function carregarImgBlob(url: string): Promise<HTMLImageElement> {
-    const blob = await fetch(url).then(r => r.blob());
-    const blobUrl = URL.createObjectURL(blob);
-    return new Promise((res, rej) => {
-      const img = new Image();
-      img.onload = () => { URL.revokeObjectURL(blobUrl); res(img); };
-      img.onerror = () => { URL.revokeObjectURL(blobUrl); rej(); };
-      img.src = blobUrl;
-    });
-  }
-
-  async function gerarPreviewWatermark(wmUrl: string, escala: number) {
-    try {
-      const wm = await carregarImgBlob(wmUrl);
-
-      async function renderCanvas(W: number, H: number, fotoUrl: string) {
-        const canvas = document.createElement("canvas");
-        canvas.width = W; canvas.height = H;
-        const ctx = canvas.getContext("2d")!;
-        const foto = await carregarImgBlob(fotoUrl);
-        ctx.drawImage(foto, 0, 0, W, H);
-        // aplicar watermark manualmente com o blob já carregado
-        const maxW = W * escala;
-        const scale = Math.min(maxW / wm.naturalWidth, 1);
-        const w = wm.naturalWidth * scale;
-        const h = wm.naturalHeight * scale;
-        const margin = W * 0.03;
-        ctx.globalAlpha = 0.55;
-        ctx.drawImage(wm, W - w - margin, H - h - margin, w, h);
-        ctx.globalAlpha = 1;
-        return canvas.toDataURL("image/jpeg", 0.88);
-      }
-
-      const [h, v] = await Promise.all([
-        renderCanvas(800, 533, FOTO_EXEMPLO_H),
-        renderCanvas(533, 800, FOTO_EXEMPLO_V),
-      ]);
-      setWmPreviewH(h);
-      setWmPreviewV(v);
-    } catch { /* silencioso */ }
-  }
 
   // Assinatura de email
   const [assiEmail,   setAssiEmail]   = useState("");
@@ -991,9 +947,7 @@ function IdentidadeVisual() {
     if (fotografo) {
       setLogoUrl(fotografo.logo_url ?? null);
       setWatermarkUrl(fotografo.watermark_url ?? null);
-      const esc = fotografo.watermark_escala ?? 0.30;
-      setWmEscala(esc);
-      if (fotografo.watermark_url) gerarPreviewWatermark(fotografo.watermark_url, esc);
+      setWmEscala(fotografo.watermark_escala ?? 0.30);
       setAssiEmail(fotografo.email ?? "");
       setAssiSite(fotografo.site ?? "");
     }
@@ -1028,14 +982,12 @@ function IdentidadeVisual() {
       await supabase.from("fotografos").update({ [field]: url_publica }).eq("id", fotografo.id);
       const urlFinal = url_publica + "?t=" + Date.now();
       setUrl(urlFinal);
-      if (tipo === "watermark") gerarPreviewWatermark(urlFinal, wmEscala);
     } catch { /* silencioso */ }
     setUploading(false);
   }
 
   function onSliderChange(valor: number) {
     setWmEscala(valor);
-    if (watermarkUrl) gerarPreviewWatermark(watermarkUrl, valor);
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(async () => {
       if (!fotografo) return;
@@ -1086,22 +1038,22 @@ function IdentidadeVisual() {
                   />
                   <span style={{ fontSize: 12, fontWeight: 700, color: "var(--color-text-primary)", minWidth: 32, textAlign: "right" }}>{Math.round(wmEscala * 100)}%</span>
                 </div>
-                {/* Dois previews */}
+                {/* Dois previews via CSS overlay — sem canvas, sem CORS */}
                 <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 10, marginBottom: 12 }}>
-                  {wmPreviewH ? (
-                    <div style={{ borderRadius: 8, overflow: "hidden", border: "0.5px solid var(--color-border-tertiary)" }}>
-                      <img src={wmPreviewH} style={{ width: "100%", display: "block" }} alt="Preview horizontal" />
-                      <div style={{ fontSize: 10, color: "var(--color-text-secondary)", padding: "4px 8px", background: "var(--color-background-secondary)" }}>Horizontal</div>
+                  <div style={{ borderRadius: 8, overflow: "hidden", border: "0.5px solid var(--color-border-tertiary)" }}>
+                    <div style={{ position: "relative" }}>
+                      <img src={FOTO_EXEMPLO_H} style={{ width: "100%", display: "block" }} alt="Preview horizontal" />
+                      <img src={url} style={{ position: "absolute", bottom: "3%", right: "3%", width: `${wmEscala * 100}%`, opacity: 0.55, objectFit: "contain", pointerEvents: "none" }} alt="" />
                     </div>
-                  ) : (
-                    <div style={{ borderRadius: 8, border: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-secondary)", display: "flex", alignItems: "center", justifyContent: "center", minHeight: 80, fontSize: 12, color: "var(--color-text-secondary)" }}>Gerando preview…</div>
-                  )}
-                  {wmPreviewV ? (
-                    <div style={{ borderRadius: 8, overflow: "hidden", border: "0.5px solid var(--color-border-tertiary)", width: 100 }}>
-                      <img src={wmPreviewV} style={{ width: "100%", display: "block" }} alt="Preview vertical" />
-                      <div style={{ fontSize: 10, color: "var(--color-text-secondary)", padding: "4px 8px", background: "var(--color-background-secondary)" }}>Vertical</div>
+                    <div style={{ fontSize: 10, color: "var(--color-text-secondary)", padding: "4px 8px", background: "var(--color-background-secondary)" }}>Horizontal</div>
+                  </div>
+                  <div style={{ width: 100, borderRadius: 8, overflow: "hidden", border: "0.5px solid var(--color-border-tertiary)" }}>
+                    <div style={{ position: "relative" }}>
+                      <img src={FOTO_EXEMPLO_V} style={{ width: "100%", display: "block" }} alt="Preview vertical" />
+                      <img src={url} style={{ position: "absolute", bottom: "3%", right: "3%", width: `${wmEscala * 100}%`, opacity: 0.55, objectFit: "contain", pointerEvents: "none" }} alt="" />
                     </div>
-                  ) : null}
+                    <div style={{ fontSize: 10, color: "var(--color-text-secondary)", padding: "4px 8px", background: "var(--color-background-secondary)" }}>Vertical</div>
+                  </div>
                 </div>
               </>
             )}
