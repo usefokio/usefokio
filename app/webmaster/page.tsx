@@ -345,6 +345,7 @@ export default function WebmasterPage() {
   const [confirmEmail, setConfirmEmail]   = useState("");
   const [excluindo, setExcluindo]         = useState(false);
   const [erroExcluir, setErroExcluir]     = useState("");
+  const [resetando, setResetando]         = useState<string | null>(null);
 
   // Verifica se é webmaster
   useEffect(() => {
@@ -391,6 +392,18 @@ export default function WebmasterPage() {
   async function sair() {
     await createClient().auth.signOut();
     router.push("/login");
+  }
+
+  async function resetarContaTeste(id: string) {
+    if (!confirm("Reiniciar conta de teste? Onboarding e categorias serão limpos.")) return;
+    setResetando(id);
+    const supabase = createClient();
+    const { data: { session } } = await supabase.auth.getSession();
+    await fetch("/api/webmaster/resetar-conta-teste", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${session?.access_token ?? ""}` },
+    });
+    setResetando(null);
   }
 
   async function excluirFotografo() {
@@ -690,6 +703,16 @@ export default function WebmasterPage() {
                           >
                             Excluir
                           </button>
+                          {f.email === "fernando.agrelaws@gmail.com" && (
+                            <button
+                              onClick={() => resetarContaTeste(f.id)}
+                              disabled={resetando === f.id}
+                              title="Reiniciar conta de teste"
+                              style={{ padding: "4px 10px", borderRadius: 6, border: "0.5px solid rgba(124,58,237,0.4)", background: "rgba(124,58,237,0.08)", color: "#7C3AED", fontSize: 11, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}
+                            >
+                              {resetando === f.id ? "…" : "🔄 Reiniciar"}
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
