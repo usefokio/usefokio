@@ -270,7 +270,7 @@ export default function NovaEntregaPage() {
 
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 
-        <Field label="Título da galeria">
+        <Field label="Título da galeria" tooltip="Nome que identifica esta galeria. O cliente verá este nome ao acessar o link de entrega.">
           <input
             type="text"
             value={titulo}
@@ -280,7 +280,7 @@ export default function NovaEntregaPage() {
           />
         </Field>
 
-        <Field label="Foto de capa" hint="Opcional — aparece como destaque na galeria do cliente">
+        <Field label="Foto de capa" hint="Opcional — aparece como destaque na galeria do cliente" tooltip="Imagem exibida no topo da galeria do cliente. Recomendado: foto horizontal com boa composição.">
           <input
             ref={inputCapaRef}
             type="file" accept="image/*"
@@ -322,14 +322,14 @@ export default function NovaEntregaPage() {
           )}
         </Field>
 
-        <Field label="Cliente">
+        <Field label="Cliente" tooltip="Vincule esta galeria a um cliente cadastrado. Necessário para enviar o link por e-mail automaticamente.">
           <ClienteSelect
             value={clienteId}
             onChange={(id, c) => { setClienteId(id); setCliente(c); }}
           />
         </Field>
 
-        <Field label="Data do evento">
+        <Field label="Data do evento" tooltip="Data em que o evento ocorreu. Usada para organizar e filtrar galerias.">
           <input
             type="date"
             value={dataEvento}
@@ -339,7 +339,7 @@ export default function NovaEntregaPage() {
         </Field>
 
         {categorias.length > 0 && (
-          <Field label="Categoria" hint="Preenche a taxa de renovação automaticamente">
+          <Field label="Categoria" hint="Preenche a taxa de renovação automaticamente" tooltip="Categoria do serviço prestado. Ao selecionar, a taxa de renovação padrão da categoria é preenchida automaticamente.">
             <select
               value={categoriaId}
               onChange={(e) => {
@@ -360,7 +360,7 @@ export default function NovaEntregaPage() {
           </Field>
         )}
 
-        <Field label="Link do Google Drive" hint="Opcional — deixe em branco para usar somente a galeria online">
+        <Field label="Link do Google Drive" hint="Opcional — deixe em branco para usar somente a galeria online" tooltip="Link de uma pasta do Google Drive com os arquivos originais. O cliente verá um botão para acessar. Configure o Drive como 'qualquer pessoa com o link pode visualizar'.">
           <input
             type="url"
             value={driveLink}
@@ -434,7 +434,7 @@ export default function NovaEntregaPage() {
           )}
         </div>
 
-        <Field label="Taxa de renovação">
+        <Field label="Taxa de renovação" tooltip="Valor cobrado do cliente para reabrir o acesso à galeria após o prazo expirar. Deixe em branco para não cobrar renovação.">
           <div style={{ position: "relative", width: 200 }}>
             <span style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", fontSize: 13, color: "var(--color-text-secondary)", pointerEvents: "none" }}>R$</span>
             <input
@@ -462,7 +462,7 @@ export default function NovaEntregaPage() {
           )}
         </Field>
 
-        <Field label="Mensagem para o cliente">
+        <Field label="Mensagem para o cliente" tooltip="Texto enviado por e-mail ao cliente junto com o link da galeria. Você pode personalizar por galeria ou usar a mensagem padrão configurada em Configurações.">
           <textarea
             value={mensagem} onChange={(e) => setMensagem(e.target.value)}
             placeholder="Olá! Suas fotos estão prontas 🎉 Acesse o link abaixo para baixar…"

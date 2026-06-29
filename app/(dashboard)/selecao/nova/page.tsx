@@ -414,11 +414,11 @@ function NovaSelecaoConteudo() {
         <Section title="Informações básicas">
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
 
-            <Field label="Nome da galeria *">
+            <Field label="Nome da galeria *" tooltip="Nome interno que identifica esta galeria. O cliente verá este nome ao acessar o link de seleção.">
               <input value={titulo} onChange={(e) => setTitulo(e.target.value)} placeholder="Ex: Casamento Ana & Pedro" style={inputStyle} autoFocus />
             </Field>
 
-            <Field label="Categorias de fotos">
+            <Field label="Categorias de fotos" tooltip="Organizam as fotos em grupos para o cliente navegar com mais facilidade. Ex: Cerimônia, Festa, Detalhes.">
               {fotografo && <CategoriaSelector fotografoId={fotografo.id} selecionadas={categorias} onChange={setCategorias} />}
               <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: "5px 0 0" }}>
                 Organizam as fotos para o cliente. Crie novas diretamente aqui ou em{" "}
@@ -426,15 +426,15 @@ function NovaSelecaoConteudo() {
               </p>
             </Field>
 
-            <Field label="Cliente">
+            <Field label="Cliente" tooltip="Vincule esta galeria a um cliente cadastrado para facilitar o controle. O cliente receberá o link por e-mail se configurado.">
               <ClienteSelect value={clienteId} onChange={(id) => setClienteId(id)} />
             </Field>
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-              <Field label="Data do evento">
+              <Field label="Data do evento" tooltip="Data em que o evento ocorreu. Usada para organizar e filtrar galerias.">
                 <input type="date" value={dataEvento} onChange={(e) => setDataEvento(e.target.value)} style={inputStyle} />
               </Field>
-              <Field label="Prazo de seleção">
+              <Field label="Prazo de seleção" tooltip="Data limite para o cliente fazer a seleção. Após essa data, a galeria fica marcada como expirada, mas o cliente ainda pode acessar.">
                 <input type="date" value={prazo} onChange={(e) => setPrazo(e.target.value)} style={inputStyle} />
                 <div style={{ display: "flex", gap: 6, marginTop: 7 }}>
                   {[{ label: "+1 mês", n: 1 }, { label: "+2 meses", n: 2 }, { label: "+3 meses", n: 3 }].map(({ label, n }) => (
@@ -446,7 +446,7 @@ function NovaSelecaoConteudo() {
               </Field>
             </div>
 
-            <Field label="Resolução de exibição das fotos">
+            <Field label="Resolução de exibição das fotos" tooltip="Define o tamanho máximo das fotos exibidas ao cliente. Não afeta os arquivos originais — serve apenas para visualização na galeria.">
               <div style={{ display: "flex", gap: 8 }}>
                 {(["hd", "fullhd", "4k"] as ResolucaoExibicao[]).map((r) => {
                   const bloqueado = BETA_RESOLUCAO_MAXIMA && r !== "hd";
@@ -507,10 +507,10 @@ function NovaSelecaoConteudo() {
             </div>
             {!selecaoLivre && (
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, padding: 14, background: "var(--color-background-secondary)", borderRadius: 9 }}>
-                <Field label="Mínimo de fotos *">
+                <Field label="Mínimo de fotos *" tooltip="O cliente precisa selecionar ao menos esta quantidade para concluir a seleção.">
                   <input type="number" min={1} value={limiteMin} onChange={(e) => setLimiteMin(e.target.value)} placeholder="Ex: 30" style={inputStyle} />
                 </Field>
-                <Field label="Máximo de fotos (opcional)">
+                <Field label="Máximo de fotos (opcional)" tooltip="Limite superior de fotos que o cliente pode escolher. Deixe vazio para permitir qualquer quantidade acima do mínimo.">
                   <input type="number" min={1} value={limiteMax} onChange={(e) => setLimiteMax(e.target.value)} placeholder="Sem limite" style={inputStyle} />
                   <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: "4px 0 0" }}>Deixe vazio para sem limite.</p>
                 </Field>
