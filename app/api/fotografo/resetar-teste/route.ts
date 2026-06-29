@@ -1,0 +1,32 @@
+import { createClient } from "@supabase/supabase-js";
+
+const TEST_EMAIL = "fernando.agrelaws@gmail.com";
+
+export async function POST(req: Request) {
+  const token = req.headers.get("authorization")?.replace("Bearer ", "");
+  if (!token) return Response.json({ error: "unauthorized" }, { status: 401 });
+
+  const userClient = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    { global: { headers: { Authorization: `Bearer ${token}` } }, auth: { autoRefreshToken: false, persistSession: false } }
+  );
+  const { data: { user } } = await userClient.auth.getUser();
+  if (user?.email !== TEST_EMAIL) {
+    return Response.json({ error: "forbidden" }, { status: 403 });
+  }
+
+  const adminClient = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+
+  await adminClient.from("categorias").delete().eq("fotografo_id", user.id);
+  await adminClient.from("fotografos").update({
+    onboarding_concluido: false,
+    renewal_fee_padrao: null,
+    mensagem_padrao_entrega: null,
+  }).eq("id", user.id);
+
+  return Response.json({ ok: true });
+}

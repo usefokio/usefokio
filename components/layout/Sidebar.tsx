@@ -260,11 +260,28 @@ export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const [usefokioOpen, setUsefokioOpen] = useState(true);
   const [crmOpen,      setCrmOpen]      = useState(true);
+  const [resetando, setResetando]       = useState(false);
 
   async function handleLogout() {
     const supabase = createClient();
     await supabase.auth.signOut();
     router.push("/");
+  }
+
+  async function resetarTeste() {
+    if (!confirm("Reiniciar conta? Onboarding e categorias serão apagados.")) return;
+    setResetando(true);
+    const supabase = createClient();
+    const { data: { session } } = await supabase.auth.getSession();
+    const res = await fetch("/api/fotografo/resetar-teste", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${session?.access_token ?? ""}` },
+    });
+    if (res.ok) {
+      window.location.href = "/configurar";
+    } else {
+      setResetando(false);
+    }
   }
 
   const isActive = (href: string) =>
@@ -550,6 +567,33 @@ export function Sidebar() {
             </>
           )}
         </div>
+
+        {fotografo?.email === "fernando.agrelaws@gmail.com" && (
+          <div style={{ padding: collapsed ? "0 6px 8px" : "0 10px 8px" }}>
+            <button
+              onClick={resetarTeste}
+              disabled={resetando}
+              title="Reiniciar conta para estado de novo usuário"
+              style={{
+                width: "100%",
+                padding: collapsed ? "6px 0" : "6px 10px",
+                borderRadius: 7,
+                border: "0.5px solid rgba(124,58,237,0.4)",
+                background: "rgba(124,58,237,0.08)",
+                color: "#7C3AED",
+                fontSize: 11,
+                fontWeight: 700,
+                cursor: resetando ? "not-allowed" : "pointer",
+                textAlign: "center",
+                opacity: resetando ? 0.6 : 1,
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+              }}
+            >
+              {collapsed ? "🔄" : (resetando ? "Reiniciando…" : "🔄 Reiniciar testes")}
+            </button>
+          </div>
+        )}
 
         {!collapsed && (
           <div style={{ padding: "6px 13px 10px", display: "flex", gap: 10 }}>
