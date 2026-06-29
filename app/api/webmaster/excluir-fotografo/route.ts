@@ -17,9 +17,12 @@ export async function POST(req: Request) {
   if (!token) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
   // Verificar identidade usando anon key + token do usuário como Bearer
+  // strip BOM (﻿) que pode vir de .env.local salvo no Windows
+  const anonKey = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "").replace(/^﻿/, "");
+  const supaUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? "").replace(/^﻿/, "");
   const userClient = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    supaUrl,
+    anonKey,
     { global: { headers: { Authorization: `Bearer ${token}` } },
       auth: { autoRefreshToken: false, persistSession: false } }
   );
