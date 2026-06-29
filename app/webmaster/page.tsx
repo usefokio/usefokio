@@ -469,19 +469,32 @@ export default function WebmasterPage() {
                   <div style={{ fontSize: 11, color: "var(--color-text-secondary)", flexShrink: 0 }}>
                     {new Date(f.created_at).toLocaleDateString("pt-BR")}
                   </div>
-                  <button
-                    onClick={() => aprovar(f.id, true)}
-                    disabled={pendingIds.has(f.id)}
-                    style={{
-                      padding: "7px 18px", borderRadius: 8, border: "none",
-                      background: pendingIds.has(f.id) ? "#D1FAE5" : "#059669",
-                      color: "#fff", fontSize: 12, fontWeight: 700,
-                      cursor: pendingIds.has(f.id) ? "default" : "pointer",
-                      flexShrink: 0,
-                    }}
-                  >
-                    {pendingIds.has(f.id) ? "Aprovando…" : "✓ Aprovar"}
-                  </button>
+                  <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+                    <button
+                      onClick={() => aprovar(f.id, true)}
+                      disabled={pendingIds.has(f.id)}
+                      style={{
+                        padding: "7px 18px", borderRadius: 8, border: "none",
+                        background: pendingIds.has(f.id) ? "#D1FAE5" : "#059669",
+                        color: "#fff", fontSize: 12, fontWeight: 700,
+                        cursor: pendingIds.has(f.id) ? "default" : "pointer",
+                      }}
+                    >
+                      {pendingIds.has(f.id) ? "Aprovando…" : "✓ Aprovar"}
+                    </button>
+                    <button
+                      onClick={() => { setModalExcluir(f); setConfirmEmail(""); setErroExcluir(""); }}
+                      disabled={pendingIds.has(f.id)}
+                      style={{
+                        padding: "7px 14px", borderRadius: 8, border: "none",
+                        background: "rgba(239,68,68,0.1)", color: "#EF4444",
+                        fontSize: 12, fontWeight: 700,
+                        cursor: pendingIds.has(f.id) ? "default" : "pointer",
+                      }}
+                    >
+                      ✕ Recusar
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -621,10 +634,11 @@ export default function WebmasterPage() {
                               padding: "5px 10px", borderRadius: 7, border: "none",
                               background: "rgba(239,68,68,0.08)", color: "#EF4444",
                               fontSize: 11, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap",
+                              lineHeight: 1,
                             }}
                             title="Excluir conta e todos os dados"
                           >
-                            🗑
+                            Excluir
                           </button>
                         </div>
                       </td>
