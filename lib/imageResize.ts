@@ -230,12 +230,13 @@ export async function aplicarMarcaDagua(
   largura: number,
   altura: number,
   watermarkUrl: string,
+  escala = 0.30,
 ): Promise<void> {
   return new Promise((resolve) => {
     const wm = new Image();
     wm.crossOrigin = "anonymous";
     wm.onload = () => {
-      const maxW = largura * 0.30;
+      const maxW = largura * escala;
       const scale = Math.min(maxW / wm.naturalWidth, 1);
       const w = wm.naturalWidth * scale;
       const h = wm.naturalHeight * scale;

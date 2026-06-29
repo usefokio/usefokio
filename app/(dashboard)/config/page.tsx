@@ -931,22 +931,53 @@ function IdentidadeVisual() {
   const [watermarkUploading, setWatermarkUploading] = useState(false);
   const logoInputRef      = useRef<HTMLInputElement>(null);
   const watermarkInputRef = useRef<HTMLInputElement>(null);
-  const [wmPreviewUrl, setWmPreviewUrl] = useState<string | null>(null);
+  const [wmEscala,    setWmEscala]    = useState(0.30);
+  const [wmPreviewH,  setWmPreviewH]  = useState<string | null>(null);
+  const [wmPreviewV,  setWmPreviewV]  = useState<string | null>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const FOTO_EXEMPLO = "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&q=80";
+  const FOTO_EXEMPLO_H = "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&q=80";
+  const FOTO_EXEMPLO_V = "https://images.unsplash.com/photo-1502920917128-1aa500764cbd?w=533&q=80";
 
-  async function gerarPreviewWatermark(wmUrl: string) {
+  async function carregarImgBlob(url: string): Promise<HTMLImageElement> {
+    const blob = await fetch(url).then(r => r.blob());
+    const blobUrl = URL.createObjectURL(blob);
+    return new Promise((res, rej) => {
+      const img = new Image();
+      img.onload = () => { URL.revokeObjectURL(blobUrl); res(img); };
+      img.onerror = () => { URL.revokeObjectURL(blobUrl); rej(); };
+      img.src = blobUrl;
+    });
+  }
+
+  async function gerarPreviewWatermark(wmUrl: string, escala: number) {
     try {
-      const canvas = document.createElement("canvas");
-      const W = 800, H = 533;
-      canvas.width = W; canvas.height = H;
-      const ctx = canvas.getContext("2d")!;
-      const foto = new Image();
-      foto.crossOrigin = "anonymous";
-      await new Promise<void>((res, rej) => { foto.onload = () => res(); foto.onerror = rej; foto.src = FOTO_EXEMPLO; });
-      ctx.drawImage(foto, 0, 0, W, H);
-      await aplicarMarcaDagua(ctx, W, H, wmUrl);
-      setWmPreviewUrl(canvas.toDataURL("image/jpeg", 0.88));
+      const wm = await carregarImgBlob(wmUrl);
+
+      async function renderCanvas(W: number, H: number, fotoUrl: string) {
+        const canvas = document.createElement("canvas");
+        canvas.width = W; canvas.height = H;
+        const ctx = canvas.getContext("2d")!;
+        const foto = await carregarImgBlob(fotoUrl);
+        ctx.drawImage(foto, 0, 0, W, H);
+        // aplicar watermark manualmente com o blob já carregado
+        const maxW = W * escala;
+        const scale = Math.min(maxW / wm.naturalWidth, 1);
+        const w = wm.naturalWidth * scale;
+        const h = wm.naturalHeight * scale;
+        const margin = W * 0.03;
+        ctx.globalAlpha = 0.55;
+        ctx.drawImage(wm, W - w - margin, H - h - margin, w, h);
+        ctx.globalAlpha = 1;
+        return canvas.toDataURL("image/jpeg", 0.88);
+      }
+
+      const [h, v] = await Promise.all([
+        renderCanvas(800, 533, FOTO_EXEMPLO_H),
+        renderCanvas(533, 800, FOTO_EXEMPLO_V),
+      ]);
+      setWmPreviewH(h);
+      setWmPreviewV(v);
     } catch { /* silencioso */ }
   }
 
@@ -960,7 +991,9 @@ function IdentidadeVisual() {
     if (fotografo) {
       setLogoUrl(fotografo.logo_url ?? null);
       setWatermarkUrl(fotografo.watermark_url ?? null);
-      if (fotografo.watermark_url) gerarPreviewWatermark(fotografo.watermark_url);
+      const esc = fotografo.watermark_escala ?? 0.30;
+      setWmEscala(esc);
+      if (fotografo.watermark_url) gerarPreviewWatermark(fotografo.watermark_url, esc);
       setAssiEmail(fotografo.email ?? "");
       setAssiSite(fotografo.site ?? "");
     }
@@ -995,9 +1028,19 @@ function IdentidadeVisual() {
       await supabase.from("fotografos").update({ [field]: url_publica }).eq("id", fotografo.id);
       const urlFinal = url_publica + "?t=" + Date.now();
       setUrl(urlFinal);
-      if (tipo === "watermark") gerarPreviewWatermark(urlFinal);
+      if (tipo === "watermark") gerarPreviewWatermark(urlFinal, wmEscala);
     } catch { /* silencioso */ }
     setUploading(false);
+  }
+
+  function onSliderChange(valor: number) {
+    setWmEscala(valor);
+    if (watermarkUrl) gerarPreviewWatermark(watermarkUrl, valor);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(async () => {
+      if (!fotografo) return;
+      await createClient().from("fotografos").update({ watermark_escala: valor }).eq("id", fotografo.id);
+    }, 600);
   }
 
   async function remover(tipo: "logo" | "watermark") {
@@ -1030,17 +1073,37 @@ function IdentidadeVisual() {
               <div style={{ background: "repeating-conic-gradient(#e0e0e0 0% 25%, #ffffff 0% 50%) 0 0 / 16px 16px", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 8, padding: 8, display: "flex", alignItems: "center", justifyContent: "center", minWidth: 80, minHeight: 60 }}>
                 <img src={url} alt={label} style={{ maxHeight: 56, maxWidth: 140, objectFit: "contain" }} />
               </div>
-            ) : wmPreviewUrl ? (
-              <div style={{ borderRadius: 8, overflow: "hidden", border: "0.5px solid var(--color-border-tertiary)" }}>
-                <img src={wmPreviewUrl} style={{ width: "100%", display: "block" }} alt="Preview com marca d'água" />
-                <div style={{ fontSize: 11, color: "var(--color-text-secondary)", padding: "6px 10px", background: "var(--color-background-secondary)" }}>
-                  Pré-visualização — proporção e posição reais
-                </div>
-              </div>
             ) : (
-              <div style={{ background: "#F9FAFB", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 8, padding: 8, display: "flex", alignItems: "center", justifyContent: "center", minWidth: 80, minHeight: 60 }}>
-                <img src={url} alt={label} style={{ maxHeight: 56, maxWidth: 140, objectFit: "contain" }} />
-              </div>
+              <>
+                {/* Slider de escala */}
+                <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
+                  <span style={{ fontSize: 12, color: "var(--color-text-secondary)", whiteSpace: "nowrap" }}>Tamanho na foto</span>
+                  <input
+                    type="range" min={0.05} max={0.50} step={0.01}
+                    value={wmEscala}
+                    onChange={e => onSliderChange(parseFloat(e.target.value))}
+                    style={{ flex: 1, accentColor: "var(--color-accent-primary)" }}
+                  />
+                  <span style={{ fontSize: 12, fontWeight: 700, color: "var(--color-text-primary)", minWidth: 32, textAlign: "right" }}>{Math.round(wmEscala * 100)}%</span>
+                </div>
+                {/* Dois previews */}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 10, marginBottom: 12 }}>
+                  {wmPreviewH ? (
+                    <div style={{ borderRadius: 8, overflow: "hidden", border: "0.5px solid var(--color-border-tertiary)" }}>
+                      <img src={wmPreviewH} style={{ width: "100%", display: "block" }} alt="Preview horizontal" />
+                      <div style={{ fontSize: 10, color: "var(--color-text-secondary)", padding: "4px 8px", background: "var(--color-background-secondary)" }}>Horizontal</div>
+                    </div>
+                  ) : (
+                    <div style={{ borderRadius: 8, border: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-secondary)", display: "flex", alignItems: "center", justifyContent: "center", minHeight: 80, fontSize: 12, color: "var(--color-text-secondary)" }}>Gerando preview…</div>
+                  )}
+                  {wmPreviewV ? (
+                    <div style={{ borderRadius: 8, overflow: "hidden", border: "0.5px solid var(--color-border-tertiary)", width: 100 }}>
+                      <img src={wmPreviewV} style={{ width: "100%", display: "block" }} alt="Preview vertical" />
+                      <div style={{ fontSize: 10, color: "var(--color-text-secondary)", padding: "4px 8px", background: "var(--color-background-secondary)" }}>Vertical</div>
+                    </div>
+                  ) : null}
+                </div>
+              </>
             )}
             <div style={{ display: "flex", flexDirection: "row", gap: 8 }}>
               <button
