@@ -289,11 +289,15 @@ function RecursosCell({ fotografoId }: { fotografoId: string }) {
 
 export default function WebmasterPage() {
   const router = useRouter();
-  const [verificado, setVerificado] = useState(false);
-  const [stats, setStats]           = useState<FotografoStats[]>([]);
-  const [loading, setLoading]       = useState(true);
-  const [pendingIds, setPendingIds]  = useState<Set<string>>(new Set());
-  const [filtro, setFiltro]         = useState<"todos" | "pendentes">("todos");
+  const [verificado, setVerificado]       = useState(false);
+  const [stats, setStats]                 = useState<FotografoStats[]>([]);
+  const [loading, setLoading]             = useState(true);
+  const [pendingIds, setPendingIds]       = useState<Set<string>>(new Set());
+  const [filtro, setFiltro]               = useState<"todos" | "pendentes">("todos");
+  const [modalExcluir, setModalExcluir]   = useState<FotografoStats | null>(null);
+  const [confirmEmail, setConfirmEmail]   = useState("");
+  const [excluindo, setExcluindo]         = useState(false);
+  const [erroExcluir, setErroExcluir]     = useState("");
 
   // Verifica se é webmaster
   useEffect(() => {
@@ -340,6 +344,30 @@ export default function WebmasterPage() {
   async function sair() {
     await createClient().auth.signOut();
     router.push("/login");
+  }
+
+  async function excluirFotografo() {
+    if (!modalExcluir) return;
+    setExcluindo(true);
+    setErroExcluir("");
+    const supabase = createClient();
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token ?? "";
+    const res = await fetch("/api/webmaster/excluir-fotografo", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+      body: JSON.stringify({ fotografo_id: modalExcluir.id }),
+    });
+    if (!res.ok) {
+      const body = await res.json();
+      setErroExcluir(body.error ?? "Erro ao excluir.");
+      setExcluindo(false);
+      return;
+    }
+    setStats((prev) => prev.filter((f) => f.id !== modalExcluir.id));
+    setModalExcluir(null);
+    setConfirmEmail("");
+    setExcluindo(false);
   }
 
   if (!verificado) return null;
@@ -571,21 +599,34 @@ export default function WebmasterPage() {
                         <RecursosCell fotografoId={f.id} />
                       </td>
                       <td style={{ padding: "12px 14px" }}>
-                        <button
-                          onClick={() => aprovar(f.id, !f.aprovado)}
-                          disabled={pendingIds.has(f.id)}
-                          style={{
-                            padding: "5px 12px", borderRadius: 7, border: "none",
-                            background: f.aprovado ? "rgba(239,68,68,0.1)" : "rgba(5,150,105,0.1)",
-                            color: f.aprovado ? "#EF4444" : "#059669",
-                            fontSize: 11, fontWeight: 600,
-                            cursor: pendingIds.has(f.id) ? "default" : "pointer",
-                            opacity: pendingIds.has(f.id) ? 0.6 : 1,
-                            whiteSpace: "nowrap",
-                          }}
-                        >
-                          {pendingIds.has(f.id) ? "…" : f.aprovado ? "Suspender" : "Aprovar"}
-                        </button>
+                        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                          <button
+                            onClick={() => aprovar(f.id, !f.aprovado)}
+                            disabled={pendingIds.has(f.id)}
+                            style={{
+                              padding: "5px 12px", borderRadius: 7, border: "none",
+                              background: f.aprovado ? "rgba(239,68,68,0.1)" : "rgba(5,150,105,0.1)",
+                              color: f.aprovado ? "#EF4444" : "#059669",
+                              fontSize: 11, fontWeight: 600,
+                              cursor: pendingIds.has(f.id) ? "default" : "pointer",
+                              opacity: pendingIds.has(f.id) ? 0.6 : 1,
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {pendingIds.has(f.id) ? "…" : f.aprovado ? "Suspender" : "Aprovar"}
+                          </button>
+                          <button
+                            onClick={() => { setModalExcluir(f); setConfirmEmail(""); setErroExcluir(""); }}
+                            style={{
+                              padding: "5px 10px", borderRadius: 7, border: "none",
+                              background: "rgba(239,68,68,0.08)", color: "#EF4444",
+                              fontSize: 11, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap",
+                            }}
+                            title="Excluir conta e todos os dados"
+                          >
+                            🗑
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -595,6 +636,81 @@ export default function WebmasterPage() {
           )}
         </div>
       </div>
+
+      {/* Modal exclusão de fotógrafo */}
+      {modalExcluir && (
+        <div style={{
+          position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)",
+          display: "flex", alignItems: "center", justifyContent: "center", zIndex: 200,
+        }} onClick={(e) => e.target === e.currentTarget && !excluindo && setModalExcluir(null)}>
+          <div style={{
+            background: "var(--color-background-primary)",
+            border: "0.5px solid var(--color-border-tertiary)",
+            borderRadius: 14, padding: "28px 30px", width: 420,
+            boxShadow: "0 8px 40px rgba(0,0,0,0.25)",
+          }}>
+            <div style={{ fontSize: 16, fontWeight: 800, color: "#EF4444", marginBottom: 8 }}>
+              ⚠️ Excluir conta permanentemente
+            </div>
+            <div style={{ fontSize: 13, color: "var(--color-text-secondary)", marginBottom: 20, lineHeight: 1.6 }}>
+              Esta ação é <strong>irreversível</strong>. Todos os dados de{" "}
+              <strong style={{ color: "var(--color-text-primary)" }}>{modalExcluir.nome_completo}</strong>{" "}
+              serão apagados: galerias, fotos, pedidos, financeiro, CRM e a conta de acesso.
+            </div>
+
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>
+                Digite o email do fotógrafo para confirmar
+              </div>
+              <input
+                value={confirmEmail}
+                onChange={(e) => setConfirmEmail(e.target.value)}
+                placeholder={modalExcluir.email}
+                style={{
+                  width: "100%", padding: "9px 12px", borderRadius: 8, boxSizing: "border-box",
+                  border: "0.5px solid var(--color-border-secondary)",
+                  background: "var(--color-background-primary)",
+                  fontSize: 13, color: "var(--color-text-primary)", outline: "none",
+                }}
+                autoFocus
+              />
+            </div>
+
+            {erroExcluir && (
+              <div style={{ fontSize: 12, color: "#EF4444", marginBottom: 12, padding: "8px 12px", background: "rgba(239,68,68,0.07)", borderRadius: 7 }}>
+                {erroExcluir}
+              </div>
+            )}
+
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                onClick={() => { setModalExcluir(null); setConfirmEmail(""); setErroExcluir(""); }}
+                disabled={excluindo}
+                style={{
+                  flex: 1, padding: "9px", borderRadius: 8,
+                  border: "0.5px solid var(--color-border-secondary)",
+                  background: "transparent", fontSize: 13,
+                  color: "var(--color-text-secondary)", cursor: "pointer",
+                }}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={excluirFotografo}
+                disabled={excluindo || confirmEmail.trim() !== modalExcluir.email}
+                style={{
+                  flex: 2, padding: "9px", borderRadius: 8, border: "none",
+                  background: (excluindo || confirmEmail.trim() !== modalExcluir.email) ? "rgba(239,68,68,0.3)" : "#EF4444",
+                  color: "#fff", fontSize: 13, fontWeight: 700,
+                  cursor: (excluindo || confirmEmail.trim() !== modalExcluir.email) ? "default" : "pointer",
+                }}
+              >
+                {excluindo ? "Excluindo…" : "Excluir tudo permanentemente"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
