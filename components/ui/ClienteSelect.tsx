@@ -7,6 +7,7 @@ import { useFotografo } from "@/lib/context/FotografoContext";
 import { inputStyle } from "@/lib/styles";
 import { gerarSenhaAcesso } from "@/lib/utils";
 import { normalizar } from "@/lib/utils/normalizar";
+import { mascaraTelefone } from "@/lib/utils/format";
 import type { Cliente } from "@/lib/supabase/types";
 
 // ── Modal criar novo cliente ─────────────────────────────────────────────────
@@ -30,14 +31,25 @@ function ModalNovoCliente({
     setSaving(true);
     setErro("");
     const supabase = createClient();
+    const fid = fotografo.id;
+    if (email.trim()) {
+      const { data: dup } = await supabase.from("clientes").select("id, nome")
+        .eq("fotografo_id", fid).eq("email", email.trim()).maybeSingle();
+      if (dup) { setErro(`Email já cadastrado para "${(dup as { nome: string }).nome}"`); setSaving(false); return; }
+    }
+    if (whatsapp.replace(/\D/g, "")) {
+      const { data: dup } = await supabase.from("clientes").select("id, nome")
+        .eq("fotografo_id", fid).eq("whatsapp", whatsapp).maybeSingle();
+      if (dup) { setErro(`WhatsApp já cadastrado para "${(dup as { nome: string }).nome}"`); setSaving(false); return; }
+    }
     const { data, error } = await supabase
       .from("clientes")
       .insert({
-        fotografo_id:  fotografo.id,
+        fotografo_id:  fid,
         nome:          nome.trim(),
         email:         email.trim() || null,
-        telefone:      telefone.trim() || null,
-        whatsapp:      whatsapp.trim() || telefone.trim() || null,
+        telefone:      telefone || null,
+        whatsapp:      whatsapp || telefone || null,
         senha_acesso:  gerarSenhaAcesso(),
       })
       .select()
@@ -108,8 +120,9 @@ function ModalNovoCliente({
             <input
               type="tel"
               value={telefone}
-              onChange={(e) => setTelefone(e.target.value)}
-              placeholder="(11) 3333-0000"
+              onChange={(e) => setTelefone(mascaraTelefone(e.target.value))}
+              onPaste={(e) => { e.preventDefault(); setTelefone(mascaraTelefone(e.clipboardData.getData("text"))); }}
+              placeholder="55 11 99999-9999"
               style={inputStyle}
             />
           </div>
@@ -121,8 +134,9 @@ function ModalNovoCliente({
             <input
               type="tel"
               value={whatsapp}
-              onChange={(e) => setWhatsapp(e.target.value)}
-              placeholder="(11) 99999-0000"
+              onChange={(e) => setWhatsapp(mascaraTelefone(e.target.value))}
+              onPaste={(e) => { e.preventDefault(); setWhatsapp(mascaraTelefone(e.clipboardData.getData("text"))); }}
+              placeholder="55 11 99999-9999"
               style={inputStyle}
             />
             <p style={{ margin: "3px 0 0", fontSize: 11, color: "var(--color-text-secondary)" }}>

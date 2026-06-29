@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
-import { isValidDate } from "@/lib/utils/format";
+import { isValidDate, mascaraTelefone } from "@/lib/utils/format";
 import type { Cliente } from "@/lib/supabase/types";
 
 const TIPO_MAP: Record<string, { label: string; color: string; bg: string }> = {
@@ -82,8 +82,8 @@ export default function ClienteDetailPage() {
     setCliente(c);
     setNome(c.nome ?? "");
     setEmail(c.email ?? "");
-    setTelefone(c.telefone ?? "");
-    setWhatsapp(c.whatsapp ?? "");
+    setTelefone(mascaraTelefone(c.telefone ?? ""));
+    setWhatsapp(mascaraTelefone(c.whatsapp ?? ""));
     setEmpresa(c.empresa ?? "");
     setCargo(c.cargo ?? "");
     setInstagram(c.instagram ?? "");
@@ -107,8 +107,21 @@ export default function ClienteDetailPage() {
     if (!nome.trim()) return;
     if (dataNasc && !isValidDate(dataNasc)) { setErroSalvar("Data de nascimento inválida."); return; }
     setErroSalvar("");
+    const sb = createClient();
+    const fid = fotografo?.id;
+    if (!fid) return;
+    if (email.trim()) {
+      const { data: dup } = await sb.from("clientes").select("id, nome")
+        .eq("fotografo_id", fid).eq("email", email.trim()).neq("id", id).maybeSingle();
+      if (dup) { setErroSalvar(`Email já cadastrado para "${(dup as { nome: string }).nome}"`); return; }
+    }
+    if (whatsapp.replace(/\D/g, "")) {
+      const { data: dup } = await sb.from("clientes").select("id, nome")
+        .eq("fotografo_id", fid).eq("whatsapp", whatsapp).neq("id", id).maybeSingle();
+      if (dup) { setErroSalvar(`WhatsApp já cadastrado para "${(dup as { nome: string }).nome}"`); return; }
+    }
     setSalvando(true);
-    await createClient().from("clientes").update({
+    await sb.from("clientes").update({
       nome: nome.trim(), email: email || null, telefone: telefone || null,
       whatsapp: whatsapp || null, empresa: empresa || null, cargo: cargo || null,
       instagram: instagram || null, cpf: cpf || null,
@@ -125,7 +138,7 @@ export default function ClienteDetailPage() {
 
   const excluir = async () => {
     setDeleting(true);
-    await createClient().from("clientes").update({ crm_ativo: false }).eq("id", id);
+    await sb.from("clientes").update({ crm_ativo: false }).eq("id", id);
     router.push("/crm/clientes");
   };
 
@@ -207,11 +220,17 @@ export default function ClienteDetailPage() {
             </div>
             <div style={{ marginBottom: 18 }}>
               {label("Telefone")}
-              <input value={telefone} onChange={e => setTelefone(e.target.value)} style={inputStyle} />
+              <input value={telefone}
+                onChange={e => setTelefone(mascaraTelefone(e.target.value))}
+                onPaste={e => { e.preventDefault(); setTelefone(mascaraTelefone(e.clipboardData.getData("text"))); }}
+                placeholder="55 11 99999-9999" style={inputStyle} />
             </div>
             <div style={{ marginBottom: 18 }}>
               {label("WhatsApp")}
-              <input value={whatsapp} onChange={e => setWhatsapp(e.target.value)} style={inputStyle} />
+              <input value={whatsapp}
+                onChange={e => setWhatsapp(mascaraTelefone(e.target.value))}
+                onPaste={e => { e.preventDefault(); setWhatsapp(mascaraTelefone(e.clipboardData.getData("text"))); }}
+                placeholder="55 11 99999-9999" style={inputStyle} />
             </div>
             <div style={{ marginBottom: 18 }}>
               {label("Instagram")}
