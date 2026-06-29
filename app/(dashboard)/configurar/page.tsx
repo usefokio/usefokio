@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
+import { mascaraMoeda, parseMoeda, formatarMoeda } from "@/lib/moeda";
 import type { Categoria } from "@/lib/supabase/types";
 
 const inputStyle: React.CSSProperties = {
@@ -19,7 +20,7 @@ const CATEGORIAS_SUGERIDAS = [
   "Aniversário", "Formatura", "Corporativo", "Evento",
 ];
 
-type Step = "categorias" | "email" | "concluido";
+type Step = "categorias" | "taxas" | "email" | "concluido";
 
 export default function ConfigurarPage() {
   const router       = useRouter();
@@ -77,7 +78,36 @@ export default function ConfigurarPage() {
     inputRef.current?.focus();
   }
 
-  // ── Step 2: email ───────────────────────────────────────────────────────────
+  // ── Step 2: taxas de renovação ─────────────────────────────────────────────
+  const [categoriasComTaxa, setCategoriasComTaxa] = useState<{ id: string; nome: string; taxa: string }[]>([]);
+  const [salvandoTaxas, setSalvandoTaxas] = useState(false);
+
+  async function carregarCategorias() {
+    if (!fotografo) return;
+    const sb = createClient();
+    const { data } = await sb.from("categorias")
+      .select("id, nome, taxa_renovacao_padrao")
+      .eq("fotografo_id", fotografo.id)
+      .order("nome");
+    setCategoriasComTaxa((data ?? []).map((c: Categoria & { taxa_renovacao_padrao: number | null }) => ({
+      id: c.id,
+      nome: c.nome,
+      taxa: c.taxa_renovacao_padrao ? formatarMoeda(c.taxa_renovacao_padrao) : "20,90",
+    })));
+  }
+
+  async function salvarTaxas() {
+    setSalvandoTaxas(true);
+    const sb = createClient();
+    for (const cat of categoriasComTaxa) {
+      const valor = parseMoeda(cat.taxa) || 20.90;
+      await sb.from("categorias").update({ taxa_renovacao_padrao: valor }).eq("id", cat.id);
+    }
+    setSalvandoTaxas(false);
+    setStep("email");
+  }
+
+  // ── Step 3: email ───────────────────────────────────────────────────────────
   const [emailOpcao, setEmailOpcao] = useState<"sistema" | "smtp">("sistema");
   const [smtpHost,   setSmtpHost]   = useState("");
   const [smtpPort,   setSmtpPort]   = useState("587");
@@ -143,7 +173,7 @@ export default function ConfigurarPage() {
 
         {/* Steps indicator */}
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 32, justifyContent: "center" }}>
-          {([["categorias", "1. Categorias"], ["email", "2. Email"], ["concluido", "3. Pronto"]] as const).map(([s, label]) => (
+          {([["categorias", "1. Categorias"], ["taxas", "2. Renovação"], ["email", "3. Email"], ["concluido", "4. Pronto"]] as const).map(([s, label]) => (
             <div key={s} style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <span style={{ fontSize: 12, fontWeight: 600, color: step === s ? "var(--color-text-primary)" : "var(--color-text-secondary)", opacity: step === s ? 1 : 0.5 }}>
                 {label}
@@ -203,14 +233,73 @@ export default function ConfigurarPage() {
               )}
 
               <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 24 }}>
-                <button onClick={() => setStep("email")} style={{ padding: "10px 24px", borderRadius: 8, border: "none", background: "#111", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+                <button onClick={async () => { await carregarCategorias(); setStep("taxas"); }} style={{ padding: "10px 24px", borderRadius: 8, border: "none", background: "#111", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
                   Próximo →
                 </button>
               </div>
             </>
           )}
 
-          {/* ─── Step 2: Email ─── */}
+          {/* ─── Step 2: Taxa de renovação ─── */}
+          {step === "taxas" && (
+            <>
+              <h2 style={{ fontSize: 16, fontWeight: 800, color: "var(--color-text-primary)", margin: "0 0 6px", letterSpacing: "-0.02em" }}>
+                💰 Taxa de renovação de acesso
+              </h2>
+              <p style={{ fontSize: 13, color: "var(--color-text-secondary)", margin: "0 0 10px", lineHeight: 1.6 }}>
+                Essa é a <strong style={{ color: "var(--color-text-primary)" }}>principal funcionalidade do sistema</strong>: quando o prazo da galeria expira, o cliente paga uma taxa para reabrir o acesso às fotos.
+              </p>
+              <div style={{ background: "rgba(37,99,235,0.05)", border: "0.5px solid rgba(37,99,235,0.2)", borderRadius: 9, padding: "12px 14px", marginBottom: 20, fontSize: 12, color: "var(--color-text-secondary)", lineHeight: 1.6 }}>
+                O link de pagamento é gerado automaticamente. Após o cliente pagar, o acesso é liberado sem precisar de nenhuma ação sua.
+              </div>
+
+              {categoriasComTaxa.length === 0 ? (
+                <div style={{ fontSize: 13, color: "var(--color-text-secondary)", padding: "16px 0", textAlign: "center" }}>
+                  Nenhuma categoria cadastrada ainda.
+                </div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 0, border: "0.5px solid var(--color-border-tertiary)", borderRadius: 10, overflow: "hidden", marginBottom: 8 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 140px", padding: "8px 14px", background: "var(--color-background-secondary)", borderBottom: "0.5px solid var(--color-border-tertiary)" }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Categoria</span>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Renovação</span>
+                  </div>
+                  {categoriasComTaxa.map((cat, i) => (
+                    <div key={cat.id} style={{ display: "grid", gridTemplateColumns: "1fr 140px", alignItems: "center", padding: "10px 14px", borderBottom: i < categoriasComTaxa.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", background: "var(--color-background-primary)" }}>
+                      <span style={{ fontSize: 13, color: "var(--color-text-primary)", fontWeight: 500 }}>{cat.nome}</span>
+                      <div style={{ position: "relative" }}>
+                        <span style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", fontSize: 12, color: "var(--color-text-secondary)", pointerEvents: "none" }}>R$</span>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={cat.taxa}
+                          onChange={(e) => {
+                            const v = mascaraMoeda(e.target.value);
+                            setCategoriasComTaxa((prev) => prev.map((c) => c.id === cat.id ? { ...c, taxa: v } : c));
+                          }}
+                          style={{ width: "100%", padding: "7px 10px 7px 30px", borderRadius: 7, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-secondary)", fontSize: 13, color: "var(--color-text-primary)", outline: "none", boxSizing: "border-box" }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: "0 0 20px", lineHeight: 1.5 }}>
+                Você pode alterar esses valores a qualquer momento em <strong>Configurações → Categorias</strong> ou individualmente em cada galeria.
+              </p>
+
+              <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
+                <button onClick={() => setStep("categorias")} style={{ padding: "10px 18px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "transparent", fontSize: 13, color: "var(--color-text-secondary)", cursor: "pointer" }}>
+                  ← Voltar
+                </button>
+                <button onClick={salvarTaxas} disabled={salvandoTaxas} style={{ padding: "10px 24px", borderRadius: 8, border: "none", background: "#111", color: "#fff", fontSize: 13, fontWeight: 700, cursor: salvandoTaxas ? "not-allowed" : "pointer", opacity: salvandoTaxas ? 0.6 : 1 }}>
+                  {salvandoTaxas ? "Salvando…" : "Próximo →"}
+                </button>
+              </div>
+            </>
+          )}
+
+          {/* ─── Step 3: Email ─── */}
           {step === "email" && (
             <>
               <h2 style={{ fontSize: 16, fontWeight: 800, color: "var(--color-text-primary)", margin: "0 0 6px", letterSpacing: "-0.02em" }}>
@@ -276,7 +365,7 @@ export default function ConfigurarPage() {
               )}
 
               <div style={{ display: "flex", justifyContent: "space-between", marginTop: 24 }}>
-                <button onClick={() => setStep("categorias")} style={{ padding: "10px 18px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "transparent", fontSize: 13, color: "var(--color-text-secondary)", cursor: "pointer" }}>
+                <button onClick={() => setStep("taxas")} style={{ padding: "10px 18px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "transparent", fontSize: 13, color: "var(--color-text-secondary)", cursor: "pointer" }}>
                   ← Voltar
                 </button>
                 <button onClick={salvarEmail} disabled={salvandoEmail} style={{ padding: "10px 24px", borderRadius: 8, border: "none", background: "#111", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", opacity: salvandoEmail ? 0.6 : 1 }}>
@@ -286,7 +375,7 @@ export default function ConfigurarPage() {
             </>
           )}
 
-          {/* ─── Step 3: Concluído ─── */}
+          {/* ─── Step 4: Concluído ─── */}
           {step === "concluido" && (
             <div style={{ textAlign: "center" }}>
               <div style={{ fontSize: 48, marginBottom: 16 }}>🎉</div>
