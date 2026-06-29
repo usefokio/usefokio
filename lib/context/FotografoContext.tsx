@@ -50,7 +50,7 @@ export function FotografoProvider({ children }: { children: ReactNode }) {
         onboarding_concluido: true,
         crm_email_config: null,
         recursos: { selecao: true, entrega: true, album: true, contatos: true, pagamentos: true, crm: true },
-        logo_url: null, watermark_url: null, watermark_escala: null, ical_url: null,
+        logo_url: null, watermark_url: null, watermark_escala: null, watermark_opacidade: null, ical_url: null,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       });

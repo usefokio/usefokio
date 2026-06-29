@@ -931,8 +931,10 @@ function IdentidadeVisual() {
   const [watermarkUploading, setWatermarkUploading] = useState(false);
   const logoInputRef      = useRef<HTMLInputElement>(null);
   const watermarkInputRef = useRef<HTMLInputElement>(null);
-  const [wmEscala, setWmEscala] = useState(0.30);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [wmEscala,     setWmEscala]     = useState(0.30);
+  const [wmOpacidade,  setWmOpacidade]  = useState(0.55);
+  const debounceRef    = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const debounceOpRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const FOTO_EXEMPLO_H = "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&q=80";
   const FOTO_EXEMPLO_V = "https://images.unsplash.com/photo-1502920917128-1aa500764cbd?w=533&q=80";
@@ -948,6 +950,7 @@ function IdentidadeVisual() {
       setLogoUrl(fotografo.logo_url ?? null);
       setWatermarkUrl(fotografo.watermark_url ?? null);
       setWmEscala(fotografo.watermark_escala ?? 0.30);
+      setWmOpacidade(fotografo.watermark_opacidade ?? 0.55);
       setAssiEmail(fotografo.email ?? "");
       setAssiSite(fotografo.site ?? "");
     }
@@ -995,6 +998,15 @@ function IdentidadeVisual() {
     }, 600);
   }
 
+  function onOpacidadeChange(valor: number) {
+    setWmOpacidade(valor);
+    if (debounceOpRef.current) clearTimeout(debounceOpRef.current);
+    debounceOpRef.current = setTimeout(async () => {
+      if (!fotografo) return;
+      await createClient().from("fotografos").update({ watermark_opacidade: valor }).eq("id", fotografo.id);
+    }, 600);
+  }
+
   async function remover(tipo: "logo" | "watermark") {
     if (!fotografo) return;
     const supabase = createClient();
@@ -1027,30 +1039,36 @@ function IdentidadeVisual() {
               </div>
             ) : (
               <>
-                {/* Slider de escala */}
-                <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
-                  <span style={{ fontSize: 12, color: "var(--color-text-secondary)", whiteSpace: "nowrap" }}>Tamanho na foto</span>
-                  <input
-                    type="range" min={0.05} max={0.50} step={0.01}
-                    value={wmEscala}
-                    onChange={e => onSliderChange(parseFloat(e.target.value))}
-                    style={{ flex: 1, accentColor: "var(--color-accent-primary)" }}
-                  />
-                  <span style={{ fontSize: 12, fontWeight: 700, color: "var(--color-text-primary)", minWidth: 32, textAlign: "right" }}>{Math.round(wmEscala * 100)}%</span>
+                {/* Sliders */}
+                <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 14 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    <span style={{ fontSize: 12, color: "var(--color-text-secondary)", whiteSpace: "nowrap", minWidth: 80 }}>Tamanho</span>
+                    <input type="range" min={0.05} max={1.0} step={0.01} value={wmEscala}
+                      onChange={e => onSliderChange(parseFloat(e.target.value))}
+                      style={{ flex: 1, accentColor: "var(--color-accent-primary)" }} />
+                    <span style={{ fontSize: 12, fontWeight: 700, color: "var(--color-text-primary)", minWidth: 36, textAlign: "right" }}>{Math.round(wmEscala * 100)}%</span>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    <span style={{ fontSize: 12, color: "var(--color-text-secondary)", whiteSpace: "nowrap", minWidth: 80 }}>Opacidade</span>
+                    <input type="range" min={0.05} max={1.0} step={0.01} value={wmOpacidade}
+                      onChange={e => onOpacidadeChange(parseFloat(e.target.value))}
+                      style={{ flex: 1, accentColor: "var(--color-accent-primary)" }} />
+                    <span style={{ fontSize: 12, fontWeight: 700, color: "var(--color-text-primary)", minWidth: 36, textAlign: "right" }}>{Math.round(wmOpacidade * 100)}%</span>
+                  </div>
                 </div>
-                {/* Dois previews via CSS overlay — sem canvas, sem CORS */}
+                {/* Dois previews via CSS overlay */}
                 <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 10, marginBottom: 12 }}>
                   <div style={{ borderRadius: 8, overflow: "hidden", border: "0.5px solid var(--color-border-tertiary)" }}>
                     <div style={{ position: "relative" }}>
                       <img src={FOTO_EXEMPLO_H} style={{ width: "100%", display: "block" }} alt="Preview horizontal" />
-                      <img src={url} style={{ position: "absolute", bottom: "3%", right: "3%", width: `${wmEscala * 100}%`, opacity: 0.55, objectFit: "contain", pointerEvents: "none" }} alt="" />
+                      <img src={url} style={{ position: "absolute", bottom: "3%", right: "3%", width: `${wmEscala * 100}%`, opacity: wmOpacidade, objectFit: "contain", pointerEvents: "none" }} alt="" />
                     </div>
                     <div style={{ fontSize: 10, color: "var(--color-text-secondary)", padding: "4px 8px", background: "var(--color-background-secondary)" }}>Horizontal</div>
                   </div>
                   <div style={{ width: 100, borderRadius: 8, overflow: "hidden", border: "0.5px solid var(--color-border-tertiary)" }}>
                     <div style={{ position: "relative" }}>
                       <img src={FOTO_EXEMPLO_V} style={{ width: "100%", display: "block" }} alt="Preview vertical" />
-                      <img src={url} style={{ position: "absolute", bottom: "3%", right: "3%", width: `${wmEscala * 100}%`, opacity: 0.55, objectFit: "contain", pointerEvents: "none" }} alt="" />
+                      <img src={url} style={{ position: "absolute", bottom: "3%", right: "3%", width: `${wmEscala * 100}%`, opacity: wmOpacidade, objectFit: "contain", pointerEvents: "none" }} alt="" />
                     </div>
                     <div style={{ fontSize: 10, color: "var(--color-text-secondary)", padding: "4px 8px", background: "var(--color-background-secondary)" }}>Vertical</div>
                   </div>

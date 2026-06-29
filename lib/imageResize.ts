@@ -231,6 +231,7 @@ export async function aplicarMarcaDagua(
   altura: number,
   watermarkUrl: string,
   escala = 0.30,
+  opacidade = 0.55,
 ): Promise<void> {
   return new Promise((resolve) => {
     const wm = new Image();
@@ -241,7 +242,7 @@ export async function aplicarMarcaDagua(
       const w = wm.naturalWidth * scale;
       const h = wm.naturalHeight * scale;
       const margin = largura * 0.03;
-      ctx.globalAlpha = 0.55;
+      ctx.globalAlpha = opacidade;
       ctx.drawImage(wm, largura - w - margin, altura - h - margin, w, h);
       ctx.globalAlpha = 1;
       resolve();
