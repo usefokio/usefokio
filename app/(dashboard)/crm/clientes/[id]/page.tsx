@@ -138,7 +138,7 @@ export default function ClienteDetailPage() {
 
   const excluir = async () => {
     setDeleting(true);
-    await sb.from("clientes").update({ crm_ativo: false }).eq("id", id);
+    await createClient().from("clientes").update({ crm_ativo: false }).eq("id", id);
     router.push("/crm/clientes");
   };
 
