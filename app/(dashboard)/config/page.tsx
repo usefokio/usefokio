@@ -1057,7 +1057,7 @@ function IdentidadeVisual() {
                   </div>
                 </div>
                 {/* Dois previews via CSS overlay */}
-                <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 10, marginBottom: 12 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "3fr 2fr", gap: 10, marginBottom: 12 }}>
                   <div style={{ borderRadius: 8, overflow: "hidden", border: "0.5px solid var(--color-border-tertiary)" }}>
                     <div style={{ position: "relative" }}>
                       <img src={FOTO_EXEMPLO_H} style={{ width: "100%", display: "block" }} alt="Preview horizontal" />
@@ -1065,7 +1065,7 @@ function IdentidadeVisual() {
                     </div>
                     <div style={{ fontSize: 10, color: "var(--color-text-secondary)", padding: "4px 8px", background: "var(--color-background-secondary)" }}>Horizontal</div>
                   </div>
-                  <div style={{ width: 100, borderRadius: 8, overflow: "hidden", border: "0.5px solid var(--color-border-tertiary)" }}>
+                  <div style={{ borderRadius: 8, overflow: "hidden", border: "0.5px solid var(--color-border-tertiary)" }}>
                     <div style={{ position: "relative" }}>
                       <img src={FOTO_EXEMPLO_V} style={{ width: "100%", display: "block" }} alt="Preview vertical" />
                       <img src={url} style={{ position: "absolute", bottom: "3%", right: "3%", width: `${wmEscala * 100}%`, opacity: wmOpacidade, objectFit: "contain", pointerEvents: "none" }} alt="" />
