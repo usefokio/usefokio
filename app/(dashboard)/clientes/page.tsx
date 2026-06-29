@@ -81,6 +81,9 @@ export default function ClientesPage() {
   useEffect(() => {
     async function load() {
       const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const fid = user.id;
       const LOTE = 1000;
       let todos: Cliente[] = [];
       let from = 0;
@@ -88,6 +91,7 @@ export default function ClientesPage() {
         const { data, error } = await supabase
           .from("clientes")
           .select("*")
+          .eq("fotografo_id", fid)
           .order("nome")
           .range(from, from + LOTE - 1);
         if (error || !data || data.length === 0) break;

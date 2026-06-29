@@ -100,6 +100,9 @@ function GaleriaSelecaoConteudo() {
     async function load() {
       try {
         const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+        const fid = user.id;
         const [
           { data: gal,  error: eGal },
           fts,
@@ -107,7 +110,7 @@ function GaleriaSelecaoConteudo() {
           { data: esc },
           { data: evs },
         ] = await Promise.all([
-          supabase.from("galerias_selecao").select("*").eq("id", id).single(),
+          supabase.from("galerias_selecao").select("*").eq("id", id).eq("fotografo_id", fid).single(),
           fetchAllRows<GaleriaSelecaoFoto>((sb, from, to) => sb.from("galerias_selecao_fotos").select("*").eq("galeria_id", id).order("ordem").order("created_at").range(from, to), supabase),
           supabase.from("galeria_selecao_categorias").select("categorias(*)").eq("galeria_id", id),
           supabase.from("galerias_selecao_escolhas")
