@@ -16,7 +16,14 @@ export async function POST(req: Request) {
   const token = authHeader.replace("Bearer ", "");
   if (!token) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
-  const { data: { user } } = await adminClient.auth.getUser(token);
+  // Verificar identidade usando anon key + token do usuário como Bearer
+  const userClient = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    { global: { headers: { Authorization: `Bearer ${token}` } },
+      auth: { autoRefreshToken: false, persistSession: false } }
+  );
+  const { data: { user } } = await userClient.auth.getUser();
   const isWebmaster = user && (
     (WEBMASTER_ID    && user.id    === WEBMASTER_ID) ||
     (WEBMASTER_EMAIL && user.email === WEBMASTER_EMAIL)

@@ -552,7 +552,7 @@ export default function WebmasterPage() {
             </div>
           ) : (
             <div style={{ overflowX: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+              <table style={{ width: "100%", minWidth: 900, borderCollapse: "collapse", fontSize: 12 }}>
                 <thead>
                   <tr style={{ background: "var(--color-background-secondary)" }}>
                     {["Nome / Empresa", "Email", "Plano", "Status", "Clientes", "Galerias", "Fotos", "Uso", "Cadastro", "Recursos", "Ação"].map((h) => (
