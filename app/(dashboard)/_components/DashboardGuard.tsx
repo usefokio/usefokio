@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { createClient } from "@/lib/supabase/client";
+import { DoacaoDev } from "./DoacaoDev";
 
 const WEBMASTER_ID    = process.env.NEXT_PUBLIC_WEBMASTER_ID ?? "";
 const WEBMASTER_EMAIL = "usefokio@gmail.com";
@@ -60,13 +61,15 @@ function ModalAceiteTermos({ onAceito }: { onAceito: () => void }) {
 
 export function DashboardGuard({ children }: { children: React.ReactNode }) {
   const { fotografo, loading } = useFotografo();
-  const router = useRouter();
+  const router   = useRouter();
+  const pathname = usePathname();
   const [termosVerificados, setTermosVerificados] = useState(() => {
     if (process.env.NODE_ENV === "development") return true;
     if (typeof window === "undefined") return false;
     return sessionStorage.getItem(`termos_${TERMOS_VERSAO}`) === "1";
   });
-  const [precisaAceitar,    setPrecisaAceitar]    = useState(false);
+  const [precisaAceitar, setPrecisaAceitar] = useState(false);
+  const [pagamentosDoacao, setPagamentosDoacao] = useState<string[]>([]);
 
   useEffect(() => {
     if (process.env.NODE_ENV === "development") return;
@@ -88,9 +91,16 @@ export function DashboardGuard({ children }: { children: React.ReactNode }) {
     if (isWebmaster) { router.replace("/webmaster"); return; }
     if (!fotografo.aprovado) { router.replace("/aguardando-aprovacao"); return; }
 
+    // Redireciona para onboarding se ainda não concluiu a configuração inicial
+    if (!fotografo.onboarding_concluido && pathname !== "/configurar") {
+      router.replace("/configurar");
+      return;
+    }
+
+    const sb = createClient();
+
     // Verifica se já aceitou a versão atual dos termos
-    createClient()
-      .from("aceites_termos")
+    sb.from("aceites_termos")
       .select("id")
       .eq("usuario_id", fotografo.id)
       .eq("versao_termos", TERMOS_VERSAO)
@@ -100,7 +110,18 @@ export function DashboardGuard({ children }: { children: React.ReactNode }) {
         sessionStorage.setItem(`termos_${TERMOS_VERSAO}`, "1");
         setTermosVerificados(true);
       });
-  }, [fotografo, loading, router]);
+
+    // Verifica pagamentos recebidos ainda não celebrados → popup de doação
+    sb.from("pagamentos")
+      .select("id")
+      .eq("fotografo_id", fotografo.id)
+      .eq("status", "pago")
+      .eq("doacao_sugerida", false)
+      .neq("tipo", "doacao")
+      .then(({ data }) => {
+        if (data && data.length > 0) setPagamentosDoacao(data.map((p) => p.id));
+      });
+  }, [fotografo, loading, router, pathname]);
 
   const spinStyle = { height: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--color-background-tertiary)", fontFamily: "var(--font-sans)" } as const;
 
@@ -113,11 +134,42 @@ export function DashboardGuard({ children }: { children: React.ReactNode }) {
     return <div style={spinStyle}><div style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>Redirecionando…</div></div>;
   }
 
+  async function fecharDoacao() {
+    if (pagamentosDoacao.length > 0) {
+      await fetch("/api/doacao/sugerida", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: pagamentosDoacao }),
+      }).catch(() => {});
+    }
+    setPagamentosDoacao([]);
+  }
+
   return (
     <>
       {children}
       {precisaAceitar && (
         <ModalAceiteTermos onAceito={() => setPrecisaAceitar(false)} />
+      )}
+      {pagamentosDoacao.length > 0 && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 200, padding: 20 }} onClick={fecharDoacao}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 16, padding: "30px 30px", width: 440, maxWidth: "100%", boxShadow: "0 12px 48px rgba(0,0,0,0.25)" }}>
+            <div style={{ fontSize: 36, marginBottom: 10, textAlign: "center" }}>🎉</div>
+            <h3 style={{ margin: "0 0 6px", fontSize: 17, fontWeight: 800, color: "var(--color-text-primary)", textAlign: "center", letterSpacing: "-0.01em" }}>
+              Você recebeu um novo pagamento!
+            </h3>
+            <p style={{ margin: "0 0 6px", fontSize: 12, color: "#7C3AED", textAlign: "center", fontWeight: 600 }}>
+              Beta v0 · Desenvolvedor solo
+            </p>
+            <p style={{ margin: "0 0 20px", fontSize: 13, color: "var(--color-text-secondary)", textAlign: "center", lineHeight: 1.6 }}>
+              O UseFokio é feito por uma pessoa só, em fase beta. Cada doação mantém o projeto vivo e ajuda a lançar novas funcionalidades mais rápido.
+            </p>
+            <DoacaoDev compacto />
+            <button onClick={fecharDoacao} style={{ display: "block", margin: "16px auto 0", background: "none", border: "none", fontSize: 12, color: "var(--color-text-secondary)", cursor: "pointer", textDecoration: "underline" }}>
+              Agora não
+            </button>
+          </div>
+        </div>
       )}
     </>
   );

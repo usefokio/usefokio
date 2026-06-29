@@ -7,7 +7,6 @@ import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import type { Cliente, GaleriaSelecao } from "@/lib/supabase/types";
 import { DoacaoDev } from "../_components/DoacaoDev";
-
 type Stats = {
   totalClientes:         number;
   clientesEsteMes:       number;
@@ -58,37 +57,6 @@ export default function DashboardPage() {
   const [atividades, setAtividades]           = useState<AtividadeItem[]>([]);
   const [aguardando, setAguardando]           = useState<GaleriaRevisao[]>([]);
   const [loading, setLoading]                 = useState(true);
-  const [vendaRecebida, setVendaRecebida]     = useState<{ ids: string[]; total: number } | null>(null);
-
-  // Checa vendas (renovações pagas) ainda não celebradas → modal sugerindo doação
-  useEffect(() => {
-    if (!fotografo) return;
-    const supabase = createClient();
-    supabase.from("pagamentos")
-      .select("id, valor")
-      .eq("fotografo_id", fotografo.id)
-      .eq("tipo", "renovacao")
-      .eq("status", "pago")
-      .eq("doacao_sugerida", false)
-      .then(({ data }) => {
-        if (data && data.length > 0) {
-          setVendaRecebida({ ids: data.map((p) => p.id), total: data.reduce((s, p) => s + Number(p.valor), 0) });
-        }
-      });
-  }, [fotografo]);
-
-  async function fecharModalVenda() {
-    if (vendaRecebida) {
-      // RLS só permite SELECT em pagamentos — a marcação é feita server-side
-      await fetch("/api/doacao/sugerida", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ids: vendaRecebida.ids }),
-      }).catch(() => {});
-    }
-    setVendaRecebida(null);
-  }
-
   useEffect(() => {
     async function load() {
       const supabase = createClient();
@@ -381,25 +349,6 @@ export default function DashboardPage() {
           ))
         )}
       </div>
-
-      {/* Modal pós-venda: sugestão de doação */}
-      {vendaRecebida && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 80, padding: 20 }} onClick={fecharModalVenda}>
-          <div onClick={(e) => e.stopPropagation()} style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 16, padding: "30px 30px", width: 440, maxWidth: "100%", boxShadow: "0 12px 48px rgba(0,0,0,0.25)" }}>
-            <div style={{ fontSize: 36, marginBottom: 10, textAlign: "center" }}>🎉</div>
-            <h3 style={{ margin: "0 0 8px", fontSize: 17, fontWeight: 800, color: "var(--color-text-primary)", textAlign: "center", letterSpacing: "-0.01em" }}>
-              Você recebeu R$ {vendaRecebida.total.toFixed(2).replace(".", ",")} em renovações!
-            </h3>
-            <p style={{ margin: "0 0 20px", fontSize: 13, color: "var(--color-text-secondary)", textAlign: "center", lineHeight: 1.6 }}>
-              O pagamento caiu direto na sua conta Asaas. Se o UseFokio está te ajudando a vender, que tal apoiar o desenvolvimento?
-            </p>
-            <DoacaoDev compacto />
-            <button onClick={fecharModalVenda} style={{ display: "block", margin: "16px auto 0", background: "none", border: "none", fontSize: 12, color: "var(--color-text-secondary)", cursor: "pointer", textDecoration: "underline" }}>
-              Agora não
-            </button>
-          </div>
-        </div>
-      )}
 
     </div>
   );

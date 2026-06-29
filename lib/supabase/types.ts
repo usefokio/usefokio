@@ -65,6 +65,7 @@ export type Fotografo = {
   logo_url: string | null;
   watermark_url: string | null;
   ical_url: string | null;
+  onboarding_concluido: boolean | null;
   created_at: string;
   updated_at: string;
 };

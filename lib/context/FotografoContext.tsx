@@ -47,6 +47,7 @@ export function FotografoProvider({ children }: { children: ReactNode }) {
         abacate_api_key_enc: null, abacate_ativo: false,
         smtp_host: null, smtp_port: null, smtp_user: null, smtp_from: null, smtp_ativo: false,
         limite_fotos_custom: null,
+        onboarding_concluido: true,
         crm_email_config: null,
         recursos: { selecao: true, entrega: true, album: true, contatos: true, pagamentos: true, crm: true },
         logo_url: null, watermark_url: null, ical_url: null,

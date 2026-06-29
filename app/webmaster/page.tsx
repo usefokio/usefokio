@@ -19,6 +19,7 @@ type FotografoStats = {
   total_galerias: number;
   total_fotos: number;
   total_bytes: number;
+  limite_fotos_custom: number | null;
 };
 
 function formatGB(bytes: number): string {
@@ -284,6 +285,52 @@ function RecursosCell({ fotografoId }: { fotografoId: string }) {
         </div>
       )}
     </div>
+  );
+}
+
+function LimiteFotosCell({ fotografoId, inicial }: { fotografoId: string; inicial: number | null }) {
+  const [editando, setEditando] = useState(false);
+  const [valor, setValor]       = useState(String(inicial ?? ""));
+  const [salvando, setSalvando] = useState(false);
+
+  async function salvar() {
+    setSalvando(true);
+    const num = valor.trim() === "" ? null : parseInt(valor);
+    const supabase = createClient();
+    await supabase.from("fotografos").update({ limite_fotos_custom: isNaN(num as number) ? null : num }).eq("id", fotografoId);
+    setSalvando(false);
+    setEditando(false);
+  }
+
+  if (editando) {
+    return (
+      <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+        <input
+          type="number"
+          value={valor}
+          onChange={(e) => setValor(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") salvar(); if (e.key === "Escape") setEditando(false); }}
+          autoFocus
+          style={{ width: 70, padding: "3px 6px", borderRadius: 6, border: "0.5px solid var(--color-border-secondary)", fontSize: 12, background: "var(--color-background-primary)", color: "var(--color-text-primary)" }}
+        />
+        <button onClick={salvar} disabled={salvando} style={{ fontSize: 10, fontWeight: 700, padding: "3px 7px", borderRadius: 5, border: "none", background: "#059669", color: "#fff", cursor: "pointer" }}>
+          {salvando ? "…" : "✓"}
+        </button>
+        <button onClick={() => setEditando(false)} style={{ fontSize: 10, padding: "3px 6px", borderRadius: 5, border: "0.5px solid var(--color-border-secondary)", background: "transparent", color: "var(--color-text-secondary)", cursor: "pointer" }}>
+          ✕
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <button
+      onClick={() => setEditando(true)}
+      title="Clique para editar limite"
+      style={{ padding: "3px 8px", borderRadius: 6, border: "0.5px solid var(--color-border-secondary)", background: "transparent", fontSize: 11, fontWeight: 600, color: "var(--color-text-primary)", cursor: "pointer", whiteSpace: "nowrap" }}
+    >
+      {inicial != null ? inicial.toLocaleString("pt-BR") : "∞"} fotos
+    </button>
   );
 }
 
@@ -555,7 +602,7 @@ export default function WebmasterPage() {
               <table style={{ width: "100%", minWidth: 900, borderCollapse: "collapse", fontSize: 12 }}>
                 <thead>
                   <tr style={{ background: "var(--color-background-secondary)" }}>
-                    {["Nome / Empresa", "Email", "Plano", "Status", "Clientes", "Galerias", "Fotos", "Uso", "Cadastro", "Recursos", "Ação"].map((h) => (
+                    {["Nome / Empresa", "Email", "Plano", "Status", "Clientes", "Galerias", "Fotos", "Uso", "Limite", "Cadastro", "Recursos", "Ação"].map((h) => (
                       <th key={h} style={{
                         padding: "10px 14px", textAlign: "left",
                         fontSize: 10, fontWeight: 700,
@@ -604,6 +651,9 @@ export default function WebmasterPage() {
                       </td>
                       <td style={{ padding: "12px 14px", color: "var(--color-text-secondary)", whiteSpace: "nowrap" }}>
                         {formatGB(f.total_bytes)}
+                      </td>
+                      <td style={{ padding: "12px 14px" }}>
+                        <LimiteFotosCell fotografoId={f.id} inicial={f.limite_fotos_custom} />
                       </td>
                       <td style={{ padding: "12px 14px", color: "var(--color-text-secondary)", whiteSpace: "nowrap" }}>
                         {new Date(f.created_at).toLocaleDateString("pt-BR")}
