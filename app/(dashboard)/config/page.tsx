@@ -1041,20 +1041,27 @@ function IdentidadeVisual() {
               <>
                 {/* Sliders */}
                 <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 14 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                    <span style={{ fontSize: 12, color: "var(--color-text-secondary)", whiteSpace: "nowrap", minWidth: 80 }}>Tamanho</span>
-                    <input type="range" min={0.05} max={1.0} step={0.01} value={wmEscala}
-                      onChange={e => onSliderChange(parseFloat(e.target.value))}
-                      style={{ flex: 1, accentColor: "var(--color-accent-primary)" }} />
-                    <span style={{ fontSize: 12, fontWeight: 700, color: "var(--color-text-primary)", minWidth: 36, textAlign: "right" }}>{Math.round(wmEscala * 100)}%</span>
-                  </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                    <span style={{ fontSize: 12, color: "var(--color-text-secondary)", whiteSpace: "nowrap", minWidth: 80 }}>Opacidade</span>
-                    <input type="range" min={0.05} max={1.0} step={0.01} value={wmOpacidade}
-                      onChange={e => onOpacidadeChange(parseFloat(e.target.value))}
-                      style={{ flex: 1, accentColor: "var(--color-accent-primary)" }} />
-                    <span style={{ fontSize: 12, fontWeight: 700, color: "var(--color-text-primary)", minWidth: 36, textAlign: "right" }}>{Math.round(wmOpacidade * 100)}%</span>
-                  </div>
+                  {([
+                    { label: "Tamanho",  val: wmEscala,    fn: onSliderChange },
+                    { label: "Opacidade", val: wmOpacidade, fn: onOpacidadeChange },
+                  ] as const).map(({ label, val, fn }) => (
+                    <div key={label} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <span style={{ fontSize: 12, color: "var(--color-text-secondary)", whiteSpace: "nowrap", minWidth: 72 }}>{label}</span>
+                      <input type="range" min={0.01} max={1.0} step={0.01} value={val}
+                        onChange={e => fn(parseFloat(e.target.value))}
+                        style={{ flex: 1, accentColor: "var(--color-accent-primary)", cursor: "pointer" }} />
+                      <input
+                        type="number" min={1} max={100}
+                        value={Math.round(val * 100)}
+                        onChange={e => {
+                          const n = Math.min(100, Math.max(1, parseInt(e.target.value) || 1));
+                          fn(n / 100);
+                        }}
+                        style={{ width: 46, fontSize: 12, fontWeight: 700, textAlign: "right", border: "0.5px solid var(--color-border-secondary)", borderRadius: 5, padding: "2px 4px", background: "var(--color-background-secondary)", color: "var(--color-text-primary)" }}
+                      />
+                      <span style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>%</span>
+                    </div>
+                  ))}
                 </div>
                 {/* Dois previews via CSS overlay */}
                 <div style={{ display: "grid", gridTemplateColumns: "3fr 2fr", gap: 10, marginBottom: 12 }}>
@@ -1066,8 +1073,8 @@ function IdentidadeVisual() {
                     <div style={{ fontSize: 10, color: "var(--color-text-secondary)", padding: "4px 8px", background: "var(--color-background-secondary)" }}>Horizontal</div>
                   </div>
                   <div style={{ borderRadius: 8, overflow: "hidden", border: "0.5px solid var(--color-border-tertiary)" }}>
-                    <div style={{ position: "relative" }}>
-                      <img src={FOTO_EXEMPLO_V} style={{ width: "100%", display: "block" }} alt="Preview vertical" />
+                    <div style={{ position: "relative", aspectRatio: "2/3", overflow: "hidden" }}>
+                      <img src={FOTO_EXEMPLO_H} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} alt="Preview vertical" />
                       <img src={url} style={{ position: "absolute", bottom: "3%", right: "3%", width: `${wmEscala * 100}%`, opacity: wmOpacidade, objectFit: "contain", pointerEvents: "none" }} alt="" />
                     </div>
                     <div style={{ fontSize: 10, color: "var(--color-text-secondary)", padding: "4px 8px", background: "var(--color-background-secondary)" }}>Vertical</div>
