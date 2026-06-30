@@ -119,6 +119,7 @@ export async function registrarWebhook(apiKey: string, ambiente: AsaasAmbiente, 
   const existente = (lista?.data ?? []).find((w: { url: string; id: string }) => w.url === webhookUrl);
 
   const payload = {
+    name:       "UseFokio",
     url:        webhookUrl,
     enabled:    true,
     interrupted: false,
