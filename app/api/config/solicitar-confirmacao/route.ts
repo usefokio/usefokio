@@ -113,8 +113,9 @@ export async function POST(req: NextRequest) {
   } catch (e) {
     // Apagar a confirmation se o email falhar
     await admin.from("email_confirmations").delete().eq("id", row.id);
-    console.error("[solicitar-confirmacao] Erro ao enviar email:", e);
-    return NextResponse.json({ erro: "Erro ao enviar email de confirmação." }, { status: 500 });
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("[solicitar-confirmacao] Erro ao enviar email:", msg);
+    return NextResponse.json({ erro: `Erro ao enviar email: ${msg}` }, { status: 500 });
   }
 
   return NextResponse.json({ confirmationId: row.id, emailMascarado: mascarEmail(foto.email) });
