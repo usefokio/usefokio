@@ -222,7 +222,7 @@ export default function LandingPage() {
             {Object.values(PLANOS).map((p) => {
               const isPopular = p.badge === "Popular";
               const priceStr  = p.preco === 0 ? "Grátis" : `R$ ${p.preco}`;
-              const cta       = p.preco === 0 ? "Começar grátis" : p.id === "estudio" ? "Falar com vendas" : "Assinar agora";
+              const cta       = p.preco === 0 ? "Começar grátis" : "Assinar agora";
               return (
                 <div key={p.id} style={{ border: isPopular ? `2px solid ${p.cor}` : "1px solid #e5e7eb", borderRadius: 14, padding: "26px 22px", position: "relative", background: isPopular ? p.corBg : "#fff" }}>
                   {p.badge && <div style={{ position: "absolute", top: -11, left: "50%", transform: "translateX(-50%)", background: p.cor, color: "#fff", fontSize: 11, fontWeight: 600, padding: "2px 13px", borderRadius: 20, whiteSpace: "nowrap" }}>{p.badge}</div>}
