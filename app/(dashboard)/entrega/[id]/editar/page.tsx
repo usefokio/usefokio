@@ -242,18 +242,19 @@ export default function EditarEntregaPage() {
     setDeletando(true);
     const supabase = createClient();
 
-    // Buscar storage_paths das fotos antes de deletar a galeria
     const { data: fotos } = await supabase
       .from("galerias_entrega_fotos")
       .select("storage_path, url_publica")
       .eq("galeria_id", id);
 
-    if (fotos && fotos.length > 0) {
-      const items = (fotos as { storage_path: string; url_publica: string | null }[])
-        .map((f) => ({ storage_path: f.storage_path, url_publica: f.url_publica }));
-      for (let i = 0; i < items.length; i += 100)
-        await deleteFilesClient(items.slice(i, i + 100));
-    }
+    const items: { storage_path: string; url_publica: string | null }[] = [];
+    if (fotos) items.push(...(fotos as { storage_path: string; url_publica: string | null }[])
+      .map((f) => ({ storage_path: f.storage_path, url_publica: f.url_publica })));
+    if (original?.foto_capa_url)
+      items.push({ storage_path: `entrega/${fotografo.id}/${id}/capa.jpg`, url_publica: original.foto_capa_url });
+
+    for (let i = 0; i < items.length; i += 100)
+      await deleteFilesClient(items.slice(i, i + 100));
 
     await supabase.from("galerias_entrega").delete().eq("id", id).eq("fotografo_id", fotografo.id);
     setSaiu(true);

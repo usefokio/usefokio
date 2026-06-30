@@ -11,6 +11,7 @@ import { ModalEnviarAcesso } from "./_components/ModalEnviarAcesso";
 import { normalizar } from "@/lib/utils/normalizar";
 import { ModalEmailCliente } from "./_components/ModalEmailCliente";
 import { fetchAllRows } from "@/lib/supabase/fetchAll";
+import { deleteFilesClient } from "@/lib/storage/deleteClient";
 
 // ─── Helpers de status ────────────────────────────────────────────────────────
 type StatusEntrega = "ativo" | "expirando" | "expirado" | "sem_prazo" | "suspensa" | "rascunho";
@@ -282,6 +283,20 @@ export default function EntregaPage() {
   async function deletar(id: string) {
     setDeletando(true);
     const supabase = createClient();
+
+    const [{ data: fotos }, { data: galeria }] = await Promise.all([
+      supabase.from("galerias_entrega_fotos").select("storage_path, url_publica").eq("galeria_id", id),
+      supabase.from("galerias_entrega").select("foto_capa_url").eq("id", id).maybeSingle(),
+    ]);
+
+    const items: { storage_path: string; url_publica: string | null }[] = [];
+    if (fotos) items.push(...fotos.map((f) => ({ storage_path: f.storage_path, url_publica: f.url_publica })));
+    if (galeria?.foto_capa_url && fotografo)
+      items.push({ storage_path: `entrega/${fotografo.id}/${id}/capa.jpg`, url_publica: galeria.foto_capa_url });
+
+    for (let i = 0; i < items.length; i += 100)
+      await deleteFilesClient(items.slice(i, i + 100));
+
     await supabase.from("galerias_entrega").delete().eq("id", id);
     setGalerias((prev) => prev.filter((g) => g.id !== id));
     setDeletarId(null);

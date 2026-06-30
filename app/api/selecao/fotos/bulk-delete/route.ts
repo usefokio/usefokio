@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
+import { deleteFile } from "@/lib/storage/delete";
 
 function getAdminClient() {
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -39,15 +40,39 @@ export async function POST(req: NextRequest) {
   const sb = getAdminClient() ?? userClient;
 
   if (galeria_id && !ids) {
-    // Deletar todas as fotos da galeria
+    const { data: fotos } = await sb
+      .from("galerias_selecao_fotos")
+      .select("storage_path, thumbnail_path, url_publica")
+      .eq("galeria_id", galeria_id);
+    if (fotos?.length) {
+      const storageItems = fotos.flatMap((f) => [
+        { storage_path: f.storage_path, url_publica: f.url_publica as string | null },
+        f.thumbnail_path ? { storage_path: f.thumbnail_path as string, url_publica: null } : null,
+      ].filter(Boolean)) as { storage_path: string; url_publica: string | null }[];
+      await Promise.allSettled(storageItems.map((i) => deleteFile(i.storage_path, i.url_publica)));
+    }
     const { error } = await sb
       .from("galerias_selecao_fotos")
       .delete()
       .eq("galeria_id", galeria_id);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   } else if (ids && ids.length > 0) {
-    // Deletar IDs específicos em batches de 200
     const BATCH = 200;
+    const allFotos: { storage_path: string; thumbnail_path: string | null; url_publica: string | null }[] = [];
+    for (let i = 0; i < ids.length; i += BATCH) {
+      const { data } = await sb
+        .from("galerias_selecao_fotos")
+        .select("storage_path, thumbnail_path, url_publica")
+        .in("id", ids.slice(i, i + BATCH));
+      if (data) allFotos.push(...data);
+    }
+    if (allFotos.length) {
+      const storageItems = allFotos.flatMap((f) => [
+        { storage_path: f.storage_path, url_publica: f.url_publica },
+        f.thumbnail_path ? { storage_path: f.thumbnail_path, url_publica: null } : null,
+      ].filter(Boolean)) as { storage_path: string; url_publica: string | null }[];
+      await Promise.allSettled(storageItems.map((i) => deleteFile(i.storage_path, i.url_publica)));
+    }
     for (let i = 0; i < ids.length; i += BATCH) {
       const { error } = await sb
         .from("galerias_selecao_fotos")
