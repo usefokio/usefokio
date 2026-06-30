@@ -97,7 +97,7 @@ export default function PlanoPage() {
   const barCor      = pct !== null ? corBarra(pct) : "#2563EB";
   const planosLista = Object.values(PLANOS);
 
-  const totalUso = uso ? uso.selecao + uso.entrega + uso.album : usadas;
+  const totalUso = uso ? uso.selecao + uso.entrega : usadas;
 
   return (
     <div style={{ padding: "26px 30px", maxWidth: 860 }}>
@@ -187,13 +187,6 @@ export default function PlanoPage() {
                 qtd={uso?.entrega ?? 0}
                 total={totalUso}
                 cor="#059669"
-              />
-              <BarraRecurso
-                label="Álbuns (lâminas)"
-                icone="📖"
-                qtd={uso?.album ?? 0}
-                total={totalUso}
-                cor="#7C3AED"
               />
             </>
           )}
