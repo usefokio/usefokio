@@ -350,8 +350,11 @@ function RecursosCell({ fotografoId }: { fotografoId: string }) {
     const novos = { ...recursos, [chave]: !recursos[chave] };
     setRecursos(novos);
     setSalvando(true);
-    const supabase = createClient();
-    await supabase.rpc("webmaster_set_recursos", { p_fotografo_id: fotografoId, p_recursos: novos });
+    await fetch(`/api/webmaster/fotografo-config/${fotografoId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ recursos: novos }),
+    });
     setSalvando(false);
   }
 
@@ -933,18 +936,21 @@ export default function WebmasterPage() {
 
   async function carregarStats() {
     setLoading(true);
-    const supabase = createClient();
-    const { data, error } = await supabase.rpc("webmaster_get_stats");
-    if (!error && data) {
-      setStats(data as FotografoStats[]);
+    const res = await fetch("/api/webmaster/stats");
+    const json = await res.json();
+    if (res.ok && json.data) {
+      setStats(json.data as FotografoStats[]);
     }
     setLoading(false);
   }
 
   async function aprovar(id: string, valor: boolean) {
     setPendingIds((prev) => new Set([...prev, id]));
-    const supabase = createClient();
-    await supabase.rpc("webmaster_aprovar", { p_fotografo_id: id, p_valor: valor });
+    await fetch(`/api/webmaster/fotografo-config/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ aprovado: valor }),
+    });
     setStats((prev) => prev.map((f) => f.id === id ? { ...f, aprovado: valor } : f));
     setPendingIds((prev) => { const n = new Set(prev); n.delete(id); return n; });
   }

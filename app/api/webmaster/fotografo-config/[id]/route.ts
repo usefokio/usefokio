@@ -16,7 +16,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const body = await req.json() as Record<string, unknown>;
-  const allowed = ["recursos", "limite_fotos_custom"] as const;
+  const allowed = ["recursos", "limite_fotos_custom", "aprovado"] as const;
   const update: Record<string, unknown> = {};
   for (const key of allowed) {
     if (key in body) update[key] = body[key];
