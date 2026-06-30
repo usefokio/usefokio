@@ -20,6 +20,9 @@ export async function POST(req: Request) {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
 
+  const body = await req.json().catch(() => ({}));
+  const planoConfigId: string | undefined = body.plano_config_id;
+
   const admin = createAdminClient();
   const { data: foto } = await admin
     .from("fotografos")
@@ -28,23 +31,50 @@ export async function POST(req: Request) {
     .maybeSingle();
 
   if (!foto) return NextResponse.json({ error: "Fotógrafo não encontrado" }, { status: 404 });
-  if (foto.plano === "profissional") {
-    return NextResponse.json({ error: "Plano Profissional já ativo" }, { status: 400 });
+
+  // Buscar configuração do plano
+  let planoNome = "profissional";
+  let preco = 49;
+  let duracaoDias = 31;
+  let resolvedPlanoConfigId: string | null = null;
+
+  if (planoConfigId) {
+    const { data: pc } = await admin
+      .from("planos_config")
+      .select("id, codigo, nome, preco, duracao_dias, ativo, valido_ate")
+      .eq("id", planoConfigId)
+      .maybeSingle();
+
+    if (pc && pc.ativo) {
+      const hoje = new Date().toISOString().slice(0, 10);
+      if (!pc.valido_ate || pc.valido_ate >= hoje) {
+        planoNome = pc.codigo;
+        preco = Number(pc.preco);
+        duracaoDias = pc.duracao_dias ?? 31;
+        resolvedPlanoConfigId = pc.id;
+      }
+    }
+  }
+
+  if (foto.plano === planoNome) {
+    return NextResponse.json({ error: `Plano ${planoNome} já ativo` }, { status: 400 });
   }
 
   const hoje = new Date();
   const fim  = new Date(hoje);
-  fim.setDate(fim.getDate() + 31);
+  fim.setDate(fim.getDate() + duracaoDias);
 
   const { data: assinatura, error: errAss } = await admin
     .from("assinaturas")
     .insert({
-      fotografo_id:   foto.id,
-      plano:          "profissional",
-      valor:          49,
-      periodo_inicio: hoje.toISOString().slice(0, 10),
-      periodo_fim:    fim.toISOString().slice(0, 10),
-      status:         "pendente",
+      fotografo_id:    foto.id,
+      plano:           planoNome,
+      valor:           preco,
+      preco_cobrado:   preco,
+      plano_config_id: resolvedPlanoConfigId,
+      periodo_inicio:  hoje.toISOString().slice(0, 10),
+      periodo_fim:     fim.toISOString().slice(0, 10),
+      status:          "pendente",
     })
     .select("id")
     .single();
@@ -58,6 +88,7 @@ export async function POST(req: Request) {
       fotografoNome:  foto.nome_completo ?? foto.email,
       fotografoEmail: foto.email,
       assinaturaId:   assinatura.id,
+      valor:          preco,
     });
 
     await admin.from("assinaturas").update({ asaas_id: resultado.paymentId }).eq("id", assinatura.id);

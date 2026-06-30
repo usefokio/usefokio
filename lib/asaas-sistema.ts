@@ -36,6 +36,8 @@ export async function criarCobrancaAssinatura(params: {
   fotografoEmail: string;
   fotografoCpf?: string;
   assinaturaId: string;
+  valor?: number;
+  descricao?: string;
 }): Promise<CobrancaAssinaturaResult> {
   const cfg = await getSistemaAsaas();
   if (!cfg) throw new Error("Asaas do sistema não configurado. Contate o suporte.");
@@ -44,8 +46,8 @@ export async function criarCobrancaAssinatura(params: {
     apiKey: cfg.apiKey,
     ambiente: cfg.ambiente,
     cliente: { nome: params.fotografoNome, email: params.fotografoEmail, cpf: params.fotografoCpf },
-    valor: 49,
-    descricao: "Assinatura Profissional — UseFokio",
+    valor: params.valor ?? 49,
+    descricao: params.descricao ?? "Assinatura Profissional — UseFokio",
     externalReference: `assinatura:${params.assinaturaId}`,
   });
 

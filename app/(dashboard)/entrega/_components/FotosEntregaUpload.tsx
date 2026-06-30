@@ -22,6 +22,9 @@ type Props = {
   ensureGaleriaId?: () => Promise<string | null>;
   onFotosChange?: (fotos: GaleriaEntregaFoto[]) => void;
   deferred?: boolean;
+  limiteEfetivo?: number | null;
+  totalFotosUsadas?: number;
+  onLimiteAtingido?: () => void;
 };
 
 export type FotosEntregaUploadHandle = {
@@ -31,7 +34,8 @@ export type FotosEntregaUploadHandle = {
 };
 
 export const FotosEntregaUpload = forwardRef<FotosEntregaUploadHandle, Props>(function FotosEntregaUpload(
-  { galeriaId, fotografoId, ensureGaleriaId, onFotosChange, deferred = false },
+  { galeriaId, fotografoId, ensureGaleriaId, onFotosChange, deferred = false,
+    limiteEfetivo: limiteFotos, totalFotosUsadas, onLimiteAtingido },
   ref,
 ) {
   const canceladoRef = useRef(false);
@@ -123,6 +127,11 @@ export const FotosEntregaUpload = forwardRef<FotosEntregaUploadHandle, Props>(fu
   async function adicionarArquivos(files: FileList | File[]) {
     const arr = Array.from(files).filter((f) => f.type.startsWith("image/"));
     if (arr.length === 0) return;
+
+    if (limiteFotos != null && (totalFotosUsadas ?? 0) >= limiteFotos) {
+      onLimiteAtingido?.();
+      return;
+    }
 
     if (!deferred) {
       if (!galeriaIdRef.current && ensureGaleriaId) {

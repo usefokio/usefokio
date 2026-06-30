@@ -24,14 +24,15 @@ export async function GET(req: Request) {
   const { data: rows } = await admin
     .from("sistema_config")
     .select("chave, valor")
-    .in("chave", ["asaas_api_key_enc", "asaas_ambiente"]);
+    .in("chave", ["asaas_api_key_enc", "asaas_ambiente", "webhook_registrado"]);
 
   const map: Record<string, string> = {};
   for (const r of rows ?? []) map[r.chave] = r.valor;
 
   return NextResponse.json({
-    configurado: !!map["asaas_api_key_enc"],
-    ambiente: map["asaas_ambiente"] ?? "sandbox",
+    configurado:        !!map["asaas_api_key_enc"],
+    ambiente:           map["asaas_ambiente"] ?? "sandbox",
+    webhookRegistrado:  map["webhook_registrado"] === "true",
   });
 }
 
@@ -56,12 +57,20 @@ export async function POST(req: Request) {
     ], { onConflict: "chave" });
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://usefokio.com.br";
+    let webhookRegistrado = false;
     try {
       const { registrarWebhook } = await import("@/lib/asaas");
       await registrarWebhook(apiKey.trim(), amb, `${appUrl}/api/asaas/webhook-sistema`);
-    } catch { /* webhook é opcional */ }
+      webhookRegistrado = true;
+    } catch (we) {
+      console.error("[sistema-config] Falha ao registrar webhook:", we instanceof Error ? we.message : we);
+    }
 
-    return NextResponse.json({ ok: true, conta });
+    await admin.from("sistema_config").upsert([
+      { chave: "webhook_registrado", valor: webhookRegistrado ? "true" : "false" },
+    ], { onConflict: "chave" });
+
+    return NextResponse.json({ ok: true, conta, webhookRegistrado });
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : "Erro ao validar chave" }, { status: 400 });
   }

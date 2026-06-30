@@ -20,6 +20,8 @@ type FotografoStats = {
   total_fotos: number;
   total_bytes: number;
   limite_fotos_custom: number | null;
+  plano_expira_em: string | null;
+  plano_ativado_em: string | null;
 };
 
 function formatGB(bytes: number): string {
@@ -224,7 +226,7 @@ function SecaoPagamentos() {
 
 // ── Config Asaas do Sistema (cobranças de assinatura UseFokio) ───────────────
 function SecaoSistema() {
-  const [config,   setConfig]   = useState<{ configurado: boolean; ambiente: string } | null>(null);
+  const [config,   setConfig]   = useState<{ configurado: boolean; ambiente: string; webhookRegistrado: boolean } | null>(null);
   const [apiKey,   setApiKey]   = useState("");
   const [ambiente, setAmbiente] = useState("sandbox");
   const [salvando, setSalvando] = useState(false);
@@ -255,7 +257,7 @@ function SecaoSistema() {
     });
     const json = await res.json();
     if (!res.ok) { setMsg("❌ " + (json.error ?? "Erro ao salvar.")); setSalvando(false); return; }
-    setMsg(`✅ Conectado como ${json.conta?.nome ?? "Conta Asaas"} · ${ambiente}`);
+    setMsg(`✅ Conectado como ${json.conta?.nome ?? "Conta Asaas"} · ${ambiente}${json.webhookRegistrado ? " · Webhook ✓" : " · ⚠ Webhook não registrado"}`);
     setApiKey("");
     await carregar();
     setSalvando(false);
@@ -267,9 +269,17 @@ function SecaoSistema() {
         <span style={{ fontSize: 13, transform: aberto ? "rotate(90deg)" : "none", transition: "transform 0.15s", color: "var(--color-text-secondary)" }}>▶</span>
         <span style={{ fontSize: 14, fontWeight: 700, color: "var(--color-text-primary)" }}>⚙ Asaas do Sistema (assinaturas)</span>
         {config?.configurado && (
-          <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 10, background: "rgba(16,185,129,0.10)", color: "#059669" }}>
-            CONECTADO · {config.ambiente?.toUpperCase()}
-          </span>
+          <>
+            <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 10, background: "rgba(16,185,129,0.10)", color: "#059669" }}>
+              CONECTADO · {config.ambiente?.toUpperCase()}
+            </span>
+            <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 10,
+              background: config.webhookRegistrado ? "rgba(16,185,129,0.10)" : "rgba(245,158,11,0.12)",
+              color: config.webhookRegistrado ? "#059669" : "#B45309",
+            }}>
+              {config.webhookRegistrado ? "✓ Webhook" : "⚠ Webhook"}
+            </span>
+          </>
         )}
       </div>
 
@@ -420,6 +430,418 @@ function LimiteFotosCell({ fotografoId, inicial }: { fotografoId: string; inicia
     >
       {inicial != null ? inicial.toLocaleString("pt-BR") : "∞"} fotos
     </button>
+  );
+}
+
+// ── Planos e Campanhas ────────────────────────────────────────────────────────
+type PlanoConfig = {
+  id: string;
+  codigo: string;
+  nome: string;
+  descricao: string | null;
+  preco: number;
+  limite_fotos: number | null;
+  duracao_dias: number | null;
+  ativo: boolean;
+  eh_campanha: boolean;
+  valido_ate: string | null;
+  cor: string;
+  ordem: number;
+};
+
+function SecaoPlanos() {
+  const [aberto, setAberto]   = useState(false);
+  const [planos, setPlanos]   = useState<PlanoConfig[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [modal, setModal]     = useState<Partial<PlanoConfig> | null>(null);
+  const [salvando, setSalvando] = useState(false);
+  const [msg, setMsg]         = useState("");
+
+  useEffect(() => { if (aberto) carregar(); }, [aberto]);
+
+  async function carregar() {
+    setLoading(true);
+    const supabase = createClient();
+    const { data: { session } } = await supabase.auth.getSession();
+    const res = await fetch("/api/webmaster/planos", {
+      headers: { Authorization: `Bearer ${session?.access_token ?? ""}` },
+    });
+    if (res.ok) setPlanos((await res.json()).planos ?? []);
+    setLoading(false);
+  }
+
+  async function salvar() {
+    if (!modal) return;
+    setSalvando(true); setMsg("");
+    const supabase = createClient();
+    const { data: { session } } = await supabase.auth.getSession();
+    const isNovo = !modal.id;
+    const res = await fetch(isNovo ? "/api/webmaster/planos" : `/api/webmaster/planos/${modal.id}`, {
+      method: isNovo ? "POST" : "PATCH",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token ?? ""}` },
+      body: JSON.stringify(modal),
+    });
+    const json = await res.json();
+    if (!res.ok) { setMsg("❌ " + (json.error ?? "Erro ao salvar")); setSalvando(false); return; }
+    setModal(null);
+    await carregar();
+    setSalvando(false);
+  }
+
+  async function toggleAtivo(p: PlanoConfig) {
+    const supabase = createClient();
+    const { data: { session } } = await supabase.auth.getSession();
+    await fetch(`/api/webmaster/planos/${p.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token ?? ""}` },
+      body: JSON.stringify({ ativo: !p.ativo }),
+    });
+    await carregar();
+  }
+
+  const inputStyle: React.CSSProperties = {
+    padding: "8px 12px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)",
+    fontSize: 12, background: "var(--color-background-secondary)", color: "var(--color-text-primary)",
+    width: "100%", boxSizing: "border-box",
+  };
+
+  return (
+    <div style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 12, padding: "20px 24px", marginBottom: 28 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, cursor: "pointer" }} onClick={() => setAberto(!aberto)}>
+        <span style={{ fontSize: 13, transform: aberto ? "rotate(90deg)" : "none", transition: "transform 0.15s", color: "var(--color-text-secondary)" }}>▶</span>
+        <span style={{ fontSize: 14, fontWeight: 700, color: "var(--color-text-primary)" }}>📋 Planos e Campanhas</span>
+        {planos.length > 0 && (
+          <span style={{ fontSize: 11, color: "var(--color-text-secondary)" }}>
+            {planos.filter((p) => p.ativo).length} ativos
+          </span>
+        )}
+      </div>
+
+      {aberto && (
+        <div style={{ marginTop: 20 }}>
+          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 14 }}>
+            <button
+              onClick={() => setModal({ ativo: true, eh_campanha: false, preco: 49, duracao_dias: 31, cor: "#2563EB", ordem: 10 })}
+              style={{ padding: "7px 16px", borderRadius: 8, border: "none", background: "#2563EB", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
+            >
+              + Nova Campanha
+            </button>
+          </div>
+          {msg && <div style={{ fontSize: 12, marginBottom: 12, color: msg.startsWith("❌") ? "#EF4444" : "#059669" }}>{msg}</div>}
+          {loading ? (
+            <div style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>Carregando…</div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {planos.map((p) => (
+                <div key={p.id} style={{
+                  display: "flex", alignItems: "center", gap: 12, padding: "12px 16px",
+                  background: "var(--color-background-secondary)", borderRadius: 8, opacity: p.ativo ? 1 : 0.5,
+                }}>
+                  <div style={{ width: 10, height: 10, borderRadius: "50%", background: p.cor, flexShrink: 0 }} />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 700, fontSize: 13, color: "var(--color-text-primary)" }}>
+                      {p.nome}
+                      {p.eh_campanha && (
+                        <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, padding: "1px 7px", borderRadius: 10, background: "rgba(245,158,11,0.15)", color: "#B45309" }}>
+                          CAMPANHA
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 2 }}>
+                      R${Number(p.preco).toFixed(2).replace(".", ",")}
+                      {p.limite_fotos != null ? ` · ${p.limite_fotos.toLocaleString("pt-BR")} fotos` : " · fotos ilimitadas"}
+                      {p.duracao_dias != null ? ` · ${p.duracao_dias}d` : ""}
+                      {p.valido_ate ? ` · válido até ${new Date(p.valido_ate + "T12:00:00").toLocaleDateString("pt-BR")}` : ""}
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <button
+                      onClick={() => setModal({ ...p })}
+                      style={{ padding: "4px 12px", borderRadius: 6, border: "0.5px solid var(--color-border-secondary)", background: "transparent", fontSize: 11, fontWeight: 600, color: "var(--color-text-primary)", cursor: "pointer" }}
+                    >
+                      Editar
+                    </button>
+                    <button
+                      onClick={() => toggleAtivo(p)}
+                      style={{ padding: "4px 12px", borderRadius: 6, border: "none", background: p.ativo ? "rgba(239,68,68,0.1)" : "rgba(5,150,105,0.1)", fontSize: 11, fontWeight: 600, color: p.ativo ? "#EF4444" : "#059669", cursor: "pointer" }}
+                    >
+                      {p.ativo ? "Desativar" : "Ativar"}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {modal && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 200 }}
+          onClick={(e) => { if (e.target === e.currentTarget && !salvando) { setModal(null); setMsg(""); } }}>
+          <div style={{ background: "var(--color-background-primary)", borderRadius: 14, padding: "28px 30px", width: 460, boxShadow: "0 8px 40px rgba(0,0,0,0.25)", maxHeight: "90vh", overflowY: "auto" }}>
+            <div style={{ fontSize: 15, fontWeight: 800, color: "var(--color-text-primary)", marginBottom: 20 }}>
+              {modal.id ? "Editar Plano" : "Nova Campanha"}
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", marginBottom: 4 }}>Nome</div>
+                <input style={inputStyle} value={modal.nome ?? ""} onChange={(e) => setModal({ ...modal, nome: e.target.value })} placeholder="Ex: Promoção Julho" />
+              </div>
+              {!modal.id && (
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", marginBottom: 4 }}>Código único</div>
+                  <input style={inputStyle} value={modal.codigo ?? ""} onChange={(e) => setModal({ ...modal, codigo: e.target.value })} placeholder="ex: campanha-jul26" />
+                </div>
+              )}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", marginBottom: 4 }}>Preço (R$)</div>
+                  <input style={inputStyle} type="number" value={modal.preco ?? ""} onChange={(e) => setModal({ ...modal, preco: Number(e.target.value) })} />
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", marginBottom: 4 }}>Duração (dias)</div>
+                  <input style={inputStyle} type="number" value={modal.duracao_dias ?? ""} onChange={(e) => setModal({ ...modal, duracao_dias: e.target.value ? Number(e.target.value) : null })} placeholder="31" />
+                </div>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", marginBottom: 4 }}>Limite de fotos</div>
+                  <input style={inputStyle} type="number" value={modal.limite_fotos ?? ""} onChange={(e) => setModal({ ...modal, limite_fotos: e.target.value ? Number(e.target.value) : null })} placeholder="10000" />
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", marginBottom: 4 }}>Cor (hex)</div>
+                  <input style={inputStyle} value={modal.cor ?? "#2563EB"} onChange={(e) => setModal({ ...modal, cor: e.target.value })} />
+                </div>
+              </div>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", marginBottom: 4 }}>Válido até (deixe em branco para sem prazo)</div>
+                <input style={inputStyle} type="date" value={modal.valido_ate ?? ""} onChange={(e) => setModal({ ...modal, valido_ate: e.target.value || null })} />
+              </div>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", marginBottom: 4 }}>Descrição</div>
+                <textarea style={{ ...inputStyle, resize: "vertical", fontFamily: "inherit" }} rows={2} value={modal.descricao ?? ""} onChange={(e) => setModal({ ...modal, descricao: e.target.value })} placeholder="Descrição opcional" />
+              </div>
+              <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "var(--color-text-primary)", cursor: "pointer" }}>
+                <input type="checkbox" checked={modal.eh_campanha ?? false} onChange={(e) => setModal({ ...modal, eh_campanha: e.target.checked })} />
+                Marcar como campanha promocional
+              </label>
+            </div>
+            {msg && <div style={{ fontSize: 12, marginTop: 12, color: msg.startsWith("❌") ? "#EF4444" : "#059669" }}>{msg}</div>}
+            <div style={{ display: "flex", gap: 8, marginTop: 20 }}>
+              <button
+                onClick={() => { setModal(null); setMsg(""); }}
+                disabled={salvando}
+                style={{ flex: 1, padding: "9px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "transparent", fontSize: 13, color: "var(--color-text-secondary)", cursor: "pointer" }}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={salvar}
+                disabled={salvando || !modal.nome?.trim()}
+                style={{ flex: 2, padding: "9px", borderRadius: 8, border: "none", background: salvando || !modal.nome?.trim() ? "rgba(37,99,235,0.3)" : "#2563EB", color: "#fff", fontSize: 13, fontWeight: 700, cursor: salvando || !modal.nome?.trim() ? "default" : "pointer" }}
+              >
+                {salvando ? "Salvando…" : "Salvar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Assinaturas ───────────────────────────────────────────────────────────────
+type AssinaturaItem = {
+  id: string;
+  plano: string;
+  valor: number;
+  preco_cobrado: number | null;
+  periodo_inicio: string;
+  periodo_fim: string | null;
+  status: string;
+  pago_em: string | null;
+  created_at: string;
+  fotografos: { id: string; nome_completo: string; nome_empresa: string; email: string; plano_expira_em: string | null; plano: string } | null;
+  planos_config: { nome: string; cor: string; eh_campanha: boolean } | null;
+};
+
+const ASS_STATUS_LABEL: Record<string, string> = { pendente: "Pendente", pago: "Pago", cancelado: "Cancelado" };
+const ASS_STATUS_COLOR: Record<string, string>  = { pago: "#059669", pendente: "#B45309", cancelado: "#6B7280" };
+
+function SecaoAssinaturas() {
+  const [aberto,      setAberto]      = useState(false);
+  const [assinaturas, setAssinaturas] = useState<AssinaturaItem[]>([]);
+  const [loading,     setLoading]     = useState(false);
+  const [filtroStatus, setFiltroStatus] = useState("todos");
+  const [agindo,      setAgindo]      = useState<string | null>(null);
+  const [msg,         setMsg]         = useState("");
+
+  useEffect(() => {
+    if (!aberto) return;
+    async function load() {
+      setLoading(true);
+      const supabase = createClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      const params = filtroStatus !== "todos" ? `?status=${filtroStatus}` : "";
+      const res = await fetch(`/api/webmaster/assinaturas${params}`, {
+        headers: { Authorization: `Bearer ${session?.access_token ?? ""}` },
+      });
+      if (res.ok) setAssinaturas((await res.json()).assinaturas ?? []);
+      setLoading(false);
+    }
+    load();
+  }, [aberto, filtroStatus]);
+
+  async function estender(id: string, dias = 30) {
+    setAgindo(id);
+    const supabase = createClient();
+    const { data: { session } } = await supabase.auth.getSession();
+    const res = await fetch(`/api/webmaster/assinaturas/${id}/estender`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token ?? ""}` },
+      body: JSON.stringify({ dias }),
+    });
+    const json = await res.json();
+    if (!res.ok) setMsg("❌ " + (json.error ?? "Erro"));
+    else setMsg(`✅ Estendido até ${json.nova_expiracao ? new Date(json.nova_expiracao).toLocaleDateString("pt-BR") : "—"}`);
+    setAssinaturas((prev) => prev.map((a) => {
+      if (a.id !== id || !a.fotografos) return a;
+      return { ...a, fotografos: { ...a.fotografos, plano_expira_em: json.nova_expiracao ?? null } };
+    }));
+    setAgindo(null);
+  }
+
+  async function cancelar(id: string) {
+    if (!confirm("Cancelar assinatura e rebaixar fotógrafo para gratuito?")) return;
+    setAgindo(id);
+    const supabase = createClient();
+    const { data: { session } } = await supabase.auth.getSession();
+    await fetch(`/api/webmaster/assinaturas/${id}/cancelar`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${session?.access_token ?? ""}` },
+    });
+    setAssinaturas((prev) => prev.map((a) => a.id === id ? { ...a, status: "cancelado" } : a));
+    setAgindo(null);
+  }
+
+  function formatExpira(exp: string | null) {
+    if (!exp) return { txt: "—", color: "var(--color-text-secondary)" as string };
+    const d = new Date(exp);
+    const diffDias = Math.ceil((d.getTime() - Date.now()) / 86400000);
+    const txt = d.toLocaleDateString("pt-BR");
+    if (diffDias < 0) return { txt: `Expirou ${txt}`, color: "#EF4444" };
+    if (diffDias <= 7) return { txt: `⚠ ${txt}`, color: "#B45309" };
+    return { txt, color: "#059669" };
+  }
+
+  const pagas = assinaturas.filter((a) => a.status === "pago").length;
+
+  return (
+    <div style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 12, padding: "20px 24px", marginBottom: 28 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, cursor: "pointer" }} onClick={() => setAberto(!aberto)}>
+        <span style={{ fontSize: 13, transform: aberto ? "rotate(90deg)" : "none", transition: "transform 0.15s", color: "var(--color-text-secondary)" }}>▶</span>
+        <span style={{ fontSize: 14, fontWeight: 700, color: "var(--color-text-primary)" }}>💰 Assinaturas</span>
+        {assinaturas.length > 0 && (
+          <span style={{ fontSize: 11, color: "var(--color-text-secondary)" }}>
+            {pagas} paga{pagas !== 1 ? "s" : ""} · {assinaturas.length} total
+          </span>
+        )}
+      </div>
+
+      {aberto && (
+        <div style={{ marginTop: 20 }}>
+          <div style={{ display: "flex", gap: 6, marginBottom: 14, flexWrap: "wrap" }}>
+            {(["todos", "pago", "pendente", "cancelado"] as const).map((s) => (
+              <button key={s} onClick={() => setFiltroStatus(s)}
+                style={{
+                  padding: "4px 12px", borderRadius: 7, fontSize: 11, fontWeight: 600, cursor: "pointer",
+                  border: "0.5px solid", borderColor: filtroStatus === s ? "var(--color-text-primary)" : "var(--color-border-secondary)",
+                  background: filtroStatus === s ? "var(--color-text-primary)" : "transparent",
+                  color: filtroStatus === s ? "var(--color-background-primary)" : "var(--color-text-secondary)",
+                }}>
+                {s === "todos" ? "Todas" : ASS_STATUS_LABEL[s] ?? s}
+              </button>
+            ))}
+          </div>
+          {msg && <div style={{ fontSize: 12, marginBottom: 12, color: msg.startsWith("❌") ? "#EF4444" : "#059669" }}>{msg}</div>}
+          {loading ? (
+            <div style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>Carregando…</div>
+          ) : assinaturas.length === 0 ? (
+            <div style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>Nenhuma assinatura encontrada.</div>
+          ) : (
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", minWidth: 820, borderCollapse: "collapse", fontSize: 12 }}>
+                <thead>
+                  <tr style={{ background: "var(--color-background-secondary)" }}>
+                    {["Fotógrafo", "Plano", "Valor", "Status", "Expira", "Criado em", "Ações"].map((h) => (
+                      <th key={h} style={{ padding: "8px 12px", textAlign: "left", fontSize: 10, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: "0.5px solid var(--color-border-tertiary)", whiteSpace: "nowrap" }}>
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {assinaturas.map((a, i) => {
+                    const expira    = formatExpira(a.fotografos?.plano_expira_em ?? null);
+                    const precoReal = a.preco_cobrado ?? a.valor;
+                    const nomePlano = a.planos_config?.nome ?? a.plano;
+                    const corPlano  = a.planos_config?.cor ?? "#6B7280";
+                    return (
+                      <tr key={a.id} style={{ borderBottom: i < assinaturas.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none" }}>
+                        <td style={{ padding: "10px 12px" }}>
+                          <div style={{ fontWeight: 600, color: "var(--color-text-primary)" }}>{a.fotografos?.nome_completo ?? "—"}</div>
+                          <div style={{ fontSize: 11, color: "var(--color-text-secondary)" }}>{a.fotografos?.email}</div>
+                        </td>
+                        <td style={{ padding: "10px 12px" }}>
+                          <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 10, background: corPlano + "18", color: corPlano }}>
+                            {nomePlano}
+                          </span>
+                          {a.planos_config?.eh_campanha && <span style={{ marginLeft: 5, fontSize: 10 }}>🏷</span>}
+                        </td>
+                        <td style={{ padding: "10px 12px", fontWeight: 700, color: "var(--color-text-primary)", whiteSpace: "nowrap" }}>
+                          R$ {Number(precoReal).toFixed(2).replace(".", ",")}
+                        </td>
+                        <td style={{ padding: "10px 12px" }}>
+                          <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 10, background: (ASS_STATUS_COLOR[a.status] ?? "#6B7280") + "18", color: ASS_STATUS_COLOR[a.status] ?? "#6B7280" }}>
+                            {ASS_STATUS_LABEL[a.status] ?? a.status}
+                          </span>
+                        </td>
+                        <td style={{ padding: "10px 12px", color: expira.color, whiteSpace: "nowrap", fontWeight: 500, fontSize: 11 }}>
+                          {expira.txt}
+                        </td>
+                        <td style={{ padding: "10px 12px", color: "var(--color-text-secondary)", whiteSpace: "nowrap" }}>
+                          {new Date(a.created_at).toLocaleDateString("pt-BR")}
+                        </td>
+                        <td style={{ padding: "10px 12px" }}>
+                          <div style={{ display: "flex", gap: 5 }}>
+                            <button
+                              onClick={() => estender(a.id, 30)}
+                              disabled={agindo === a.id}
+                              style={{ padding: "4px 10px", borderRadius: 6, border: "0.5px solid rgba(37,99,235,0.4)", background: "rgba(37,99,235,0.08)", color: "#2563EB", fontSize: 11, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}
+                            >
+                              {agindo === a.id ? "…" : "+30d"}
+                            </button>
+                            {a.status !== "cancelado" && (
+                              <button
+                                onClick={() => cancelar(a.id)}
+                                disabled={agindo === a.id}
+                                style={{ padding: "4px 10px", borderRadius: 6, border: "none", background: "rgba(239,68,68,0.1)", color: "#EF4444", fontSize: 11, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}
+                              >
+                                Cancelar
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -601,6 +1023,12 @@ export default function WebmasterPage() {
         {/* Config Asaas do Sistema */}
         <SecaoSistema />
 
+        {/* Planos e Campanhas */}
+        <SecaoPlanos />
+
+        {/* Assinaturas */}
+        <SecaoAssinaturas />
+
         {/* Pagamentos / Doações */}
         <SecaoPagamentos />
 
@@ -722,7 +1150,7 @@ export default function WebmasterPage() {
               <table style={{ width: "100%", minWidth: 900, borderCollapse: "collapse", fontSize: 12 }}>
                 <thead>
                   <tr style={{ background: "var(--color-background-secondary)" }}>
-                    {["Nome / Empresa", "Email", "Plano", "Status", "Clientes", "Galerias", "Fotos", "Uso", "Limite", "Cadastro", "Recursos", "Ação"].map((h) => (
+                    {["Nome / Empresa", "Email", "Plano", "Expira", "Status", "Clientes", "Galerias", "Fotos", "Uso", "Limite", "Cadastro", "Recursos", "Ação"].map((h) => (
                       <th key={h} style={{
                         padding: "10px 14px", textAlign: "left",
                         fontSize: 10, fontWeight: 700,
@@ -753,6 +1181,18 @@ export default function WebmasterPage() {
                         <Badge color={PLANO_COLOR[f.plano] ?? "#6B7280"}>
                           {f.plano}
                         </Badge>
+                      </td>
+                      <td style={{ padding: "12px 14px", whiteSpace: "nowrap" }}>
+                        {(() => {
+                          const exp = f.plano_expira_em;
+                          if (!exp) return <span style={{ color: "var(--color-text-secondary)", fontSize: 11 }}>—</span>;
+                          const d = new Date(exp);
+                          const diff = Math.ceil((d.getTime() - Date.now()) / 86400000);
+                          const txt = d.toLocaleDateString("pt-BR");
+                          if (diff < 0) return <span style={{ color: "#EF4444", fontSize: 11, fontWeight: 600 }}>Expirado</span>;
+                          if (diff <= 7) return <span style={{ color: "#B45309", fontSize: 11, fontWeight: 600 }}>⚠ {txt}</span>;
+                          return <span style={{ color: "#059669", fontSize: 11 }}>{txt}</span>;
+                        })()}
                       </td>
                       <td style={{ padding: "12px 14px" }}>
                         {f.aprovado

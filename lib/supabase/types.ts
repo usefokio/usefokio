@@ -29,6 +29,9 @@ export type Fotografo = {
   aceita_emails: boolean;
   email_confirmado: boolean;
   plano: "gratuito" | "profissional" | "estudio";
+  plano_expira_em: string | null;
+  plano_ativado_em: string | null;
+  asaas_cobranca_id: string | null;
   total_fotos_usadas: number;
   aprovado: boolean;
   mensagem_padrao_entrega: string | null;

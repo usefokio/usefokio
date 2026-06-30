@@ -165,6 +165,7 @@ function GaleriaSelecaoConteudo() {
     const limite = limiteEfetivo(plano, fotografo.limite_fotos_custom);
     if (limite !== null && (fotografo.total_fotos_usadas ?? 0) >= limite) {
       setAvisoLimite(true);
+      return;
     }
 
     setEnviando((n) => n + validos.length);

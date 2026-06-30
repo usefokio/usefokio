@@ -19,6 +19,21 @@ type PixData = {
   expiresAt:     string | null;
 };
 
+type PlanoPublico = {
+  id: string;
+  codigo: string;
+  nome: string;
+  descricao: string | null;
+  preco: number;
+  limite_fotos: number | null;
+  duracao_dias: number | null;
+  eh_campanha: boolean;
+  valido_ate: string | null;
+  cor: string;
+  features: string[];
+  ordem: number;
+};
+
 function useToast() {
   const [msg, setMsg] = useState<string | null>(null);
   function toast(m: string) { setMsg(m); setTimeout(() => setMsg(null), 3500); }
@@ -52,7 +67,12 @@ function BarraRecurso({ label, icone, qtd, total, cor }: {
 }
 
 // ─── Modal de checkout PIX ─────────────────────────────────────────────────────
-function ModalCheckout({ onClose }: { onClose: () => void }) {
+function ModalCheckout({ planoNome, planoPreco, planoConfigId, onClose }: {
+  planoNome: string;
+  planoPreco: number;
+  planoConfigId?: string;
+  onClose: () => void;
+}) {
   const [etapa, setEtapa]     = useState<"carregando" | "pix" | "erro">("carregando");
   const [pix,   setPix]       = useState<PixData | null>(null);
   const [erro,  setErro]      = useState("");
@@ -61,7 +81,11 @@ function ModalCheckout({ onClose }: { onClose: () => void }) {
   useEffect(() => {
     (async () => {
       try {
-        const res  = await fetch("/api/assinaturas/criar", { method: "POST" });
+        const res  = await fetch("/api/assinaturas/criar", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(planoConfigId ? { plano_config_id: planoConfigId } : {}),
+        });
         const json = await res.json();
         if (!res.ok) { setErro(json.error ?? "Erro ao gerar cobrança."); setEtapa("erro"); return; }
         setPix(json);
@@ -88,10 +112,11 @@ function ModalCheckout({ onClose }: { onClose: () => void }) {
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
           <div>
             <div style={{ fontSize: 16, fontWeight: 800, color: "var(--color-text-primary)", letterSpacing: "-0.02em" }}>
-              Plano Profissional
+              {planoNome}
             </div>
             <div style={{ fontSize: 13, color: "var(--color-text-secondary)", marginTop: 2 }}>
-              R$49/mês · 10.000 fotos
+              R${Number(planoPreco).toFixed(2).replace(".", ",")} ·{" "}
+              {planoConfigId ? "pagamento único" : "acesso mensal"}
             </div>
           </div>
           <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 18, color: "var(--color-text-secondary)", padding: 4, lineHeight: 1 }}>✕</button>
@@ -173,10 +198,19 @@ export default function PlanoPage() {
   const { fotografo }    = useFotografo();
   const { msg, toast }   = useToast();
 
-  const [uso,           setUso]           = useState<UsoPorRecurso | null>(null);
-  const [carregandoUso, setCarregandoUso] = useState(true);
-  const [planoExpiraEm, setPlanoExpiraEm] = useState<string | null>(null);
-  const [modalCheckout, setModalCheckout] = useState(false);
+  const [uso,              setUso]              = useState<UsoPorRecurso | null>(null);
+  const [carregandoUso,    setCarregandoUso]    = useState(true);
+  const [planoExpiraEm,    setPlanoExpiraEm]    = useState<string | null>(null);
+  const [modalCheckout,    setModalCheckout]    = useState(false);
+  const [planosDB,         setPlanosDB]         = useState<PlanoPublico[]>([]);
+  const [planoSelecionado, setPlanoSelecionado] = useState<{ id?: string; nome: string; preco: number } | null>(null);
+
+  useEffect(() => {
+    fetch("/api/planos-publicos")
+      .then((r) => r.json())
+      .then((j) => setPlanosDB(j.planos ?? []))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (!fotografo) return;
@@ -215,7 +249,6 @@ export default function PlanoPage() {
   const limiteAtual = limiteEfetivo(planoAtual, fotografo.limite_fotos_custom);
   const pct         = pctUso(usadas, planoAtual, fotografo.limite_fotos_custom);
   const barCor      = pct !== null ? corBarra(pct) : "#2563EB";
-  const planosLista = Object.values(PLANOS);
   const totalUso    = uso ? uso.selecao + uso.entrega : usadas;
 
   const diasParaExpirar = planoExpiraEm
@@ -231,8 +264,13 @@ export default function PlanoPage() {
         </div>
       )}
 
-      {modalCheckout && (
-        <ModalCheckout onClose={() => setModalCheckout(false)} />
+      {modalCheckout && planoSelecionado && (
+        <ModalCheckout
+          planoNome={planoSelecionado.nome}
+          planoPreco={planoSelecionado.preco}
+          planoConfigId={planoSelecionado.id}
+          onClose={() => { setModalCheckout(false); setPlanoSelecionado(null); }}
+        />
       )}
 
       {/* Header */}
@@ -323,32 +361,51 @@ export default function PlanoPage() {
 
       {/* ── Cards dos planos ── */}
       <div style={{ marginBottom: 10 }}>
-        <div style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-secondary)", marginBottom: 16 }}>Todos os planos</div>
+        <div style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-secondary)", marginBottom: 16 }}>
+          {planosDB.some((p) => p.eh_campanha) ? "Planos e campanhas disponíveis" : "Todos os planos"}
+        </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 14 }}>
-          {planosLista.map((p) => {
-            const isAtual   = p.id === fotografo.plano;
-            const planoIdx  = planosLista.indexOf(p);
-            const atualIdx  = planosLista.findIndex((x) => x.id === fotografo.plano);
-            const isUpgrade = planoIdx > atualIdx;
+          {(planosDB.length > 0 ? planosDB : Object.values(PLANOS).map((p) => ({
+            id: undefined,
+            codigo: p.id,
+            nome: p.nome,
+            descricao: p.descricao,
+            preco: p.preco,
+            limite_fotos: p.limiteFotos ?? null,
+            duracao_dias: null,
+            eh_campanha: false,
+            valido_ate: null,
+            cor: p.cor,
+            features: p.features,
+            ordem: 0,
+          } as PlanoPublico & { id?: string }))).map((p) => {
+            const isAtual   = fotografo.plano === p.codigo;
+            const isUpgrade = Number(p.preco) > Number(planoAtual.preco);
+            const cor       = p.cor ?? "#2563EB";
+            const precoFmt  = Number(p.preco) === 0 ? "Gratuito" : `R$${Number(p.preco).toFixed(2).replace(".", ",")}`;
 
             return (
-              <div key={p.id} style={{ background: "var(--color-background-primary)", border: isAtual ? `2px solid ${p.cor}` : "0.5px solid var(--color-border-tertiary)", borderRadius: 14, padding: "22px 22px 20px", display: "flex", flexDirection: "column", position: "relative", transition: "border 0.15s" }}>
-                {p.badge && (
-                  <div style={{ position: "absolute", top: -1, right: 20, background: p.cor, color: "#fff", fontSize: 9, fontWeight: 800, letterSpacing: "0.08em", padding: "3px 9px", borderRadius: "0 0 8px 8px" }}>
-                    {p.badge.toUpperCase()}
+              <div key={p.codigo} style={{ background: "var(--color-background-primary)", border: isAtual ? `2px solid ${cor}` : "0.5px solid var(--color-border-tertiary)", borderRadius: 14, padding: "22px 22px 20px", display: "flex", flexDirection: "column", position: "relative", transition: "border 0.15s" }}>
+                {p.eh_campanha && (
+                  <div style={{ position: "absolute", top: -1, right: 20, background: "#F59E0B", color: "#fff", fontSize: 9, fontWeight: 800, letterSpacing: "0.08em", padding: "3px 9px", borderRadius: "0 0 8px 8px" }}>
+                    PROMOÇÃO
                   </div>
                 )}
                 <div style={{ marginBottom: 14 }}>
                   <div style={{ fontSize: 14, fontWeight: 700, color: "var(--color-text-primary)", marginBottom: 4 }}>{p.nome}</div>
-                  <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginBottom: 10 }}>{p.descricao}</div>
-                  <div style={{ fontSize: 22, fontWeight: 800, color: p.cor, letterSpacing: "-0.02em", lineHeight: 1 }}>
-                    {p.preco === 0 ? "Gratuito" : `R$${p.preco}/mês`}
+                  <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginBottom: 10 }}>
+                    {p.descricao}
+                    {p.valido_ate && <span style={{ color: "#B45309", fontWeight: 600 }}> · até {new Date(p.valido_ate + "T12:00:00").toLocaleDateString("pt-BR")}</span>}
                   </div>
+                  <div style={{ fontSize: 22, fontWeight: 800, color: cor, letterSpacing: "-0.02em", lineHeight: 1 }}>
+                    {precoFmt}
+                  </div>
+                  {p.duracao_dias && <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 3 }}>{p.duracao_dias} dias de acesso</div>}
                 </div>
                 <ul style={{ listStyle: "none", padding: 0, margin: "0 0 18px", flex: 1 }}>
-                  {p.features.map((f) => (
+                  {(Array.isArray(p.features) ? p.features : []).map((f: string) => (
                     <li key={f} style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 12, color: "var(--color-text-primary)", marginBottom: 7, lineHeight: 1.4 }}>
-                      <span style={{ color: p.cor, fontWeight: 700, flexShrink: 0, marginTop: 1 }}>✓</span>
+                      <span style={{ color: cor, fontWeight: 700, flexShrink: 0, marginTop: 1 }}>✓</span>
                       {f}
                     </li>
                   ))}
@@ -359,12 +416,12 @@ export default function PlanoPage() {
                   </div>
                 ) : isUpgrade ? (
                   <button
-                    onClick={() => setModalCheckout(true)}
-                    style={{ padding: "9px", borderRadius: 9, border: "none", background: p.cor, color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer", transition: "opacity 0.15s" }}
+                    onClick={() => { setPlanoSelecionado({ id: p.id, nome: p.nome, preco: Number(p.preco) }); setModalCheckout(true); }}
+                    style={{ padding: "9px", borderRadius: 9, border: "none", background: cor, color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer", transition: "opacity 0.15s" }}
                     onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.88")}
                     onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
                   >
-                    ↑ Fazer upgrade — R${p.preco}/mês
+                    {p.eh_campanha ? `🏷 Aproveitar — ${precoFmt}` : `↑ Fazer upgrade — ${precoFmt}`}
                   </button>
                 ) : (
                   <button

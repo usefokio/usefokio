@@ -18,16 +18,32 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
 
-  const { fotografo_id, plano, dias } = await req.json().catch(() => ({}));
+  const { fotografo_id, plano, dias, plano_config_id } = await req.json().catch(() => ({}));
   if (!fotografo_id) return NextResponse.json({ error: "fotografo_id obrigatório" }, { status: 400 });
 
-  const planoAtivo = plano ?? "profissional";
-  const diasAtivos = Number(dias ?? 31);
+  const admin = createAdminClient();
+
+  let planoAtivo = plano ?? "profissional";
+  let diasAtivos = Number(dias ?? 31);
+  let valor      = 49;
+  let resolvedPlanoConfigId: string | null = plano_config_id ?? null;
+
+  if (plano_config_id) {
+    const { data: pc } = await admin
+      .from("planos_config")
+      .select("codigo, preco, duracao_dias")
+      .eq("id", plano_config_id)
+      .maybeSingle();
+    if (pc) {
+      planoAtivo = pc.codigo;
+      diasAtivos = pc.duracao_dias ?? diasAtivos;
+      valor      = Number(pc.preco);
+    }
+  }
+
   const agora = new Date().toISOString();
   const expira = new Date();
   expira.setDate(expira.getDate() + diasAtivos);
-
-  const admin = createAdminClient();
 
   await admin.from("fotografos").update({
     plano:             planoAtivo,
@@ -38,12 +54,14 @@ export async function POST(req: Request) {
   if (planoAtivo !== "gratuito") {
     await admin.from("assinaturas").insert({
       fotografo_id,
-      plano:          planoAtivo,
-      valor:          49,
-      periodo_inicio: agora.slice(0, 10),
-      periodo_fim:    expira.toISOString().slice(0, 10),
-      status:         "pago",
-      pago_em:        agora,
+      plano:           planoAtivo,
+      valor,
+      preco_cobrado:   valor,
+      plano_config_id: resolvedPlanoConfigId,
+      periodo_inicio:  agora.slice(0, 10),
+      periodo_fim:     expira.toISOString().slice(0, 10),
+      status:          "pago",
+      pago_em:         agora,
     });
   }
 
