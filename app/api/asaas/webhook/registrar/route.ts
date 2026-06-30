@@ -10,7 +10,7 @@ export async function POST() {
 
   const admin = createAdminClient();
   const { data: f } = await admin.from("fotografos")
-    .select("asaas_api_key_enc, asaas_ambiente, asaas_ativo")
+    .select("asaas_api_key_enc, asaas_ambiente, asaas_ativo, email")
     .eq("id", user.id)
     .single();
 
@@ -24,7 +24,7 @@ export async function POST() {
   const webhookToken = process.env.ASAAS_WEBHOOK_TOKEN;
 
   try {
-    await registrarWebhook(apiKey, f.asaas_ambiente as AsaasAmbiente, webhookUrl, webhookToken);
+    await registrarWebhook(apiKey, f.asaas_ambiente as AsaasAmbiente, webhookUrl, webhookToken, f.email ?? undefined);
     return NextResponse.json({ ok: true, url: webhookUrl });
   } catch (e) {
     return NextResponse.json({ erro: e instanceof Error ? e.message : "Erro ao registrar." }, { status: 500 });

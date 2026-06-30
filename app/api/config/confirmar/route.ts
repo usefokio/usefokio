@@ -55,12 +55,12 @@ export async function POST(req: NextRequest) {
 
   if (conf.action === "asaas_key") {
     const { apiKey_enc, ambiente } = payload;
-    const { error } = await admin.from("fotografos").update({
+    const { data: foto, error: fotoErr } = await admin.from("fotografos").update({
       asaas_api_key_enc: apiKey_enc as string,
       asaas_ambiente:    ambiente as string,
       asaas_ativo:       true,
-    }).eq("id", user.id);
-    if (error) return NextResponse.json({ erro: error.message }, { status: 500 });
+    }).eq("id", user.id).select("email").single();
+    if (fotoErr) return NextResponse.json({ erro: fotoErr.message }, { status: 500 });
 
     // Registrar webhook (decriptar chave antes de chamar API Asaas)
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://usefokio.com.br";
@@ -70,7 +70,8 @@ export async function POST(req: NextRequest) {
         rawKey,
         ambiente as AsaasAmbiente,
         `${appUrl}/api/asaas/webhook`,
-        process.env.ASAAS_WEBHOOK_TOKEN
+        process.env.ASAAS_WEBHOOK_TOKEN,
+        foto?.email ?? undefined
       );
     } catch (e) {
       console.error("[confirmar] Falha ao registrar webhook:", e);
