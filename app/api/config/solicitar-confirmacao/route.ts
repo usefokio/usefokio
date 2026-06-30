@@ -114,10 +114,19 @@ export async function POST(req: NextRequest) {
   const html = emailHtml(actionLabel, code);
 
   let enviado = false;
-  let smtpErro = "";
+  let resendErro = "";
 
-  // Tentar SMTP do fotógrafo diretamente (sem reimportar admin)
-  if (foto.smtp_host && foto.smtp_pass_enc) {
+  // Tentar Resend primeiro (email do sistema — não depende de SMTP do fotógrafo)
+  try {
+    await getResend().emails.send({ from: FROM_DEFAULT, to: foto.email, subject, html });
+    enviado = true;
+  } catch (e) {
+    resendErro = e instanceof Error ? e.message : String(e);
+    console.error("[solicitar-confirmacao] Resend falhou:", resendErro);
+  }
+
+  // Fallback: SMTP do fotógrafo
+  if (!enviado && foto.smtp_host && foto.smtp_pass_enc) {
     try {
       const transporter = nodemailer.createTransport({
         host: foto.smtp_host,
@@ -133,26 +142,14 @@ export async function POST(req: NextRequest) {
       });
       enviado = true;
     } catch (e) {
-      smtpErro = e instanceof Error ? e.message : String(e);
-      console.error("[solicitar-confirmacao] SMTP falhou:", smtpErro);
-    }
-  }
-
-  // Fallback: Resend
-  if (!enviado) {
-    try {
-      await getResend().emails.send({ from: FROM_DEFAULT, to: foto.email, subject, html });
-      enviado = true;
-    } catch (e) {
-      console.error("[solicitar-confirmacao] Resend falhou:", e instanceof Error ? e.message : e);
+      console.error("[solicitar-confirmacao] SMTP falhou:", e instanceof Error ? e.message : e);
     }
   }
 
   if (!enviado) {
     await admin.from("email_confirmations").delete().eq("id", row.id);
-    const detalhe = smtpErro ? ` (${smtpErro})` : "";
     return NextResponse.json(
-      { erro: `Não foi possível enviar o email de confirmação${detalhe}. Verifique as configurações de SMTP.` },
+      { erro: `Não foi possível enviar o email de confirmação. Erro: ${resendErro || "verifique as configurações de email."}` },
       { status: 500 }
     );
   }
