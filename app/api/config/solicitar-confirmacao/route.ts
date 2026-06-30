@@ -110,26 +110,31 @@ export async function POST(req: NextRequest) {
 
   // Tentar SMTP do fotógrafo primeiro; fallback para Resend
   let enviado = false;
+  let smtpErro = "";
+  let resendErro = "";
+
   try {
     await enviarEmailCliente({ fotografoId: user.id, to: foto.email, subject, html });
     enviado = true;
-  } catch {
-    // SMTP não configurado ou falhou — tentar Resend
+  } catch (e) {
+    smtpErro = e instanceof Error ? e.message : String(e);
+    console.error("[solicitar-confirmacao] SMTP falhou:", smtpErro);
   }
 
   if (!enviado) {
     try {
       await getResend().emails.send({ from: FROM_DEFAULT, to: foto.email, subject, html });
       enviado = true;
-    } catch {
-      // Resend também falhou
+    } catch (e) {
+      resendErro = e instanceof Error ? e.message : String(e);
+      console.error("[solicitar-confirmacao] Resend falhou:", resendErro);
     }
   }
 
   if (!enviado) {
     await admin.from("email_confirmations").delete().eq("id", row.id);
     return NextResponse.json(
-      { erro: "Não foi possível enviar o email. Configure um servidor SMTP em Configurações → Email." },
+      { erro: `Falha ao enviar email. SMTP: ${smtpErro || "—"}` },
       { status: 500 }
     );
   }
