@@ -467,6 +467,11 @@ function ConfigEmail() {
 }
 
 // ── Pagamentos (Asaas) ────────────────────────────────────────────────────────
+function mascarEmail(email: string) {
+  const [user, domain] = email.split("@");
+  return `${user[0]}***@${domain}`;
+}
+
 function ConfigPagamentos() {
   const { fotografo, reload } = useFotografo();
   const [apiKey,       setApiKey]       = useState("");
@@ -484,6 +489,17 @@ function ConfigPagamentos() {
   const [pixSalvando, setPixSalvando] = useState(false);
   const [pixMsg,      setPixMsg]      = useState<{ tipo: "ok" | "erro"; texto: string } | null>(null);
 
+  // Modal de confirmação OTP
+  const [confirmModal, setConfirmModal] = useState<{
+    action: "asaas_key" | "pix_key";
+    confirmationId: string;
+    emailMascarado: string;
+    tentativasRestantes: number;
+  } | null>(null);
+  const [confirmCode,  setConfirmCode]  = useState("");
+  const [confirmErro,  setConfirmErro]  = useState<string | null>(null);
+  const [confirmando,  setConfirmando]  = useState(false);
+
   useEffect(() => {
     if (fotografo) {
       setPixChave(fotografo.pix_chave ?? "");
@@ -492,18 +508,87 @@ function ConfigPagamentos() {
     }
   }, [fotografo]);
 
+  async function solicitarConfirmacao(action: "asaas_key" | "pix_key", payload: Record<string, unknown>) {
+    const res = await fetch("/api/config/solicitar-confirmacao", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action, ...payload }),
+    });
+    const json = await res.json();
+    if (!res.ok) return { erro: json.erro ?? "Erro ao enviar código." };
+    return { confirmationId: json.confirmationId, emailMascarado: json.emailMascarado };
+  }
+
+  async function confirmarOTP() {
+    if (!confirmModal || !confirmCode.trim()) return;
+    setConfirmando(true);
+    setConfirmErro(null);
+    const res = await fetch("/api/config/confirmar", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ confirmationId: confirmModal.confirmationId, code: confirmCode.trim() }),
+    });
+    const json = await res.json();
+    setConfirmando(false);
+    if (res.ok) {
+      if (confirmModal.action === "asaas_key") { setApiKey(""); setContaNome(null); }
+      if (confirmModal.action === "pix_key") setPixMsg({ tipo: "ok", texto: "Configuração PIX salva!" });
+      setConfirmModal(null);
+      setConfirmCode("");
+      await reload();
+    } else {
+      const erros: Record<string, string> = {
+        codigo_invalido:    `Código incorreto. ${json.tentativas_restantes ?? 0} tentativa(s) restante(s).`,
+        codigo_expirado:    "Código expirado. Clique em Reenviar para gerar um novo.",
+        codigo_ja_usado:    "Código já utilizado.",
+        limite_tentativas:  "Limite de tentativas atingido. Feche e inicie novamente.",
+      };
+      setConfirmErro(erros[json.erro] ?? json.erro ?? "Erro ao confirmar.");
+      if (json.tentativas_restantes !== undefined) {
+        setConfirmModal(prev => prev ? { ...prev, tentativasRestantes: json.tentativas_restantes } : null);
+      }
+    }
+  }
+
+  async function reenviarCodigo() {
+    if (!confirmModal) return;
+    setConfirmErro(null);
+    setConfirmCode("");
+    const payload = confirmModal.action === "asaas_key"
+      ? { apiKey: apiKey.trim(), ambiente }
+      : { pix_chave: pixChave, pix_tipo: pixTipo, pix_ativo: pixAtivo };
+    const result = await solicitarConfirmacao(confirmModal.action, payload);
+    if ("erro" in result) {
+      if (result.erro === "aguarde_reenvio") setConfirmErro("Aguarde 1 minuto antes de reenviar.");
+      else setConfirmErro(result.erro ?? "Erro ao reenviar.");
+    } else {
+      setConfirmModal(prev => prev ? { ...prev, confirmationId: result.confirmationId!, tentativasRestantes: 5 } : null);
+    }
+  }
+
   async function salvarPix() {
     setPixSalvando(true);
     setPixMsg(null);
-    const res = await fetch("/api/config/pix", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ pix_chave: pixChave, pix_tipo: pixTipo, pix_ativo: pixAtivo }),
-    });
-    const json = await res.json();
+    if (!pixAtivo) {
+      // Desativar PIX não requer confirmação
+      const res = await fetch("/api/config/pix", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pix_chave: pixChave, pix_tipo: pixTipo, pix_ativo: false }),
+      });
+      const json = await res.json();
+      setPixSalvando(false);
+      if (json.ok) { setPixMsg({ tipo: "ok", texto: "PIX desativado." }); await reload(); }
+      else setPixMsg({ tipo: "erro", texto: json.erro ?? "Erro ao salvar." });
+      return;
+    }
+    // Ativar ou alterar chave PIX requer confirmação por email
+    const result = await solicitarConfirmacao("pix_key", { pix_chave: pixChave, pix_tipo: pixTipo, pix_ativo: true });
     setPixSalvando(false);
-    if (json.ok) { setPixMsg({ tipo: "ok", texto: "Configuração PIX salva!" }); await reload(); }
-    else setPixMsg({ tipo: "erro", texto: json.erro ?? "Erro ao salvar." });
+    if ("erro" in result) { setPixMsg({ tipo: "erro", texto: result.erro ?? "Erro." }); return; }
+    setConfirmCode("");
+    setConfirmErro(null);
+    setConfirmModal({ action: "pix_key", confirmationId: result.confirmationId!, emailMascarado: result.emailMascarado!, tentativasRestantes: 5 });
   }
 
   const conectado = fotografo?.asaas_ativo ?? false;
@@ -522,22 +607,12 @@ function ConfigPagamentos() {
     if (!apiKey.trim()) { setErro("Cole sua API key do Asaas."); return; }
     setSalvando(true);
     setErro("");
-    try {
-      const res = await fetch("/api/asaas/config", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ apiKey: apiKey.trim(), ambiente }),
-      });
-      const json = await res.json();
-      if (!res.ok) { setErro(json.erro ?? "Erro ao conectar."); return; }
-      setContaNome(json.conta?.nome ?? null);
-      setApiKey("");
-      await reload();
-    } catch {
-      setErro("Erro de conexão. Tente novamente.");
-    } finally {
-      setSalvando(false);
-    }
+    const result = await solicitarConfirmacao("asaas_key", { apiKey: apiKey.trim(), ambiente });
+    setSalvando(false);
+    if ("erro" in result) { setErro(result.erro ?? "Erro ao validar chave."); return; }
+    setConfirmCode("");
+    setConfirmErro(null);
+    setConfirmModal({ action: "asaas_key", confirmationId: result.confirmationId!, emailMascarado: result.emailMascarado!, tentativasRestantes: 5 });
   }
 
   async function desconectar() {
@@ -666,6 +741,73 @@ function ConfigPagamentos() {
         <div style={{ fontSize: 13, fontWeight: 700, color: "var(--color-text-primary)", marginBottom: 4 }}>❤️ Apoie o desenvolvedor</div>
         <DoacaoDev />
       </div>
+
+      {/* Modal de confirmação OTP */}
+      {confirmModal && (
+        <div
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 500 }}
+          onClick={(e) => { if (e.target === e.currentTarget) { setConfirmModal(null); setConfirmCode(""); setConfirmErro(null); } }}
+        >
+          <div style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 16, padding: "32px 36px", width: 420, maxWidth: "92vw", boxShadow: "0 24px 64px rgba(0,0,0,0.22)" }}>
+            <div style={{ fontSize: 22, marginBottom: 6 }}>🔐</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: "var(--color-text-primary)", marginBottom: 6 }}>Confirmação de segurança</div>
+            <div style={{ fontSize: 13, color: "var(--color-text-secondary)", marginBottom: 24, lineHeight: 1.6 }}>
+              Enviamos um código de 6 dígitos para <strong>{confirmModal.emailMascarado}</strong>. Digite-o abaixo para confirmar a alteração.
+            </div>
+
+            <input
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              maxLength={6}
+              value={confirmCode}
+              onChange={(e) => { setConfirmCode(e.target.value.replace(/\D/g, "").slice(0, 6)); setConfirmErro(null); }}
+              onKeyDown={(e) => { if (e.key === "Enter" && confirmCode.length === 6) confirmarOTP(); }}
+              placeholder="000000"
+              autoFocus
+              style={{ ...inputStyle, width: "100%", boxSizing: "border-box", fontSize: 24, fontWeight: 700, letterSpacing: "0.2em", textAlign: "center", marginBottom: 8 }}
+            />
+
+            {confirmErro && (
+              <div style={{ fontSize: 12, color: "#DC2626", marginBottom: 12, padding: "8px 12px", background: "rgba(239,68,68,0.06)", border: "0.5px solid rgba(239,68,68,0.25)", borderRadius: 8 }}>
+                {confirmErro}
+              </div>
+            )}
+
+            <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginBottom: 20 }}>
+              Código válido por 15 minutos.
+              {confirmModal.tentativasRestantes < 5 && (
+                <span style={{ color: "#D97706" }}> {confirmModal.tentativasRestantes} tentativa(s) restante(s).</span>
+              )}
+            </div>
+
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                onClick={confirmarOTP}
+                disabled={confirmando || confirmCode.length !== 6}
+                style={{ flex: 1, padding: "10px", borderRadius: 8, border: "none", background: confirmando || confirmCode.length !== 6 ? "var(--color-background-secondary)" : "#111", color: confirmando || confirmCode.length !== 6 ? "var(--color-text-secondary)" : "#fff", fontSize: 13, fontWeight: 700, cursor: confirmando || confirmCode.length !== 6 ? "default" : "pointer" }}
+              >
+                {confirmando ? "Confirmando…" : "Confirmar"}
+              </button>
+              <button
+                onClick={() => { setConfirmModal(null); setConfirmCode(""); setConfirmErro(null); }}
+                style={{ padding: "10px 16px", borderRadius: 8, background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-secondary)", color: "var(--color-text-secondary)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}
+              >
+                Cancelar
+              </button>
+            </div>
+
+            <div style={{ textAlign: "center", marginTop: 16 }}>
+              <button
+                onClick={reenviarCodigo}
+                style={{ background: "none", border: "none", color: "var(--color-text-secondary)", fontSize: 12, cursor: "pointer", textDecoration: "underline" }}
+              >
+                Não recebeu? Reenviar código
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
