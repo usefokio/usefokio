@@ -4,6 +4,7 @@ import crypto from "crypto";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { encryptKey, validarKey, type AsaasAmbiente } from "@/lib/asaas";
+import { enviarEmailCliente } from "@/lib/email/send";
 import { getResend, FROM_DEFAULT } from "@/lib/email/resend";
 
 function sha256(text: string) {
@@ -14,6 +15,23 @@ function mascarEmail(email: string) {
   const [user, domain] = email.split("@");
   return `${user[0]}***@${domain}`;
 }
+
+const emailHtml = (actionLabel: string, code: string) => `
+  <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px">
+    <h2 style="font-size:20px;margin:0 0 8px">🔐 Código de confirmação</h2>
+    <p style="font-size:14px;color:#555;margin:0 0 24px">
+      Você solicitou a alteração da sua <strong>${actionLabel}</strong> no UseFokio.
+      Use o código abaixo para confirmar a operação.
+    </p>
+    <div style="background:#f3f4f6;border-radius:12px;padding:24px;text-align:center;margin-bottom:24px">
+      <span style="font-size:36px;font-weight:800;letter-spacing:0.15em;color:#111">${code}</span>
+    </div>
+    <p style="font-size:12px;color:#888;margin:0">
+      Este código é válido por <strong>15 minutos</strong>.<br>
+      Se você não solicitou esta alteração, ignore este email.
+    </p>
+  </div>
+`;
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
@@ -86,36 +104,34 @@ export async function POST(req: NextRequest) {
 
   if (error || !row) return NextResponse.json({ erro: "Erro interno." }, { status: 500 });
 
-  // Enviar email via Resend
   const actionLabel = action === "asaas_key" ? "chave de API Asaas" : "chave PIX";
+  const subject = "Código de confirmação — UseFokio";
+  const html = emailHtml(actionLabel, code);
+
+  // Tentar SMTP do fotógrafo primeiro; fallback para Resend
+  let enviado = false;
   try {
-    await getResend().emails.send({
-      from: FROM_DEFAULT,
-      to: foto.email,
-      subject: `Código de confirmação — UseFokio`,
-      html: `
-        <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px">
-          <h2 style="font-size:20px;margin:0 0 8px">🔐 Código de confirmação</h2>
-          <p style="font-size:14px;color:#555;margin:0 0 24px">
-            Você solicitou a alteração da sua <strong>${actionLabel}</strong> no UseFokio.
-            Use o código abaixo para confirmar a operação.
-          </p>
-          <div style="background:#f3f4f6;border-radius:12px;padding:24px;text-align:center;margin-bottom:24px">
-            <span style="font-size:36px;font-weight:800;letter-spacing:0.15em;color:#111">${code}</span>
-          </div>
-          <p style="font-size:12px;color:#888;margin:0">
-            Este código é válido por <strong>15 minutos</strong>.<br>
-            Se você não solicitou esta alteração, ignore este email.
-          </p>
-        </div>
-      `,
-    });
-  } catch (e) {
-    // Apagar a confirmation se o email falhar
+    await enviarEmailCliente({ fotografoId: user.id, to: foto.email, subject, html });
+    enviado = true;
+  } catch {
+    // SMTP não configurado ou falhou — tentar Resend
+  }
+
+  if (!enviado) {
+    try {
+      await getResend().emails.send({ from: FROM_DEFAULT, to: foto.email, subject, html });
+      enviado = true;
+    } catch {
+      // Resend também falhou
+    }
+  }
+
+  if (!enviado) {
     await admin.from("email_confirmations").delete().eq("id", row.id);
-    const msg = e instanceof Error ? e.message : String(e);
-    console.error("[solicitar-confirmacao] Erro ao enviar email:", msg);
-    return NextResponse.json({ erro: `Erro ao enviar email: ${msg}` }, { status: 500 });
+    return NextResponse.json(
+      { erro: "Não foi possível enviar o email. Configure um servidor SMTP em Configurações → Email." },
+      { status: 500 }
+    );
   }
 
   return NextResponse.json({ confirmationId: row.id, emailMascarado: mascarEmail(foto.email) });
