@@ -126,6 +126,8 @@ export default function CampanhaPage() {
             if (p.status === "pendente") novoPendentes.add(p.galeria_id);
             if (p.status === "pago") novoPagos[p.galeria_id] = p.paid_at;
           }
+          // pagamento pendente tem prioridade: ignora pagamentos pagos antigos
+          for (const gid of novoPendentes) delete novoPagos[gid];
           setPendentes(novoPendentes);
           setPagosEm(novoPagos);
         }
