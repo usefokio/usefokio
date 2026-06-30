@@ -20,6 +20,7 @@ function getServiceClient(): StorageClient {
   );
 }
 
+// Deleta um arquivo único (R2 ou Supabase)
 export async function deleteFile(storagePath: string, urlPublica?: string | null, client?: StorageClient) {
   const r2Domain = process.env.NEXT_PUBLIC_R2_PUBLIC_URL ?? "r2.cloudflarestorage.com";
   const isR2 = urlPublica?.includes(r2Domain);
@@ -30,4 +31,46 @@ export async function deleteFile(storagePath: string, urlPublica?: string | null
     const { error } = await sb.storage.from("galerias").remove([storagePath]);
     if (error) console.error("[deleteFile] Supabase Storage error:", error.message, storagePath);
   }
+}
+
+// Deleta múltiplos arquivos com uma única chamada HTTP por storage backend
+// (evita N chamadas individuais que causariam timeout na serverless)
+export async function deleteFilesBatch(
+  items: Array<{ storage_path: string; url_publica?: string | null }>,
+  client?: StorageClient
+) {
+  if (items.length === 0) return;
+  const r2Domain = process.env.NEXT_PUBLIC_R2_PUBLIC_URL ?? "r2.cloudflarestorage.com";
+
+  const supabasePaths: string[] = [];
+  const r2Paths: string[] = [];
+
+  for (const item of items) {
+    if (item.url_publica?.includes(r2Domain)) {
+      r2Paths.push(item.storage_path);
+    } else {
+      supabasePaths.push(item.storage_path);
+    }
+  }
+
+  const tasks: Promise<unknown>[] = [];
+
+  if (supabasePaths.length > 0) {
+    const sb = client ?? getServiceClient();
+    // Uma única chamada HTTP para todos os arquivos Supabase
+    tasks.push(
+      sb.storage.from("galerias").remove(supabasePaths).then(({ error }) => {
+        if (error) console.error("[deleteFilesBatch] Supabase Storage error:", error.message);
+      })
+    );
+  }
+
+  if (r2Paths.length > 0) {
+    // R2 não tem batch delete — paraleliza mas usa SDK (sem RLS, sem timeout preocupante)
+    for (const key of r2Paths) {
+      tasks.push(r2.send(new DeleteObjectCommand({ Bucket: R2_BUCKET, Key: key })));
+    }
+  }
+
+  await Promise.allSettled(tasks);
 }

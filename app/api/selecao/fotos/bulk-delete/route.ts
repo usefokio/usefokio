@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
-import { deleteFile } from "@/lib/storage/delete";
+import { deleteFilesBatch } from "@/lib/storage/delete";
 
 function getAdminClient() {
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
         { storage_path: f.storage_path, url_publica: f.url_publica as string | null },
         f.thumbnail_path ? { storage_path: f.thumbnail_path as string, url_publica: null } : null,
       ].filter(Boolean)) as { storage_path: string; url_publica: string | null }[];
-      await Promise.allSettled(storageItems.map((i) => deleteFile(i.storage_path, i.url_publica)));
+      await deleteFilesBatch(storageItems, sb);
     }
     const { error } = await sb
       .from("galerias_selecao_fotos")
@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
         { storage_path: f.storage_path, url_publica: f.url_publica },
         f.thumbnail_path ? { storage_path: f.thumbnail_path, url_publica: null } : null,
       ].filter(Boolean)) as { storage_path: string; url_publica: string | null }[];
-      await Promise.allSettled(storageItems.map((i) => deleteFile(i.storage_path, i.url_publica)));
+      await deleteFilesBatch(storageItems, sb);
     }
     for (let i = 0; i < ids.length; i += BATCH) {
       const { error } = await sb

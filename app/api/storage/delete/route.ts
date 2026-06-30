@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { deleteFile } from "@/lib/storage/delete";
+import { deleteFilesBatch } from "@/lib/storage/delete";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true });
   }
 
-  // Usa service role (bypassa RLS) se disponível; senão, usa sessão do usuário (auth.uid() satisfaz a policy RLS)
+  // Usa service role (bypassa RLS) se disponível; senão usa sessão do usuário (auth.uid() satisfaz RLS)
   let storageClient;
   try {
     storageClient = createAdminClient();
@@ -19,8 +19,8 @@ export async function POST(req: NextRequest) {
     storageClient = await createClient();
   }
 
-  await Promise.allSettled(
-    items.map((item) => deleteFile(item.storage_path, item.url_publica, storageClient))
-  );
+  // Uma chamada HTTP por backend (Supabase batch + R2 paralelo) — evita timeout de serverless
+  await deleteFilesBatch(items, storageClient);
+
   return NextResponse.json({ ok: true });
 }
