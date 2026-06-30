@@ -9,7 +9,7 @@ export async function POST() {
 
   // Loop até não restar órfãos (RPC retorna no máximo 1000 por chamada)
   for (let round = 0; round < 20; round++) {
-    const { data: orphans, error } = await admin.rpc("get_orfaos_storage_entrega_admin");
+    const { data: orphans, error } = await admin.rpc("get_orfaos_storage_all_admin");
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
     const paths: string[] = (orphans ?? []).map((o: { path: string }) => o.path);
