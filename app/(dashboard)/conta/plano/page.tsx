@@ -371,7 +371,7 @@ export default function PlanoPage() {
             nome: p.nome,
             descricao: p.descricao,
             preco: p.preco,
-            limite_fotos: p.limiteFotos ?? null,
+            limite_fotos: p.limite_fotos ?? null,
             duracao_dias: null,
             eh_campanha: false,
             valido_ate: null,
