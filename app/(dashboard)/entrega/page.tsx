@@ -187,6 +187,27 @@ export default function EntregaPage() {
     setGalerias(lista);
     setLoading(false);
 
+    // Fallback de capa: galerias sem foto_capa_url mas com fotos usam a primeira foto
+    const semCapa = lista
+      .filter(g => !g.foto_capa_url && ((g as any).galerias_entrega_fotos?.[0]?.count ?? 0) > 0)
+      .map(g => g.id);
+    if (semCapa.length > 0) {
+      const { data: fbs } = await supabase
+        .from("galerias_entrega_fotos")
+        .select("galeria_id, url_publica")
+        .in("galeria_id", semCapa)
+        .order("galeria_id")
+        .order("created_at")
+        .limit(500);
+      const mapa: Record<string, string> = {};
+      for (const f of (fbs ?? []) as { galeria_id: string; url_publica: string }[]) {
+        if (!mapa[f.galeria_id]) mapa[f.galeria_id] = f.url_publica;
+      }
+      setGalerias(lista.map(g =>
+        g.foto_capa_url ? g : { ...g, foto_capa_url: mapa[g.id] ?? g.foto_capa_url }
+      ));
+    }
+
     // Auto-enroll suspended or expired galleries that aren't in the funnel yet
     const semFunil = lista.filter((g) => {
       if ((g.respostas_campanha as any[]).length > 0) return false;
