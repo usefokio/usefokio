@@ -162,10 +162,11 @@ export default function FormPedido({ inicial, onSalvo }: Props) {
   const isEditing = !!inicial?.id;
 
   // ── Efeito de carregamento ──────────────────────────────────────────────────
+  const fid = fotografo?.id ?? null;
   useEffect(() => {
-    if (!fotografo) return;
+    if (!fid) return;
     const sb = createClient();
-    const p2 = sb.from("crm_products").select("*").eq("fotografo_id", fotografo.id).eq("ativo", true).order("nome");
+    const p2 = sb.from("crm_products").select("*").eq("fotografo_id", fid).eq("ativo", true).order("nome");
 
     if (isEditing && inicial?.id) {
       const p3 = sb.from("crm_financial_entries")
@@ -189,7 +190,7 @@ export default function FormPedido({ inicial, onSalvo }: Props) {
         setProdutos((r2.data ?? []) as CrmProduct[]);
       });
     }
-  }, [fotografo, inicial?.id, isEditing]);
+  }, [fid, inicial?.id, isEditing]);
 
   // ── Helpers de UI ───────────────────────────────────────────────────────────
   const upd = (k: keyof FormData, v: string) => setForm(f => ({ ...f, [k]: v }));

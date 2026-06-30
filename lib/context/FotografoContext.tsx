@@ -98,8 +98,11 @@ export function FotografoProvider({ children }: { children: ReactNode }) {
           setFotografo(null);
         }
       } else {
-        lastKnownFotografo.current = data;
-        setFotografo(data);
+        const prev = lastKnownFotografo.current;
+        if (!prev || prev.id !== data?.id || prev.updated_at !== data?.updated_at) {
+          lastKnownFotografo.current = data;
+          setFotografo(data);
+        }
       }
     } catch (err) {
       console.error("[FotografoContext] Exceção:", err);

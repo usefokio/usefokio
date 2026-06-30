@@ -59,12 +59,14 @@ export default function OportunidadeDetailPage() {
     setTemPedido((count ?? 0) > 0);
   }, [id]);
 
+  const fid = fotografo?.id ?? null;
+
   const carregarFunil = useCallback(async () => {
-    if (!fotografo) return;
+    if (!fid) return;
     const sb = createClient();
-    const { data: funisData } = await sb.from("crm_funnels").select("*").eq("fotografo_id", fotografo.id).eq("ativo", true).order("created_at");
+    const { data: funisData } = await sb.from("crm_funnels").select("*").eq("fotografo_id", fid).eq("ativo", true).order("created_at");
     setFunis((funisData ?? []) as CrmFunnel[]);
-  }, [fotografo]);
+  }, [fid]);
 
   const carregarEtapas = useCallback(async (funilId: string) => {
     const { data } = await createClient().from("crm_funnel_stages").select("*").eq("funil_id", funilId).order("ordem");
@@ -93,16 +95,16 @@ export default function OportunidadeDetailPage() {
 
   // seed funil padrão se não tiver nenhum
   useEffect(() => {
-    if (!fotografo || funis.length > 0) return;
-    createClient().rpc("criar_funil_padrao", { p_fotografo_id: fotografo.id }).then(() => carregarFunil());
-  }, [fotografo, funis.length, carregarFunil]);
+    if (!fid || funis.length > 0) return;
+    createClient().rpc("criar_funil_padrao", { p_fotografo_id: fid }).then(() => carregarFunil());
+  }, [fid, funis.length, carregarFunil]);
 
   useEffect(() => {
-    if (!fotografo) return;
+    if (!fid) return;
     createClient()
       .from("crm_oportunidade_status")
       .select("chave, label")
-      .eq("fotografo_id", fotografo.id)
+      .eq("fotografo_id", fid)
       .eq("ativo", true)
       .order("ordem")
       .then(({ data }) => {
@@ -119,7 +121,7 @@ export default function OportunidadeDetailPage() {
         }
         setStatusMap(map);
       });
-  }, [fotografo]);
+  }, [fid]);
 
   const handleDelete = async () => {
     setDeleting(true);

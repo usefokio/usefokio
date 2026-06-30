@@ -106,14 +106,16 @@ export default function ClienteDetailPage() {
     } catch { /* ignora erros de rede */ }
   }
 
+  const fid = fotografo?.id ?? null;
+
   const carregar = useCallback(async () => {
-    if (!fotografo) return;
+    if (!fid) return;
     setLoading(true);
     const { data } = await createClient()
       .from("clientes")
       .select("*")
       .eq("id", id)
-      .eq("fotografo_id", fotografo.id)
+      .eq("fotografo_id", fid)
       .single();
     if (!data) { router.push("/crm/clientes"); return; }
     const c = data as Cliente;
@@ -138,9 +140,9 @@ export default function ClienteDetailPage() {
     setCidade(c.cidade ?? "");
     setEstado(c.estado ?? "");
     setLoading(false);
-  }, [fotografo, id, router]);
+  }, [fid, id, router]);
 
-  useEffect(() => { carregar(); }, [carregar]);
+  useEffect(() => { if (!editing) carregar(); }, [carregar, editing]);
 
   const salvar = async () => {
     if (!nome.trim()) return;

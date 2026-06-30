@@ -37,22 +37,24 @@ export default function ProdutosPage() {
     else { setSortCol(col); setSortDir("asc"); }
   };
 
+  const fid = fotografo?.id ?? null;
+
   const carregar = useCallback(async () => {
-    if (!fotografo) return;
+    if (!fid) return;
     setLoading(true);
     const sb = createClient();
     const [data, { data: cats }] = await Promise.all([
       fetchAllRows<CrmProduct>((sbc, f, t) => {
-        let q = sbc.from("crm_products").select("*").eq("fotografo_id", fotografo.id).order("nome");
+        let q = sbc.from("crm_products").select("*").eq("fotografo_id", fid).order("nome");
         if (somenteAtivos) q = q.eq("ativo", true);
         return q.range(f, t);
       }, sb),
-      sb.from("crm_product_categories").select("*").eq("fotografo_id", fotografo.id).eq("ativo", true).order("ordem"),
+      sb.from("crm_product_categories").select("*").eq("fotografo_id", fid).eq("ativo", true).order("ordem"),
     ]);
     setProdutos(data ?? []);
     setCategorias((cats ?? []) as CrmProductCategory[]);
     setLoading(false);
-  }, [fotografo, somenteAtivos]);
+  }, [fid, somenteAtivos]);
 
   useEffect(() => { carregar(); }, [carregar]);
   useEffect(() => { setPage(1); }, [busca, categFiltro, somenteAtivos, sortCol, sortDir]);
