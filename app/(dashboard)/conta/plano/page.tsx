@@ -20,7 +20,7 @@ type PixData = {
 };
 
 type PlanoPublico = {
-  id: string;
+  id?: string;
   codigo: string;
   nome: string;
   descricao: string | null;
