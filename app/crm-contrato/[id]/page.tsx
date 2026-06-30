@@ -17,7 +17,7 @@ function ContratoConteudo() {
         const c = data as CrmContract | null;
         setContrato(c);
         if (c?.fotografo_id) {
-          sb.from("fotografos").select("nome_empresa, nome_completo").eq("id", c.fotografo_id).single()
+          sb.from("fotografos_nomes").select("nome_empresa, nome_completo").eq("id", c.fotografo_id).single()
             .then(({ data: f }) => {
               if (f) setNomeFotografo((f as { nome_empresa: string | null; nome_completo: string | null }).nome_empresa ?? (f as { nome_completo: string | null }).nome_completo ?? "");
             });

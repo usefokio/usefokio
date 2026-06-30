@@ -338,8 +338,8 @@ function RecursosCell({ fotografoId }: { fotografoId: string }) {
 
   async function abrir() {
     if (!aberto && !recursos) {
-      const supabase = createClient();
-      const { data } = await supabase.from("fotografos").select("recursos").eq("id", fotografoId).maybeSingle();
+      const res = await fetch(`/api/webmaster/fotografo-config/${fotografoId}`);
+      const data = await res.json();
       setRecursos((data?.recursos as Record<string, boolean>) ?? { selecao: true, entrega: true, album: true, contatos: true, pagamentos: true });
     }
     setAberto(!aberto);
@@ -395,8 +395,11 @@ function LimiteFotosCell({ fotografoId, inicial }: { fotografoId: string; inicia
   async function salvar() {
     setSalvando(true);
     const num = valor.trim() === "" ? null : parseInt(valor);
-    const supabase = createClient();
-    await supabase.from("fotografos").update({ limite_fotos_custom: isNaN(num as number) ? null : num }).eq("id", fotografoId);
+    await fetch(`/api/webmaster/fotografo-config/${fotografoId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ limite_fotos_custom: isNaN(num as number) ? null : num }),
+    });
     setSalvando(false);
     setEditando(false);
   }

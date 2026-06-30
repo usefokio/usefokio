@@ -42,7 +42,7 @@ function ReciboConteudo() {
         setEntrada(entry);
         if (entry?.fotografo_id) {
           createClient()
-            .from("fotografos")
+            .from("fotografos_nomes")
             .select("nome_completo, nome_empresa")
             .eq("id", entry.fotografo_id)
             .single()
