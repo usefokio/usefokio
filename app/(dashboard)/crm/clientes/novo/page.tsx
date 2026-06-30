@@ -53,6 +53,20 @@ export default function NovoClientePage() {
   const [salvando,    setSalvando]    = useState(false);
   const [erro,        setErro]        = useState("");
 
+  async function buscarCep(cepVal: string) {
+    const c = cepVal.replace(/\D/g, "");
+    if (c.length !== 8) return;
+    try {
+      const res = await fetch(`https://viacep.com.br/ws/${c}/json/`);
+      const data = await res.json();
+      if (data.erro) return;
+      setLogradouro(data.logradouro ?? "");
+      setBairro(data.bairro ?? "");
+      setCidade(data.localidade ?? "");
+      setEstado(data.uf ?? "");
+    } catch { /* ignora erros de rede */ }
+  }
+
   const salvar = async () => {
     if (!nome.trim() || !fotografo) return;
     if (dataNasc && !isValidDate(dataNasc)) { setErro("Data de nascimento inválida."); return; }
@@ -173,7 +187,11 @@ export default function NovoClientePage() {
         <div style={{ display: "grid", gridTemplateColumns: "140px 1fr 80px", gap: "0 16px" }}>
           <div style={{ marginBottom: 18 }}>
             {lbl("CEP")}
-            <input value={cep} onChange={e => setCep(e.target.value)} style={inputStyle} />
+            <input value={cep}
+              onChange={e => setCep(e.target.value)}
+              onBlur={e => buscarCep(e.target.value)}
+              placeholder="00000-000"
+              style={inputStyle} />
           </div>
           <div style={{ marginBottom: 18 }}>
             {lbl("Logradouro")}

@@ -60,7 +60,7 @@ export default function CrmClientesPage() {
     const data = await fetchAllRows<Cliente>(
       (sb, from, to) => {
         const q = sb.from("clientes").select("*")
-          .eq("fotografo_id", fid).eq("crm_ativo", true).order("nome");
+          .eq("fotografo_id", fid).neq("crm_ativo", false).order("nome");
         if (tf) q.eq("tipo_contato", tf);
         return q.range(from, to);
       },

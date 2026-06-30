@@ -22,7 +22,7 @@ const USEFOKIO_ITEMS = [
     ),
   },
   {
-    href: "/clientes",
+    href: "/crm/clientes",
     label: "Clientes",
     icon: (
       <svg width="15" height="15" viewBox="0 0 16 16" fill="none">

@@ -68,6 +68,20 @@ export default function ClienteDetailPage() {
   const [cidade,        setCidade]        = useState("");
   const [estado,        setEstado]        = useState("");
 
+  async function buscarCep(cepVal: string) {
+    const c = cepVal.replace(/\D/g, "");
+    if (c.length !== 8) return;
+    try {
+      const res = await fetch(`https://viacep.com.br/ws/${c}/json/`);
+      const data = await res.json();
+      if (data.erro) return;
+      setLogradouro(data.logradouro ?? "");
+      setBairro(data.bairro ?? "");
+      setCidade(data.localidade ?? "");
+      setEstado(data.uf ?? "");
+    } catch { /* ignora erros de rede */ }
+  }
+
   const carregar = useCallback(async () => {
     if (!fotografo) return;
     setLoading(true);
@@ -260,7 +274,11 @@ export default function ClienteDetailPage() {
           <div style={{ display: "grid", gridTemplateColumns: "140px 1fr 80px", gap: "0 16px" }}>
             <div style={{ marginBottom: 18 }}>
               {label("CEP")}
-              <input value={cep} onChange={e => setCep(e.target.value)} style={inputStyle} />
+              <input value={cep}
+                onChange={e => setCep(e.target.value)}
+                onBlur={e => buscarCep(e.target.value)}
+                placeholder="00000-000"
+                style={inputStyle} />
             </div>
             <div style={{ marginBottom: 18 }}>
               {label("Logradouro")}
