@@ -49,6 +49,7 @@ export function FotografoProvider({ children }: { children: ReactNode }) {
         limite_fotos_custom: null,
         onboarding_concluido: true,
         crm_email_config: null,
+        plano_expira_em: null, plano_ativado_em: null, asaas_cobranca_id: null,
         recursos: { selecao: true, entrega: true, album: true, contatos: true, pagamentos: true, crm: true },
         logo_url: null, watermark_url: null, watermark_escala: null, watermark_opacidade: null, watermark_url_vertical: null, ical_url: null,
         created_at: new Date().toISOString(),
