@@ -113,21 +113,21 @@ export async function criarCobranca(params: {
 }
 
 /** Registra (ou atualiza) o webhook de pagamentos no Asaas para a URL do sistema */
-export async function registrarWebhook(apiKey: string, ambiente: AsaasAmbiente, webhookUrl: string, token?: string): Promise<void> {
+export async function registrarWebhook(apiKey: string, ambiente: AsaasAmbiente, webhookUrl: string, token?: string, email?: string): Promise<void> {
   // Lista webhooks existentes
   const lista = await asaasFetch(apiKey, ambiente, "/webhooks").catch(() => ({ data: [] }));
   const existente = (lista?.data ?? []).find((w: { url: string; id: string }) => w.url === webhookUrl);
 
-  const payload = {
+  const payload: Record<string, unknown> = {
     name:       "UseFokio",
     url:        webhookUrl,
-    email:      "",
     enabled:    true,
     interrupted: false,
     authToken:  token ?? "",
     sendType:   "SEQUENTIALLY",
     events: ["PAYMENT_RECEIVED", "PAYMENT_CONFIRMED", "PAYMENT_OVERDUE", "PAYMENT_DELETED", "PAYMENT_REFUNDED"],
   };
+  if (email) payload.email = email;
 
   if (existente?.id) {
     await asaasFetch(apiKey, ambiente, `/webhooks/${existente.id}`, { method: "PUT", body: JSON.stringify(payload) });
