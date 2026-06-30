@@ -645,14 +645,6 @@ export default function EntregaPage() {
                 <div style={{ flexShrink: 0, display: "flex", gap: 3 }} onClick={(e) => e.stopPropagation()}>
 
                   <button
-                    onClick={() => setEnviarAcessoId(g.id)}
-                    title="Enviar acesso ao cliente"
-                    style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 26, height: 26, borderRadius: 6, border: "0.5px solid rgba(37,99,235,0.4)", color: "#2563EB", background: "rgba(37,99,235,0.05)", cursor: "pointer" }}
-                    onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(37,99,235,0.12)")}
-                    onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(37,99,235,0.05)")}
-                  ><IcoSend /></button>
-
-                  <button
                     onClick={() => setEmailClienteId(g.id)}
                     title="Enviar email ao cliente"
                     style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 26, height: 26, borderRadius: 6, border: "0.5px solid rgba(124,58,237,0.35)", color: "#7C3AED", background: "rgba(124,58,237,0.05)", cursor: "pointer" }}
