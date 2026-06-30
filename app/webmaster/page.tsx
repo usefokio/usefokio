@@ -845,6 +845,51 @@ function SecaoAssinaturas() {
   );
 }
 
+function SecaoStorage() {
+  const [status, setStatus] = useState<{ deleted?: number; total?: number; errors?: string[]; error?: string } | null>(null);
+  const [rodando, setRodando] = useState(false);
+
+  async function limpar() {
+    if (!confirm(`Deletar TODOS os arquivos de fotos de entrega que estão no storage mas não têm registro no banco?\n\nIsso inclui fotos órfãs de TODOS os fotógrafos.`)) return;
+    setRodando(true);
+    setStatus(null);
+    try {
+      const res = await fetch("/api/webmaster/cleanup-storage", { method: "POST" });
+      setStatus(await res.json());
+    } catch (e) {
+      setStatus({ error: String(e) });
+    } finally {
+      setRodando(false);
+    }
+  }
+
+  return (
+    <div style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 12, padding: "20px 24px", marginBottom: 28 }}>
+      <div style={{ fontSize: 14, fontWeight: 700, color: "var(--color-text-primary)", marginBottom: 12 }}>🗑️ Storage — Limpeza de Órfãos</div>
+      <p style={{ fontSize: 12, color: "var(--color-text-secondary)", margin: "0 0 14px", lineHeight: 1.5 }}>
+        Remove arquivos de fotos de entrega que existem no bucket Supabase mas não têm registro em <code>galerias_entrega_fotos</code>. Não apaga capas nem arquivos de seleção/álbum.
+      </p>
+      <button
+        onClick={limpar}
+        disabled={rodando}
+        style={{ padding: "8px 18px", borderRadius: 8, border: "none", background: rodando ? "rgba(239,68,68,0.3)" : "#EF4444", color: "#fff", fontSize: 12, fontWeight: 700, cursor: rodando ? "default" : "pointer" }}
+      >
+        {rodando ? "Limpando…" : "Limpar arquivos órfãos"}
+      </button>
+      {status && (
+        <div style={{ marginTop: 10, fontSize: 12, color: status.error || status.errors?.length ? "#EF4444" : "#059669" }}>
+          {status.error
+            ? `❌ Erro: ${status.error}`
+            : status.errors?.length
+            ? `⚠️ ${status.deleted}/${status.total} deletados com ${status.errors.length} erro(s)`
+            : `✅ ${status.deleted} arquivo(s) deletado(s)${status.total && status.total > 0 ? ` de ${status.total} órfão(s)` : " — storage limpo"}`
+          }
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function WebmasterPage() {
   const router = useRouter();
   const [verificado, setVerificado]       = useState(false);
@@ -1031,6 +1076,9 @@ export default function WebmasterPage() {
 
         {/* Pagamentos / Doações */}
         <SecaoPagamentos />
+
+        {/* Storage — Limpeza de órfãos */}
+        <SecaoStorage />
 
         {/* Pendentes — destaque */}
         {pendentes.length > 0 && (
