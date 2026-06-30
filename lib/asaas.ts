@@ -121,9 +121,11 @@ export async function registrarWebhook(apiKey: string, ambiente: AsaasAmbiente, 
   const payload = {
     name:       "UseFokio",
     url:        webhookUrl,
+    email:      "",
     enabled:    true,
     interrupted: false,
     authToken:  token ?? "",
+    sendType:   "SEQUENTIALLY",
     events: ["PAYMENT_RECEIVED", "PAYMENT_CONFIRMED", "PAYMENT_OVERDUE", "PAYMENT_DELETED", "PAYMENT_REFUNDED"],
   };
 
