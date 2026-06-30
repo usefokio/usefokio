@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import nodemailer from "nodemailer";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { enviarEmailCliente } from "@/lib/email/send";
+import { decryptKey } from "@/lib/asaas";
+import { getResend, FROM_DEFAULT } from "@/lib/email/resend";
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
@@ -16,7 +18,7 @@ export async function POST(req: NextRequest) {
 
   const admin = createAdminClient();
   const { data: f } = await admin.from("fotografos")
-    .select("nome_empresa, nome_completo, email, site")
+    .select("nome_empresa, nome_completo, email, site, smtp_host, smtp_port, smtp_user, smtp_pass_enc, smtp_from")
     .eq("id", user.id).single();
 
   const nome = f?.nome_empresa ?? f?.nome_completo ?? null;
@@ -33,10 +35,40 @@ export async function POST(req: NextRequest) {
   const corpo = String(body).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br>");
   const html = `<div style="font-family:sans-serif;font-size:15px;line-height:1.7;color:#222;max-width:600px">${corpo}</div>${assiHtml}`;
 
+  let enviado = false;
+
+  // Tentar Resend primeiro (email do sistema)
   try {
-    await enviarEmailCliente({ fotografoId: user.id, to, subject, html });
-    return NextResponse.json({ ok: true });
-  } catch (err: any) {
-    return NextResponse.json({ erro: err.message ?? "Erro ao enviar." }, { status: 500 });
+    await getResend().emails.send({ from: FROM_DEFAULT, to, subject, html });
+    enviado = true;
+  } catch (e) {
+    console.error("[email/enviar] Resend falhou:", e instanceof Error ? e.message : e);
   }
+
+  // Fallback: SMTP do fotógrafo
+  if (!enviado && f?.smtp_host && f.smtp_pass_enc) {
+    try {
+      const transporter = nodemailer.createTransport({
+        host: f.smtp_host,
+        port: f.smtp_port ?? 587,
+        secure: (f.smtp_port ?? 587) === 465,
+        auth: { user: f.smtp_user, pass: decryptKey(f.smtp_pass_enc) },
+      });
+      await transporter.sendMail({
+        from: f.smtp_from || f.smtp_user,
+        to,
+        subject,
+        html,
+      });
+      enviado = true;
+    } catch (e) {
+      console.error("[email/enviar] SMTP falhou:", e instanceof Error ? e.message : e);
+    }
+  }
+
+  if (!enviado) {
+    return NextResponse.json({ erro: "Não foi possível enviar o email. Verifique as configurações de email." }, { status: 500 });
+  }
+
+  return NextResponse.json({ ok: true });
 }
