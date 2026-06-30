@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import crypto from "crypto";
+import nodemailer from "nodemailer";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { encryptKey, validarKey, type AsaasAmbiente } from "@/lib/asaas";
-import { enviarEmailCliente } from "@/lib/email/send";
+import { encryptKey, decryptKey, validarKey, type AsaasAmbiente } from "@/lib/asaas";
 import { getResend, FROM_DEFAULT } from "@/lib/email/resend";
 
 function sha256(text: string) {
@@ -47,8 +47,13 @@ export async function POST(req: NextRequest) {
 
   const admin = createAdminClient();
 
-  // Buscar email do fotógrafo
-  const { data: foto } = await admin.from("fotografos").select("email").eq("id", user.id).single();
+  // Buscar email e SMTP do fotógrafo em uma única query
+  const { data: foto } = await admin
+    .from("fotografos")
+    .select("email, smtp_host, smtp_port, smtp_user, smtp_pass_enc, smtp_from")
+    .eq("id", user.id)
+    .single();
+
   if (!foto?.email) return NextResponse.json({ erro: "Email do fotógrafo não encontrado." }, { status: 400 });
 
   // Cooldown: bloquear reenvio se já existe confirmation recente (< 1 min)
@@ -108,33 +113,46 @@ export async function POST(req: NextRequest) {
   const subject = "Código de confirmação — UseFokio";
   const html = emailHtml(actionLabel, code);
 
-  // Tentar SMTP do fotógrafo primeiro; fallback para Resend
   let enviado = false;
   let smtpErro = "";
-  let resendErro = "";
 
-  try {
-    await enviarEmailCliente({ fotografoId: user.id, to: foto.email, subject, html });
-    enviado = true;
-  } catch (e) {
-    smtpErro = e instanceof Error ? e.message : String(e);
-    console.error("[solicitar-confirmacao] SMTP falhou:", smtpErro);
+  // Tentar SMTP do fotógrafo diretamente (sem reimportar admin)
+  if (foto.smtp_host && foto.smtp_pass_enc) {
+    try {
+      const transporter = nodemailer.createTransport({
+        host: foto.smtp_host,
+        port: foto.smtp_port ?? 587,
+        secure: (foto.smtp_port ?? 587) === 465,
+        auth: { user: foto.smtp_user, pass: decryptKey(foto.smtp_pass_enc) },
+      });
+      await transporter.sendMail({
+        from: foto.smtp_from || foto.smtp_user,
+        to: foto.email,
+        subject,
+        html,
+      });
+      enviado = true;
+    } catch (e) {
+      smtpErro = e instanceof Error ? e.message : String(e);
+      console.error("[solicitar-confirmacao] SMTP falhou:", smtpErro);
+    }
   }
 
+  // Fallback: Resend
   if (!enviado) {
     try {
       await getResend().emails.send({ from: FROM_DEFAULT, to: foto.email, subject, html });
       enviado = true;
     } catch (e) {
-      resendErro = e instanceof Error ? e.message : String(e);
-      console.error("[solicitar-confirmacao] Resend falhou:", resendErro);
+      console.error("[solicitar-confirmacao] Resend falhou:", e instanceof Error ? e.message : e);
     }
   }
 
   if (!enviado) {
     await admin.from("email_confirmations").delete().eq("id", row.id);
+    const detalhe = smtpErro ? ` (${smtpErro})` : "";
     return NextResponse.json(
-      { erro: `Falha ao enviar email. SMTP: ${smtpErro || "—"}` },
+      { erro: `Não foi possível enviar o email de confirmação${detalhe}. Verifique as configurações de SMTP.` },
       { status: 500 }
     );
   }
