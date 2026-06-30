@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
-import { APP_URL } from "@/lib/email/resend";
-import { enviarEmailCliente } from "@/lib/email/send";
+import nodemailer from "nodemailer";
+import { APP_URL, getResend, FROM_DEFAULT } from "@/lib/email/resend";
+import { decryptKey } from "@/lib/asaas";
 import { templateGaleriaCriada } from "@/lib/email/templates";
 import { createServerClient } from "@supabase/ssr";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { cookies } from "next/headers";
 
 export async function POST(request: Request) {
@@ -14,15 +16,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "galeriaId obrigatório" }, { status: 400 });
     }
 
-    // Busca dados da galeria + cliente + fotógrafo (server-side com sessão)
     const cookieStore = await cookies();
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       {
         cookies: {
-          getAll()             { return cookieStore.getAll(); },
-          setAll(cs)           { cs.forEach(({ name, value, options }) => cookieStore.set(name, value, options)); },
+          getAll()   { return cookieStore.getAll(); },
+          setAll(cs) { cs.forEach(({ name, value, options }) => cookieStore.set(name, value, options)); },
         },
       }
     );
@@ -30,24 +31,22 @@ export async function POST(request: Request) {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
 
-    // Galeria
     const { data: galeria } = await supabase
       .from("galerias_selecao")
       .select("id, titulo, cliente_id, fotografo_id, data_evento, total_fotos")
       .eq("id", galeriaId)
-      .eq("fotografo_id", session.user.id)  // só o dono pode disparar
+      .eq("fotografo_id", session.user.id)
       .single();
 
     if (!galeria) return NextResponse.json({ error: "Galeria não encontrada" }, { status: 404 });
 
-    // Fotógrafo
-    const { data: fotografo } = await supabase
+    const admin = createAdminClient();
+    const { data: fotografo } = await admin
       .from("fotografos")
-      .select("nome_completo, nome_empresa, email, site")
+      .select("nome_completo, nome_empresa, email, site, smtp_host, smtp_port, smtp_user, smtp_pass_enc, smtp_from")
       .eq("id", session.user.id)
       .single();
 
-    // Cliente
     if (!galeria.cliente_id) {
       return NextResponse.json({ skipped: true, reason: "Galeria sem cliente vinculado" });
     }
@@ -62,7 +61,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ skipped: true, reason: "Cliente sem email cadastrado" });
     }
 
-    const galeriaUrl  = `${APP_URL}/galeria/${galeriaId}`;
+    const galeriaUrl    = `${APP_URL}/galeria/${galeriaId}`;
     const dataEventoFmt = galeria.data_evento
       ? new Date(galeria.data_evento + "T12:00:00").toLocaleDateString("pt-BR")
       : null;
@@ -80,12 +79,40 @@ export async function POST(request: Request) {
       dataEvento:       dataEventoFmt,
     });
 
-    await enviarEmailCliente({
-      fotografoId: session.user.id,
-      to:          cliente.email,
-      subject,
-      html,
-    });
+    let enviado = false;
+
+    // Resend primeiro (email do sistema)
+    try {
+      await getResend().emails.send({ from: FROM_DEFAULT, to: cliente.email, subject, html });
+      enviado = true;
+    } catch (e) {
+      console.error("[galeria-criada] Resend falhou:", e instanceof Error ? e.message : e);
+    }
+
+    // Fallback: SMTP do fotógrafo
+    if (!enviado && fotografo?.smtp_host && fotografo.smtp_pass_enc) {
+      try {
+        const transporter = nodemailer.createTransport({
+          host:   fotografo.smtp_host,
+          port:   fotografo.smtp_port ?? 587,
+          secure: (fotografo.smtp_port ?? 587) === 465,
+          auth:   { user: fotografo.smtp_user, pass: decryptKey(fotografo.smtp_pass_enc) },
+        });
+        await transporter.sendMail({
+          from:    fotografo.smtp_from || fotografo.smtp_user,
+          to:      cliente.email,
+          subject,
+          html,
+        });
+        enviado = true;
+      } catch (e) {
+        console.error("[galeria-criada] SMTP falhou:", e instanceof Error ? e.message : e);
+      }
+    }
+
+    if (!enviado) {
+      return NextResponse.json({ error: "Não foi possível enviar o email. Verifique as configurações de email." }, { status: 500 });
+    }
 
     return NextResponse.json({ ok: true });
   } catch (err: any) {

@@ -85,10 +85,15 @@ export async function POST(request: Request) {
     const sendOpts = { from, to: para, subject: assunto, html: corpoHtml, replyTo };
 
     const temSMTP = config.smtp_host && config.smtp_user && config.smtp_pass;
-    if (temSMTP) {
-      await enviarViaSMTP(config, sendOpts);
-    } else {
+    let enviado = false;
+    try {
       await enviarViaResend(sendOpts);
+      enviado = true;
+    } catch (e) {
+      console.error("[crm/email/enviar] Resend falhou:", e instanceof Error ? e.message : e);
+    }
+    if (!enviado && temSMTP) {
+      await enviarViaSMTP(config, sendOpts);
     }
 
     return NextResponse.json({ ok: true });

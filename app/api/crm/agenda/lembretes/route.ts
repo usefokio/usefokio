@@ -86,15 +86,8 @@ async function enviarEmail(fot: Fotografo, assunto: string, html: string) {
   const sendOpts = { from, to: fot.email, subject: assunto, html, replyTo };
 
   const temSMTP = config.smtp_host && config.smtp_user && config.smtp_pass;
-  if (temSMTP) {
-    const nodemailer = await import("nodemailer");
-    const t = nodemailer.default.createTransport({
-      host: config.smtp_host!, port: config.smtp_port ?? 587,
-      secure: config.smtp_secure ?? false,
-      auth: { user: config.smtp_user!, pass: config.smtp_pass! },
-    });
-    await t.sendMail(sendOpts);
-  } else {
+  let enviado = false;
+  try {
     const { resend, FROM_DEFAULT } = await import("@/lib/email/resend");
     await resend.emails.send({
       from: sendOpts.from || FROM_DEFAULT,
@@ -103,6 +96,18 @@ async function enviarEmail(fot: Fotografo, assunto: string, html: string) {
       html: sendOpts.html,
       ...(sendOpts.replyTo ? { replyTo: sendOpts.replyTo } : {}),
     });
+    enviado = true;
+  } catch (e) {
+    console.error("[lembretes] Resend falhou:", e instanceof Error ? e.message : e);
+  }
+  if (!enviado && temSMTP) {
+    const nodemailer = await import("nodemailer");
+    const t = nodemailer.default.createTransport({
+      host: config.smtp_host!, port: config.smtp_port ?? 587,
+      secure: config.smtp_secure ?? false,
+      auth: { user: config.smtp_user!, pass: config.smtp_pass! },
+    });
+    await t.sendMail(sendOpts);
   }
 }
 

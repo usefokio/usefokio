@@ -3,7 +3,8 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { decryptKey, criarCobranca, type AsaasAmbiente } from "@/lib/asaas";
-import { enviarEmailCliente } from "@/lib/email/send";
+import nodemailer from "nodemailer";
+import { getResend, FROM_DEFAULT } from "@/lib/email/resend";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -29,7 +30,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   const { data: fotografo } = await admin
     .from("fotografos")
-    .select("id, nome_empresa, nome_completo, email, asaas_api_key_enc, asaas_ambiente, asaas_ativo, pix_ativo, pix_chave, pix_tipo, abacate_api_key_enc, abacate_ativo, mp_api_key_enc, mp_ativo")
+    .select("id, nome_empresa, nome_completo, email, asaas_api_key_enc, asaas_ambiente, asaas_ativo, pix_ativo, pix_chave, pix_tipo, abacate_api_key_enc, abacate_ativo, mp_api_key_enc, mp_ativo, smtp_host, smtp_port, smtp_user, smtp_pass_enc, smtp_from")
     .eq("id", galeria.fotografo_id)
     .maybeSingle();
 
@@ -64,9 +65,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     // Notifica fotógrafo por email
     try {
-      const nomeEmpresa = fotografo!.nome_empresa ?? fotografo!.nome_completo ?? "Fotógrafo";
       const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://usefokio.com.br";
       const valorFmt = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(galeria.renewal_fee);
+      const emailTo = fotografo!.email ?? "";
+      const subject = `Pagamento PIX recebido — ${galeria.titulo}`;
       const html = `<div style="font-family:sans-serif;font-size:15px;line-height:1.7;color:#222;max-width:600px">
         <p><strong>${nome.trim()}</strong> realizou um pagamento PIX para renovação da galeria <strong>${galeria.titulo}</strong>.</p>
         <p>Valor: <strong>${valorFmt}</strong><br>E-mail: ${emailNorm}</p>
@@ -75,12 +77,29 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         <hr style="margin:24px 0;border:none;border-top:1px solid #eee">
         <div style="font-size:12px;color:#aaa">UseFokio · pagamento PIX manual pendente de confirmação</div>
       </div>`;
-      await enviarEmailCliente({
-        fotografoId: fotografo!.id,
-        to: fotografo!.email ?? "",
-        subject: `Pagamento PIX recebido — ${galeria.titulo}`,
-        html,
-      });
+
+      let enviado = false;
+      if (emailTo) {
+        try {
+          await getResend().emails.send({ from: FROM_DEFAULT, to: emailTo, subject, html });
+          enviado = true;
+        } catch (e) {
+          console.error("[renovar] Resend falhou:", e instanceof Error ? e.message : e);
+        }
+        if (!enviado && fotografo!.smtp_host && fotografo!.smtp_pass_enc) {
+          try {
+            const { decryptKey } = await import("@/lib/asaas");
+            const t = nodemailer.createTransport({
+              host: fotografo!.smtp_host, port: fotografo!.smtp_port ?? 587,
+              secure: (fotografo!.smtp_port ?? 587) === 465,
+              auth: { user: fotografo!.smtp_user, pass: decryptKey(fotografo!.smtp_pass_enc) },
+            });
+            await t.sendMail({ from: fotografo!.smtp_from || fotografo!.smtp_user, to: emailTo, subject, html });
+          } catch (e) {
+            console.error("[renovar] SMTP falhou:", e instanceof Error ? e.message : e);
+          }
+        }
+      }
     } catch { /* email não bloqueia o fluxo */ }
 
     return NextResponse.json({
