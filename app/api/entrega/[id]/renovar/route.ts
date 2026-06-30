@@ -63,6 +63,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     if (error) return NextResponse.json({ erro: error.message }, { status: 500 });
 
+    // Se há registro no funil de campanha, marcar como "quer renovar" para mover o card
+    await admin.from("respostas_campanha")
+      .update({ resposta: "renovar", respondido_em: new Date().toISOString() })
+      .eq("galeria_id", id)
+      .is("resposta", null);
+
     // Notifica fotógrafo por email
     try {
       const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://usefokio.com.br";
@@ -164,6 +170,13 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     }).select("id").single();
 
     if (error) return NextResponse.json({ erro: error.message }, { status: 500 });
+
+    // Se há registro no funil de campanha, marcar como "quer renovar" para mover o card
+    await admin.from("respostas_campanha")
+      .update({ resposta: "renovar", respondido_em: new Date().toISOString() })
+      .eq("galeria_id", id)
+      .is("resposta", null);
+
     return NextResponse.json({ ok: true, gateway, invoiceUrl, pagamentoId: pgto.id });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
