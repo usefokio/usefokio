@@ -132,6 +132,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     .maybeSingle();
 
   if (pendente?.invoice_url) {
+    await admin.from("respostas_campanha")
+      .update({ resposta: "renovar", respondido_em: new Date().toISOString() })
+      .eq("galeria_id", id)
+      .is("resposta", null);
     return NextResponse.json({ ok: true, gateway, invoiceUrl: pendente.invoice_url, pagamentoId: pendente.id });
   }
 
