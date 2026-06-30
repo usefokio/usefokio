@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { isValidDate, mascaraTelefone } from "@/lib/utils/format";
-import type { Cliente } from "@/lib/supabase/types";
+import type { Cliente, CrmOrder, GaleriaEntrega, GaleriaSelecao } from "@/lib/supabase/types";
 
 const TIPO_MAP: Record<string, { label: string; color: string; bg: string }> = {
   cliente:      { label: "Cliente",      color: "#2563EB", bg: "rgba(37,99,235,0.08)"  },
@@ -48,6 +48,13 @@ export default function ClienteDetailPage() {
   const [confirmDel, setConfirmDel] = useState(false);
   const [deleting,  setDeleting]  = useState(false);
 
+  type RelTab = "pedidos" | "entrega" | "selecao";
+  const [tab,           setTab]           = useState<RelTab>("pedidos");
+  const [pedidos,       setPedidos]       = useState<CrmOrder[]>([]);
+  const [entrega,       setEntrega]       = useState<GaleriaEntrega[]>([]);
+  const [selecao,       setSelecao]       = useState<GaleriaSelecao[]>([]);
+  const [carregandoRel, setCarregandoRel] = useState(false);
+
   // form state
   const [nome,          setNome]          = useState("");
   const [email,         setEmail]         = useState("");
@@ -67,6 +74,23 @@ export default function ClienteDetailPage() {
   const [bairro,        setBairro]        = useState("");
   const [cidade,        setCidade]        = useState("");
   const [estado,        setEstado]        = useState("");
+
+  async function carregarRelacionados(clienteId: string) {
+    setCarregandoRel(true);
+    const sb = createClient();
+    const [{ data: p }, { data: e }, { data: s }] = await Promise.all([
+      sb.from("crm_orders").select("id, nome, categoria, status, total, data_lancamento, data_evento")
+        .eq("cliente_id", clienteId).order("data_lancamento", { ascending: false }),
+      sb.from("galerias_entrega").select("id, titulo, data_evento, rascunho, suspensa, total_acessos, created_at")
+        .eq("cliente_id", clienteId).order("created_at", { ascending: false }),
+      sb.from("galerias_selecao").select("id, titulo, data_evento, status, total_fotos, created_at")
+        .eq("cliente_id", clienteId).order("created_at", { ascending: false }),
+    ]);
+    setPedidos((p ?? []) as CrmOrder[]);
+    setEntrega((e ?? []) as GaleriaEntrega[]);
+    setSelecao((s ?? []) as GaleriaSelecao[]);
+    setCarregandoRel(false);
+  }
 
   async function buscarCep(cepVal: string) {
     const c = cepVal.replace(/\D/g, "");
@@ -94,6 +118,7 @@ export default function ClienteDetailPage() {
     if (!data) { router.push("/crm/clientes"); return; }
     const c = data as Cliente;
     setCliente(c);
+    carregarRelacionados(c.id);
     setNome(c.nome ?? "");
     setEmail(c.email ?? "");
     setTelefone(mascaraTelefone(c.telefone ?? ""));
@@ -362,6 +387,147 @@ export default function ClienteDetailPage() {
                 <div style={{ fontSize: 12, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 12 }}>Observações</div>
                 <div style={{ fontSize: 13, color: "var(--color-text-primary)", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{cliente.observacoes}</div>
               </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Relacionados — Pedidos, Galerias */}
+      {!editing && (
+        <div style={{ marginTop: 28 }}>
+          <div style={{ display: "flex", gap: 2, borderBottom: "0.5px solid var(--color-border-tertiary)" }}>
+            {([
+              { key: "pedidos" as RelTab, label: `Pedidos (${pedidos.length})` },
+              { key: "entrega" as RelTab, label: `Entrega (${entrega.length})` },
+              { key: "selecao" as RelTab, label: `Seleção (${selecao.length})` },
+            ]).map(t => (
+              <button key={t.key} onClick={() => setTab(t.key)}
+                style={{ padding: "8px 16px", border: "none", background: "none", fontSize: 13,
+                  fontWeight: tab === t.key ? 700 : 500,
+                  color: tab === t.key ? "var(--color-text-primary)" : "var(--color-text-secondary)",
+                  borderBottom: tab === t.key ? "2px solid var(--color-text-primary)" : "2px solid transparent",
+                  cursor: "pointer", marginBottom: -1 }}>
+                {t.label}
+              </button>
+            ))}
+          </div>
+          <div style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderTop: "none", borderRadius: "0 0 10px 10px" }}>
+            {carregandoRel ? (
+              <div style={{ padding: 24, textAlign: "center", color: "var(--color-text-secondary)", fontSize: 13 }}>Carregando…</div>
+            ) : tab === "pedidos" ? (
+              pedidos.length === 0
+                ? <div style={{ padding: 32, textAlign: "center", fontSize: 13, color: "var(--color-text-secondary)" }}>Nenhum pedido vinculado</div>
+                : <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                    <thead>
+                      <tr style={{ background: "var(--color-background-secondary)" }}>
+                        {["Pedido", "Categoria", "Status", "Total", "Data"].map(h => (
+                          <th key={h} style={{ padding: "8px 14px", textAlign: "left", fontWeight: 700, fontSize: 11, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.04em", borderBottom: "0.5px solid var(--color-border-tertiary)" }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(pedidos as Array<{ id: string; nome: string | null; categoria: string | null; status: string | null; total: number; data_lancamento: string | null }>).map(p => {
+                        const statusMap: Record<string, { label: string; color: string }> = {
+                          aguardando_sinal: { label: "Aguardando sinal", color: "#D97706" },
+                          em_producao:      { label: "Em produção",      color: "#2563EB" },
+                          entregue:         { label: "Entregue",         color: "#059669" },
+                          cancelado:        { label: "Cancelado",        color: "#EF4444" },
+                          concluido:        { label: "Concluído",        color: "#6B7280" },
+                        };
+                        const st = statusMap[p.status ?? ""] ?? { label: p.status ?? "—", color: "var(--color-text-secondary)" };
+                        return (
+                          <tr key={p.id} onClick={() => router.push(`/crm/pedidos/${p.id}`)} style={{ cursor: "pointer" }}
+                            onMouseEnter={e => (e.currentTarget.style.background = "var(--color-background-secondary)")}
+                            onMouseLeave={e => (e.currentTarget.style.background = "")}>
+                            <td style={{ padding: "10px 14px", borderBottom: "0.5px solid var(--color-border-tertiary)", fontSize: 12 }}>{p.nome ?? "—"}</td>
+                            <td style={{ padding: "10px 14px", borderBottom: "0.5px solid var(--color-border-tertiary)", fontSize: 12 }}>{p.categoria ?? "—"}</td>
+                            <td style={{ padding: "10px 14px", borderBottom: "0.5px solid var(--color-border-tertiary)", fontSize: 12 }}>
+                              <span style={{ color: st.color, fontWeight: 600 }}>{st.label}</span>
+                            </td>
+                            <td style={{ padding: "10px 14px", borderBottom: "0.5px solid var(--color-border-tertiary)", fontSize: 12 }}>
+                              R$ {(p.total ?? 0).toFixed(2).replace(".", ",")}
+                            </td>
+                            <td style={{ padding: "10px 14px", borderBottom: "0.5px solid var(--color-border-tertiary)", fontSize: 12, color: "var(--color-text-secondary)" }}>
+                              {p.data_lancamento ? new Date(p.data_lancamento + "T12:00").toLocaleDateString("pt-BR") : "—"}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+            ) : tab === "entrega" ? (
+              entrega.length === 0
+                ? <div style={{ padding: 32, textAlign: "center", fontSize: 13, color: "var(--color-text-secondary)" }}>Nenhuma galeria de entrega vinculada</div>
+                : <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                    <thead>
+                      <tr style={{ background: "var(--color-background-secondary)" }}>
+                        {["Título", "Evento", "Status", "Acessos"].map(h => (
+                          <th key={h} style={{ padding: "8px 14px", textAlign: "left", fontWeight: 700, fontSize: 11, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.04em", borderBottom: "0.5px solid var(--color-border-tertiary)" }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(entrega as Array<{ id: string; titulo: string | null; data_evento: string | null; rascunho: boolean | null; suspensa: boolean | null; total_acessos: number | null }>).map(g => {
+                        const stLabel = g.rascunho ? "Rascunho" : g.suspensa ? "Suspensa" : "Ativa";
+                        const stColor = g.rascunho ? "#6B7280" : g.suspensa ? "#EF4444" : "#059669";
+                        return (
+                          <tr key={g.id} onClick={() => router.push(`/entrega/${g.id}`)} style={{ cursor: "pointer" }}
+                            onMouseEnter={e => (e.currentTarget.style.background = "var(--color-background-secondary)")}
+                            onMouseLeave={e => (e.currentTarget.style.background = "")}>
+                            <td style={{ padding: "10px 14px", borderBottom: "0.5px solid var(--color-border-tertiary)", fontSize: 12 }}>{g.titulo ?? "—"}</td>
+                            <td style={{ padding: "10px 14px", borderBottom: "0.5px solid var(--color-border-tertiary)", fontSize: 12, color: "var(--color-text-secondary)" }}>
+                              {g.data_evento ? new Date(g.data_evento + "T12:00").toLocaleDateString("pt-BR") : "—"}
+                            </td>
+                            <td style={{ padding: "10px 14px", borderBottom: "0.5px solid var(--color-border-tertiary)", fontSize: 12 }}>
+                              <span style={{ color: stColor, fontWeight: 600 }}>{stLabel}</span>
+                            </td>
+                            <td style={{ padding: "10px 14px", borderBottom: "0.5px solid var(--color-border-tertiary)", fontSize: 12, color: "var(--color-text-secondary)" }}>
+                              {g.total_acessos ?? 0}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+            ) : (
+              selecao.length === 0
+                ? <div style={{ padding: 32, textAlign: "center", fontSize: 13, color: "var(--color-text-secondary)" }}>Nenhuma galeria de seleção vinculada</div>
+                : <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                    <thead>
+                      <tr style={{ background: "var(--color-background-secondary)" }}>
+                        {["Título", "Evento", "Status", "Fotos"].map(h => (
+                          <th key={h} style={{ padding: "8px 14px", textAlign: "left", fontWeight: 700, fontSize: 11, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.04em", borderBottom: "0.5px solid var(--color-border-tertiary)" }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(selecao as Array<{ id: string; titulo: string | null; data_evento: string | null; status: string | null; total_fotos: number | null }>).map(g => {
+                        const selStatusMap: Record<string, { label: string; color: string }> = {
+                          rascunho:           { label: "Rascunho",            color: "#6B7280" },
+                          ativa:              { label: "Ativa",               color: "#059669" },
+                          encerrada:          { label: "Encerrada",           color: "#EF4444" },
+                          aguardando_revisao: { label: "Aguardando revisão",  color: "#D97706" },
+                        };
+                        const ss = selStatusMap[g.status ?? ""] ?? { label: g.status ?? "—", color: "var(--color-text-secondary)" };
+                        return (
+                          <tr key={g.id} onClick={() => router.push(`/selecao/${g.id}`)} style={{ cursor: "pointer" }}
+                            onMouseEnter={e => (e.currentTarget.style.background = "var(--color-background-secondary)")}
+                            onMouseLeave={e => (e.currentTarget.style.background = "")}>
+                            <td style={{ padding: "10px 14px", borderBottom: "0.5px solid var(--color-border-tertiary)", fontSize: 12 }}>{g.titulo ?? "—"}</td>
+                            <td style={{ padding: "10px 14px", borderBottom: "0.5px solid var(--color-border-tertiary)", fontSize: 12, color: "var(--color-text-secondary)" }}>
+                              {g.data_evento ? new Date(g.data_evento + "T12:00").toLocaleDateString("pt-BR") : "—"}
+                            </td>
+                            <td style={{ padding: "10px 14px", borderBottom: "0.5px solid var(--color-border-tertiary)", fontSize: 12 }}>
+                              <span style={{ color: ss.color, fontWeight: 600 }}>{ss.label}</span>
+                            </td>
+                            <td style={{ padding: "10px 14px", borderBottom: "0.5px solid var(--color-border-tertiary)", fontSize: 12, color: "var(--color-text-secondary)" }}>
+                              {g.total_fotos ?? 0}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
             )}
           </div>
         </div>
