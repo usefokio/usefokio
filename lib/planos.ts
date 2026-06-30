@@ -1,4 +1,4 @@
-export type PlanoId = "gratuito" | "profissional" | "estudio";
+export type PlanoId = "gratuito" | "profissional";
 
 /**
  * Fase beta — limita resolução de upload a HD (1.280px) para economizar armazenamento.
@@ -30,17 +30,18 @@ export const PLANOS: Record<PlanoId, PlanoConfig> = {
     badge:        "Beta",
     features: [
       "1.000 fotos no total",
-      "Galerias de seleção ilimitadas",
-      "Link de acesso para o cliente",
-      "Seleção com comentários por foto",
-      "Andamento e histórico da seleção",
-      "Suporte por e-mail",
+      "Galerias de entrega e seleção",
+      "Links de acesso para clientes",
+      "Gestão de prazo de acesso",
+      "Cobrança de renovação de acesso",
+      "Cadastro de clientes",
+      "Funil de campanha de renovação",
     ],
   },
   profissional: {
     id:           "profissional",
     nome:         "Profissional",
-    preco:        97,
+    preco:        49,
     descricao:    "Para fotógrafos ativos",
     cor:          "#2563EB",
     corBg:        "rgba(37,99,235,0.07)",
@@ -48,28 +49,12 @@ export const PLANOS: Record<PlanoId, PlanoConfig> = {
     badge:        "Popular",
     features: [
       "10.000 fotos no total",
-      "Galerias ilimitadas",
-      "Domínio personalizado",
-      "Entrega de fotos em HD",
-      "Marca d'água",
-      "Suporte prioritário",
-    ],
-  },
-  estudio: {
-    id:           "estudio",
-    nome:         "Estúdio",
-    preco:        197,
-    descricao:    "Para estúdios e equipes",
-    cor:          "#7C3AED",
-    corBg:        "rgba(124,58,237,0.07)",
-    limite_fotos: null,
-    features: [
-      "Fotos ilimitadas",
-      "Tudo do Profissional",
-      "Multi-usuário (até 3 membros)",
-      "Analytics avançados",
-      "White-label completo",
-      "Suporte dedicado",
+      "Galerias de entrega e seleção",
+      "Links de acesso para clientes",
+      "Gestão de prazo de acesso",
+      "Cobrança de renovação de acesso",
+      "Cadastro de clientes",
+      "Funil de campanha de renovação",
     ],
   },
 };

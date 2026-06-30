@@ -222,6 +222,95 @@ function SecaoPagamentos() {
   );
 }
 
+// ── Config Asaas do Sistema (cobranças de assinatura UseFokio) ───────────────
+function SecaoSistema() {
+  const [config,   setConfig]   = useState<{ configurado: boolean; ambiente: string } | null>(null);
+  const [apiKey,   setApiKey]   = useState("");
+  const [ambiente, setAmbiente] = useState("sandbox");
+  const [salvando, setSalvando] = useState(false);
+  const [msg,      setMsg]      = useState("");
+  const [aberto,   setAberto]   = useState(false);
+
+  useEffect(() => { if (aberto) carregar(); }, [aberto]);
+
+  async function carregar() {
+    const supabase = createClient();
+    const { data: { session } } = await supabase.auth.getSession();
+    const res = await fetch("/api/webmaster/sistema-config", {
+      headers: { Authorization: `Bearer ${session?.access_token ?? ""}` },
+    });
+    if (res.ok) setConfig(await res.json());
+  }
+
+  async function salvar() {
+    if (!apiKey.trim()) return;
+    setSalvando(true);
+    setMsg("");
+    const supabase = createClient();
+    const { data: { session } } = await supabase.auth.getSession();
+    const res = await fetch("/api/webmaster/sistema-config", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token ?? ""}` },
+      body: JSON.stringify({ apiKey: apiKey.trim(), ambiente }),
+    });
+    const json = await res.json();
+    if (!res.ok) { setMsg("❌ " + (json.error ?? "Erro ao salvar.")); setSalvando(false); return; }
+    setMsg(`✅ Conectado como ${json.conta?.nome ?? "Conta Asaas"} · ${ambiente}`);
+    setApiKey("");
+    await carregar();
+    setSalvando(false);
+  }
+
+  return (
+    <div style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 12, padding: "20px 24px", marginBottom: 28 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, cursor: "pointer" }} onClick={() => setAberto(!aberto)}>
+        <span style={{ fontSize: 13, transform: aberto ? "rotate(90deg)" : "none", transition: "transform 0.15s", color: "var(--color-text-secondary)" }}>▶</span>
+        <span style={{ fontSize: 14, fontWeight: 700, color: "var(--color-text-primary)" }}>⚙ Asaas do Sistema (assinaturas)</span>
+        {config?.configurado && (
+          <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 10, background: "rgba(16,185,129,0.10)", color: "#059669" }}>
+            CONECTADO · {config.ambiente?.toUpperCase()}
+          </span>
+        )}
+      </div>
+
+      {aberto && (
+        <div style={{ marginTop: 20 }}>
+          <p style={{ fontSize: 12, color: "var(--color-text-secondary)", margin: "0 0 16px", lineHeight: 1.6 }}>
+            Chave Asaas da conta UseFokio para gerar cobranças de assinatura (R$49/mês) para os fotógrafos.
+            Separada do Asaas dos fotógrafos.
+          </p>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 10, maxWidth: 440 }}>
+            <input
+              type="password"
+              value={apiKey}
+              onChange={(e) => setApiKey(e.target.value)}
+              placeholder={config?.configurado ? "••••••••• (chave já salva — cole nova para alterar)" : "API Key Asaas ($aact_...)"}
+              style={{ padding: "9px 12px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", fontSize: 12, fontFamily: "monospace", background: "var(--color-background-secondary)", color: "var(--color-text-primary)" }}
+            />
+            <select
+              value={ambiente}
+              onChange={(e) => setAmbiente(e.target.value)}
+              style={{ padding: "9px 12px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", fontSize: 12, background: "var(--color-background-secondary)", color: "var(--color-text-primary)", width: 200 }}
+            >
+              <option value="sandbox">Sandbox (testes)</option>
+              <option value="producao">Produção</option>
+            </select>
+            <button
+              onClick={salvar}
+              disabled={salvando || !apiKey.trim()}
+              style={{ padding: "9px 18px", borderRadius: 8, border: "none", background: "#2563EB", color: "#fff", fontSize: 12, fontWeight: 700, cursor: apiKey.trim() && !salvando ? "pointer" : "not-allowed", width: "fit-content", opacity: apiKey.trim() && !salvando ? 1 : 0.6 }}
+            >
+              {salvando ? "Validando…" : "Salvar e conectar"}
+            </button>
+            {msg && <div style={{ fontSize: 12, color: msg.startsWith("❌") ? "#EF4444" : "#059669" }}>{msg}</div>}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Recursos disponíveis por fotógrafo (checkboxes) ──────────────────────────
 const RECURSOS_LABELS: { chave: string; label: string }[] = [
   { chave: "album",      label: "Álbum" },
@@ -346,6 +435,7 @@ export default function WebmasterPage() {
   const [excluindo, setExcluindo]         = useState(false);
   const [erroExcluir, setErroExcluir]     = useState("");
   const [resetando, setResetando]         = useState<string | null>(null);
+  const [ativando,  setAtivando]          = useState<string | null>(null);
 
   // Verifica se é webmaster
   useEffect(() => {
@@ -392,6 +482,20 @@ export default function WebmasterPage() {
   async function sair() {
     await createClient().auth.signOut();
     router.push("/login");
+  }
+
+  async function ativarPlano(fotografoId: string, plano: string) {
+    if (!confirm(`Ativar plano "${plano}" manualmente por 31 dias?`)) return;
+    setAtivando(fotografoId);
+    const supabase = createClient();
+    const { data: { session } } = await supabase.auth.getSession();
+    await fetch("/api/webmaster/ativar-plano", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token ?? ""}` },
+      body: JSON.stringify({ fotografo_id: fotografoId, plano, dias: 31 }),
+    });
+    await carregarStats();
+    setAtivando(null);
   }
 
   async function resetarContaTeste(id: string) {
@@ -493,6 +597,9 @@ export default function WebmasterPage() {
             </div>
           ))}
         </div>
+
+        {/* Config Asaas do Sistema */}
+        <SecaoSistema />
 
         {/* Pagamentos / Doações */}
         <SecaoPagamentos />
@@ -703,6 +810,16 @@ export default function WebmasterPage() {
                           >
                             Excluir
                           </button>
+                          {f.plano !== "profissional" && (
+                            <button
+                              onClick={() => ativarPlano(f.id, "profissional")}
+                              disabled={ativando === f.id}
+                              title="Ativar plano Profissional manualmente"
+                              style={{ padding: "4px 10px", borderRadius: 6, border: "0.5px solid rgba(37,99,235,0.4)", background: "rgba(37,99,235,0.08)", color: "#2563EB", fontSize: 11, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}
+                            >
+                              {ativando === f.id ? "…" : "✓ Ativar Pro"}
+                            </button>
+                          )}
                           {f.email === "fernando.agrelaws@gmail.com" && (
                             <button
                               onClick={() => resetarContaTeste(f.id)}

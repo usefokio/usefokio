@@ -9,12 +9,19 @@ import { PLANOS, pctUso, corBarra, limiteEfetivo, type PlanoId } from "@/lib/pla
 type UsoPorRecurso = {
   selecao: number;
   entrega: number;
-  album: number;
+};
+
+type PixData = {
+  assinaturaId:  string;
+  invoiceUrl:    string;
+  pixCopiaECola: string | null;
+  pixQrCodeUrl:  string | null;
+  expiresAt:     string | null;
 };
 
 function useToast() {
   const [msg, setMsg] = useState<string | null>(null);
-  function toast(m: string) { setMsg(m); setTimeout(() => setMsg(null), 3000); }
+  function toast(m: string) { setMsg(m); setTimeout(() => setMsg(null), 3500); }
   return { msg, toast };
 }
 
@@ -44,43 +51,157 @@ function BarraRecurso({ label, icone, qtd, total, cor }: {
   );
 }
 
+// ─── Modal de checkout PIX ─────────────────────────────────────────────────────
+function ModalCheckout({ onClose }: { onClose: () => void }) {
+  const [etapa, setEtapa]     = useState<"carregando" | "pix" | "erro">("carregando");
+  const [pix,   setPix]       = useState<PixData | null>(null);
+  const [erro,  setErro]      = useState("");
+  const [copiado, setCopiado] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res  = await fetch("/api/assinaturas/criar", { method: "POST" });
+        const json = await res.json();
+        if (!res.ok) { setErro(json.error ?? "Erro ao gerar cobrança."); setEtapa("erro"); return; }
+        setPix(json);
+        setEtapa("pix");
+      } catch {
+        setErro("Falha de conexão. Tente novamente.");
+        setEtapa("erro");
+      }
+    })();
+  }, []);
+
+  async function copiar() {
+    if (!pix?.pixCopiaECola) return;
+    await navigator.clipboard.writeText(pix.pixCopiaECola);
+    setCopiado(true);
+    setTimeout(() => setCopiado(false), 2000);
+  }
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 300 }}
+      onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 14, padding: "28px 30px", width: 420, maxWidth: "calc(100vw - 40px)", boxShadow: "0 8px 40px rgba(0,0,0,0.25)" }}>
+
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+          <div>
+            <div style={{ fontSize: 16, fontWeight: 800, color: "var(--color-text-primary)", letterSpacing: "-0.02em" }}>
+              Plano Profissional
+            </div>
+            <div style={{ fontSize: 13, color: "var(--color-text-secondary)", marginTop: 2 }}>
+              R$49/mês · 10.000 fotos
+            </div>
+          </div>
+          <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 18, color: "var(--color-text-secondary)", padding: 4, lineHeight: 1 }}>✕</button>
+        </div>
+
+        {etapa === "carregando" && (
+          <div style={{ textAlign: "center", padding: "32px 0", color: "var(--color-text-secondary)", fontSize: 13 }}>
+            Gerando PIX…
+          </div>
+        )}
+
+        {etapa === "erro" && (
+          <div>
+            <div style={{ padding: "14px 16px", background: "rgba(239,68,68,0.07)", borderRadius: 10, border: "0.5px solid rgba(239,68,68,0.2)", fontSize: 13, color: "#DC2626", marginBottom: 16, lineHeight: 1.5 }}>
+              {erro}
+            </div>
+            <button onClick={onClose} style={{ width: "100%", padding: "10px", borderRadius: 9, border: "0.5px solid var(--color-border-secondary)", background: "transparent", fontSize: 13, color: "var(--color-text-secondary)", cursor: "pointer" }}>
+              Fechar
+            </button>
+          </div>
+        )}
+
+        {etapa === "pix" && pix && (
+          <>
+            {pix.pixQrCodeUrl ? (
+              <div style={{ textAlign: "center", marginBottom: 18 }}>
+                <img src={pix.pixQrCodeUrl} alt="QR Code PIX" style={{ width: 200, height: 200, borderRadius: 10, border: "0.5px solid var(--color-border-secondary)", padding: 8, background: "#fff" }} />
+              </div>
+            ) : (
+              <div style={{ textAlign: "center", padding: "20px 0 18px", fontSize: 13, color: "var(--color-text-secondary)" }}>
+                Use o código abaixo para pagar via PIX
+              </div>
+            )}
+
+            {pix.pixCopiaECola && (
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>
+                  PIX Copia e Cola
+                </div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <input
+                    readOnly
+                    value={pix.pixCopiaECola}
+                    style={{ flex: 1, padding: "8px 10px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", fontSize: 11, fontFamily: "monospace", background: "var(--color-background-secondary)", color: "var(--color-text-primary)", overflow: "hidden", textOverflow: "ellipsis" }}
+                    onClick={(e) => (e.target as HTMLInputElement).select()}
+                  />
+                  <button onClick={copiar} style={{ padding: "8px 14px", borderRadius: 8, border: "none", background: copiado ? "#059669" : "#2563EB", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer", flexShrink: 0, transition: "background 0.15s" }}>
+                    {copiado ? "✓ Copiado" : "Copiar"}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {pix.invoiceUrl && (
+              <a href={pix.invoiceUrl} target="_blank" rel="noopener noreferrer"
+                style={{ display: "block", textAlign: "center", padding: "10px", borderRadius: 9, background: "#2563EB", color: "#fff", fontSize: 13, fontWeight: 700, textDecoration: "none", marginBottom: 12 }}>
+                Pagar via link Asaas
+              </a>
+            )}
+
+            <div style={{ padding: "10px 14px", background: "var(--color-background-secondary)", borderRadius: 8, fontSize: 11, color: "var(--color-text-secondary)", lineHeight: 1.5 }}>
+              Após o pagamento, seu plano será ativado automaticamente em alguns segundos.
+              {pix.expiresAt && ` PIX válido até ${new Date(pix.expiresAt).toLocaleString("pt-BR")}.`}
+            </div>
+
+            <button onClick={onClose} style={{ width: "100%", padding: "10px", borderRadius: 9, border: "0.5px solid var(--color-border-secondary)", background: "transparent", fontSize: 12, color: "var(--color-text-secondary)", cursor: "pointer", marginTop: 12 }}>
+              Fechar e pagar depois
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── Página ───────────────────────────────────────────────────────────────────
 export default function PlanoPage() {
-  const router         = useRouter();
-  const { fotografo }  = useFotografo();
-  const { msg, toast } = useToast();
+  const router           = useRouter();
+  const { fotografo }    = useFotografo();
+  const { msg, toast }   = useToast();
 
-  const [uso,         setUso]         = useState<UsoPorRecurso | null>(null);
+  const [uso,           setUso]           = useState<UsoPorRecurso | null>(null);
   const [carregandoUso, setCarregandoUso] = useState(true);
+  const [planoExpiraEm, setPlanoExpiraEm] = useState<string | null>(null);
+  const [modalCheckout, setModalCheckout] = useState(false);
 
   useEffect(() => {
     if (!fotografo) return;
     const supabase = createClient();
 
     Promise.all([
-      // Fotos de seleção
       supabase
         .from("galerias_selecao_fotos")
         .select("id, galeria_id, galerias_selecao!inner(fotografo_id)", { count: "exact", head: true })
         .eq("galerias_selecao.fotografo_id", fotografo.id),
 
-      // Fotos de entrega
       supabase
         .from("galerias_entrega_fotos")
         .select("id, galeria_id, galerias_entrega!inner(fotografo_id)", { count: "exact", head: true })
         .eq("galerias_entrega.fotografo_id", fotografo.id),
 
-      // Lâminas de álbum
       supabase
-        .from("album_laminas")
-        .select("id, selecao_id, album_selecoes!inner(fotografo_id)", { count: "exact", head: true })
-        .eq("album_selecoes.fotografo_id", fotografo.id),
-    ]).then(([sel, ent, alb]) => {
-      setUso({
-        selecao: sel.count ?? 0,
-        entrega: ent.count ?? 0,
-        album:   alb.count ?? 0,
-      });
+        .from("fotografos")
+        .select("plano_expira_em")
+        .eq("id", fotografo.id)
+        .maybeSingle(),
+    ]).then(([sel, ent, expRow]) => {
+      setUso({ selecao: sel.count ?? 0, entrega: ent.count ?? 0 });
+      const row = expRow.data as { plano_expira_em: string | null } | null;
+      setPlanoExpiraEm(row?.plano_expira_em ?? null);
       setCarregandoUso(false);
     });
   }, [fotografo]);
@@ -90,14 +211,16 @@ export default function PlanoPage() {
   );
 
   const planoAtual  = PLANOS[fotografo.plano as PlanoId] ?? PLANOS.gratuito;
-  // Usa o total real calculado do banco (total_fotos_usadas já foi recalculado)
   const usadas      = fotografo.total_fotos_usadas ?? 0;
   const limiteAtual = limiteEfetivo(planoAtual, fotografo.limite_fotos_custom);
   const pct         = pctUso(usadas, planoAtual, fotografo.limite_fotos_custom);
   const barCor      = pct !== null ? corBarra(pct) : "#2563EB";
   const planosLista = Object.values(PLANOS);
+  const totalUso    = uso ? uso.selecao + uso.entrega : usadas;
 
-  const totalUso = uso ? uso.selecao + uso.entrega : usadas;
+  const diasParaExpirar = planoExpiraEm
+    ? Math.ceil((new Date(planoExpiraEm).getTime() - Date.now()) / 86400000)
+    : null;
 
   return (
     <div style={{ padding: "26px 30px", maxWidth: 860 }}>
@@ -106,6 +229,10 @@ export default function PlanoPage() {
         <div style={{ position: "fixed", top: 20, right: 24, zIndex: 999, background: "var(--color-text-primary)", color: "var(--color-background-primary)", padding: "12px 20px", borderRadius: 10, fontSize: 13, fontWeight: 600, boxShadow: "0 4px 20px rgba(0,0,0,0.15)", animation: "fadeIn 0.2s ease" }}>
           {msg}
         </div>
+      )}
+
+      {modalCheckout && (
+        <ModalCheckout onClose={() => setModalCheckout(false)} />
       )}
 
       {/* Header */}
@@ -134,9 +261,22 @@ export default function PlanoPage() {
             </div>
           </div>
           <div style={{ textAlign: "right", flexShrink: 0 }}>
-            <div style={{ fontSize: 18, fontWeight: 800, color: "#2563EB", letterSpacing: "-0.02em" }}>
-              Fase beta — gratuito
-            </div>
+            {planoAtual.preco === 0 ? (
+              <div style={{ fontSize: 18, fontWeight: 800, color: "#059669", letterSpacing: "-0.02em" }}>Gratuito</div>
+            ) : (
+              <div>
+                <div style={{ fontSize: 18, fontWeight: 800, color: "#2563EB", letterSpacing: "-0.02em" }}>
+                  R${planoAtual.preco}/mês
+                </div>
+                {diasParaExpirar !== null && (
+                  <div style={{ fontSize: 12, fontWeight: 600, color: diasParaExpirar <= 7 ? "#EF4444" : "var(--color-text-secondary)", marginTop: 4 }}>
+                    {diasParaExpirar > 0
+                      ? `Ativo por mais ${diasParaExpirar} dia${diasParaExpirar !== 1 ? "s" : ""}`
+                      : "Expirado"}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
@@ -174,20 +314,8 @@ export default function PlanoPage() {
             <div style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>Calculando…</div>
           ) : (
             <>
-              <BarraRecurso
-                label="Galerias de Seleção"
-                icone="🖼"
-                qtd={uso?.selecao ?? 0}
-                total={totalUso}
-                cor="#2563EB"
-              />
-              <BarraRecurso
-                label="Galerias de Entrega"
-                icone="📦"
-                qtd={uso?.entrega ?? 0}
-                total={totalUso}
-                cor="#059669"
-              />
+              <BarraRecurso label="Galerias de Seleção" icone="🖼" qtd={uso?.selecao ?? 0} total={totalUso} cor="#2563EB" />
+              <BarraRecurso label="Galerias de Entrega"  icone="📦" qtd={uso?.entrega ?? 0} total={totalUso} cor="#059669" />
             </>
           )}
         </div>
@@ -204,10 +332,7 @@ export default function PlanoPage() {
             const isUpgrade = planoIdx > atualIdx;
 
             return (
-              <div
-                key={p.id}
-                style={{ background: "var(--color-background-primary)", border: isAtual ? `2px solid ${p.cor}` : "0.5px solid var(--color-border-tertiary)", borderRadius: 14, padding: "22px 22px 20px", display: "flex", flexDirection: "column", position: "relative", transition: "border 0.15s" }}
-              >
+              <div key={p.id} style={{ background: "var(--color-background-primary)", border: isAtual ? `2px solid ${p.cor}` : "0.5px solid var(--color-border-tertiary)", borderRadius: 14, padding: "22px 22px 20px", display: "flex", flexDirection: "column", position: "relative", transition: "border 0.15s" }}>
                 {p.badge && (
                   <div style={{ position: "absolute", top: -1, right: 20, background: p.cor, color: "#fff", fontSize: 9, fontWeight: 800, letterSpacing: "0.08em", padding: "3px 9px", borderRadius: "0 0 8px 8px" }}>
                     {p.badge.toUpperCase()}
@@ -216,8 +341,8 @@ export default function PlanoPage() {
                 <div style={{ marginBottom: 14 }}>
                   <div style={{ fontSize: 14, fontWeight: 700, color: "var(--color-text-primary)", marginBottom: 4 }}>{p.nome}</div>
                   <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginBottom: 10 }}>{p.descricao}</div>
-                  <div style={{ fontSize: 18, fontWeight: 800, color: p.cor, letterSpacing: "-0.02em", lineHeight: 1 }}>
-                    Fase beta
+                  <div style={{ fontSize: 22, fontWeight: 800, color: p.cor, letterSpacing: "-0.02em", lineHeight: 1 }}>
+                    {p.preco === 0 ? "Gratuito" : `R$${p.preco}/mês`}
                   </div>
                 </div>
                 <ul style={{ listStyle: "none", padding: 0, margin: "0 0 18px", flex: 1 }}>
@@ -234,12 +359,12 @@ export default function PlanoPage() {
                   </div>
                 ) : isUpgrade ? (
                   <button
-                    onClick={() => toast("Em breve! Pagamentos serão habilitados em breve.")}
+                    onClick={() => setModalCheckout(true)}
                     style={{ padding: "9px", borderRadius: 9, border: "none", background: p.cor, color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer", transition: "opacity 0.15s" }}
                     onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.88")}
                     onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
                   >
-                    ↑ Fazer upgrade
+                    ↑ Fazer upgrade — R${p.preco}/mês
                   </button>
                 ) : (
                   <button
@@ -253,10 +378,6 @@ export default function PlanoPage() {
             );
           })}
         </div>
-      </div>
-
-      <div style={{ marginTop: 24, padding: "14px 18px", background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 10, fontSize: 12, color: "var(--color-text-secondary)", lineHeight: 1.6 }}>
-        🚀 <strong>Estamos em fase beta.</strong> Durante o período de testes o uso é gratuito. Os valores e o faturamento dos planos serão divulgados em breve.
       </div>
 
       <style>{`@keyframes fadeIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }`}</style>
