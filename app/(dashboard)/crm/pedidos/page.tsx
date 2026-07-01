@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { fetchAllRows } from "@/lib/supabase/fetchAll";
 import { useFotografo } from "@/lib/context/FotografoContext";
-import { useWindowWidth } from "@/lib/hooks/useWindowWidth";
+import { useWindowWidth, TABLET } from "@/lib/hooks/useWindowWidth";
 import { usePersistState } from "@/lib/hooks/usePersistState";
 import { PEDIDO_STATUS_MAP } from "@/lib/constants/statusMaps";
 import { formatBRL, formatData } from "@/lib/utils/format";
@@ -43,6 +43,7 @@ export default function PedidosPage() {
   const [status,     setStatus]     = usePersistState<StatusFiltro>("pedidos:status",   "");
   const [catFiltro,  setCatFiltro]  = usePersistState("pedidos:catFiltro", "");
   const largura = useWindowWidth();
+  const isMobile = largura < TABLET;
   const [sortCol, setSortCol] = usePersistState("pedidos:sortCol", "created_at");
   const [sortDir, setSortDir] = usePersistState<"asc" | "desc">("pedidos:sortDir", "desc");
   const toggleSort = (col: string) => {
@@ -146,7 +147,7 @@ export default function PedidosPage() {
     : [{ label: "Nº", col: "numero" }, { label: "Pedido", col: "nome" }, { label: "Status", col: "status" }, { label: "", col: "" }];
 
   return (
-    <div style={{ padding: "28px 32px", maxWidth: 1100, fontFamily: "var(--font-sans)" }}>
+    <div style={{ padding: isMobile ? "16px" : "28px 32px", maxWidth: 1100, fontFamily: "var(--font-sans)" }}>
 
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>

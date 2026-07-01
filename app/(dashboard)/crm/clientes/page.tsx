@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { fetchAllRows } from "@/lib/supabase/fetchAll";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { IcoEdit, IcoTrash, IcoOpen } from "@/app/(dashboard)/crm/_components/Icons";
+import { useWindowWidth, TABLET } from "@/lib/hooks/useWindowWidth";
 import { Paginacao } from "@/app/(dashboard)/crm/_components/Paginacao";
 import { usePersistState } from "@/lib/hooks/usePersistState";
 import type { Cliente } from "@/lib/supabase/types";
@@ -31,6 +32,7 @@ const TIPO_MAP: Record<string, { label: string; color: string; bg: string }> = {
 export default function CrmClientesPage() {
   const { fotografo } = useFotografo();
   const router = useRouter();
+  const isMobile = useWindowWidth() < TABLET;
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [loading,  setLoading]  = useState(true);
   const [page,     setPage]     = useState(1);
@@ -118,7 +120,7 @@ export default function CrmClientesPage() {
   };
 
   return (
-    <div style={{ padding: "28px 32px", maxWidth: 1100, fontFamily: "var(--font-sans)" }}>
+    <div style={{ padding: isMobile ? "16px" : "28px 32px", maxWidth: 1100, fontFamily: "var(--font-sans)" }}>
       {/* Header */}
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 20 }}>
         <div>
@@ -131,7 +133,7 @@ export default function CrmClientesPage() {
         </div>
         <button
           onClick={() => router.push("/crm/clientes/novo")}
-          style={{ padding: "9px 18px", background: "#111", color: "#fff", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer" }}
+          style={{ padding: "9px 18px", background: "#111", color: "#fff", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}
         >
           + Novo contato
         </button>
@@ -178,7 +180,7 @@ export default function CrmClientesPage() {
                   { label: "Nome", col: "nome" }, { label: "Email", col: "email" },
                   { label: "Telefone", col: "telefone" }, { label: "Empresa", col: "empresa" },
                   { label: "Tipo", col: "tipo_contato" }, { label: "", col: "" },
-                ] as const).map(({ label, col }) => (
+                ] as const).filter(({ col }) => !isMobile || !["email", "telefone", "empresa"].includes(col)).map(({ label, col }) => (
                   <th key={label || "acoes"} onClick={() => col && toggleSort(col)} style={col ? thSort(col) : { ...thSort(""), cursor: "default" }}>
                     {label}
                     {col && sortCol === col && <span style={{ fontSize: 9, opacity: 0.7, marginLeft: 3 }}>{sortDir === "asc" ? "↑" : "↓"}</span>}
@@ -198,10 +200,15 @@ export default function CrmClientesPage() {
                   >
                     <td style={cell} onClick={() => router.push(`/crm/clientes/${c.id}`)}>
                       <span style={{ fontWeight: 500 }}>{c.nome}</span>
+                      {isMobile && (c.email || c.telefone || c.whatsapp) && (
+                        <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 1 }}>
+                          {c.email ?? c.telefone ?? c.whatsapp}
+                        </div>
+                      )}
                     </td>
-                    <td style={{ ...cell, color: "var(--color-text-secondary)" }} onClick={() => router.push(`/crm/clientes/${c.id}`)}>{c.email ?? "—"}</td>
-                    <td style={{ ...cell, color: "var(--color-text-secondary)" }} onClick={() => router.push(`/crm/clientes/${c.id}`)}>{c.telefone ?? c.whatsapp ?? "—"}</td>
-                    <td style={{ ...cell, color: "var(--color-text-secondary)" }} onClick={() => router.push(`/crm/clientes/${c.id}`)}>{c.empresa ?? "—"}</td>
+                    {!isMobile && <td style={{ ...cell, color: "var(--color-text-secondary)" }} onClick={() => router.push(`/crm/clientes/${c.id}`)}>{c.email ?? "—"}</td>}
+                    {!isMobile && <td style={{ ...cell, color: "var(--color-text-secondary)" }} onClick={() => router.push(`/crm/clientes/${c.id}`)}>{c.telefone ?? c.whatsapp ?? "—"}</td>}
+                    {!isMobile && <td style={{ ...cell, color: "var(--color-text-secondary)" }} onClick={() => router.push(`/crm/clientes/${c.id}`)}>{c.empresa ?? "—"}</td>}
                     <td style={cell} onClick={() => router.push(`/crm/clientes/${c.id}`)}>
                       <span style={{ fontSize: 11, fontWeight: 500, color: tipo.color, background: tipo.bg, padding: "2px 8px", borderRadius: 10 }}>
                         {tipo.label}

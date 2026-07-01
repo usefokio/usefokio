@@ -9,6 +9,7 @@ import { Paginacao } from "@/app/(dashboard)/crm/_components/Paginacao";
 import { usePersistState } from "@/lib/hooks/usePersistState";
 import type { CrmProduct, CrmProductCategory } from "@/lib/supabase/types";
 import { fetchAllRows } from "@/lib/supabase/fetchAll";
+import { useWindowWidth, TABLET } from "@/lib/hooks/useWindowWidth";
 
 const btnIcon = (extra?: React.CSSProperties): React.CSSProperties => ({
   display: "flex", alignItems: "center", justifyContent: "center",
@@ -22,6 +23,7 @@ const btnIcon = (extra?: React.CSSProperties): React.CSSProperties => ({
 export default function ProdutosPage() {
   const router                              = useRouter();
   const { fotografo }                       = useFotografo();
+  const isMobile = useWindowWidth() < TABLET;
   const [produtos,   setProdutos]   = useState<CrmProduct[]>([]);
   const [categorias, setCategorias] = useState<CrmProductCategory[]>([]);
   const [loading,    setLoading]    = useState(true);
@@ -103,7 +105,7 @@ export default function ProdutosPage() {
   };
 
   return (
-    <div style={{ padding: "28px 32px", maxWidth: 1100, fontFamily: "var(--font-sans)" }}>
+    <div style={{ padding: isMobile ? "16px" : "28px 32px", maxWidth: 1100, fontFamily: "var(--font-sans)" }}>
 
       {/* Cabeçalho */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
@@ -164,7 +166,7 @@ export default function ProdutosPage() {
                   { label: "Categoria", col: "categoria" }, { label: "Preço", col: "preco" },
                   { label: "Pacote", col: "pacote" }, { label: "Status", col: "ativo" },
                   { label: "", col: "" },
-                ] as const).map(({ label, col }) => (
+                ] as const).filter(({ col }) => !isMobile || !["codigo", "categoria", "pacote"].includes(col)).map(({ label, col }) => (
                   <th key={label || "acoes"} onClick={() => col && toggleSort(col)} style={col ? thSort() : { ...thSort(), cursor: "default" }}>
                     {label}
                     {col && sortCol === col && <span style={{ fontSize: 9, opacity: 0.7, marginLeft: 3 }}>{sortDir === "asc" ? "↑" : "↓"}</span>}
@@ -180,7 +182,7 @@ export default function ProdutosPage() {
                   onMouseEnter={(e) => (e.currentTarget.style.background = "var(--color-background-secondary)")}
                   onMouseLeave={(e) => (e.currentTarget.style.background = "var(--color-background-primary)")}
                 >
-                  <td style={{ padding: "10px 14px", color: "var(--color-text-secondary)", fontFamily: "var(--font-mono)", fontSize: 12 }}>{p.codigo ?? "—"}</td>
+                  {!isMobile && <td style={{ padding: "10px 14px", color: "var(--color-text-secondary)", fontFamily: "var(--font-mono)", fontSize: 12 }}>{p.codigo ?? "—"}</td>}
                   <td style={{ padding: "10px 14px", fontWeight: 500, color: "var(--color-text-primary)" }}>
                     {p.nome}
                     {!p.conta_vendas_id && (
@@ -189,11 +191,13 @@ export default function ProdutosPage() {
                     {p.pacote && <span style={{ marginLeft: 6, fontSize: 10, padding: "2px 6px", borderRadius: 10, background: "rgba(37,99,235,0.1)", color: "#2563EB", fontWeight: 600 }}>pacote</span>}
                     {p.tags?.length > 0 && <span style={{ marginLeft: 6, fontSize: 10, color: "var(--color-text-secondary)" }}>{p.tags.join(", ")}</span>}
                   </td>
-                  <td style={{ padding: "10px 14px", color: "var(--color-text-secondary)" }}>{p.categoria ?? "—"}</td>
+                  {!isMobile && <td style={{ padding: "10px 14px", color: "var(--color-text-secondary)" }}>{p.categoria ?? "—"}</td>}
                   <td style={{ padding: "10px 14px", fontWeight: 600, color: "var(--color-text-primary)", whiteSpace: "nowrap" }}>{fmt(p.preco)}</td>
-                  <td style={{ padding: "10px 14px" }}>
-                    {p.pacote ? <span style={{ fontSize: 11, color: "#2563EB" }}>Sim</span> : <span style={{ fontSize: 11, color: "var(--color-text-secondary)" }}>Não</span>}
-                  </td>
+                  {!isMobile && (
+                    <td style={{ padding: "10px 14px" }}>
+                      {p.pacote ? <span style={{ fontSize: 11, color: "#2563EB" }}>Sim</span> : <span style={{ fontSize: 11, color: "var(--color-text-secondary)" }}>Não</span>}
+                    </td>
+                  )}
                   <td style={{ padding: "10px 14px" }}>
                     <span
                       onClick={() => toggleAtivo(p)}

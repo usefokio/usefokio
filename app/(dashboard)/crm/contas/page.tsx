@@ -8,6 +8,7 @@ import { Field } from "@/components/ui/Field";
 import { inputStyle } from "@/lib/styles";
 import { isValidDate, mascaraValor, parsearValor } from "@/lib/utils/format";
 import type { CrmContaBancaria } from "@/lib/supabase/types";
+import { useWindowWidth, TABLET } from "@/lib/hooks/useWindowWidth";
 
 const TIPOS: { value: CrmContaBancaria["tipo"]; label: string }[] = [
   { value: "conta_corrente", label: "Conta Corrente" },
@@ -43,6 +44,7 @@ const EMPTY: FormData = {
 export default function ContasBancariasPage() {
   const { fotografo } = useFotografo();
   const router = useRouter();
+  const isMobile = useWindowWidth() < TABLET;
 
   const [contas,   setContas]   = useState<CrmContaBancaria[]>([]);
   const [saldos,   setSaldos]   = useState<Record<string, SaldoConta>>({});
@@ -171,7 +173,7 @@ export default function ContasBancariasPage() {
   };
 
   return (
-    <div style={{ padding: "28px 32px", maxWidth: 900, fontFamily: "var(--font-sans)" }}>
+    <div style={{ padding: isMobile ? "16px" : "28px 32px", maxWidth: 900, fontFamily: "var(--font-sans)" }}>
 
       {/* Cabeçalho */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
@@ -183,16 +185,16 @@ export default function ContasBancariasPage() {
             Contas utilizadas nas movimentações financeiras do CRM
           </p>
         </div>
-        <div style={{ display: "flex", gap: 10 }}>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
           <button
             onClick={() => { setTransfData(hoje); setTransfErro(""); setModalTransf(true); }}
-            style={{ padding: "9px 18px", borderRadius: 8, background: "transparent", color: "var(--color-text-primary)", border: "0.5px solid var(--color-border-secondary)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}
+            style={{ padding: "9px 18px", borderRadius: 8, background: "transparent", color: "var(--color-text-primary)", border: "0.5px solid var(--color-border-secondary)", fontSize: 13, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}
           >
             Transferência
           </button>
           <button
             onClick={abrirNova}
-            style={{ padding: "9px 18px", borderRadius: 8, background: "var(--color-text-primary)", color: "var(--color-background-primary)", border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer" }}
+            style={{ padding: "9px 18px", borderRadius: 8, background: "var(--color-text-primary)", color: "var(--color-background-primary)", border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}
           >
             + Nova conta
           </button>

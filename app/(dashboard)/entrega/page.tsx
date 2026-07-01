@@ -12,6 +12,7 @@ import { normalizar } from "@/lib/utils/normalizar";
 import { ModalEmailCliente } from "./_components/ModalEmailCliente";
 import { fetchAllRows } from "@/lib/supabase/fetchAll";
 import { deleteFilesClient } from "@/lib/storage/deleteClient";
+import { useWindowWidth, TABLET } from "@/lib/hooks/useWindowWidth";
 
 // ─── Helpers de status ────────────────────────────────────────────────────────
 type StatusEntrega = "ativo" | "expirando" | "expirado" | "sem_prazo" | "suspensa" | "rascunho";
@@ -135,6 +136,7 @@ function ModalExcluir({ titulo, onConfirmar, onFechar, deletando }: { titulo: st
 export default function EntregaPage() {
   const router = useRouter();
   const { fotografo } = useFotografo();
+  const isMobile = useWindowWidth() < TABLET;
 
   const [galerias,       setGalerias]       = useState<GaleriaEntrega[]>([]);
   const [loading,        setLoading]        = useState(true);
@@ -364,19 +366,19 @@ export default function EntregaPage() {
   });
 
   return (
-    <div style={{ padding: "26px 30px", maxWidth: 960 }}>
+    <div style={{ padding: isMobile ? "16px" : "26px 30px", maxWidth: 960 }}>
 
       {/* Header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 22 }}>
+      <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", justifyContent: "space-between", alignItems: isMobile ? "stretch" : "flex-start", marginBottom: 22, gap: isMobile ? 12 : 0 }}>
         <div>
           <h1 style={{ fontSize: 19, fontWeight: 600, color: "var(--color-text-primary)", margin: "0 0 3px", letterSpacing: "-0.02em" }}>Galerias de Entrega</h1>
           <p style={{ fontSize: 13, color: "var(--color-text-secondary)", margin: 0 }}>
             {loading ? "Carregando…" : `${galerias.length} galeria${galerias.length !== 1 ? "s" : ""}`}
           </p>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
           {/* Busca */}
-          <div style={{ position: "relative" }}>
+          <div style={{ position: "relative", flex: isMobile ? 1 : "none" }}>
             <span style={{ position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)", fontSize: 12, color: "var(--color-text-secondary)", pointerEvents: "none" }}>🔍</span>
             <input
               type="text"
@@ -384,10 +386,10 @@ export default function EntregaPage() {
               value={busca}
               onChange={(e) => setBusca(e.target.value)}
               style={{
-                fontSize: 12, padding: "5px 10px 5px 28px", borderRadius: 7, width: 180,
+                fontSize: 12, padding: "5px 10px 5px 28px", borderRadius: 7, width: isMobile ? "100%" : 180,
                 border: "0.5px solid var(--color-border-secondary)",
                 background: "var(--color-background-secondary)",
-                color: "var(--color-text-primary)", outline: "none",
+                color: "var(--color-text-primary)", outline: "none", boxSizing: "border-box",
               }}
             />
             {busca && (
@@ -396,7 +398,7 @@ export default function EntregaPage() {
           </div>
           {/* Ordenação */}
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>Ordenar:</span>
+            {!isMobile && <span style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>Ordenar:</span>}
             <select
               value={ordenacao}
               onChange={(e) => setOrdenacao(e.target.value as Ordenacao)}
@@ -411,7 +413,7 @@ export default function EntregaPage() {
               <option value="criado">Data de criação</option>
             </select>
           </div>
-          <Link href="/entrega/nova" style={{ padding: "9px 18px", borderRadius: 8, background: "var(--color-text-primary)", color: "var(--color-background-primary)", fontSize: 13, fontWeight: 600, textDecoration: "none", display: "flex", alignItems: "center", gap: 6 }}>
+          <Link href="/entrega/nova" style={{ padding: "9px 18px", borderRadius: 8, background: "var(--color-text-primary)", color: "var(--color-background-primary)", fontSize: 13, fontWeight: 600, textDecoration: "none", display: "flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" }}>
             + Nova entrega
           </Link>
         </div>

@@ -6,6 +6,7 @@ import { fetchAllRows } from "@/lib/supabase/fetchAll";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { GraficoPanorama } from "./_components/GraficoPanorama";
 import { GraficoMensal } from "./_components/GraficoMensal";
+import { useWindowWidth, TABLET } from "@/lib/hooks/useWindowWidth";
 
 type Conta = { id: string; codigo: string; nome: string };
 type Regime = "competencia" | "caixa";
@@ -53,6 +54,7 @@ function fmtSaldo(v: number) {
 
 export default function ResultadosPage() {
   const { fotografo } = useFotografo();
+  const isMobile = useWindowWidth() < TABLET;
   const anoAtual = new Date().getFullYear();
 
   const [ano,            setAno]            = useState(anoAtual);
@@ -446,7 +448,7 @@ export default function ResultadosPage() {
   const drillTotal = drillEntries.reduce((s, e) => s + e.valor, 0);
 
   return (
-    <div style={{ padding: "28px 32px", fontFamily: "var(--font-sans)", minWidth: 0 }}>
+    <div style={{ padding: isMobile ? "16px" : "28px 32px", fontFamily: "var(--font-sans)", minWidth: 0 }}>
 
       {/* Aviso: categorias sem mapeamento (competência) */}
       {naoMapeados.length > 0 && (

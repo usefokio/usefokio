@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
-import { useWindowWidth } from "@/lib/hooks/useWindowWidth";
+import { useWindowWidth, TABLET } from "@/lib/hooks/useWindowWidth";
 import { usePersistState } from "@/lib/hooks/usePersistState";
 import { formatBRL, isValidDate, mascaraValor, parsearValor } from "@/lib/utils/format";
 import { fetchAllRows } from "@/lib/supabase/fetchAll";
@@ -416,10 +416,18 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
 
   const finVerLarge  = largura >= 1100;
   const finVerMedium = largura >= 700 && largura < 1100;
+  const isMobile = largura < TABLET;
 
-  const finGrid = "50px 75px 100px 65px 115px 65px 1fr 1fr 85px 100px";
+  const finGrid = isMobile
+    ? "90px 1fr 80px 60px"
+    : "50px 75px 100px 65px 115px 65px 1fr 1fr 85px 100px";
 
-  const finCabecalhos = [
+  const finCabecalhos = isMobile ? [
+    { label: "Vencimento", col: "vencimento" },
+    { label: "Descrição",  col: "descricao" },
+    { label: "Valor",      col: "valor" },
+    { label: "",           col: "" },
+  ] : [
     { label: "#",          col: "" },
     { label: "Emissão",   col: "" },
     { label: "Vencimento", col: "vencimento" },
@@ -433,7 +441,7 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
   ];
 
   return (
-    <div style={{ padding: "28px 32px", maxWidth: 1100, fontFamily: "var(--font-sans)" }}>
+    <div style={{ padding: isMobile ? "16px" : "28px 32px", maxWidth: 1100, fontFamily: "var(--font-sans)" }}>
 
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
@@ -569,24 +577,46 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
 
             return (
               <div key={e.id} style={{ display: "grid", gridTemplateColumns: finGrid, padding: "11px 16px", borderBottom: i < paginadas.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", background: vencido ? "rgba(239,68,68,0.03)" : "var(--color-background-primary)", alignItems: "center" }}>
-                <div style={{ fontSize: 11, color: "var(--color-text-secondary)" }}>{e.legacy_id ?? "—"}</div>
-                <div style={{ fontSize: 11, color: "var(--color-text-secondary)" }}>{e.created_at ? fmtData(e.created_at.slice(0, 10)) : "—"}</div>
-                <div style={{ fontSize: 12, color: vencido ? "#EF4444" : "var(--color-text-secondary)", fontWeight: vencido ? 600 : 400 }}>
-                  {fmtData(e.vencimento)}
-                  {vencido && <div style={{ fontSize: 10 }}>Vencido</div>}
-                </div>
-                <div style={{ fontSize: 11, color: "var(--color-text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{e.num_documento ?? "—"}</div>
-                <div style={{ fontSize: 12, color: "var(--color-text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{e.forma_pagamento ?? "—"}</div>
-                <div style={{ fontSize: 11, color: "var(--color-text-secondary)" }}>{e.crm_orders?.numero ?? "—"}</div>
-                <div style={{ fontSize: 13, fontWeight: 500, color: "var(--color-text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{clienteNome ?? "—"}</div>
-                <div style={{ fontSize: 13, fontWeight: 500, color: "var(--color-text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{e.descricao}</div>
-                <div
-                  onClick={() => setDrillEntry(e)}
-                  title="Ver detalhes"
-                  style={{ fontSize: 13, fontWeight: 700, color: (aba === "receber" || aba === "recebidas") ? "#059669" : "#EF4444", cursor: "pointer", textDecoration: "underline dotted", textUnderlineOffset: 3 }}
-                >
-                  {fmt(e.valor)}
-                </div>
+                {isMobile ? (
+                  <>
+                    <div style={{ fontSize: 12, color: vencido ? "#EF4444" : "var(--color-text-secondary)", fontWeight: vencido ? 600 : 400 }}>
+                      {fmtData(e.vencimento)}
+                      {vencido && <div style={{ fontSize: 10 }}>Vencido</div>}
+                    </div>
+                    <div style={{ overflow: "hidden" }}>
+                      <div style={{ fontSize: 13, fontWeight: 500, color: "var(--color-text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{e.descricao}</div>
+                      {clienteNome && <div style={{ fontSize: 11, color: "var(--color-text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{clienteNome}</div>}
+                    </div>
+                    <div
+                      onClick={() => setDrillEntry(e)}
+                      title="Ver detalhes"
+                      style={{ fontSize: 13, fontWeight: 700, color: (aba === "receber" || aba === "recebidas") ? "#059669" : "#EF4444", cursor: "pointer", textDecoration: "underline dotted", textUnderlineOffset: 3 }}
+                    >
+                      {fmt(e.valor)}
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div style={{ fontSize: 11, color: "var(--color-text-secondary)" }}>{e.legacy_id ?? "—"}</div>
+                    <div style={{ fontSize: 11, color: "var(--color-text-secondary)" }}>{e.created_at ? fmtData(e.created_at.slice(0, 10)) : "—"}</div>
+                    <div style={{ fontSize: 12, color: vencido ? "#EF4444" : "var(--color-text-secondary)", fontWeight: vencido ? 600 : 400 }}>
+                      {fmtData(e.vencimento)}
+                      {vencido && <div style={{ fontSize: 10 }}>Vencido</div>}
+                    </div>
+                    <div style={{ fontSize: 11, color: "var(--color-text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{e.num_documento ?? "—"}</div>
+                    <div style={{ fontSize: 12, color: "var(--color-text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{e.forma_pagamento ?? "—"}</div>
+                    <div style={{ fontSize: 11, color: "var(--color-text-secondary)" }}>{e.crm_orders?.numero ?? "—"}</div>
+                    <div style={{ fontSize: 13, fontWeight: 500, color: "var(--color-text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{clienteNome ?? "—"}</div>
+                    <div style={{ fontSize: 13, fontWeight: 500, color: "var(--color-text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{e.descricao}</div>
+                    <div
+                      onClick={() => setDrillEntry(e)}
+                      title="Ver detalhes"
+                      style={{ fontSize: 13, fontWeight: 700, color: (aba === "receber" || aba === "recebidas") ? "#059669" : "#EF4444", cursor: "pointer", textDecoration: "underline dotted", textUnderlineOffset: 3 }}
+                    >
+                      {fmt(e.valor)}
+                    </div>
+                  </>
+                )}
                 {/* Ações */}
                 <div style={{ display: "flex", gap: 5, justifyContent: "flex-end", alignItems: "center" }}>
                   {(aba === "receber" || aba === "pagar") && (
@@ -639,7 +669,7 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
           <Paginacao pagina={page} total={ordenadas.length} pageSize={pageSize} onPagina={setPage} onPageSize={setPageSize} />
           {/* Linha totalizadora */}
           <div style={{ display: "grid", gridTemplateColumns: finGrid, padding: "11px 16px", borderTop: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-secondary)", alignItems: "center" }}>
-            <div style={{ gridColumn: "1 / 9", fontSize: 12, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+            <div style={{ gridColumn: isMobile ? "1 / 3" : "1 / 9", fontSize: 12, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
               {labelTotal} · {filtradas.length} lançamento{filtradas.length !== 1 ? "s" : ""}
             </div>
             <div style={{ fontSize: 14, fontWeight: 800, color: (aba === "receber" || aba === "recebidas") ? "#059669" : "#EF4444" }}>

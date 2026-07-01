@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { ModalEmailCliente } from "../_components/ModalEmailCliente";
 import type { EstagioFunil, GaleriaEntrega } from "@/lib/supabase/types";
+import { useWindowWidth, TABLET } from "@/lib/hooks/useWindowWidth";
 
 type CampanhaItem = {
   id: string;
@@ -65,6 +66,7 @@ const CORES_CAPA = ["#7C6E5A","#5A6E7C","#6E5A7C","#5A7C6E","#7C5A6E","#6E7C5A"]
 export default function CampanhaPage() {
   const router = useRouter();
   const { fotografo } = useFotografo();
+  const isMobile = useWindowWidth() < TABLET;
   const [itens,            setItens]            = useState<CampanhaItem[]>([]);
   const [pendentes,        setPendentes]        = useState<Set<string>>(new Set());
   const [pagosEm,          setPagosEm]          = useState<Record<string, string>>({});
@@ -224,7 +226,7 @@ export default function CampanhaPage() {
   }
 
   return (
-    <div style={{ padding: "26px 30px" }}>
+    <div style={{ padding: isMobile ? "16px" : "26px 30px" }}>
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24 }}>
         <div>
