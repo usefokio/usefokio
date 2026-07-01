@@ -349,14 +349,12 @@ export function ModalEmailCliente({ galeria, onFechar, templateInicial, onEstagi
   }
 
   async function abrirWhatsApp() {
-    if (!tokenInfo) return;
     const numero = galeria.clientes?.whatsapp ?? galeria.clientes?.telefone ?? null;
     if (numero) {
       const numLimpo = numero.replace(/\D/g, "");
       const prefixo  = numLimpo.startsWith("55") ? numLimpo : `55${numLimpo}`;
       window.open(`https://wa.me/${prefixo}?text=${encodeURIComponent(mensagem)}`);
-      // Campanha email_2: avança para whatsapp e fecha o modal
-      if (templateId === "campanha" && tokenInfo.estagio === "email_2") {
+      if (templateId === "campanha" && tokenInfo?.estagio === "email_2") {
         await avancarEstagio({ fecharDepois: true });
       }
     } else {
@@ -564,18 +562,19 @@ export function ModalEmailCliente({ galeria, onFechar, templateInicial, onEstagi
                 )}
               </div>
 
-              {/* Botão WhatsApp — só para template campanha, ativo só no estágio certo */}
-              {templateId === "campanha" && (() => {
-                const whatsHabilitado = tokenInfo?.estagio === "email_2";
+              {/* Botão WhatsApp */}
+              {(() => {
+                const whatsHabilitado = templateId !== "campanha" || tokenInfo?.estagio === "email_2";
                 const whatsLabel = whatsCopiado
                   ? "✓ Mensagem copiada!"
                   : (galeria.clientes?.whatsapp ?? galeria.clientes?.telefone)
                     ? "📱 Enviar via WhatsApp"
                     : "📋 Copiar para WhatsApp";
+                const title = !whatsHabilitado ? "Disponível após enviar os 2 emails" : undefined;
                 return (
                   <button
                     onClick={whatsHabilitado ? abrirWhatsApp : undefined}
-                    title={!whatsHabilitado ? "Disponível após enviar os 2 emails" : undefined}
+                    title={title}
                     style={{
                       width: "100%", padding: "9px 0", borderRadius: 8, fontSize: 13, fontWeight: 600,
                       border: "0.5px solid rgba(34,197,94,0.4)",
