@@ -95,6 +95,24 @@ export default function FinanceiroPage() {
     setAgindo(null);
   }
 
+  async function confirmar(id: string) {
+    if (!confirm("Confirmar pagamento manualmente e ativar o plano?")) return;
+    setAgindo(id);
+    const supabase = createClient();
+    const { data: { session } } = await supabase.auth.getSession();
+    const res = await fetch(`/api/webmaster/assinaturas/${id}/confirmar`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${session?.access_token ?? ""}` },
+    });
+    const json = await res.json();
+    if (!res.ok) setMsg("❌ " + (json.error ?? "Erro"));
+    else {
+      setMsg(`✅ Pago — plano ativo até ${json.expira ? new Date(json.expira).toLocaleDateString("pt-BR") : "—"}`);
+      setAssinaturas((prev) => prev.map((a) => a.id === id ? { ...a, status: "pago" } : a));
+    }
+    setAgindo(null);
+  }
+
   async function cancelar(id: string) {
     if (!confirm("Cancelar assinatura e rebaixar fotógrafo para gratuito?")) return;
     setAgindo(id);
@@ -284,6 +302,15 @@ export default function FinanceiroPage() {
                       </td>
                       <td style={{ padding: "10px 12px" }}>
                         <div style={{ display: "flex", gap: 5 }}>
+                          {a.status === "pendente" && (
+                            <button
+                              onClick={() => confirmar(a.id)}
+                              disabled={agindo === a.id}
+                              style={{ padding: "4px 10px", borderRadius: 6, border: "0.5px solid rgba(5,150,105,0.4)", background: "rgba(5,150,105,0.08)", color: "#059669", fontSize: 11, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}
+                            >
+                              {agindo === a.id ? "…" : "✓ Confirmar pag."}
+                            </button>
+                          )}
                           <button
                             onClick={() => estender(a.id, 30)}
                             disabled={agindo === a.id}
