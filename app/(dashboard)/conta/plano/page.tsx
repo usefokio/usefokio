@@ -43,10 +43,11 @@ function useToast() {
 }
 
 // ─── Barra de uso por recurso ─────────────────────────────────────────────────
-function BarraRecurso({ label, icone, qtd, total, cor }: {
-  label: string; icone: string; qtd: number; total: number; cor: string;
+function BarraRecurso({ label, icone, qtd, total, cor, unit = "foto" }: {
+  label: string; icone: string; qtd: number; total: number; cor: string; unit?: string;
 }) {
   const pct = total > 0 ? Math.round((qtd / total) * 100) : 0;
+  const unitLabel = qtd !== 1 ? (unit === "foto" ? "fotos" : unit + "s") : unit;
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
       <div style={{ width: 32, height: 32, borderRadius: 8, background: `${cor}15`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, flexShrink: 0 }}>
@@ -56,12 +57,12 @@ function BarraRecurso({ label, icone, qtd, total, cor }: {
         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
           <span style={{ fontSize: 12, fontWeight: 600, color: "var(--color-text-primary)" }}>{label}</span>
           <span style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>
-            {qtd.toLocaleString("pt-BR")} foto{qtd !== 1 ? "s" : ""}
+            {qtd.toLocaleString("pt-BR")} {unitLabel}
             {total > 0 && <span style={{ color: "var(--color-text-secondary)", opacity: 0.6 }}> · {pct}%</span>}
           </span>
         </div>
         <div style={{ height: 5, background: "rgba(0,0,0,0.07)", borderRadius: 3, overflow: "hidden" }}>
-          <div style={{ height: "100%", borderRadius: 3, background: cor, width: `${pct}%`, transition: "width 0.5s ease" }} />
+          {total > 0 && <div style={{ height: "100%", borderRadius: 3, background: cor, width: `${pct}%`, transition: "width 0.5s ease" }} />}
         </div>
       </div>
     </div>
@@ -228,9 +229,9 @@ export default function PlanoPage() {
         .eq("galerias_selecao.fotografo_id", fotografo.id),
 
       supabase
-        .from("galerias_entrega_fotos")
-        .select("id, galeria_id, galerias_entrega!inner(fotografo_id)", { count: "exact", head: true })
-        .eq("galerias_entrega.fotografo_id", fotografo.id),
+        .from("galerias_entrega")
+        .select("id", { count: "exact", head: true })
+        .eq("fotografo_id", fotografo.id),
 
       supabase
         .from("fotografos")
@@ -249,11 +250,13 @@ export default function PlanoPage() {
     <div style={{ padding: "40px 30px", fontSize: 13, color: "var(--color-text-secondary)" }}>Carregando…</div>
   );
 
-  const planoAtual  = PLANOS[fotografo.plano as PlanoId] ?? PLANOS.gratuito;
-  const usadas      = fotografo.total_fotos_usadas ?? 0;
-  const limiteAtual = limiteEfetivo(planoAtual, fotografo.limite_fotos_custom);
-  const pct         = pctUso(usadas, planoAtual, fotografo.limite_fotos_custom);
-  const barCor      = pct !== null ? corBarra(pct) : "#2563EB";
+  const planoAtual    = PLANOS[fotografo.plano as PlanoId] ?? PLANOS.gratuito;
+  const usadas        = fotografo.total_fotos_usadas ?? 0;
+  const limiteAtual   = limiteEfetivo(planoAtual, fotografo.limite_fotos_custom);
+  const pct           = pctUso(usadas, planoAtual, fotografo.limite_fotos_custom);
+  const barCor        = pct !== null ? corBarra(pct) : "#2563EB";
+  const planoDBAtual  = planosDB.find(p => p.codigo === fotografo.plano);
+  const limiteGalerias = planoDBAtual?.limite_galerias ?? null;
 
   const diasParaExpirar = planoExpiraEm
     ? Math.ceil((new Date(planoExpiraEm).getTime() - Date.now()) / 86400000)
@@ -358,7 +361,7 @@ export default function PlanoPage() {
           ) : (
             <>
               <BarraRecurso label="Galerias de Seleção" icone="🖼" qtd={uso?.selecao ?? 0} total={limiteAtual ?? 0} cor="#2563EB" />
-              <BarraRecurso label="Galerias de Entrega"  icone="📦" qtd={uso?.entrega ?? 0} total={limiteAtual ?? 0} cor="#059669" />
+              <BarraRecurso label="Galerias de Entrega"  icone="📦" qtd={uso?.entrega ?? 0} total={limiteGalerias ?? 0} cor="#059669" unit="galeria" />
             </>
           )}
         </div>
