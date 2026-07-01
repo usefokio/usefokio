@@ -312,6 +312,39 @@ export function templateRespostaCampanha(p: RespostaCampanhaParams): { subject: 
   };
 }
 
+// ─── 6. Reporte de suporte → webmaster ───────────────────────────────────────
+export type ReporteSuporteParams = {
+  nomeCompleto: string;
+  email:        string;
+  plano:        string;
+  paginaUrl:    string;
+  mensagem:     string;
+  dataHora:     string;
+};
+
+export function templateReporteSuporte(p: ReporteSuporteParams): { subject: string; html: string } {
+  return {
+    subject: `[Suporte] ${p.nomeCompleto} (${p.plano}) — reportou um problema`,
+    html: base(`
+      <h2 style="margin:0 0 8px; font-size:20px; color:#111; letter-spacing:-0.02em;">Novo reporte de problema 🛠</h2>
+      <p style="color:#555; font-size:14px; line-height:1.6; margin:0 0 20px;">
+        Um fotógrafo reportou um problema no sistema.
+      </p>
+      <div style="background:#fffbeb; border:1px solid #fde68a; border-radius:8px; padding:16px 20px; margin-bottom:16px;">
+        <p style="margin:0 0 6px; font-size:14px; color:#333;">👤 <strong>${p.nomeCompleto}</strong></p>
+        <p style="margin:0 0 6px; font-size:14px; color:#333;">📧 <a href="mailto:${p.email}" style="color:#2563EB;">${p.email}</a></p>
+        <p style="margin:0 0 6px; font-size:14px; color:#333;">🏷 Plano: <strong>${p.plano}</strong></p>
+        <p style="margin:0 0 6px; font-size:13px; color:#777;">🔗 <a href="${p.paginaUrl}" style="color:#2563EB; font-size:12px;">${p.paginaUrl}</a></p>
+        <p style="margin:0; font-size:12px; color:#999;">🕐 ${p.dataHora}</p>
+      </div>
+      <div style="background:#f5f5f5; border-radius:8px; padding:16px 20px;">
+        <p style="margin:0 0 8px; font-size:11px; font-weight:700; color:#777; text-transform:uppercase; letter-spacing:0.05em;">Mensagem</p>
+        <p style="margin:0; font-size:14px; color:#333; line-height:1.7; white-space:pre-wrap;">${p.mensagem.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</p>
+      </div>
+    `),
+  };
+}
+
 // ─── 3. Novo fotógrafo cadastrado → webmaster ─────────────────────────────────
 export type NovoCadastroParams = {
   nomeCompleto:  string;

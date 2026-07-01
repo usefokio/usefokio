@@ -2,6 +2,7 @@ import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
 import { FotografoProvider } from "@/lib/context/FotografoContext";
 import { DashboardGuard } from "./_components/DashboardGuard";
+import { BotaoSuporte } from "./_components/BotaoSuporte";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -21,6 +22,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <main style={{ flex: 1, overflowY: "auto" }}>{children}</main>
           </div>
         </div>
+        <BotaoSuporte />
       </DashboardGuard>
     </FotografoProvider>
   );
