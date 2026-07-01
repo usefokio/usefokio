@@ -196,42 +196,42 @@ export default function PlanosPage() {
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               <div>
                 <div style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", marginBottom: 4 }}>Nome</div>
-                <input style={inputStyle} value={modal.nome ?? ""} onChange={(e) => setModal({ ...modal, nome: e.target.value })} placeholder="Ex: Promoção Julho" />
+                <input style={inputStyle} value={modal.nome ?? ""} onChange={(e) => { const v = e.target.value; setModal((m) => m ? { ...m, nome: v } : m); }} placeholder="Ex: Promoção Julho" />
               </div>
               {!modal.id && (
                 <div>
                   <div style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", marginBottom: 4 }}>Código único</div>
-                  <input style={inputStyle} value={modal.codigo ?? ""} onChange={(e) => setModal({ ...modal, codigo: e.target.value })} placeholder="ex: campanha-jul26" />
+                  <input style={inputStyle} value={modal.codigo ?? ""} onChange={(e) => { const v = e.target.value; setModal((m) => m ? { ...m, codigo: v } : m); }} placeholder="ex: campanha-jul26" />
                 </div>
               )}
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                 <div>
                   <div style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", marginBottom: 4 }}>Preço mensal (R$)</div>
-                  <input style={inputStyle} type="number" value={modal.preco ?? ""} onChange={(e) => setModal({ ...modal, preco: Number(e.target.value) })} />
+                  <input style={inputStyle} type="number" value={modal.preco ?? ""} onChange={(e) => { const v = Number(e.target.value); setModal((m) => m ? { ...m, preco: v } : m); }} />
                 </div>
                 <div>
                   <div style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", marginBottom: 4 }}>Preço anual, valor/mês (R$)</div>
-                  <input style={inputStyle} type="number" value={modal.preco_anual ?? ""} onChange={(e) => setModal({ ...modal, preco_anual: e.target.value ? Number(e.target.value) : null })} placeholder="em branco = sem plano anual" />
+                  <input style={inputStyle} type="number" value={modal.preco_anual ?? ""} onChange={(e) => { const v = e.target.value ? Number(e.target.value) : null; setModal((m) => m ? { ...m, preco_anual: v } : m); }} placeholder="em branco = sem plano anual" />
                 </div>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                 <div>
                   <div style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", marginBottom: 4 }}>Duração (dias)</div>
-                  <input style={inputStyle} type="number" value={modal.duracao_dias ?? ""} onChange={(e) => setModal({ ...modal, duracao_dias: e.target.value ? Number(e.target.value) : null })} placeholder="31" />
+                  <input style={inputStyle} type="number" value={modal.duracao_dias ?? ""} onChange={(e) => { const v = e.target.value ? Number(e.target.value) : null; setModal((m) => m ? { ...m, duracao_dias: v } : m); }} placeholder="31" />
                 </div>
                 <div>
                   <div style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", marginBottom: 4 }}>Cor (hex)</div>
-                  <input style={inputStyle} value={modal.cor ?? "#2563EB"} onChange={(e) => setModal({ ...modal, cor: e.target.value })} />
+                  <input style={inputStyle} value={modal.cor ?? "#2563EB"} onChange={(e) => { const v = e.target.value; setModal((m) => m ? { ...m, cor: v } : m); }} />
                 </div>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                 <div>
                   <div style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", marginBottom: 4 }}>Limite de fotos</div>
-                  <input style={inputStyle} type="number" value={modal.limite_fotos ?? ""} onChange={(e) => setModal({ ...modal, limite_fotos: e.target.value ? Number(e.target.value) : null })} placeholder="em branco = ilimitado" />
+                  <input style={inputStyle} type="number" value={modal.limite_fotos ?? ""} onChange={(e) => { const v = e.target.value ? Number(e.target.value) : null; setModal((m) => m ? { ...m, limite_fotos: v } : m); }} placeholder="em branco = ilimitado" />
                 </div>
                 <div>
                   <div style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", marginBottom: 4 }}>Limite de galerias de entrega</div>
-                  <input style={inputStyle} type="number" value={modal.limite_galerias ?? ""} onChange={(e) => setModal({ ...modal, limite_galerias: e.target.value ? Number(e.target.value) : null })} placeholder="em branco = ilimitado" />
+                  <input style={inputStyle} type="number" value={modal.limite_galerias ?? ""} onChange={(e) => { const v = e.target.value ? Number(e.target.value) : null; setModal((m) => m ? { ...m, limite_galerias: v } : m); }} placeholder="em branco = ilimitado" />
                 </div>
               </div>
               <div>
@@ -244,14 +244,14 @@ export default function PlanosPage() {
               </div>
               <div>
                 <div style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", marginBottom: 4 }}>Válido até (em branco = sem prazo)</div>
-                <input style={inputStyle} type="date" value={modal.valido_ate ?? ""} onChange={(e) => setModal({ ...modal, valido_ate: e.target.value || null })} />
+                <input style={inputStyle} type="date" value={modal.valido_ate ?? ""} onChange={(e) => { const v = e.target.value || null; setModal((m) => m ? { ...m, valido_ate: v } : m); }} />
               </div>
               <div>
                 <div style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", marginBottom: 4 }}>Descrição</div>
                 <textarea style={{ ...inputStyle, resize: "vertical", fontFamily: "inherit" }} rows={2} value={modal.descricao ?? ""} onChange={(e) => { const v = e.target.value; setModal((m) => m ? { ...m, descricao: v } : m); }} placeholder="Descrição opcional" />
               </div>
               <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "var(--color-text-primary)", cursor: "pointer" }}>
-                <input type="checkbox" checked={modal.eh_campanha ?? false} onChange={(e) => setModal({ ...modal, eh_campanha: e.target.checked })} />
+                <input type="checkbox" checked={modal.eh_campanha ?? false} onChange={(e) => { const v = e.target.checked; setModal((m) => m ? { ...m, eh_campanha: v } : m); }} />
                 Marcar como campanha promocional
               </label>
             </div>

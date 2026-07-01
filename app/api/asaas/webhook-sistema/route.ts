@@ -3,6 +3,16 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getResend, FROM_DEFAULT } from "@/lib/email/resend";
 
 export async function POST(req: Request) {
+  const token = req.headers.get("asaas-access-token");
+  const expectedToken = process.env.ASAAS_WEBHOOK_TOKEN;
+  if (!expectedToken) {
+    console.error("[webhook-sistema] ASAAS_WEBHOOK_TOKEN não configurado — rejeitando");
+    return NextResponse.json({ error: "not configured" }, { status: 503 });
+  }
+  if (token !== expectedToken) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+
   let body: Record<string, unknown>;
   try {
     body = await req.json();

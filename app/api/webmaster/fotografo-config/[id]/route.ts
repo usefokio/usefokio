@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { verificarWebmaster } from "@/lib/webmaster/auth";
 
-export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  if (!await verificarWebmaster(req)) return NextResponse.json({ error: "forbidden" }, { status: 403 });
   const { id } = await params;
   const admin = createAdminClient();
   const { data, error } = await admin
@@ -14,6 +16,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  if (!await verificarWebmaster(req)) return NextResponse.json({ error: "forbidden" }, { status: 403 });
   const { id } = await params;
   const body = await req.json() as Record<string, unknown>;
   const allowed = ["recursos", "limite_fotos_custom", "aprovado"] as const;
