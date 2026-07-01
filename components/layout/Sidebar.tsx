@@ -87,6 +87,16 @@ const USEFOKIO_ITEMS = [
     ),
   },
   {
+    href: "/tutoriais",
+    label: "Tutoriais",
+    icon: (
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+        <circle cx="8" cy="8" r="7" stroke="currentColor" strokeWidth="1.3" fill="none" opacity=".8" />
+        <path d="M6.5 5.5l5 2.5-5 2.5V5.5z" fill="currentColor" opacity=".8" />
+      </svg>
+    ),
+  },
+  {
     href: "/config",
     label: "Configurações",
     icon: (

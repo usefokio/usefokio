@@ -9,11 +9,12 @@ const WEBMASTER_ID    = process.env.NEXT_PUBLIC_WEBMASTER_ID ?? "";
 const WEBMASTER_EMAIL = "usefokio@gmail.com";
 
 const NAV = [
-  { href: "/webmaster",            label: "Fotógrafos", icon: "👤" },
-  { href: "/webmaster/financeiro", label: "Financeiro", icon: "📊" },
-  { href: "/webmaster/planos",     label: "Planos",     icon: "📋" },
-  { href: "/webmaster/sistema",    label: "Sistema",    icon: "⚙" },
-  { href: "/webmaster/storage",    label: "Storage",    icon: "🗑️" },
+  { href: "/webmaster",             label: "Fotógrafos", icon: "👤" },
+  { href: "/webmaster/financeiro",  label: "Financeiro", icon: "📊" },
+  { href: "/webmaster/planos",      label: "Planos",     icon: "📋" },
+  { href: "/webmaster/tutoriais",   label: "Tutoriais",  icon: "🎬" },
+  { href: "/webmaster/sistema",     label: "Sistema",    icon: "⚙" },
+  { href: "/webmaster/storage",     label: "Storage",    icon: "🗑️" },
 ];
 
 export default function WebmasterLayout({ children }: { children: React.ReactNode }) {
