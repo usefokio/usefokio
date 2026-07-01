@@ -54,6 +54,7 @@ type ModalEditar = {
   valor: string;
   vencimento: string;
   contaPlanoId: string;
+  clienteId: string;
 };
 
 type ModalConfirmacao = {
@@ -132,7 +133,7 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
       (client, from, to) =>
         client
           .from("crm_financial_entries")
-          .select("*, crm_orders(nome, numero, clientes(nome, email, telefone, whatsapp)), clientes(nome, email)")
+          .select("*, crm_orders!pedido_id(nome, numero, clientes!cliente_id(nome, email, telefone, whatsapp)), clientes!cliente_id(nome, email)")
           .eq("fotografo_id", fotografo.id)
           .eq("tipo", cfg.tipo)
           .in("status", pendentesStatuses)
@@ -246,6 +247,7 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
         valor: parseFloat(modalEditar.valor.replace(",", ".")) || 0,
         vencimento: modalEditar.vencimento,
         conta_id: modalEditar.contaPlanoId || null,
+        cliente_id: modalEditar.clienteId || null,
       })
       .eq("id", modalEditar.entry.id);
     setSalvandoEdit(false);
@@ -254,7 +256,7 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
   };
 
   const abrirEditar = async (e: EntryWithPedido) => {
-    setModalEditar({ entry: e, descricao: e.descricao, valor: String(e.valor), vencimento: e.vencimento, contaPlanoId: e.conta_id ?? "" });
+    setModalEditar({ entry: e, descricao: e.descricao, valor: String(e.valor), vencimento: e.vencimento, contaPlanoId: e.conta_id ?? "", clienteId: e.cliente_id ?? "" });
   };
 
   // Abrir modal de receber/pagar
@@ -830,6 +832,13 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
                 <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>Descrição</div>
                 <input value={modalEditar.descricao} onChange={e => setModalEditar(m => m ? { ...m, descricao: e.target.value } : m)}
                   style={{ width: "100%", boxSizing: "border-box", padding: "9px 12px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", fontSize: 13, color: "var(--color-text-primary)", outline: "none" }} />
+              </div>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>Contato</div>
+                <ClienteSelect
+                  value={modalEditar.clienteId}
+                  onChange={id => setModalEditar(m => m ? { ...m, clienteId: id } : m)}
+                />
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                 <div>
