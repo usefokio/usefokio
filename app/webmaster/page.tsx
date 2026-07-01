@@ -670,6 +670,143 @@ function SecaoPlanos() {
   );
 }
 
+// ── Financeiro ────────────────────────────────────────────────────────────────
+type FinanceiroFotografo = { id: string; nome_completo: string; nome_empresa: string; email: string; plano_expira_em: string | null; plano_periodo: string | null };
+type FinanceiroStats = {
+  mrr: number;
+  receita_mes: number;
+  receita_total: number;
+  total_ativos: number;
+  vencendo_30d: FinanceiroFotografo[];
+  expirados: FinanceiroFotografo[];
+};
+
+function SecaoFinanceiro() {
+  const [aberto, setAberto] = useState(false);
+  const [stats, setStats]   = useState<FinanceiroStats | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!aberto || stats) return;
+    async function load() {
+      setLoading(true);
+      const supabase = createClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch("/api/webmaster/financeiro", {
+        headers: { Authorization: `Bearer ${session?.access_token ?? ""}` },
+      });
+      if (res.ok) setStats(await res.json());
+      setLoading(false);
+    }
+    load();
+  }, [aberto, stats]);
+
+  function fmtBRL(v: number) { return `R$ ${v.toFixed(2).replace(".", ",")}`; }
+  function diasAteExpira(exp: string) {
+    return Math.ceil((new Date(exp).getTime() - Date.now()) / 86400000);
+  }
+
+  const kpis = stats ? [
+    { label: "MRR estimado", value: fmtBRL(stats.mrr), color: "#059669" },
+    { label: "Receita este mês", value: fmtBRL(stats.receita_mes), color: "#2563EB" },
+    { label: "Receita total", value: fmtBRL(stats.receita_total), color: "#7C3AED" },
+    { label: "Assinantes ativos", value: String(stats.total_ativos), color: "#0EA5E9" },
+  ] : [];
+
+  return (
+    <div style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 12, padding: "20px 24px", marginBottom: 28 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, cursor: "pointer" }} onClick={() => setAberto(!aberto)}>
+        <span style={{ fontSize: 13, transform: aberto ? "rotate(90deg)" : "none", transition: "transform 0.15s", color: "var(--color-text-secondary)" }}>▶</span>
+        <span style={{ fontSize: 14, fontWeight: 700, color: "var(--color-text-primary)" }}>📊 Financeiro</span>
+        {stats && (
+          <span style={{ fontSize: 11, color: "var(--color-text-secondary)" }}>
+            {stats.total_ativos} ativo{stats.total_ativos !== 1 ? "s" : ""}
+            {stats.vencendo_30d.length > 0 ? ` · ⚠ ${stats.vencendo_30d.length} vencendo` : ""}
+            {stats.expirados.length > 0 ? ` · ${stats.expirados.length} expirado${stats.expirados.length !== 1 ? "s" : ""}` : ""}
+          </span>
+        )}
+      </div>
+
+      {aberto && (
+        <div style={{ marginTop: 20 }}>
+          {loading ? (
+            <div style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>Carregando…</div>
+          ) : stats ? (
+            <>
+              {/* KPIs */}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12, marginBottom: 24 }}>
+                {kpis.map((k) => (
+                  <div key={k.label} style={{ background: "var(--color-background-secondary)", borderRadius: 8, padding: "14px 16px" }}>
+                    <div style={{ fontSize: 20, fontWeight: 800, color: k.color, letterSpacing: "-0.02em" }}>{k.value}</div>
+                    <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 2 }}>{k.label}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Vencendo em 30 dias */}
+              {stats.vencendo_30d.length > 0 && (
+                <div style={{ marginBottom: 20 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: "#B45309", marginBottom: 8 }}>
+                    ⚠ Vencendo nos próximos 30 dias ({stats.vencendo_30d.length})
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    {stats.vencendo_30d.map((f) => {
+                      const dias = diasAteExpira(f.plano_expira_em!);
+                      return (
+                        <div key={f.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", background: "rgba(245,158,11,0.06)", borderRadius: 7, border: "0.5px solid rgba(245,158,11,0.2)" }}>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: 12, fontWeight: 600, color: "var(--color-text-primary)" }}>{f.nome_empresa || f.nome_completo}</div>
+                            <div style={{ fontSize: 11, color: "var(--color-text-secondary)" }}>{f.email}</div>
+                          </div>
+                          <div style={{ fontSize: 11, fontWeight: 700, color: "#B45309", whiteSpace: "nowrap" }}>
+                            {dias <= 0 ? "Hoje" : `${dias}d`}
+                            {f.plano_periodo ? ` · ${f.plano_periodo}` : ""}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Expirados */}
+              {stats.expirados.length > 0 && (
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: "#EF4444", marginBottom: 8 }}>
+                    Expirados não renovados ({stats.expirados.length})
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    {stats.expirados.map((f) => {
+                      const diasAtras = Math.abs(diasAteExpira(f.plano_expira_em!));
+                      return (
+                        <div key={f.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", background: "rgba(239,68,68,0.04)", borderRadius: 7, border: "0.5px solid rgba(239,68,68,0.15)" }}>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: 12, fontWeight: 600, color: "var(--color-text-primary)" }}>{f.nome_empresa || f.nome_completo}</div>
+                            <div style={{ fontSize: 11, color: "var(--color-text-secondary)" }}>{f.email}</div>
+                          </div>
+                          <div style={{ fontSize: 11, color: "#EF4444", whiteSpace: "nowrap" }}>
+                            há {diasAtras}d
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {stats.vencendo_30d.length === 0 && stats.expirados.length === 0 && (
+                <div style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>Nenhum alerta de vencimento no momento.</div>
+              )}
+            </>
+          ) : (
+            <div style={{ fontSize: 12, color: "#EF4444" }}>Erro ao carregar dados financeiros.</div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Assinaturas ───────────────────────────────────────────────────────────────
 type AssinaturaItem = {
   id: string;
@@ -1102,6 +1239,9 @@ export default function WebmasterPage() {
 
         {/* Planos e Campanhas */}
         <SecaoPlanos />
+
+        {/* Financeiro */}
+        <SecaoFinanceiro />
 
         {/* Assinaturas */}
         <SecaoAssinaturas />
