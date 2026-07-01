@@ -96,8 +96,8 @@ export default function FinanceiroPage() {
   }
 
   async function confirmar(id: string) {
-    if (!confirm("Confirmar pagamento manualmente e ativar o plano?")) return;
     setAgindo(id);
+    setMsg("");
     const supabase = createClient();
     const { data: { session } } = await supabase.auth.getSession();
     const res = await fetch(`/api/webmaster/assinaturas/${id}/confirmar`, {
@@ -105,10 +105,16 @@ export default function FinanceiroPage() {
       headers: { Authorization: `Bearer ${session?.access_token ?? ""}` },
     });
     const json = await res.json();
-    if (!res.ok) setMsg("❌ " + (json.error ?? "Erro"));
-    else {
-      setMsg(`✅ Pago — plano ativo até ${json.expira ? new Date(json.expira).toLocaleDateString("pt-BR") : "—"}`);
+    if (!res.ok) {
+      setMsg("❌ " + (json.error ?? "Erro"));
+    } else if (json.already_paid) {
+      setMsg("ℹ️ Assinatura já estava paga.");
       setAssinaturas((prev) => prev.map((a) => a.id === id ? { ...a, status: "pago" } : a));
+    } else if (json.pago) {
+      setMsg(`✅ Pago no Asaas — plano ativo até ${json.expira ? new Date(json.expira).toLocaleDateString("pt-BR") : "—"}`);
+      setAssinaturas((prev) => prev.map((a) => a.id === id ? { ...a, status: "pago" } : a));
+    } else {
+      setMsg(`⏳ Ainda pendente no Asaas (status: ${json.status ?? "desconhecido"}) — aguarde o pagamento.`);
     }
     setAgindo(null);
   }
@@ -308,7 +314,7 @@ export default function FinanceiroPage() {
                               disabled={agindo === a.id}
                               style={{ padding: "4px 10px", borderRadius: 6, border: "0.5px solid rgba(5,150,105,0.4)", background: "rgba(5,150,105,0.08)", color: "#059669", fontSize: 11, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}
                             >
-                              {agindo === a.id ? "…" : "✓ Confirmar pag."}
+                              {agindo === a.id ? "…" : "🔄 Verificar Asaas"}
                             </button>
                           )}
                           <button

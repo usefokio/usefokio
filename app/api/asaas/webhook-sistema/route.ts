@@ -26,14 +26,32 @@ export async function POST(req: Request) {
   const assinaturaId = externalRef.replace("assinatura:", "");
   const admin = createAdminClient();
 
-  const { data: ass } = await admin
+  const { data: ass, error: errAss } = await admin
     .from("assinaturas")
-    .select("id, fotografo_id, plano, periodo_inicio, periodo_fim")
+    .select("id, fotografo_id, plano, periodo_inicio, periodo_fim, status, asaas_id")
     .eq("id", assinaturaId)
-    .eq("asaas_id", asaasId)
     .maybeSingle();
 
-  if (!ass) return NextResponse.json({ ok: true, skipped: true });
+  if (errAss) {
+    console.error("[webhook-sistema] erro ao buscar assinatura:", assinaturaId, errAss);
+    return NextResponse.json({ error: "db error" }, { status: 500 });
+  }
+  if (!ass) {
+    console.error("[webhook-sistema] assinatura não encontrada:", assinaturaId, "asaasId:", asaasId);
+    return NextResponse.json({ ok: true, skipped: true });
+  }
+  if (ass.status !== "pendente") {
+    return NextResponse.json({ ok: true, skipped: true, reason: "already processed" });
+  }
+
+  // Salvar asaas_id se estava ausente (recuperação de falha no criar)
+  if (!ass.asaas_id) {
+    const { error: errUpd } = await admin
+      .from("assinaturas")
+      .update({ asaas_id: asaasId })
+      .eq("id", assinaturaId);
+    if (errUpd) console.error("[webhook-sistema] falha ao salvar asaas_id:", assinaturaId, errUpd);
+  }
 
   const agora = new Date().toISOString();
   const expira = ass.periodo_fim ? new Date(ass.periodo_fim + "T23:59:59") : (() => { const d = new Date(); d.setDate(d.getDate() + 31); return d; })();

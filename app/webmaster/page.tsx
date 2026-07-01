@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
+type PlanoConfig = { codigo: string; limite_fotos: number | null };
+
 type FotografoStats = {
   id: string;
   nome_completo: string;
@@ -103,7 +105,14 @@ function RecursosCell({ fotografoId }: { fotografoId: string }) {
   );
 }
 
-function LimiteFotosCell({ fotografoId, inicial }: { fotografoId: string; inicial: number | null }) {
+function LimiteFotosCell({
+  fotografoId, inicial, planLimite, onSave,
+}: {
+  fotografoId: string;
+  inicial: number | null;
+  planLimite: number | null;
+  onSave: (v: number | null) => void;
+}) {
   const [editando, setEditando] = useState(false);
   const [valor,    setValor]    = useState(String(inicial ?? ""));
   const [salvando, setSalvando] = useState(false);
@@ -111,11 +120,13 @@ function LimiteFotosCell({ fotografoId, inicial }: { fotografoId: string; inicia
   async function salvar() {
     setSalvando(true);
     const num = valor.trim() === "" ? null : parseInt(valor);
+    const novoValor = isNaN(num as number) ? null : num;
     await fetch(`/api/webmaster/fotografo-config/${fotografoId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ limite_fotos_custom: isNaN(num as number) ? null : num }),
+      body: JSON.stringify({ limite_fotos_custom: novoValor }),
     });
+    onSave(novoValor);
     setSalvando(false);
     setEditando(false);
   }
@@ -141,13 +152,23 @@ function LimiteFotosCell({ fotografoId, inicial }: { fotografoId: string; inicia
     );
   }
 
+  const label = inicial != null
+    ? `${inicial.toLocaleString("pt-BR")} fotos`
+    : planLimite != null
+      ? `${planLimite.toLocaleString("pt-BR")} fotos`
+      : "∞ fotos";
+  const isPlanDefault = inicial == null && planLimite != null;
+
   return (
     <button
       onClick={() => setEditando(true)}
       title="Clique para editar limite"
-      style={{ padding: "3px 8px", borderRadius: 6, border: "0.5px solid var(--color-border-secondary)", background: "transparent", fontSize: 11, fontWeight: 600, color: "var(--color-text-primary)", cursor: "pointer", whiteSpace: "nowrap" }}
+      style={{ padding: "3px 8px", borderRadius: 6, border: "0.5px solid var(--color-border-secondary)", background: "transparent", fontSize: 11, fontWeight: 600, color: "var(--color-text-primary)", cursor: "pointer", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 4 }}
     >
-      {inicial != null ? inicial.toLocaleString("pt-BR") : "∞"} fotos
+      {label}
+      {isPlanDefault && (
+        <span style={{ fontSize: 9, fontWeight: 600, color: "#6B7280", background: "rgba(107,114,128,0.12)", padding: "1px 5px", borderRadius: 4 }}>plano</span>
+      )}
     </button>
   );
 }
@@ -161,6 +182,7 @@ const PLANO_COLOR: Record<string, string> = {
 export default function WebmasterPage() {
   const [stats,          setStats]          = useState<FotografoStats[]>([]);
   const [loading,        setLoading]        = useState(true);
+  const [planLimits,     setPlanLimits]     = useState<Record<string, number | null>>({});
   const [pendingIds,     setPendingIds]     = useState<Set<string>>(new Set());
   const [filtro,         setFiltro]         = useState<"todos" | "pendentes">("todos");
   const [modalExcluir,   setModalExcluir]   = useState<FotografoStats | null>(null);
@@ -172,7 +194,23 @@ export default function WebmasterPage() {
   const [modalAtivacao,  setModalAtivacao]  = useState<{ id: string; nome: string } | null>(null);
   const [periodoAtivacao, setPeriodoAtivacao] = useState<"mensal" | "anual">("mensal");
 
-  useEffect(() => { carregarStats(); }, []);
+  useEffect(() => {
+    carregarStats();
+    async function carregarPlanos() {
+      const supabase = createClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch("/api/webmaster/planos", {
+        headers: { Authorization: `Bearer ${session?.access_token ?? ""}` },
+      });
+      if (res.ok) {
+        const json = await res.json();
+        const map: Record<string, number | null> = {};
+        (json.planos as PlanoConfig[]).forEach((p) => { map[p.codigo] = p.limite_fotos; });
+        setPlanLimits(map);
+      }
+    }
+    carregarPlanos();
+  }, []);
 
   async function carregarStats() {
     setLoading(true);
@@ -390,7 +428,12 @@ export default function WebmasterPage() {
                     <td style={{ padding: "12px 14px", textAlign: "center", color: "var(--color-text-primary)", fontWeight: 500 }}>{f.total_fotos.toLocaleString("pt-BR")}</td>
                     <td style={{ padding: "12px 14px", color: "var(--color-text-secondary)", whiteSpace: "nowrap" }}>{formatGB(f.total_bytes)}</td>
                     <td style={{ padding: "12px 14px" }}>
-                      <LimiteFotosCell fotografoId={f.id} inicial={f.limite_fotos_custom} />
+                      <LimiteFotosCell
+                        fotografoId={f.id}
+                        inicial={f.limite_fotos_custom}
+                        planLimite={planLimits[f.plano] ?? null}
+                        onSave={(v) => setStats((prev) => prev.map((s) => s.id === f.id ? { ...s, limite_fotos_custom: v } : s))}
+                      />
                     </td>
                     <td style={{ padding: "12px 14px", color: "var(--color-text-secondary)", whiteSpace: "nowrap" }}>
                       {new Date(f.created_at).toLocaleDateString("pt-BR")}

@@ -96,8 +96,17 @@ export async function POST(req: Request) {
       valor:          preco,
     });
 
-    await admin.from("assinaturas").update({ asaas_id: resultado.paymentId }).eq("id", assinatura.id);
-    await admin.from("fotografos").update({ asaas_cobranca_id: resultado.paymentId }).eq("id", foto.id);
+    const { error: errAsaasId } = await admin
+      .from("assinaturas")
+      .update({ asaas_id: resultado.paymentId })
+      .eq("id", assinatura.id);
+    if (errAsaasId) console.error("[criar-assinatura] falha ao salvar asaas_id:", assinatura.id, errAsaasId);
+
+    const { error: errFoto } = await admin
+      .from("fotografos")
+      .update({ asaas_cobranca_id: resultado.paymentId })
+      .eq("id", foto.id);
+    if (errFoto) console.error("[criar-assinatura] falha ao salvar asaas_cobranca_id:", foto.id, errFoto);
 
     return NextResponse.json({ ok: true, ...resultado, assinaturaId: assinatura.id });
   } catch (e) {
