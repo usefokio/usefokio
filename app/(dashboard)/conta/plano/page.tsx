@@ -210,7 +210,7 @@ export default function PlanoPage() {
   const [modalCheckout,    setModalCheckout]    = useState(false);
   const [planosDB,         setPlanosDB]         = useState<PlanoPublico[]>([]);
   const [planoSelecionado, setPlanoSelecionado] = useState<{ id?: string; nome: string; preco: number; periodo?: "mensal" | "anual" } | null>(null);
-  const [periodosPorPlano, setPeriodosPorPlano] = useState<Record<string, "mensal" | "anual">>({});
+  const [periodoGlobal, setPeriodoGlobal] = useState<"mensal" | "anual">("mensal");
 
   useEffect(() => {
     fetch("/api/planos-publicos")
@@ -372,6 +372,36 @@ export default function PlanoPage() {
         <div style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-secondary)", marginBottom: 16 }}>
           {planosDB.some((p) => p.eh_campanha) ? "Planos e campanhas disponíveis" : "Todos os planos"}
         </div>
+        {/* Toggle global mensal/anual */}
+        {planosDB.some((p) => p.preco_anual != null && !p.eh_campanha) && (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 14, marginBottom: 20 }}>
+            <span style={{ fontSize: 13, fontWeight: 600, color: periodoGlobal === "mensal" ? "var(--color-text-primary)" : "var(--color-text-secondary)" }}>
+              Mensal
+            </span>
+            <button
+              onClick={() => setPeriodoGlobal((v) => v === "mensal" ? "anual" : "mensal")}
+              aria-label="Alternar entre mensal e anual"
+              style={{ width: 46, height: 24, borderRadius: 12, border: "none", cursor: "pointer", position: "relative", background: periodoGlobal === "anual" ? "#2563EB" : "var(--color-border-secondary)", transition: "background 0.2s", flexShrink: 0 }}
+            >
+              <span style={{ position: "absolute", top: 3, left: periodoGlobal === "anual" ? 25 : 3, width: 18, height: 18, borderRadius: "50%", background: "#fff", transition: "left 0.2s", boxShadow: "0 1px 3px rgba(0,0,0,0.2)" }} />
+            </button>
+            <span style={{ fontSize: 13, fontWeight: 600, color: periodoGlobal === "anual" ? "var(--color-text-primary)" : "var(--color-text-secondary)" }}>
+              Anual
+            </span>
+            {periodoGlobal === "anual" && (() => {
+              const pAnual = planosDB.find((p) => p.preco_anual != null && !p.eh_campanha);
+              if (!pAnual?.preco_anual) return null;
+              const pct = Math.round((1 - Number(pAnual.preco_anual) / Number(pAnual.preco)) * 100);
+              const economiaAno = Math.round((Number(pAnual.preco) - Number(pAnual.preco_anual)) * 12);
+              return (
+                <span style={{ fontSize: 11, fontWeight: 700, color: "#059669", background: "rgba(5,150,105,0.1)", padding: "3px 10px", borderRadius: 20, whiteSpace: "nowrap" }}>
+                  Economize {pct}% · R${economiaAno.toLocaleString("pt-BR")}/ano
+                </span>
+              );
+            })()}
+          </div>
+        )}
+
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 14 }}>
           {(planosDB.length > 0 ? planosDB : Object.values(PLANOS).map((p) => ({
             id: undefined,
@@ -393,13 +423,11 @@ export default function PlanoPage() {
             const isUpgrade = Number(p.preco) > Number(planoAtual.preco);
             const cor       = p.cor ?? "#2563EB";
             const temAnual   = p.preco_anual != null && !p.eh_campanha;
-            const periodoCard = periodosPorPlano[p.codigo] ?? "mensal";
-            const setPeriodoCard = (v: "mensal" | "anual") => setPeriodosPorPlano((prev) => ({ ...prev, [p.codigo]: v }));
-            const precoExibido = temAnual && periodoCard === "anual" ? Number(p.preco_anual) : Number(p.preco);
+            const precoExibido = temAnual && periodoGlobal === "anual" ? Number(p.preco_anual) : Number(p.preco);
             const precoFmt = precoExibido === 0 ? "Gratuito" : `R$${precoExibido.toFixed(2).replace(".", ",")}`;
 
             function abrirCheckout() {
-              setPlanoSelecionado({ id: p.id, nome: p.nome, preco: precoExibido, periodo: temAnual ? periodoCard : "mensal" });
+              setPlanoSelecionado({ id: p.id, nome: p.nome, preco: precoExibido, periodo: temAnual ? periodoGlobal : "mensal" });
               setModalCheckout(true);
             }
 
@@ -417,31 +445,23 @@ export default function PlanoPage() {
                     {p.valido_ate && <span style={{ color: "#B45309", fontWeight: 600 }}> · até {new Date(p.valido_ate + "T12:00:00").toLocaleDateString("pt-BR")}</span>}
                   </div>
 
-                  {/* Seletor mensal/anual */}
-                  {temAnual && Number(p.preco) > 0 && (
-                    <div style={{ display: "flex", gap: 4, marginBottom: 10 }}>
-                      {(["mensal", "anual"] as const).map((opt) => (
-                        <button
-                          key={opt}
-                          onClick={() => setPeriodoCard(opt)}
-                          style={{ flex: 1, padding: "4px 8px", borderRadius: 6, cursor: "pointer", fontSize: 11, fontWeight: 600, border: periodoCard === opt ? `1.5px solid ${cor}` : "0.5px solid var(--color-border-secondary)", background: periodoCard === opt ? cor + "12" : "transparent", color: periodoCard === opt ? cor : "var(--color-text-secondary)" }}
-                        >
-                          {opt === "mensal" ? "Mensal" : "Anual"}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-
                   <div style={{ fontSize: 22, fontWeight: 800, color: cor, letterSpacing: "-0.02em", lineHeight: 1 }}>
                     {precoFmt}
                     {precoExibido > 0 && <span style={{ fontSize: 13, fontWeight: 500, color: "var(--color-text-secondary)" }}>/mês</span>}
                   </div>
-                  {temAnual && periodoCard === "anual" && (
-                    <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 3 }}>
+                  {temAnual && periodoGlobal === "anual" && p.preco_anual != null && (
+                    <div style={{ marginTop: 5 }}>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: "#059669", background: "rgba(5,150,105,0.1)", padding: "2px 8px", borderRadius: 12 }}>
+                        {Math.round((1 - Number(p.preco_anual) / Number(p.preco)) * 100)}% off · economize R${Math.round((Number(p.preco) - Number(p.preco_anual)) * 12).toLocaleString("pt-BR")}/ano
+                      </span>
+                    </div>
+                  )}
+                  {temAnual && periodoGlobal === "anual" && (
+                    <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 4 }}>
                       Cobrado em 12× no cartão · Acesso por 365 dias
                     </div>
                   )}
-                  {p.duracao_dias && periodoCard !== "anual" && (
+                  {p.duracao_dias && periodoGlobal !== "anual" && (
                     <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 3 }}>{p.duracao_dias} dias de acesso</div>
                   )}
                   {(p.limite_fotos != null || p.limite_galerias != null) && (
