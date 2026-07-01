@@ -105,77 +105,16 @@ function RecursosCell({ fotografoId }: { fotografoId: string }) {
   );
 }
 
-function LimiteFotosCell({
-  fotografoId, inicial, planLimite, onSave,
-}: {
-  fotografoId: string;
-  inicial: number | null;
-  planLimite: number | null;
-  onSave: (v: number | null) => void;
-}) {
-  const [editando, setEditando] = useState(false);
-  const [valor,    setValor]    = useState(String(inicial ?? ""));
-  const [salvando, setSalvando] = useState(false);
-
-  async function salvar() {
-    setSalvando(true);
-    const num = valor.trim() === "" ? null : parseInt(valor);
-    const novoValor = isNaN(num as number) ? null : num;
-    await fetch(`/api/webmaster/fotografo-config/${fotografoId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ limite_fotos_custom: novoValor }),
-    });
-    onSave(novoValor);
-    setSalvando(false);
-    setEditando(false);
-  }
-
-  if (editando) {
-    return (
-      <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-        <input
-          type="number"
-          value={valor}
-          onChange={(e) => setValor(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter") salvar(); if (e.key === "Escape") setEditando(false); }}
-          autoFocus
-          style={{ width: 70, padding: "3px 6px", borderRadius: 6, border: "0.5px solid var(--color-border-secondary)", fontSize: 12, background: "var(--color-background-primary)", color: "var(--color-text-primary)" }}
-        />
-        <button onClick={salvar} disabled={salvando} style={{ fontSize: 10, fontWeight: 700, padding: "3px 7px", borderRadius: 5, border: "none", background: "#059669", color: "#fff", cursor: "pointer" }}>
-          {salvando ? "…" : "✓"}
-        </button>
-        <button onClick={() => setEditando(false)} style={{ fontSize: 10, padding: "3px 6px", borderRadius: 5, border: "0.5px solid var(--color-border-secondary)", background: "transparent", color: "var(--color-text-secondary)", cursor: "pointer" }}>
-          ✕
-        </button>
-      </div>
-    );
-  }
-
-  // Limite efetivo: mesmo cálculo do upload — plano garante o mínimo
+function LimiteFotosCell({ inicial, planLimite }: { inicial: number | null; planLimite: number | null }) {
   const efetivo: number | null =
     inicial != null && planLimite != null ? Math.max(inicial, planLimite)
     : inicial != null ? inicial
     : planLimite;
 
-  const label = efetivo != null ? `${efetivo.toLocaleString("pt-BR")} fotos` : "∞ fotos";
-  // badge "plano" quando o custom existe mas é menor que o plano (override pelo plano)
-  const badge: "plano" | "custom" | null =
-    inicial == null && planLimite != null ? "plano"
-    : inicial != null && planLimite != null && planLimite > inicial ? "plano"
-    : null;
-
   return (
-    <button
-      onClick={() => setEditando(true)}
-      title={`Limite efetivo: ${label}${inicial != null ? ` (custom salvo: ${inicial.toLocaleString("pt-BR")})` : ""}\nClique para editar`}
-      style={{ padding: "3px 8px", borderRadius: 6, border: "0.5px solid var(--color-border-secondary)", background: "transparent", fontSize: 11, fontWeight: 600, color: "var(--color-text-primary)", cursor: "pointer", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 4 }}
-    >
-      {label}
-      {badge && (
-        <span style={{ fontSize: 9, fontWeight: 600, color: "#6B7280", background: "rgba(107,114,128,0.12)", padding: "1px 5px", borderRadius: 4 }}>{badge}</span>
-      )}
-    </button>
+    <span style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-primary)", whiteSpace: "nowrap" }}>
+      {efetivo != null ? `${efetivo.toLocaleString("pt-BR")} fotos` : "∞ fotos"}
+    </span>
   );
 }
 
@@ -448,10 +387,8 @@ export default function WebmasterPage() {
                     <td style={{ padding: "12px 14px", color: "var(--color-text-secondary)", whiteSpace: "nowrap" }}>{formatGB(f.total_bytes)}</td>
                     <td style={{ padding: "12px 14px" }}>
                       <LimiteFotosCell
-                        fotografoId={f.id}
                         inicial={f.limite_fotos_custom}
                         planLimite={planLimits[f.plano] ?? null}
-                        onSave={(v) => setStats((prev) => prev.map((s) => s.id === f.id ? { ...s, limite_fotos_custom: v } : s))}
                       />
                     </td>
                     <td style={{ padding: "12px 14px", color: "var(--color-text-secondary)", whiteSpace: "nowrap" }}>
