@@ -31,16 +31,29 @@ export async function POST(req: Request) {
 
       // Limite de fotos atingido
       const usadas = foto.total_fotos_usadas ?? 0;
-      let limite: number | null = foto.limite_fotos_custom ?? null;
-      if (limite === null) {
-        const { data: pc } = await admin
-          .from("planos_config")
-          .select("limite_fotos")
-          .eq("codigo", foto.plano)
-          .eq("ativo", true)
-          .maybeSingle();
-        limite = pc?.limite_fotos ?? null;
+
+      // Sempre busca o limite do plano — garante que upgrade nunca fique bloqueado
+      // por um limite_fotos_custom herdado de plano inferior
+      const { data: pc } = await admin
+        .from("planos_config")
+        .select("limite_fotos")
+        .eq("codigo", foto.plano)
+        .eq("ativo", true)
+        .maybeSingle();
+      const planLimit: number | null = pc?.limite_fotos ?? null;
+
+      // Limite efetivo: se ambos definidos, usa o maior (plano garante o mínimo)
+      // se só custom: usa custom (plano ilimitado mas custom restringe)
+      // se só plano: usa plano
+      let limite: number | null;
+      if (foto.limite_fotos_custom != null && planLimit != null) {
+        limite = Math.max(foto.limite_fotos_custom, planLimit);
+      } else if (foto.limite_fotos_custom != null) {
+        limite = foto.limite_fotos_custom;
+      } else {
+        limite = planLimit;
       }
+
       if (limite !== null && usadas >= limite) {
         return Response.json(
           { error: `Limite de ${limite.toLocaleString("pt-BR")} fotos atingido. Faça upgrade do plano em /conta/plano.`, limitReached: true },

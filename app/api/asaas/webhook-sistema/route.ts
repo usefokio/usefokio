@@ -61,14 +61,24 @@ export async function POST(req: Request) {
     : 31;
   const planoPeriodo = duracaoDias > 200 ? "anual" : "mensal";
 
+  // Busca o limite de fotos do plano para aplicar junto com a ativação
+  const { data: pc } = await admin
+    .from("planos_config")
+    .select("limite_fotos")
+    .eq("codigo", ass.plano)
+    .eq("ativo", true)
+    .maybeSingle();
+  const limiteFotos: number | null = pc?.limite_fotos ?? null;
+
   await Promise.all([
     admin.from("assinaturas").update({ status: "pago", pago_em: agora }).eq("id", ass.id),
     admin.from("fotografos").update({
-      plano:              ass.plano,
-      plano_ativado_em:   agora,
-      plano_expira_em:    expira.toISOString(),
-      plano_periodo:      planoPeriodo,
-      asaas_cobranca_id:  asaasId,
+      plano:               ass.plano,
+      plano_ativado_em:    agora,
+      plano_expira_em:     expira.toISOString(),
+      plano_periodo:       planoPeriodo,
+      asaas_cobranca_id:   asaasId,
+      limite_fotos_custom: limiteFotos,
     }).eq("id", ass.fotografo_id),
   ]);
 
