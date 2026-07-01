@@ -145,8 +145,34 @@ export function DashboardGuard({ children }: { children: React.ReactNode }) {
     setPagamentosDoacao([]);
   }
 
+  // Banner de vencimento do plano
+  const agora = new Date();
+  const planoExpirado = fotografo.plano !== "gratuito" && fotografo.plano !== "estudio" &&
+    fotografo.plano_expira_em && new Date(fotografo.plano_expira_em) < agora;
+  const diasParaExpirar = fotografo.plano !== "gratuito" && fotografo.plano !== "estudio" &&
+    fotografo.plano_expira_em
+    ? Math.ceil((new Date(fotografo.plano_expira_em).getTime() - agora.getTime()) / 86400000)
+    : null;
+  const vencendoEmBreve = diasParaExpirar !== null && diasParaExpirar > 0 && diasParaExpirar <= 7;
+
   return (
     <>
+      {(planoExpirado || vencendoEmBreve) && (
+        <div style={{
+          position: "fixed", top: 0, left: 0, right: 0, zIndex: 150,
+          background: planoExpirado ? "#EF4444" : "#F59E0B",
+          color: "#fff", textAlign: "center", padding: "7px 16px",
+          fontSize: 12, fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
+        }}>
+          {planoExpirado
+            ? "Seu plano expirou — uploads bloqueados."
+            : `Seu plano vence em ${diasParaExpirar} dia${diasParaExpirar !== 1 ? "s" : ""}.`
+          }
+          <a href="/conta/plano" style={{ color: "#fff", textDecoration: "underline", fontWeight: 700 }}>
+            {planoExpirado ? "Renovar agora" : "Renovar"}
+          </a>
+        </div>
+      )}
       {children}
       {precisaAceitar && (
         <ModalAceiteTermos onAceito={() => setPrecisaAceitar(false)} />

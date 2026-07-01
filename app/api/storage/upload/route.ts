@@ -1,11 +1,53 @@
 import { uploadFile } from "@/lib/storage/upload";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function POST(req: Request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user && process.env.NODE_ENV !== "development") {
     return Response.json({ error: "unauthorized" }, { status: 401 });
+  }
+
+  // Verificação de plano (pula em desenvolvimento)
+  if (user && process.env.NODE_ENV !== "development") {
+    const admin = createAdminClient();
+    const { data: foto } = await admin
+      .from("fotografos")
+      .select("plano, plano_expira_em, total_fotos_usadas, limite_fotos_custom")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (foto) {
+      // Plano expirado: bloqueia uploads
+      if (foto.plano !== "gratuito" && foto.plano !== "estudio" && foto.plano_expira_em) {
+        if (new Date(foto.plano_expira_em) < new Date()) {
+          return Response.json(
+            { error: "Plano expirado. Renove sua assinatura em /conta/plano para continuar enviando fotos.", expired: true },
+            { status: 403 }
+          );
+        }
+      }
+
+      // Limite de fotos atingido
+      const usadas = foto.total_fotos_usadas ?? 0;
+      let limite: number | null = foto.limite_fotos_custom ?? null;
+      if (limite === null) {
+        const { data: pc } = await admin
+          .from("planos_config")
+          .select("limite_fotos")
+          .eq("codigo", foto.plano)
+          .eq("ativo", true)
+          .maybeSingle();
+        limite = pc?.limite_fotos ?? null;
+      }
+      if (limite !== null && usadas >= limite) {
+        return Response.json(
+          { error: `Limite de ${limite.toLocaleString("pt-BR")} fotos atingido. Faça upgrade do plano em /conta/plano.`, limitReached: true },
+          { status: 403 }
+        );
+      }
+    }
   }
 
   const form = await req.formData();
