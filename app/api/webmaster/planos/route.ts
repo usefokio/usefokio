@@ -33,7 +33,7 @@ export async function POST(req: Request) {
   if (!await verificarWebmaster(req)) return NextResponse.json({ error: "forbidden" }, { status: 403 });
 
   const body = await req.json().catch(() => ({}));
-  const { codigo, nome, descricao, preco, preco_anual, limite_fotos, limite_galerias, duracao_dias, eh_campanha, valido_ate, cor, features, ordem } = body;
+  const { codigo, nome, descricao, preco, preco_anual, limite_fotos, limite_galerias, duracao_dias, eh_campanha, valido_ate, cor, features, ordem, forma_pagamento } = body;
 
   if (!nome?.trim())   return NextResponse.json({ error: "nome obrigatório" }, { status: 400 });
   if (!codigo?.trim()) return NextResponse.json({ error: "codigo obrigatório" }, { status: 400 });
@@ -56,6 +56,7 @@ export async function POST(req: Request) {
       cor:              cor || "#2563EB",
       features:         features ?? [],
       ordem:            ordem ?? 0,
+      forma_pagamento:  forma_pagamento ?? "pix",
       ativo:            true,
     })
     .select()

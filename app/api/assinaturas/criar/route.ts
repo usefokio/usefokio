@@ -38,11 +38,12 @@ export async function POST(req: Request) {
   let preco = 49;
   let duracaoDias = 31;
   let resolvedPlanoConfigId: string | null = null;
+  let asaasBillingType = "PIX";
 
   if (planoConfigId) {
     const { data: pc } = await admin
       .from("planos_config")
-      .select("id, codigo, nome, preco, preco_anual, duracao_dias, ativo, valido_ate")
+      .select("id, codigo, nome, preco, preco_anual, duracao_dias, ativo, valido_ate, forma_pagamento")
       .eq("id", planoConfigId)
       .maybeSingle();
 
@@ -53,6 +54,8 @@ export async function POST(req: Request) {
         preco = periodoReq === "anual" && pc.preco_anual ? Number(pc.preco_anual) : Number(pc.preco);
         duracaoDias = periodoReq === "anual" ? 365 : (pc.duracao_dias ?? 31);
         resolvedPlanoConfigId = pc.id;
+        if (pc.forma_pagamento === "boleto") asaasBillingType = "BOLETO";
+        else if (pc.forma_pagamento === "livre") asaasBillingType = "UNDEFINED";
       }
     }
   } else if (periodoReq === "anual") {
@@ -94,6 +97,7 @@ export async function POST(req: Request) {
       fotografoEmail: foto.email,
       assinaturaId:   assinatura.id,
       valor:          preco,
+      billingType:    asaasBillingType,
     });
 
     const { error: errAsaasId } = await admin

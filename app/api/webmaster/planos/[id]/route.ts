@@ -21,7 +21,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
   const { id } = await params;
   const body = await req.json().catch(() => ({}));
-  const { nome, descricao, preco, preco_anual, limite_fotos, limite_galerias, duracao_dias, eh_campanha, valido_ate, cor, features, ordem, ativo } = body;
+  const { nome, descricao, preco, preco_anual, limite_fotos, limite_galerias, duracao_dias, eh_campanha, valido_ate, cor, features, ordem, ativo, forma_pagamento } = body;
 
   const updates: Record<string, unknown> = {};
   if (nome !== undefined)             updates.nome             = nome.trim();
@@ -37,6 +37,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   if (features !== undefined)         updates.features         = features;
   if (ordem !== undefined)            updates.ordem            = Number(ordem);
   if (ativo !== undefined)            updates.ativo            = !!ativo;
+  if (forma_pagamento !== undefined)  updates.forma_pagamento  = forma_pagamento || "pix";
 
   const admin = createAdminClient();
   const { data, error } = await admin

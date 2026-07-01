@@ -18,6 +18,7 @@ type PlanoConfig = {
   valido_ate: string | null;
   cor: string;
   ordem: number;
+  forma_pagamento: string | null;
 };
 
 const inputStyle: React.CSSProperties = {
@@ -66,6 +67,8 @@ export default function PlanosPage() {
     if (!res.ok) { setMsg("❌ " + (json.error ?? "Erro ao salvar")); setSalvando(false); return; }
     setModal(null);
     await carregar();
+    setMsg("✅ Plano salvo com sucesso");
+    setTimeout(() => setMsg(""), 3000);
     setSalvando(false);
   }
 
@@ -145,18 +148,19 @@ export default function PlanosPage() {
                 </button>
                 <button
                   onClick={() => setModal({
-                    ativo:          true,
-                    eh_campanha:    p.eh_campanha,
-                    preco:          p.preco,
-                    preco_anual:    p.preco_anual,
-                    duracao_dias:   p.duracao_dias,
-                    cor:            p.cor,
-                    ordem:          p.ordem,
-                    limite_fotos:   p.limite_fotos,
+                    ativo:           true,
+                    eh_campanha:     p.eh_campanha,
+                    preco:           p.preco,
+                    preco_anual:     p.preco_anual,
+                    duracao_dias:    p.duracao_dias,
+                    cor:             p.cor,
+                    ordem:           p.ordem,
+                    limite_fotos:    p.limite_fotos,
                     limite_galerias: p.limite_galerias,
-                    nome:           `${p.nome} (cópia)`,
-                    descricao:      p.descricao,
-                    codigo:         `${p.codigo}-copia`,
+                    forma_pagamento: p.forma_pagamento,
+                    nome:            `${p.nome} (cópia)`,
+                    descricao:       p.descricao,
+                    codigo:          `${p.codigo}-copia`,
                   })}
                   title="Duplicar plano"
                   style={{ padding: "5px 10px", borderRadius: 7, border: "0.5px solid var(--color-border-secondary)", background: "transparent", fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", cursor: "pointer" }}
@@ -202,7 +206,7 @@ export default function PlanosPage() {
                   <input style={inputStyle} type="number" value={modal.preco ?? ""} onChange={(e) => setModal({ ...modal, preco: Number(e.target.value) })} />
                 </div>
                 <div>
-                  <div style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", marginBottom: 4 }}>Preço anual — parcela 12x (R$)</div>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", marginBottom: 4 }}>Preço anual, valor/mês (R$)</div>
                   <input style={inputStyle} type="number" value={modal.preco_anual ?? ""} onChange={(e) => setModal({ ...modal, preco_anual: e.target.value ? Number(e.target.value) : null })} placeholder="em branco = sem plano anual" />
                 </div>
               </div>
@@ -227,12 +231,20 @@ export default function PlanosPage() {
                 </div>
               </div>
               <div>
+                <div style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", marginBottom: 4 }}>Forma de pagamento</div>
+                <select style={{ ...inputStyle, cursor: "pointer" }} value={modal.forma_pagamento ?? "pix"} onChange={(e) => { const v = e.target.value; setModal((m) => m ? { ...m, forma_pagamento: v } : m); }}>
+                  <option value="pix">PIX (QR Code)</option>
+                  <option value="boleto">Boleto bancário</option>
+                  <option value="livre">Livre — cliente escolhe (PIX / boleto / cartão)</option>
+                </select>
+              </div>
+              <div>
                 <div style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", marginBottom: 4 }}>Válido até (em branco = sem prazo)</div>
                 <input style={inputStyle} type="date" value={modal.valido_ate ?? ""} onChange={(e) => setModal({ ...modal, valido_ate: e.target.value || null })} />
               </div>
               <div>
                 <div style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", marginBottom: 4 }}>Descrição</div>
-                <textarea style={{ ...inputStyle, resize: "vertical", fontFamily: "inherit" }} rows={2} value={modal.descricao ?? ""} onChange={(e) => setModal({ ...modal, descricao: e.target.value })} placeholder="Descrição opcional" />
+                <textarea style={{ ...inputStyle, resize: "vertical", fontFamily: "inherit" }} rows={2} value={modal.descricao ?? ""} onChange={(e) => { const v = e.target.value; setModal((m) => m ? { ...m, descricao: v } : m); }} placeholder="Descrição opcional" />
               </div>
               <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "var(--color-text-primary)", cursor: "pointer" }}>
                 <input type="checkbox" checked={modal.eh_campanha ?? false} onChange={(e) => setModal({ ...modal, eh_campanha: e.target.checked })} />

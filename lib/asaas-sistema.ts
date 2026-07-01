@@ -38,6 +38,7 @@ export async function criarCobrancaAssinatura(params: {
   assinaturaId: string;
   valor?: number;
   descricao?: string;
+  billingType?: string;
 }): Promise<CobrancaAssinaturaResult> {
   const cfg = await getSistemaAsaas();
   if (!cfg) throw new Error("Asaas do sistema não configurado. Contate o suporte.");
@@ -49,6 +50,7 @@ export async function criarCobrancaAssinatura(params: {
     valor: params.valor ?? 49,
     descricao: params.descricao ?? "Assinatura Profissional — UseFokio",
     externalReference: `assinatura:${params.assinaturaId}`,
+    billingType: params.billingType,
   });
 
   let pixCopiaECola: string | null = null;

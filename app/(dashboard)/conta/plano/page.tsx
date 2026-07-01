@@ -130,7 +130,7 @@ function ModalCheckout({ planoNome, planoPreco, planoConfigId, periodo, onClose 
 
         {etapa === "carregando" && (
           <div style={{ textAlign: "center", padding: "32px 0", color: "var(--color-text-secondary)", fontSize: 13 }}>
-            Gerando PIX…
+            Gerando cobrança…
           </div>
         )}
 
@@ -147,13 +147,9 @@ function ModalCheckout({ planoNome, planoPreco, planoConfigId, periodo, onClose 
 
         {etapa === "pix" && pix && (
           <>
-            {pix.pixQrCodeUrl ? (
+            {pix.pixQrCodeUrl && (
               <div style={{ textAlign: "center", marginBottom: 18 }}>
                 <img src={pix.pixQrCodeUrl} alt="QR Code PIX" style={{ width: 200, height: 200, borderRadius: 10, border: "0.5px solid var(--color-border-secondary)", padding: 8, background: "#fff" }} />
-              </div>
-            ) : (
-              <div style={{ textAlign: "center", padding: "20px 0 18px", fontSize: 13, color: "var(--color-text-secondary)" }}>
-                Use o código abaixo para pagar via PIX
               </div>
             )}
 

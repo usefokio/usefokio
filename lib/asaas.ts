@@ -94,6 +94,7 @@ export async function criarCobranca(params: {
   valor: number;
   descricao: string;
   externalReference?: string;
+  billingType?: string;
 }): Promise<{ paymentId: string; invoiceUrl: string }> {
   const customerId = await obterCustomer(params.apiKey, params.ambiente, params.cliente);
   const dueDate = new Date(Date.now() + 3 * 86_400_000).toISOString().split("T")[0];
@@ -101,7 +102,7 @@ export async function criarCobranca(params: {
     method: "POST",
     body: JSON.stringify({
       customer:             customerId,
-      billingType:          "PIX",
+      billingType:          params.billingType ?? "PIX",
       value:                params.valor,
       dueDate,
       description:          params.descricao,
