@@ -145,6 +145,7 @@ export default function AcessoEntregaPage() {
   const [renovCpf,         setRenovCpf]         = useState("");
   const [modalCpf,         setModalCpf]         = useState(false);
   const [cpfTemp,          setCpfTemp]          = useState("");
+  const [asaasAtivo,       setAsaasAtivo]       = useState<boolean | null>(null);
 
   // Restaura sessão
   useEffect(() => {
@@ -155,7 +156,7 @@ export default function AcessoEntregaPage() {
   useEffect(() => {
     const supabase = createClient();
     Promise.all([
-      supabase.from("galerias_entrega").select("*, clientes(nome, email, cpf), fotografos(logo_url, nome_empresa, asaas_ativo, pix_ativo, pix_chave, pix_tipo)").eq("id", id).maybeSingle(),
+      supabase.from("galerias_entrega").select("*, clientes(nome, email, cpf), fotografos(logo_url, nome_empresa)").eq("id", id).maybeSingle(),
       fetchAllRows<GaleriaEntregaFoto>((sb, from, to) => sb.from("galerias_entrega_fotos").select("*").eq("galeria_id", id).order("ordem").order("created_at").range(from, to), supabase),
     ]).then(([{ data: g }, f]) => {
       if (!g || g.rascunho) { setTela("nao_encontrada"); return; }
@@ -266,7 +267,13 @@ export default function AcessoEntregaPage() {
 
   // Verificação automática ao cair na tela expirada/suspensa (cliente voltando após pagar)
   useEffect(() => {
-    if (tela === "expirada" || tela === "suspensa") verificarRenovacao(true);
+    if (tela === "expirada" || tela === "suspensa") {
+      verificarRenovacao(true);
+      fetch(`/api/acesso/entrega/${id}/pagamento`)
+        .then(r => r.json())
+        .then(d => setAsaasAtivo(d.asaas_ativo ?? false))
+        .catch(() => setAsaasAtivo(false));
+    }
   }, [tela]);
 
   async function gerarCobrancaRenovacao(cpfFornecido?: string) {
@@ -382,7 +389,7 @@ export default function AcessoEntregaPage() {
   // Bloco de pagamento de renovação — usado nas telas expirada e suspensa.
   // Chamado como função (não como <Componente/>) para não remontar os inputs a cada render.
   function renderBlocoRenovacao({ cor }: { cor: string }) {
-    if (!galeria?.fotografos?.asaas_ativo) return (
+    if (!asaasAtivo) return (
       <div style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", marginTop: 6 }}>
         Entre em contato com o fotógrafo para renovar o acesso.
       </div>
