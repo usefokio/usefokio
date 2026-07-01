@@ -51,11 +51,16 @@ export async function POST(req: Request) {
       const hoje = new Date().toISOString().slice(0, 10);
       if (!pc.valido_ate || pc.valido_ate >= hoje) {
         planoNome = pc.codigo;
-        preco = periodoReq === "anual" && pc.preco_anual ? Number(pc.preco_anual) : Number(pc.preco);
+        preco = periodoReq === "anual" && pc.preco_anual ? Number(pc.preco_anual) * 12 : Number(pc.preco);
         duracaoDias = periodoReq === "anual" ? 365 : (pc.duracao_dias ?? 31);
         resolvedPlanoConfigId = pc.id;
-        if (pc.forma_pagamento === "boleto") asaasBillingType = "BOLETO";
-        else if (pc.forma_pagamento === "livre") asaasBillingType = "UNDEFINED";
+        if (periodoReq === "anual") {
+          asaasBillingType = "UNDEFINED";
+        } else if (pc.forma_pagamento === "boleto") {
+          asaasBillingType = "BOLETO";
+        } else if (pc.forma_pagamento === "livre") {
+          asaasBillingType = "UNDEFINED";
+        }
       }
     }
   } else if (periodoReq === "anual") {

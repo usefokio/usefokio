@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 type PlanoConfig = {
@@ -39,6 +39,9 @@ export default function PlanosPage() {
   const [salvando, setSalvando] = useState(false);
   const [msg,      setMsg]      = useState("");
 
+  const modalRef = useRef<Partial<PlanoConfig> | null>(null);
+  useEffect(() => { modalRef.current = modal; }, [modal]);
+
   useEffect(() => { carregar(); }, []);
 
   async function carregar() {
@@ -53,15 +56,16 @@ export default function PlanosPage() {
   }
 
   async function salvar() {
-    if (!modal) return;
+    const currentModal = modalRef.current;
+    if (!currentModal) return;
     setSalvando(true); setMsg("");
     const supabase = createClient();
     const { data: { session } } = await supabase.auth.getSession();
-    const isNovo = !modal.id;
-    const res = await fetch(isNovo ? "/api/webmaster/planos" : `/api/webmaster/planos/${modal.id}`, {
+    const isNovo = !currentModal.id;
+    const res = await fetch(isNovo ? "/api/webmaster/planos" : `/api/webmaster/planos/${currentModal.id}`, {
       method: isNovo ? "POST" : "PATCH",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token ?? ""}` },
-      body: JSON.stringify(modal),
+      body: JSON.stringify(currentModal),
     });
     const json = await res.json();
     if (!res.ok) { setMsg("❌ " + (json.error ?? "Erro ao salvar")); setSalvando(false); return; }

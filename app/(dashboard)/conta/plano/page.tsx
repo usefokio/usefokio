@@ -121,7 +121,9 @@ function ModalCheckout({ planoNome, planoPreco, planoConfigId, periodo, onClose 
               {planoNome}
             </div>
             <div style={{ fontSize: 13, color: "var(--color-text-secondary)", marginTop: 2 }}>
-              R${Number(planoPreco).toFixed(2).replace(".", ",")}{periodo === "anual" ? "/mês · 12x anual" : "/mês"}
+              {periodo === "anual"
+                ? `R$${Number(planoPreco).toFixed(2).replace(".", ",")}/mês · Total: R$${(Number(planoPreco) * 12).toFixed(2).replace(".", ",")}/ano`
+                : `R$${Number(planoPreco).toFixed(2).replace(".", ",")}/mês`}
               {planoConfigId ? " · campanha" : ""}
             </div>
           </div>
@@ -181,7 +183,7 @@ function ModalCheckout({ planoNome, planoPreco, planoConfigId, periodo, onClose 
 
             <div style={{ padding: "10px 14px", background: "var(--color-background-secondary)", borderRadius: 8, fontSize: 11, color: "var(--color-text-secondary)", lineHeight: 1.5 }}>
               Após o pagamento, seu plano será ativado automaticamente em alguns segundos.
-              {pix.expiresAt && ` PIX válido até ${new Date(pix.expiresAt).toLocaleString("pt-BR")}.`}
+              {pix.expiresAt && pix.pixQrCodeUrl && ` PIX válido até ${new Date(pix.expiresAt).toLocaleString("pt-BR")}.`}
             </div>
 
             <button onClick={onClose} style={{ width: "100%", padding: "10px", borderRadius: 9, border: "0.5px solid var(--color-border-secondary)", background: "transparent", fontSize: 12, color: "var(--color-text-secondary)", cursor: "pointer", marginTop: 12 }}>
@@ -454,7 +456,7 @@ export default function PlanoPage() {
                   )}
                   {temAnual && periodoGlobal === "anual" && (
                     <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 4 }}>
-                      Cobrado em 12× no cartão · Acesso por 365 dias
+                      Pagamento único anual — parcele em até 12× sem juros no cartão
                     </div>
                   )}
                   {p.duracao_dias && periodoGlobal !== "anual" && (
