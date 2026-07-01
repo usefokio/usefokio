@@ -6,7 +6,12 @@ import { Avatar } from "@/components/ui/Avatar";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
 
-export function Header() {
+interface HeaderProps {
+  isMobile?: boolean;
+  onAbrirSidebar?: () => void;
+}
+
+export function Header({ isMobile = false, onAbrirSidebar }: HeaderProps) {
   const router  = useRouter();
   const { fotografo } = useFotografo();
   const [menuOpen, setMenuOpen]   = useState(false);
@@ -41,11 +46,26 @@ export function Header() {
         borderBottom: "0.5px solid var(--color-border-tertiary)",
         display: "flex",
         alignItems: "center",
-        padding: "0 22px",
+        padding: isMobile ? "0 12px" : "0 22px",
         gap: 14,
         flexShrink: 0,
       }}
     >
+      {isMobile && (
+        <button
+          onClick={onAbrirSidebar}
+          title="Abrir menu"
+          style={{
+            background: "none", border: "none", cursor: "pointer",
+            color: "var(--color-text-primary)", padding: 6, borderRadius: 6,
+            display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+          }}
+        >
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+            <path d="M2 4.5h14M2 9h14M2 13.5h14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+          </svg>
+        </button>
+      )}
       {/* Right side */}
       <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10 }}>
         {/* Alert */}

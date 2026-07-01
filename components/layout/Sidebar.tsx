@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, Suspense } from "react";
+import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -263,7 +263,13 @@ function IcoChevron({ collapsed }: { collapsed: boolean }) {
   );
 }
 
-export function Sidebar() {
+interface SidebarProps {
+  isMobile?: boolean;
+  mobileAberta?: boolean;
+  onFechar?: () => void;
+}
+
+export function Sidebar({ isMobile = false, mobileAberta = false, onFechar }: SidebarProps) {
   const pathname      = usePathname();
   const router        = useRouter();
   const { fotografo } = useFotografo();
@@ -271,6 +277,10 @@ export function Sidebar() {
   const [usefokioOpen, setUsefokioOpen] = useState(true);
   const [crmOpen,      setCrmOpen]      = useState(true);
   const [resetando, setResetando]       = useState(false);
+
+  useEffect(() => {
+    if (isMobile) onFechar?.();
+  }, [pathname]);
 
   async function handleLogout() {
     const supabase = createClient();
@@ -303,9 +313,25 @@ export function Sidebar() {
 
   const W = collapsed ? 52 : 228;
 
-  return (
-    <aside
-      style={{
+  const asideStyle: React.CSSProperties = isMobile
+    ? {
+        width: 228,
+        minWidth: 228,
+        background: "var(--color-background-primary)",
+        borderRight: "0.5px solid var(--color-border-tertiary)",
+        display: "flex",
+        flexDirection: "column",
+        flexShrink: 0,
+        height: "100vh",
+        position: "fixed",
+        top: 0,
+        left: 0,
+        zIndex: 50,
+        transform: mobileAberta ? "translateX(0)" : "translateX(-100%)",
+        transition: "transform 0.25s ease",
+        overflow: "hidden",
+      }
+    : {
         width: W,
         minWidth: W,
         background: "var(--color-background-primary)",
@@ -318,8 +344,10 @@ export function Sidebar() {
         top: 0,
         transition: "width 0.25s ease, min-width 0.25s ease",
         overflow: "hidden",
-      }}
-    >
+      };
+
+  return (
+    <aside style={asideStyle}>
       {/* Logo / botão de colapso */}
       <div style={{
         padding: "0 8px",
@@ -327,40 +355,51 @@ export function Sidebar() {
         borderBottom: "0.5px solid var(--color-border-tertiary)",
         display: "flex",
         alignItems: "center",
-        justifyContent: collapsed ? "center" : "space-between",
+        justifyContent: (isMobile || !collapsed) ? "space-between" : "center",
         flexShrink: 0,
       }}>
-        {!collapsed && (
+        {(isMobile || !collapsed) && (
           <img
             src="/usefokio-logo.svg"
             alt="UseFokio"
             style={{ height: 22, width: "auto", display: "block", marginLeft: 6 }}
           />
         )}
-        <button
-          onClick={() => setCollapsed((v) => !v)}
-          title={collapsed ? "Expandir menu" : "Recolher menu"}
-          style={{
-            background: "none",
-            border: "none",
-            cursor: "pointer",
-            color: "var(--color-text-secondary)",
-            padding: 6,
-            borderRadius: 6,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            flexShrink: 0,
-          }}
-          onMouseEnter={(e) => (e.currentTarget.style.background = "var(--color-background-secondary)")}
-          onMouseLeave={(e) => (e.currentTarget.style.background = "none")}
-        >
-          <IcoChevron collapsed={collapsed} />
-        </button>
+        {isMobile ? (
+          <button
+            onClick={onFechar}
+            title="Fechar menu"
+            style={{
+              background: "none", border: "none", cursor: "pointer",
+              color: "var(--color-text-secondary)", padding: 6, borderRadius: 6,
+              display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = "var(--color-background-secondary)")}
+            onMouseLeave={(e) => (e.currentTarget.style.background = "none")}
+          >
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+              <path d="M3 3l10 10M13 3L3 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
+          </button>
+        ) : (
+          <button
+            onClick={() => setCollapsed((v) => !v)}
+            title={collapsed ? "Expandir menu" : "Recolher menu"}
+            style={{
+              background: "none", border: "none", cursor: "pointer",
+              color: "var(--color-text-secondary)", padding: 6, borderRadius: 6,
+              display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = "var(--color-background-secondary)")}
+            onMouseLeave={(e) => (e.currentTarget.style.background = "none")}
+          >
+            <IcoChevron collapsed={collapsed} />
+          </button>
+        )}
       </div>
 
       {/* Nav */}
-      <nav style={{ padding: collapsed ? "8px 6px" : 8, flex: 1, overflowY: "auto" }}>
+      <nav style={{ padding: (isMobile || !collapsed) ? 8 : "8px 6px", flex: 1, overflowY: "auto" }}>
         {(() => {
           const recursosPorRota: Record<string, keyof NonNullable<typeof fotografo>["recursos"]> = {
             "/selecao": "selecao", "/entrega": "entrega", "/album": "album", "/contatos": "contatos",
