@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { fetchAllRows } from "@/lib/supabase/fetchAll";
 import type { GaleriaEntrega, GaleriaEntregaFoto } from "@/lib/supabase/types";
+import { useWindowWidth, MOBILE } from "@/lib/hooks/useWindowWidth";
 
 const SESSION_KEY = "usefokio_entrega_identificado";
 type Identificacao = { nome: string; email: string };
@@ -146,6 +147,9 @@ export default function AcessoEntregaPage() {
   const [modalCpf,         setModalCpf]         = useState(false);
   const [cpfTemp,          setCpfTemp]          = useState("");
   const [asaasAtivo,       setAsaasAtivo]       = useState<boolean | null>(null);
+
+  const largura  = useWindowWidth();
+  const isMobile = largura < MOBILE;
 
   // Restaura sessão
   useEffect(() => {
@@ -685,7 +689,7 @@ export default function AcessoEntregaPage() {
     <div style={{ minHeight: "100vh", background: "#f4f4f4" }}>
 
       {/* Barra superior fixa */}
-      <div style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 100, background: "rgba(255,255,255,0.96)", backdropFilter: "blur(12px)", borderBottom: "1px solid rgba(0,0,0,0.08)", padding: "0 20px", height: 56, display: "flex", alignItems: "center", gap: 14 }}>
+      <div style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 100, background: "rgba(255,255,255,0.96)", backdropFilter: "blur(12px)", borderBottom: "1px solid rgba(0,0,0,0.08)", padding: isMobile ? "0 8px" : "0 20px", height: 56, display: "flex", alignItems: "center", gap: isMobile ? 6 : 14 }}>
         <button
           onClick={() => setTela("capa")}
           style={{ background: "none", border: "none", color: "#666", fontSize: 20, cursor: "pointer", padding: "0 4px", lineHeight: 1, flexShrink: 0 }}
@@ -742,10 +746,10 @@ export default function AcessoEntregaPage() {
               setFormErro("");
               setModalDrive(true);
             }}
-            style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", borderRadius: 8, background: "#111", color: "#fff", fontSize: 12, fontWeight: 700, textDecoration: "none", flexShrink: 0, cursor: "pointer" }}
+            style={{ display: "flex", alignItems: "center", gap: 6, padding: isMobile ? "8px 10px" : "8px 16px", borderRadius: 8, background: "#111", color: "#fff", fontSize: 12, fontWeight: 700, textDecoration: "none", flexShrink: 0, cursor: "pointer" }}
           >
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-            Baixar todas
+            {!isMobile && "Baixar todas"}
           </a>
         )}
         {/* Sem Drive link → Baixar todas + Selecionar */}
@@ -753,17 +757,19 @@ export default function AcessoEntregaPage() {
           <div style={{ display: "flex", gap: 8, flexShrink: 0, alignItems: "center" }}>
             <button
               onClick={() => baixarSelecionadas(fotos.map((f) => f.id))}
-              style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 8, background: "#111", color: "#fff", fontSize: 12, fontWeight: 700, border: "none", cursor: "pointer" }}
+              style={{ display: "flex", alignItems: "center", gap: 6, padding: isMobile ? "8px 10px" : "8px 14px", borderRadius: 8, background: "#111", color: "#fff", fontSize: 12, fontWeight: 700, border: "none", cursor: "pointer" }}
             >
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-              Baixar todas
+              {!isMobile && "Baixar todas"}
             </button>
-            <button
-              onClick={() => { setModoSelecao(true); setSelecionadas(new Set()); }}
-              style={{ padding: "8px 14px", borderRadius: 8, background: "transparent", border: "1px solid #ddd", color: "#444", fontSize: 12, fontWeight: 600, cursor: "pointer" }}
-            >
-              Selecionar para baixar
-</button>
+            {!isMobile && (
+              <button
+                onClick={() => { setModoSelecao(true); setSelecionadas(new Set()); }}
+                style={{ padding: "8px 14px", borderRadius: 8, background: "transparent", border: "1px solid #ddd", color: "#444", fontSize: 12, fontWeight: 600, cursor: "pointer" }}
+              >
+                Selecionar para baixar
+              </button>
+            )}
           </div>
         )}
         {/* Modo seleção ativo */}
@@ -772,12 +778,14 @@ export default function AcessoEntregaPage() {
             <span style={{ fontSize: 12, color: "#666" }}>
               {selecionadas.size} selecionada{selecionadas.size !== 1 ? "s" : ""}
             </span>
-            <button
-              onClick={selecionadas.size === fotos.length ? desmarcarTodas : selecionarTodas}
-              style={{ padding: "6px 12px", borderRadius: 7, background: "transparent", border: "1px solid #ddd", color: "#444", fontSize: 12, cursor: "pointer" }}
-            >
-              {selecionadas.size === fotos.length ? "Desmarcar todas" : "Selecionar todas"}
-            </button>
+            {!isMobile && (
+              <button
+                onClick={selecionadas.size === fotos.length ? desmarcarTodas : selecionarTodas}
+                style={{ padding: "6px 12px", borderRadius: 7, background: "transparent", border: "1px solid #ddd", color: "#444", fontSize: 12, cursor: "pointer" }}
+              >
+                {selecionadas.size === fotos.length ? "Desmarcar todas" : "Selecionar todas"}
+              </button>
+            )}
             {selecionadas.size > 0 && (
               <button
                 onClick={() => baixarSelecionadas([...selecionadas])}
