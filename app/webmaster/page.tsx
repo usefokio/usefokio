@@ -152,22 +152,28 @@ function LimiteFotosCell({
     );
   }
 
-  const label = inicial != null
-    ? `${inicial.toLocaleString("pt-BR")} fotos`
-    : planLimite != null
-      ? `${planLimite.toLocaleString("pt-BR")} fotos`
-      : "∞ fotos";
-  const isPlanDefault = inicial == null && planLimite != null;
+  // Limite efetivo: mesmo cálculo do upload — plano garante o mínimo
+  const efetivo: number | null =
+    inicial != null && planLimite != null ? Math.max(inicial, planLimite)
+    : inicial != null ? inicial
+    : planLimite;
+
+  const label = efetivo != null ? `${efetivo.toLocaleString("pt-BR")} fotos` : "∞ fotos";
+  // badge "plano" quando o custom existe mas é menor que o plano (override pelo plano)
+  const badge: "plano" | "custom" | null =
+    inicial == null && planLimite != null ? "plano"
+    : inicial != null && planLimite != null && planLimite > inicial ? "plano"
+    : null;
 
   return (
     <button
       onClick={() => setEditando(true)}
-      title="Clique para editar limite"
+      title={`Limite efetivo: ${label}${inicial != null ? ` (custom salvo: ${inicial.toLocaleString("pt-BR")})` : ""}\nClique para editar`}
       style={{ padding: "3px 8px", borderRadius: 6, border: "0.5px solid var(--color-border-secondary)", background: "transparent", fontSize: 11, fontWeight: 600, color: "var(--color-text-primary)", cursor: "pointer", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 4 }}
     >
       {label}
-      {isPlanDefault && (
-        <span style={{ fontSize: 9, fontWeight: 600, color: "#6B7280", background: "rgba(107,114,128,0.12)", padding: "1px 5px", borderRadius: 4 }}>plano</span>
+      {badge && (
+        <span style={{ fontSize: 9, fontWeight: 600, color: "#6B7280", background: "rgba(107,114,128,0.12)", padding: "1px 5px", borderRadius: 4 }}>{badge}</span>
       )}
     </button>
   );
