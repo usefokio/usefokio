@@ -73,6 +73,7 @@ export default function CampanhaPage() {
   const [modalTemplate,  setModalTemplate]  = useState<"campanha" | "renovacao" | "lembrete_renovacao">("campanha");
   const [recarregarKey,  setRecarregarKey]  = useState(0);
   const [movendoId,      setMovendoId]      = useState<string | null>(null);
+  const [busca,          setBusca]          = useState("");
 
   useEffect(() => {
     if (!fotografo) return;
@@ -174,8 +175,16 @@ export default function CampanhaPage() {
     return COLUNAS.find((c) => c.estagios.includes(item.estagio))?.id ?? "sem_contato";
   }
 
+  const buscaLower = busca.trim().toLowerCase();
+  const itensFiltrados = buscaLower
+    ? itens.filter((i) =>
+        i.galeria.titulo.toLowerCase().includes(buscaLower) ||
+        (i.galeria.cliente_nome ?? "").toLowerCase().includes(buscaLower)
+      )
+    : itens;
+
   const itensPorColuna = COLUNAS.reduce<Record<string, CampanhaItem[]>>((acc, col) => {
-    acc[col.id] = itens.filter((i) => colunaDeItem(i) === col.id);
+    acc[col.id] = itensFiltrados.filter((i) => colunaDeItem(i) === col.id);
     return acc;
   }, {});
 
@@ -232,6 +241,19 @@ export default function CampanhaPage() {
             {loading ? "Carregando…" : `${itens.length} galeria${itens.length !== 1 ? "s" : ""} na campanha`}
           </p>
         </div>
+        <input
+          type="search"
+          placeholder="Buscar por galeria ou cliente…"
+          value={busca}
+          onChange={(e) => setBusca(e.target.value)}
+          style={{
+            padding: "8px 14px", borderRadius: 8, fontSize: 13,
+            border: "0.5px solid var(--color-border-secondary)",
+            background: "var(--color-background-secondary)",
+            color: "var(--color-text-primary)",
+            outline: "none", width: 240,
+          }}
+        />
       </div>
 
       {loading ? (
