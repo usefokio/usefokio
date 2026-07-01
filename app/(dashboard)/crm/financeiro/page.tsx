@@ -416,17 +416,20 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
   const finVerLarge  = largura >= 1100;
   const finVerMedium = largura >= 700 && largura < 1100;
 
-  const finGrid = finVerLarge
-    ? "1fr 160px 110px 110px 130px"
-    : finVerMedium
-    ? "1fr 110px 110px 130px"
-    : "1fr 110px 100px";
+  const finGrid = "50px 75px 100px 65px 115px 65px 1fr 1fr 85px 100px";
 
-  const finCabecalhos = finVerLarge
-    ? [{ label: "Descrição / Cliente", col: "descricao" }, { label: "Parcela", col: "parcela" }, { label: "Vencimento", col: "vencimento" }, { label: "Valor", col: "valor" }, { label: "", col: "" }]
-    : finVerMedium
-    ? [{ label: "Descrição / Cliente", col: "descricao" }, { label: "Vencimento", col: "vencimento" }, { label: "Valor", col: "valor" }, { label: "", col: "" }]
-    : [{ label: "Descrição / Cliente", col: "descricao" }, { label: "Valor", col: "valor" }, { label: "", col: "" }];
+  const finCabecalhos = [
+    { label: "#",          col: "" },
+    { label: "Emissão",   col: "" },
+    { label: "Vencimento", col: "vencimento" },
+    { label: "Doc",       col: "" },
+    { label: "Tipo",      col: "" },
+    { label: "Pedido",    col: "" },
+    { label: "Nome",      col: "" },
+    { label: "Descrição", col: "descricao" },
+    { label: "Valor",     col: "valor" },
+    { label: "",          col: "" },
+  ];
 
   return (
     <div style={{ padding: "28px 32px", maxWidth: 1100, fontFamily: "var(--font-sans)" }}>
@@ -565,21 +568,17 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
 
             return (
               <div key={e.id} style={{ display: "grid", gridTemplateColumns: finGrid, padding: "11px 16px", borderBottom: i < paginadas.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", background: vencido ? "rgba(239,68,68,0.03)" : "var(--color-background-primary)", alignItems: "center" }}>
-                <div>
-                  <div style={{ fontSize: 13, fontWeight: 500, color: "var(--color-text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{e.descricao}</div>
-                  {clienteNome && <div style={{ fontSize: 11, color: "var(--color-text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{clienteNome}</div>}
+                <div style={{ fontSize: 11, color: "var(--color-text-secondary)" }}>{e.legacy_id ?? "—"}</div>
+                <div style={{ fontSize: 11, color: "var(--color-text-secondary)" }}>{e.created_at ? fmtData(e.created_at.slice(0, 10)) : "—"}</div>
+                <div style={{ fontSize: 12, color: vencido ? "#EF4444" : "var(--color-text-secondary)", fontWeight: vencido ? 600 : 400 }}>
+                  {fmtData(e.vencimento)}
+                  {vencido && <div style={{ fontSize: 10 }}>Vencido</div>}
                 </div>
-                {finVerLarge && (
-                  <div style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>
-                    {e.parcela ? `Parcela ${e.parcela}` : "—"}
-                  </div>
-                )}
-                {(finVerLarge || finVerMedium) && (
-                  <div style={{ fontSize: 12, color: vencido ? "#EF4444" : "var(--color-text-secondary)", fontWeight: vencido ? 600 : 400 }}>
-                    {fmtData(e.vencimento)}
-                    {vencido && <div style={{ fontSize: 10 }}>Vencido</div>}
-                  </div>
-                )}
+                <div style={{ fontSize: 11, color: "var(--color-text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{e.num_documento ?? "—"}</div>
+                <div style={{ fontSize: 12, color: "var(--color-text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{e.forma_pagamento ?? "—"}</div>
+                <div style={{ fontSize: 11, color: "var(--color-text-secondary)" }}>{e.crm_orders?.numero ?? "—"}</div>
+                <div style={{ fontSize: 13, fontWeight: 500, color: "var(--color-text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{clienteNome ?? "—"}</div>
+                <div style={{ fontSize: 13, fontWeight: 500, color: "var(--color-text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{e.descricao}</div>
                 <div
                   onClick={() => setDrillEntry(e)}
                   title="Ver detalhes"
@@ -639,11 +638,9 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
           <Paginacao pagina={page} total={ordenadas.length} pageSize={pageSize} onPagina={setPage} onPageSize={setPageSize} />
           {/* Linha totalizadora */}
           <div style={{ display: "grid", gridTemplateColumns: finGrid, padding: "11px 16px", borderTop: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-secondary)", alignItems: "center" }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+            <div style={{ gridColumn: "1 / 9", fontSize: 12, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
               {labelTotal} · {filtradas.length} lançamento{filtradas.length !== 1 ? "s" : ""}
             </div>
-            {finVerLarge && <div />}
-            {(finVerLarge || finVerMedium) && <div />}
             <div style={{ fontSize: 14, fontWeight: 800, color: (aba === "receber" || aba === "recebidas") ? "#059669" : "#EF4444" }}>
               {fmt(totalFiltradas)}
             </div>
@@ -897,14 +894,6 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
             )}
 
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-              {/* Descrição */}
-              <div>
-                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>Descrição *</div>
-                <input value={novoDescricao} onChange={e => setNovoDescricao(e.target.value)}
-                  placeholder="Ex: Sessão fotográfica"
-                  style={{ width: "100%", boxSizing: "border-box", padding: "9px 12px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", fontSize: 13, color: "var(--color-text-primary)", outline: "none" }} />
-              </div>
-
               {/* Cliente */}
               <div>
                 <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>Cliente</div>
@@ -986,6 +975,14 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
                     </div>
                   </div>
                 )}
+              </div>
+
+              {/* Descrição */}
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>Descrição *</div>
+                <input value={novoDescricao} onChange={e => setNovoDescricao(e.target.value)}
+                  placeholder="Ex: Sessão fotográfica"
+                  style={{ width: "100%", boxSizing: "border-box", padding: "9px 12px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", fontSize: 13, color: "var(--color-text-primary)", outline: "none" }} />
               </div>
             </div>
 
