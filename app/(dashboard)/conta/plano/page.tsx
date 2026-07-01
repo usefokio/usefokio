@@ -224,9 +224,9 @@ export default function PlanoPage() {
 
     Promise.all([
       supabase
-        .from("galerias_selecao_fotos")
-        .select("id, galeria_id, galerias_selecao!inner(fotografo_id)", { count: "exact", head: true })
-        .eq("galerias_selecao.fotografo_id", fotografo.id),
+        .from("galerias_selecao")
+        .select("id", { count: "exact", head: true })
+        .eq("fotografo_id", fotografo.id),
 
       supabase
         .from("galerias_entrega")
@@ -360,7 +360,7 @@ export default function PlanoPage() {
             <div style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>Calculando…</div>
           ) : (
             <>
-              <BarraRecurso label="Galerias de Seleção" icone="🖼" qtd={uso?.selecao ?? 0} total={limiteAtual ?? 0} cor="#2563EB" />
+              <BarraRecurso label="Galerias de Seleção" icone="🖼" qtd={uso?.selecao ?? 0} total={0} cor="#2563EB" unit="galeria" />
               <BarraRecurso label="Galerias de Entrega"  icone="📦" qtd={uso?.entrega ?? 0} total={limiteGalerias ?? 0} cor="#059669" unit="galeria" />
             </>
           )}
