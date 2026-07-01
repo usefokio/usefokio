@@ -120,25 +120,31 @@ export default function ProdutosPage() {
       </div>
 
       {/* Filtros */}
-      <div style={{ display: "flex", gap: 10, marginBottom: 18, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
         <input
           value={busca}
           onChange={(e) => setBusca(e.target.value)}
           placeholder="Buscar por nome ou código…"
           style={{ flex: 1, minWidth: 200, padding: "8px 12px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-secondary)", fontSize: 13, color: "var(--color-text-primary)", outline: "none" }}
         />
-        <select
-          value={categFiltro}
-          onChange={(e) => setCategFiltro(e.target.value)}
-          style={{ padding: "8px 12px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-secondary)", fontSize: 13, color: "var(--color-text-primary)", cursor: "pointer", outline: "none" }}
-        >
-          <option value="">Todas as categorias</option>
-          {categorias.map((c) => <option key={c.id} value={c.nome}>{c.nome}</option>)}
-        </select>
         <label style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 13, color: "var(--color-text-secondary)", cursor: "pointer", userSelect: "none" }}>
           <input type="checkbox" checked={somenteAtivos} onChange={(e) => setSomenteAtivos(e.target.checked)} />
           Somente ativos
         </label>
+      </div>
+      <div style={{ display: "flex", gap: 6, marginBottom: 18, flexWrap: "wrap" }}>
+        {[{ id: "", nome: "" }, ...categorias].map((c) => (
+          <button key={c.id} onClick={() => setCategFiltro(c.nome)}
+            style={{
+              padding: "5px 14px", borderRadius: 20, fontSize: 12, cursor: "pointer",
+              fontWeight: categFiltro === c.nome ? 700 : 500,
+              border: `0.5px solid ${categFiltro === c.nome ? "var(--color-text-primary)" : "var(--color-border-secondary)"}`,
+              background: categFiltro === c.nome ? "var(--color-text-primary)" : "transparent",
+              color: categFiltro === c.nome ? "var(--color-background-primary)" : "var(--color-text-secondary)",
+            }}>
+            {c.nome || "Todas"}
+          </button>
+        ))}
       </div>
 
       {/* Tabela */}

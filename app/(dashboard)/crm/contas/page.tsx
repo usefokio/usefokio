@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { Field } from "@/components/ui/Field";
 import { inputStyle } from "@/lib/styles";
+import { isValidDate, normalizarValor, formatarValor, parsearValor } from "@/lib/utils/format";
 import type { CrmContaBancaria } from "@/lib/supabase/types";
 
 const TIPOS: { value: CrmContaBancaria["tipo"]; label: string }[] = [
@@ -52,6 +53,16 @@ export default function ContasBancariasPage() {
   const [saving,   setSaving]   = useState(false);
   const [error,    setError]    = useState("");
   const [confirmDel, setConfirmDel] = useState<string | null>(null);
+
+  const hoje = new Date().toISOString().slice(0, 10);
+  const [modalTransf,   setModalTransf]   = useState(false);
+  const [transfOrigem,  setTransfOrigem]  = useState("");
+  const [transfDestino, setTransfDestino] = useState("");
+  const [transfValor,   setTransfValor]   = useState("");
+  const [transfData,    setTransfData]    = useState(hoje);
+  const [transfDesc,    setTransfDesc]    = useState("");
+  const [transfErro,    setTransfErro]    = useState("");
+  const [transfSaving,  setTransfSaving]  = useState(false);
 
   const carregar = useCallback(async () => {
     if (!fotografo) return;
@@ -138,6 +149,27 @@ export default function ContasBancariasPage() {
     carregar();
   };
 
+  const salvarTransferencia = async () => {
+    if (!fotografo) return;
+    if (!transfOrigem || !transfDestino) { setTransfErro("Selecione as contas."); return; }
+    if (transfOrigem === transfDestino)  { setTransfErro("As contas de origem e destino devem ser diferentes."); return; }
+    const v = parsearValor(transfValor);
+    if (!v || v <= 0)                    { setTransfErro("Informe um valor válido."); return; }
+    if (!isValidDate(transfData))        { setTransfErro("Data inválida."); return; }
+    setTransfSaving(true); setTransfErro("");
+    const nomeOrigem  = contas.find(c => c.id === transfOrigem)?.nome  ?? "Origem";
+    const nomeDestino = contas.find(c => c.id === transfDestino)?.nome ?? "Destino";
+    const { error } = await createClient().from("crm_financial_entries").insert([
+      { fotografo_id: fotografo.id, tipo: "despesa", status: "pago", pago_em: transfData, conta_bancaria_id: transfOrigem,  descricao: transfDesc.trim() || `Transferência → ${nomeDestino}`, valor: v, vencimento: transfData, internal_account_type: "direto" },
+      { fotografo_id: fotografo.id, tipo: "receita", status: "pago", pago_em: transfData, conta_bancaria_id: transfDestino, descricao: transfDesc.trim() || `Transferência ← ${nomeOrigem}`,  valor: v, vencimento: transfData, internal_account_type: "direto" },
+    ]);
+    setTransfSaving(false);
+    if (error) { setTransfErro(error.message); return; }
+    setModalTransf(false);
+    setTransfOrigem(""); setTransfDestino(""); setTransfValor(""); setTransfDesc("");
+    carregar();
+  };
+
   return (
     <div style={{ padding: "28px 32px", maxWidth: 900, fontFamily: "var(--font-sans)" }}>
 
@@ -151,12 +183,20 @@ export default function ContasBancariasPage() {
             Contas utilizadas nas movimentações financeiras do CRM
           </p>
         </div>
-        <button
-          onClick={abrirNova}
-          style={{ padding: "9px 18px", borderRadius: 8, background: "var(--color-text-primary)", color: "var(--color-background-primary)", border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer" }}
-        >
-          + Nova conta
-        </button>
+        <div style={{ display: "flex", gap: 10 }}>
+          <button
+            onClick={() => { setTransfData(hoje); setTransfErro(""); setModalTransf(true); }}
+            style={{ padding: "9px 18px", borderRadius: 8, background: "transparent", color: "var(--color-text-primary)", border: "0.5px solid var(--color-border-secondary)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}
+          >
+            Transferência
+          </button>
+          <button
+            onClick={abrirNova}
+            style={{ padding: "9px 18px", borderRadius: 8, background: "var(--color-text-primary)", color: "var(--color-background-primary)", border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer" }}
+          >
+            + Nova conta
+          </button>
+        </div>
       </div>
 
       {/* Lista */}
@@ -362,6 +402,69 @@ export default function ContasBancariasPage() {
                 style={{ padding: "9px 22px", borderRadius: 8, background: saving ? "#93C5FD" : "var(--color-text-primary)", color: "var(--color-background-primary)", border: "none", fontSize: 13, fontWeight: 600, cursor: saving ? "not-allowed" : "pointer" }}
               >
                 {saving ? "Salvando…" : "Salvar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal transferência */}
+      {modalTransf && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center" }}
+          onClick={(e) => e.target === e.currentTarget && setModalTransf(false)}>
+          <div style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 14, padding: "28px 32px", width: 480, boxShadow: "0 24px 64px rgba(0,0,0,0.2)", maxHeight: "90vh", overflowY: "auto" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 22 }}>
+              <div style={{ fontSize: 15, fontWeight: 700, color: "var(--color-text-primary)" }}>Transferência entre contas</div>
+              <button onClick={() => setModalTransf(false)} style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: "var(--color-text-secondary)", lineHeight: 1 }}>×</button>
+            </div>
+
+            {transfErro && (
+              <div style={{ background: "rgba(239,68,68,0.08)", border: "0.5px solid rgba(239,68,68,0.3)", borderRadius: 8, padding: "9px 14px", marginBottom: 16, fontSize: 12, color: "#EF4444" }}>
+                {transfErro}
+              </div>
+            )}
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <Field label="Conta de origem *">
+                <select value={transfOrigem} onChange={e => setTransfOrigem(e.target.value)} style={inputStyle}>
+                  <option value="">Selecione…</option>
+                  {contas.filter(c => c.ativo).map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+                </select>
+              </Field>
+
+              <Field label="Conta de destino *">
+                <select value={transfDestino} onChange={e => setTransfDestino(e.target.value)} style={inputStyle}>
+                  <option value="">Selecione…</option>
+                  {contas.filter(c => c.ativo).map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+                </select>
+              </Field>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+                <Field label="Valor (R$) *">
+                  <input type="text" inputMode="decimal" value={transfValor}
+                    onChange={e => setTransfValor(normalizarValor(e.target.value))}
+                    onBlur={e => setTransfValor(formatarValor(e.target.value))}
+                    placeholder="0,00" style={inputStyle} />
+                </Field>
+                <Field label="Data *">
+                  <input type="date" value={transfData} onChange={e => setTransfData(e.target.value)} style={inputStyle} />
+                </Field>
+              </div>
+
+              <Field label="Descrição">
+                <input type="text" value={transfDesc} onChange={e => setTransfDesc(e.target.value)}
+                  placeholder="Ex: Reserva caixa (opcional)" style={inputStyle} />
+              </Field>
+            </div>
+
+            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 24 }}>
+              <button onClick={() => setModalTransf(false)}
+                style={{ padding: "9px 18px", borderRadius: 8, background: "transparent", border: "0.5px solid var(--color-border-secondary)", fontSize: 13, color: "var(--color-text-secondary)", cursor: "pointer" }}>
+                Cancelar
+              </button>
+              <button onClick={salvarTransferencia} disabled={transfSaving}
+                style={{ padding: "9px 22px", borderRadius: 8, background: transfSaving ? "#93C5FD" : "var(--color-text-primary)", color: "var(--color-background-primary)", border: "none", fontSize: 13, fontWeight: 600, cursor: transfSaving ? "not-allowed" : "pointer" }}>
+                {transfSaving ? "Transferindo…" : "Transferir"}
               </button>
             </div>
           </div>

@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { useWindowWidth } from "@/lib/hooks/useWindowWidth";
 import { usePersistState } from "@/lib/hooks/usePersistState";
-import { formatBRL, isValidDate } from "@/lib/utils/format";
+import { formatBRL, isValidDate, normalizarValor, formatarValor, parsearValor } from "@/lib/utils/format";
 import { fetchAllRows } from "@/lib/supabase/fetchAll";
 import { IcoEdit, IcoTrash, IcoMail, IcoCheck } from "@/app/(dashboard)/crm/_components/Icons";
 import { Paginacao } from "@/app/(dashboard)/crm/_components/Paginacao";
@@ -107,7 +107,7 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
   const [novoDescricao,   setNovoDescricao]   = useState("");
   const [novoRecorrente,  setNovoRecorrente]  = useState(false);
   const [novoQtdParc,     setNovoQtdParc]     = useState("2");
-  const [novoPeriodo,     setNovoPeriodo]     = useState("30");
+  const [novoPeriodo,     setNovoPeriodo]     = useState("mensal");
   const [novoClienteId,   setNovoClienteId]   = useState("");
   const [salvandonovo,    setSalvandoNovo]    = useState(false);
   const [erroNovo,        setErroNovo]        = useState("");
@@ -244,7 +244,7 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
       .from("crm_financial_entries")
       .update({
         descricao: modalEditar.descricao.trim(),
-        valor: parseFloat(modalEditar.valor.replace(",", ".")) || 0,
+        valor: parsearValor(modalEditar.valor),
         vencimento: modalEditar.vencimento,
         conta_id: modalEditar.contaPlanoId || null,
         cliente_id: modalEditar.clienteId || null,
@@ -256,7 +256,7 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
   };
 
   const abrirEditar = async (e: EntryWithPedido) => {
-    setModalEditar({ entry: e, descricao: e.descricao, valor: String(e.valor), vencimento: e.vencimento, contaPlanoId: e.conta_id ?? "", clienteId: e.cliente_id ?? "" });
+    setModalEditar({ entry: e, descricao: e.descricao, valor: e.valor.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }), vencimento: e.vencimento, contaPlanoId: e.conta_id ?? "", clienteId: e.cliente_id ?? "" });
   };
 
   // Abrir modal de receber/pagar
@@ -309,7 +309,7 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
     setNovoVencimento(venc.toISOString().slice(0, 10));
     setNovoCategoriaId(""); setNovoValor(""); setNovoFormaPag("");
     setNovoNumDoc(""); setNovoDescricao(""); setNovoRecorrente(false);
-    setNovoQtdParc("2"); setNovoPeriodo("30"); setErroNovo("");
+    setNovoQtdParc("2"); setNovoPeriodo("mensal"); setErroNovo("");
     setNovoClienteId("");
     setShowNovo(true);
   };
@@ -317,16 +317,17 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
   // Novo lançamento — salvar
   const salvarNovo = async () => {
     if (!fotografo) return;
-    const v = parseFloat(novoValor.replace(",", "."));
+    const v = parsearValor(novoValor);
     if (!novoDescricao.trim())         { setErroNovo("Informe a descrição."); return; }
     if (!isValidDate(novoVencimento))  { setErroNovo("Vencimento inválido."); return; }
     if (!v || v <= 0)                  { setErroNovo("Informe um valor válido."); return; }
     setSalvandoNovo(true); setErroNovo("");
     const tipo = ABA_CONFIG[aba].tipo;
     const n    = novoRecorrente ? (parseInt(novoQtdParc) || 2) : 1;
-    const dias = parseInt(novoPeriodo) || 30;
-    const addDias = (base: string, d: number) => {
-      const dt = new Date(base + "T12:00:00"); dt.setDate(dt.getDate() + d);
+    const mesesMap = { mensal: 1, trimestral: 3, semestral: 6 } as const;
+    const mesesInter = mesesMap[novoPeriodo as keyof typeof mesesMap] ?? 1;
+    const addMeses = (base: string, m: number) => {
+      const dt = new Date(base + "T12:00:00"); dt.setMonth(dt.getMonth() + m);
       return dt.toISOString().slice(0, 10);
     };
     const registros = Array.from({ length: n }, (_, i) => ({
@@ -334,7 +335,7 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
       tipo,
       descricao:             novoDescricao.trim(),
       valor:                 v,
-      vencimento:            i === 0 ? novoVencimento : addDias(novoVencimento, i * dias),
+      vencimento:            i === 0 ? novoVencimento : addMeses(novoVencimento, i * mesesInter),
       status:                "pendente" as const,
       pago_em:               null,
       conta_id:              novoCategoriaId || null,
@@ -828,8 +829,9 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                 <div>
                   <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>Valor (R$)</div>
-                  <input type="number" min="0" step="0.01" value={modalEditar.valor}
-                    onChange={e => setModalEditar(m => m ? { ...m, valor: e.target.value } : m)}
+                  <input type="text" inputMode="decimal" value={modalEditar.valor}
+                    onChange={e => setModalEditar(m => m ? { ...m, valor: normalizarValor(e.target.value) } : m)}
+                    onBlur={e => setModalEditar(m => m ? { ...m, valor: formatarValor(e.target.value) } : m)}
                     style={{ width: "100%", boxSizing: "border-box", padding: "9px 12px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", fontSize: 13, color: "var(--color-text-primary)", outline: "none" }} />
                 </div>
                 <div>
@@ -912,7 +914,9 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
                 </div>
                 <div>
                   <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>Valor (R$) *</div>
-                  <input type="number" min="0" step="0.01" value={novoValor} onChange={e => setNovoValor(e.target.value)}
+                  <input type="text" inputMode="decimal" value={novoValor}
+                    onChange={e => setNovoValor(normalizarValor(e.target.value))}
+                    onBlur={e => setNovoValor(formatarValor(e.target.value))}
                     placeholder="0,00"
                     style={{ width: "100%", boxSizing: "border-box", padding: "9px 12px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", fontSize: 13, color: "var(--color-text-primary)", outline: "none" }} />
                 </div>
@@ -969,9 +973,13 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
                         style={{ width: "100%", boxSizing: "border-box", padding: "9px 12px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", fontSize: 13, color: "var(--color-text-primary)", outline: "none" }} />
                     </div>
                     <div>
-                      <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>Intervalo (dias)</div>
-                      <input type="number" min="1" value={novoPeriodo} onChange={e => setNovoPeriodo(e.target.value)}
-                        style={{ width: "100%", boxSizing: "border-box", padding: "9px 12px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", fontSize: 13, color: "var(--color-text-primary)", outline: "none" }} />
+                      <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>Periodicidade</div>
+                      <select value={novoPeriodo} onChange={e => setNovoPeriodo(e.target.value)}
+                        style={{ width: "100%", boxSizing: "border-box", padding: "9px 12px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", fontSize: 13, color: "var(--color-text-primary)", outline: "none", cursor: "pointer" }}>
+                        <option value="mensal">Mensal</option>
+                        <option value="trimestral">Trimestral</option>
+                        <option value="semestral">Semestral</option>
+                      </select>
                     </div>
                   </div>
                 )}
