@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
-type PlanoConfig = { codigo: string; limite_fotos: number | null };
+type PlanoConfig = { id: string; codigo: string; nome: string; limite_fotos: number | null; preco: number; preco_anual: number | null; eh_campanha: boolean };
 
 type FotografoStats = {
   id: string;
@@ -180,19 +180,21 @@ const PLANO_COLOR: Record<string, string> = {
 };
 
 export default function WebmasterPage() {
-  const [stats,          setStats]          = useState<FotografoStats[]>([]);
-  const [loading,        setLoading]        = useState(true);
-  const [planLimits,     setPlanLimits]     = useState<Record<string, number | null>>({});
-  const [pendingIds,     setPendingIds]     = useState<Set<string>>(new Set());
-  const [filtro,         setFiltro]         = useState<"todos" | "pendentes">("todos");
-  const [modalExcluir,   setModalExcluir]   = useState<FotografoStats | null>(null);
-  const [confirmEmail,   setConfirmEmail]   = useState("");
-  const [excluindo,      setExcluindo]      = useState(false);
-  const [erroExcluir,    setErroExcluir]    = useState("");
-  const [resetando,      setResetando]      = useState<string | null>(null);
-  const [ativando,       setAtivando]       = useState<string | null>(null);
-  const [modalAtivacao,  setModalAtivacao]  = useState<{ id: string; nome: string } | null>(null);
+  const [stats,           setStats]           = useState<FotografoStats[]>([]);
+  const [loading,         setLoading]         = useState(true);
+  const [planLimits,      setPlanLimits]      = useState<Record<string, number | null>>({});
+  const [planosConfig,    setPlanosConfig]    = useState<PlanoConfig[]>([]);
+  const [pendingIds,      setPendingIds]      = useState<Set<string>>(new Set());
+  const [filtro,          setFiltro]          = useState<"todos" | "pendentes">("todos");
+  const [modalExcluir,    setModalExcluir]    = useState<FotografoStats | null>(null);
+  const [confirmEmail,    setConfirmEmail]    = useState("");
+  const [excluindo,       setExcluindo]       = useState(false);
+  const [erroExcluir,     setErroExcluir]     = useState("");
+  const [resetando,       setResetando]       = useState<string | null>(null);
+  const [ativando,        setAtivando]        = useState<string | null>(null);
+  const [modalAtivacao,   setModalAtivacao]   = useState<{ id: string; nome: string } | null>(null);
   const [periodoAtivacao, setPeriodoAtivacao] = useState<"mensal" | "anual">("mensal");
+  const [planoSelecionado, setPlanoSelecionado] = useState<PlanoConfig | null>(null);
 
   useEffect(() => {
     carregarStats();
@@ -204,9 +206,11 @@ export default function WebmasterPage() {
       });
       if (res.ok) {
         const json = await res.json();
+        const lista = json.planos as PlanoConfig[];
         const map: Record<string, number | null> = {};
-        (json.planos as PlanoConfig[]).forEach((p) => { map[p.codigo] = p.limite_fotos; });
+        lista.forEach((p) => { map[p.codigo] = p.limite_fotos; });
         setPlanLimits(map);
+        setPlanosConfig(lista);
       }
     }
     carregarPlanos();
@@ -233,23 +237,32 @@ export default function WebmasterPage() {
 
   function abrirAtivacao(fotografoId: string, nome: string) {
     setPeriodoAtivacao("mensal");
+    const defaultPlano = planosConfig.find((p) => p.codigo === "profissional" && !p.eh_campanha) ?? planosConfig[0] ?? null;
+    setPlanoSelecionado(defaultPlano);
     setModalAtivacao({ id: fotografoId, nome });
   }
 
   async function confirmarAtivacao() {
-    if (!modalAtivacao) return;
+    if (!modalAtivacao || !planoSelecionado) return;
     setAtivando(modalAtivacao.id);
-    const dias = periodoAtivacao === "anual" ? 365 : 31;
+    const dias = periodoAtivacao === "anual" ? 365 : (planoSelecionado as PlanoConfig & { duracao_dias?: number }).duracao_dias ?? 31;
     const supabase = createClient();
     const { data: { session } } = await supabase.auth.getSession();
     await fetch("/api/webmaster/ativar-plano", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token ?? ""}` },
-      body: JSON.stringify({ fotografo_id: modalAtivacao.id, plano: "profissional", dias, periodo: periodoAtivacao }),
+      body: JSON.stringify({
+        fotografo_id:   modalAtivacao.id,
+        plano:          planoSelecionado.codigo,
+        plano_config_id: planoSelecionado.id,
+        dias,
+        periodo: periodoAtivacao,
+      }),
     });
     await carregarStats();
     setAtivando(null);
     setModalAtivacao(null);
+    setPlanoSelecionado(null);
   }
 
   async function resetarContaTeste(id: string) {
@@ -537,16 +550,46 @@ export default function WebmasterPage() {
         </div>
       )}
 
-      {/* Modal: Ativar plano profissional */}
+      {/* Modal: Ativar plano */}
       {modalAtivacao && (
         <div
           style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 300 }}
           onClick={(e) => { if (e.target === e.currentTarget) setModalAtivacao(null); }}
         >
-          <div style={{ background: "var(--color-background-primary)", borderRadius: 14, padding: "28px 30px", width: 380, boxShadow: "0 8px 40px rgba(0,0,0,0.25)" }}>
-            <div style={{ fontSize: 15, fontWeight: 800, color: "var(--color-text-primary)", marginBottom: 6 }}>Ativar Plano Profissional</div>
+          <div style={{ background: "var(--color-background-primary)", borderRadius: 14, padding: "28px 30px", width: 420, boxShadow: "0 8px 40px rgba(0,0,0,0.25)" }}>
+            <div style={{ fontSize: 15, fontWeight: 800, color: "var(--color-text-primary)", marginBottom: 4 }}>Ativar Plano</div>
             <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginBottom: 20 }}>{modalAtivacao.nome}</div>
-            <div style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", marginBottom: 8 }}>Período de assinatura</div>
+
+            {/* Seleção do plano */}
+            <div style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", marginBottom: 8 }}>Plano</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 18 }}>
+              {planosConfig.filter((p) => p.codigo !== "gratuito").map((p) => {
+                const sel = planoSelecionado?.id === p.id;
+                const preco = periodoAtivacao === "anual" && p.preco_anual != null ? p.preco_anual : p.preco;
+                return (
+                  <button
+                    key={p.id}
+                    onClick={() => setPlanoSelecionado(p)}
+                    style={{
+                      padding: "10px 14px", borderRadius: 8, cursor: "pointer", textAlign: "left",
+                      border: sel ? "2px solid #2563EB" : "0.5px solid var(--color-border-secondary)",
+                      background: sel ? "rgba(37,99,235,0.06)" : "transparent",
+                    }}
+                  >
+                    <div style={{ fontSize: 13, fontWeight: 700, color: sel ? "#2563EB" : "var(--color-text-primary)" }}>
+                      {p.nome}
+                      {p.eh_campanha && <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 600, padding: "1px 6px", borderRadius: 8, background: "rgba(245,158,11,0.15)", color: "#B45309" }}>CAMPANHA</span>}
+                    </div>
+                    <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 2 }}>
+                      R${Number(preco).toFixed(2).replace(".", ",")} · {p.limite_fotos != null ? `${p.limite_fotos.toLocaleString("pt-BR")} fotos` : "fotos ilimitadas"}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Período */}
+            <div style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", marginBottom: 8 }}>Período</div>
             <div style={{ display: "flex", gap: 8, marginBottom: 24 }}>
               {(["mensal", "anual"] as const).map((p) => (
                 <button
@@ -563,9 +606,10 @@ export default function WebmasterPage() {
                 </button>
               ))}
             </div>
+
             <div style={{ display: "flex", gap: 8 }}>
               <button
-                onClick={() => setModalAtivacao(null)}
+                onClick={() => { setModalAtivacao(null); setPlanoSelecionado(null); }}
                 disabled={!!ativando}
                 style={{ flex: 1, padding: "9px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "transparent", fontSize: 13, color: "var(--color-text-secondary)", cursor: "pointer" }}
               >
@@ -573,10 +617,10 @@ export default function WebmasterPage() {
               </button>
               <button
                 onClick={confirmarAtivacao}
-                disabled={!!ativando}
-                style={{ flex: 2, padding: "9px", borderRadius: 8, border: "none", background: ativando ? "rgba(37,99,235,0.3)" : "#2563EB", color: "#fff", fontSize: 13, fontWeight: 700, cursor: ativando ? "default" : "pointer" }}
+                disabled={!!ativando || !planoSelecionado}
+                style={{ flex: 2, padding: "9px", borderRadius: 8, border: "none", background: (ativando || !planoSelecionado) ? "rgba(37,99,235,0.3)" : "#2563EB", color: "#fff", fontSize: 13, fontWeight: 700, cursor: (ativando || !planoSelecionado) ? "default" : "pointer" }}
               >
-                {ativando ? "Ativando…" : `Confirmar — ${periodoAtivacao}`}
+                {ativando ? "Ativando…" : `Ativar — ${periodoAtivacao}`}
               </button>
             </div>
           </div>

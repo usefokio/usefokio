@@ -25,20 +25,24 @@ export async function POST(req: Request) {
 
   let planoAtivo = plano ?? "profissional";
   let diasAtivos = Number(dias ?? 31);
-  let valor      = 49;
+  let valor = 49;
   let resolvedPlanoConfigId: string | null = plano_config_id ?? null;
+  let limiteFotos: number | null = null;
   const periodoFinal: string = periodo === "anual" ? "anual" : "mensal";
 
-  if (plano_config_id) {
-    const { data: pc } = await admin
-      .from("planos_config")
-      .select("codigo, preco, preco_anual, duracao_dias")
-      .eq("id", plano_config_id)
-      .maybeSingle();
+  // Busca planos_config: por ID se fornecido, senão pelo código
+  {
+    const query = resolvedPlanoConfigId
+      ? admin.from("planos_config").select("id, codigo, preco, preco_anual, duracao_dias, limite_fotos").eq("id", resolvedPlanoConfigId)
+      : admin.from("planos_config").select("id, codigo, preco, preco_anual, duracao_dias, limite_fotos").eq("codigo", planoAtivo).eq("ativo", true);
+
+    const { data: pc } = await query.maybeSingle();
     if (pc) {
+      resolvedPlanoConfigId = pc.id;
       planoAtivo = pc.codigo;
       diasAtivos = pc.duracao_dias ?? diasAtivos;
-      valor      = periodoFinal === "anual" && pc.preco_anual ? Number(pc.preco_anual) : Number(pc.preco);
+      valor = periodoFinal === "anual" && pc.preco_anual ? Number(pc.preco_anual) : Number(pc.preco);
+      limiteFotos = pc.limite_fotos ?? null;
     }
   }
 
@@ -48,11 +52,13 @@ export async function POST(req: Request) {
   const expira = new Date();
   expira.setDate(expira.getDate() + diasAtivos);
 
+  // Aplica o plano no fotógrafo, incluindo o limite de fotos do plano
   await admin.from("fotografos").update({
-    plano:             planoAtivo,
-    plano_ativado_em:  agora,
-    plano_expira_em:   planoAtivo === "gratuito" ? null : expira.toISOString(),
-    plano_periodo:     planoAtivo === "gratuito" ? null : periodoFinal,
+    plano:               planoAtivo,
+    plano_ativado_em:    agora,
+    plano_expira_em:     planoAtivo === "gratuito" ? null : expira.toISOString(),
+    plano_periodo:       planoAtivo === "gratuito" ? null : periodoFinal,
+    limite_fotos_custom: limiteFotos,
   }).eq("id", fotografo_id);
 
   if (planoAtivo !== "gratuito") {
@@ -69,5 +75,5 @@ export async function POST(req: Request) {
     });
   }
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, limite_fotos: limiteFotos });
 }

@@ -137,6 +137,26 @@ export default function PlanosPage() {
                   Editar
                 </button>
                 <button
+                  onClick={() => setModal({
+                    ativo:          true,
+                    eh_campanha:    p.eh_campanha,
+                    preco:          p.preco,
+                    preco_anual:    p.preco_anual,
+                    duracao_dias:   p.duracao_dias,
+                    cor:            p.cor,
+                    ordem:          p.ordem,
+                    limite_fotos:   p.limite_fotos,
+                    limite_galerias: p.limite_galerias,
+                    nome:           `${p.nome} (cópia)`,
+                    descricao:      p.descricao,
+                    codigo:         `${p.codigo}-copia`,
+                  })}
+                  title="Duplicar plano"
+                  style={{ padding: "5px 10px", borderRadius: 7, border: "0.5px solid var(--color-border-secondary)", background: "transparent", fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", cursor: "pointer" }}
+                >
+                  ⎘
+                </button>
+                <button
                   onClick={() => toggleAtivo(p)}
                   style={{ padding: "5px 14px", borderRadius: 7, border: "none", background: p.ativo ? "rgba(239,68,68,0.1)" : "rgba(5,150,105,0.1)", fontSize: 11, fontWeight: 600, color: p.ativo ? "#EF4444" : "#059669", cursor: "pointer" }}
                 >
