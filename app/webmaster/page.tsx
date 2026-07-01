@@ -446,7 +446,9 @@ type PlanoConfig = {
   nome: string;
   descricao: string | null;
   preco: number;
+  preco_anual: number | null;
   limite_fotos: number | null;
+  limite_galerias: number | null;
   duracao_dias: number | null;
   ativo: boolean;
   eh_campanha: boolean;
@@ -554,8 +556,10 @@ function SecaoPlanos() {
                       )}
                     </div>
                     <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 2 }}>
-                      R${Number(p.preco).toFixed(2).replace(".", ",")}
+                      {`R$${Number(p.preco).toFixed(2).replace(".", ",")}/mês`}
+                      {p.preco_anual != null ? ` · R$${Number(p.preco_anual).toFixed(2).replace(".", ",")}/mês anual` : ""}
                       {p.limite_fotos != null ? ` · ${p.limite_fotos.toLocaleString("pt-BR")} fotos` : " · fotos ilimitadas"}
+                      {p.limite_galerias != null ? ` · ${p.limite_galerias} galerias entrega` : ""}
                       {p.duracao_dias != null ? ` · ${p.duracao_dias}d` : ""}
                       {p.valido_ate ? ` · válido até ${new Date(p.valido_ate + "T12:00:00").toLocaleDateString("pt-BR")}` : ""}
                     </div>
@@ -601,22 +605,32 @@ function SecaoPlanos() {
               )}
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                 <div>
-                  <div style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", marginBottom: 4 }}>Preço (R$)</div>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", marginBottom: 4 }}>Preço mensal (R$)</div>
                   <input style={inputStyle} type="number" value={modal.preco ?? ""} onChange={(e) => setModal({ ...modal, preco: Number(e.target.value) })} />
                 </div>
                 <div>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", marginBottom: 4 }}>Preço anual — parcela 12x (R$)</div>
+                  <input style={inputStyle} type="number" value={modal.preco_anual ?? ""} onChange={(e) => setModal({ ...modal, preco_anual: e.target.value ? Number(e.target.value) : null })} placeholder="em branco = sem plano anual" />
+                </div>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <div>
                   <div style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", marginBottom: 4 }}>Duração (dias)</div>
                   <input style={inputStyle} type="number" value={modal.duracao_dias ?? ""} onChange={(e) => setModal({ ...modal, duracao_dias: e.target.value ? Number(e.target.value) : null })} placeholder="31" />
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", marginBottom: 4 }}>Cor (hex)</div>
+                  <input style={inputStyle} value={modal.cor ?? "#2563EB"} onChange={(e) => setModal({ ...modal, cor: e.target.value })} />
                 </div>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                 <div>
                   <div style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", marginBottom: 4 }}>Limite de fotos</div>
-                  <input style={inputStyle} type="number" value={modal.limite_fotos ?? ""} onChange={(e) => setModal({ ...modal, limite_fotos: e.target.value ? Number(e.target.value) : null })} placeholder="10000" />
+                  <input style={inputStyle} type="number" value={modal.limite_fotos ?? ""} onChange={(e) => setModal({ ...modal, limite_fotos: e.target.value ? Number(e.target.value) : null })} placeholder="em branco = ilimitado" />
                 </div>
                 <div>
-                  <div style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", marginBottom: 4 }}>Cor (hex)</div>
-                  <input style={inputStyle} value={modal.cor ?? "#2563EB"} onChange={(e) => setModal({ ...modal, cor: e.target.value })} />
+                  <div style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", marginBottom: 4 }}>Limite de galerias de entrega</div>
+                  <input style={inputStyle} type="number" value={modal.limite_galerias ?? ""} onChange={(e) => setModal({ ...modal, limite_galerias: e.target.value ? Number(e.target.value) : null })} placeholder="em branco = ilimitado" />
                 </div>
               </div>
               <div>
@@ -909,6 +923,8 @@ export default function WebmasterPage() {
   const [erroExcluir, setErroExcluir]     = useState("");
   const [resetando, setResetando]         = useState<string | null>(null);
   const [ativando,  setAtivando]          = useState<string | null>(null);
+  const [modalAtivacao, setModalAtivacao] = useState<{ id: string; nome: string } | null>(null);
+  const [periodoAtivacao, setPeriodoAtivacao] = useState<"mensal" | "anual">("mensal");
 
   // Verifica se é webmaster
   useEffect(() => {
@@ -960,18 +976,25 @@ export default function WebmasterPage() {
     router.push("/login");
   }
 
-  async function ativarPlano(fotografoId: string, plano: string) {
-    if (!confirm(`Ativar plano "${plano}" manualmente por 31 dias?`)) return;
-    setAtivando(fotografoId);
+  function abrirAtivacao(fotografoId: string, nome: string) {
+    setPeriodoAtivacao("mensal");
+    setModalAtivacao({ id: fotografoId, nome });
+  }
+
+  async function confirmarAtivacao() {
+    if (!modalAtivacao) return;
+    setAtivando(modalAtivacao.id);
+    const dias = periodoAtivacao === "anual" ? 365 : 31;
     const supabase = createClient();
     const { data: { session } } = await supabase.auth.getSession();
     await fetch("/api/webmaster/ativar-plano", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token ?? ""}` },
-      body: JSON.stringify({ fotografo_id: fotografoId, plano, dias: 31 }),
+      body: JSON.stringify({ fotografo_id: modalAtivacao.id, plano: "profissional", dias, periodo: periodoAtivacao }),
     });
     await carregarStats();
     setAtivando(null);
+    setModalAtivacao(null);
   }
 
   async function resetarContaTeste(id: string) {
@@ -1309,7 +1332,7 @@ export default function WebmasterPage() {
                           </button>
                           {f.plano !== "profissional" && (
                             <button
-                              onClick={() => ativarPlano(f.id, "profissional")}
+                              onClick={() => abrirAtivacao(f.id, f.nome_empresa || f.nome_completo)}
                               disabled={ativando === f.id}
                               title="Ativar plano Profissional manualmente"
                               style={{ padding: "4px 10px", borderRadius: 6, border: "0.5px solid rgba(37,99,235,0.4)", background: "rgba(37,99,235,0.08)", color: "#2563EB", fontSize: 11, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}
@@ -1407,6 +1430,56 @@ export default function WebmasterPage() {
                 }}
               >
                 {excluindo ? "Excluindo…" : "Excluir tudo permanentemente"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Ativar plano profissional */}
+      {modalAtivacao && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 300 }}
+          onClick={(e) => { if (e.target === e.currentTarget) { setModalAtivacao(null); } }}>
+          <div style={{ background: "var(--color-background-primary)", borderRadius: 14, padding: "28px 30px", width: 380, boxShadow: "0 8px 40px rgba(0,0,0,0.25)" }}>
+            <div style={{ fontSize: 15, fontWeight: 800, color: "var(--color-text-primary)", marginBottom: 6 }}>
+              Ativar Plano Profissional
+            </div>
+            <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginBottom: 20 }}>
+              {modalAtivacao.nome}
+            </div>
+            <div style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", marginBottom: 8 }}>
+              Período de assinatura
+            </div>
+            <div style={{ display: "flex", gap: 8, marginBottom: 24 }}>
+              {(["mensal", "anual"] as const).map((p) => (
+                <button
+                  key={p}
+                  onClick={() => setPeriodoAtivacao(p)}
+                  style={{
+                    flex: 1, padding: "10px", borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: 700,
+                    border: periodoAtivacao === p ? "2px solid #2563EB" : "0.5px solid var(--color-border-secondary)",
+                    background: periodoAtivacao === p ? "rgba(37,99,235,0.08)" : "transparent",
+                    color: periodoAtivacao === p ? "#2563EB" : "var(--color-text-secondary)",
+                  }}
+                >
+                  {p === "mensal" ? "Mensal (31d)" : "Anual (365d)"}
+                </button>
+              ))}
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                onClick={() => setModalAtivacao(null)}
+                disabled={!!ativando}
+                style={{ flex: 1, padding: "9px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "transparent", fontSize: 13, color: "var(--color-text-secondary)", cursor: "pointer" }}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmarAtivacao}
+                disabled={!!ativando}
+                style={{ flex: 2, padding: "9px", borderRadius: 8, border: "none", background: ativando ? "rgba(37,99,235,0.3)" : "#2563EB", color: "#fff", fontSize: 13, fontWeight: 700, cursor: ativando ? "default" : "pointer" }}
+              >
+                {ativando ? "Ativando…" : `Confirmar — ${periodoAtivacao}`}
               </button>
             </div>
           </div>

@@ -33,7 +33,7 @@ export async function POST(req: Request) {
   if (!await verificarWebmaster(req)) return NextResponse.json({ error: "forbidden" }, { status: 403 });
 
   const body = await req.json().catch(() => ({}));
-  const { codigo, nome, descricao, preco, limite_fotos, duracao_dias, eh_campanha, valido_ate, cor, features, ordem } = body;
+  const { codigo, nome, descricao, preco, preco_anual, limite_fotos, limite_galerias, duracao_dias, eh_campanha, valido_ate, cor, features, ordem } = body;
 
   if (!nome?.trim())   return NextResponse.json({ error: "nome obrigatório" }, { status: 400 });
   if (!codigo?.trim()) return NextResponse.json({ error: "codigo obrigatório" }, { status: 400 });
@@ -43,18 +43,20 @@ export async function POST(req: Request) {
   const { data, error } = await admin
     .from("planos_config")
     .insert({
-      codigo:        codigo.trim(),
-      nome:          nome.trim(),
-      descricao:     descricao?.trim() || null,
-      preco:         Number(preco),
-      limite_fotos:  limite_fotos ? Number(limite_fotos) : null,
-      duracao_dias:  duracao_dias ? Number(duracao_dias) : null,
-      eh_campanha:   !!eh_campanha,
-      valido_ate:    valido_ate || null,
-      cor:           cor || "#2563EB",
-      features:      features ?? [],
-      ordem:         ordem ?? 0,
-      ativo:         true,
+      codigo:           codigo.trim(),
+      nome:             nome.trim(),
+      descricao:        descricao?.trim() || null,
+      preco:            Number(preco),
+      preco_anual:      preco_anual ? Number(preco_anual) : null,
+      limite_fotos:     limite_fotos ? Number(limite_fotos) : null,
+      limite_galerias:  limite_galerias ? Number(limite_galerias) : null,
+      duracao_dias:     duracao_dias ? Number(duracao_dias) : null,
+      eh_campanha:      !!eh_campanha,
+      valido_ate:       valido_ate || null,
+      cor:              cor || "#2563EB",
+      features:         features ?? [],
+      ordem:            ordem ?? 0,
+      ativo:            true,
     })
     .select()
     .single();

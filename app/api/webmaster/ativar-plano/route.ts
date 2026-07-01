@@ -18,7 +18,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
 
-  const { fotografo_id, plano, dias, plano_config_id } = await req.json().catch(() => ({}));
+  const { fotografo_id, plano, dias, plano_config_id, periodo } = await req.json().catch(() => ({}));
   if (!fotografo_id) return NextResponse.json({ error: "fotografo_id obrigatório" }, { status: 400 });
 
   const admin = createAdminClient();
@@ -27,19 +27,22 @@ export async function POST(req: Request) {
   let diasAtivos = Number(dias ?? 31);
   let valor      = 49;
   let resolvedPlanoConfigId: string | null = plano_config_id ?? null;
+  const periodoFinal: string = periodo === "anual" ? "anual" : "mensal";
 
   if (plano_config_id) {
     const { data: pc } = await admin
       .from("planos_config")
-      .select("codigo, preco, duracao_dias")
+      .select("codigo, preco, preco_anual, duracao_dias")
       .eq("id", plano_config_id)
       .maybeSingle();
     if (pc) {
       planoAtivo = pc.codigo;
       diasAtivos = pc.duracao_dias ?? diasAtivos;
-      valor      = Number(pc.preco);
+      valor      = periodoFinal === "anual" && pc.preco_anual ? Number(pc.preco_anual) : Number(pc.preco);
     }
   }
+
+  if (periodoFinal === "anual" && diasAtivos <= 31) diasAtivos = 365;
 
   const agora = new Date().toISOString();
   const expira = new Date();
@@ -49,6 +52,7 @@ export async function POST(req: Request) {
     plano:             planoAtivo,
     plano_ativado_em:  agora,
     plano_expira_em:   planoAtivo === "gratuito" ? null : expira.toISOString(),
+    plano_periodo:     planoAtivo === "gratuito" ? null : periodoFinal,
   }).eq("id", fotografo_id);
 
   if (planoAtivo !== "gratuito") {
