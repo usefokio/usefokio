@@ -55,6 +55,7 @@ export default function NovaEntregaPage() {
   const [categorias,         setCategorias]         = useState<Categoria[]>([]);
   const [saving,             setSaving]             = useState(false);
   const [initialized,        setInitialized]        = useState(false);
+  const [erroLimite,         setErroLimite]         = useState<string | null>(null);
 
   const [fila,        setFila]        = useState<ArquivoFila[]>([]);
   const [dragOver,    setDragOver]    = useState(false);
@@ -199,9 +200,31 @@ export default function NovaEntregaPage() {
 
   async function handlePublicar() {
     if (!titulo.trim() || !fotografo) return;
+    setErroLimite(null);
     setSaving(true);
     const supabase = createClient();
     try {
+
+    const { data: pcLimit } = await supabase
+      .from("planos_config")
+      .select("limite_galerias")
+      .eq("codigo", fotografo.plano)
+      .eq("ativo", true)
+      .maybeSingle();
+    const limitGalerias: number | null = pcLimit?.limite_galerias ?? null;
+
+    if (limitGalerias !== null) {
+      const { count } = await supabase
+        .from("galerias_entrega")
+        .select("id", { count: "exact", head: true })
+        .eq("fotografo_id", fotografo.id)
+        .eq("rascunho", false);
+      if ((count ?? 0) >= limitGalerias) {
+        setErroLimite(`Seu plano permite até ${limitGalerias} galeria${limitGalerias === 1 ? "" : "s"} de entrega. Faça upgrade em /conta/plano.`);
+        setSaving(false);
+        return;
+      }
+    }
 
     const expires_at = dataExpiracao ? dataExpiracao.toISOString() : null;
     const { data, error } = await supabase.from("galerias_entrega")
@@ -267,6 +290,13 @@ export default function NovaEntregaPage() {
           Entregue as fotos via link do Google Drive, galeria online, ou ambos
         </p>
       </div>
+
+      {erroLimite && (
+        <div style={{ marginBottom: 16, padding: "12px 16px", borderRadius: 10, background: "rgba(239,68,68,0.08)", border: "0.5px solid rgba(239,68,68,0.25)", fontSize: 13, color: "#DC2626" }}>
+          {erroLimite}{" "}
+          <a href="/conta/plano" style={{ color: "#DC2626", fontWeight: 700, textDecoration: "underline" }}>Ver planos</a>
+        </div>
+      )}
 
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 

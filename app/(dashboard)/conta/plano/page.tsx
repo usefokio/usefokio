@@ -464,13 +464,13 @@ export default function PlanoPage() {
                   {p.duracao_dias && periodoGlobal !== "anual" && (
                     <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 3 }}>{p.duracao_dias} dias de acesso</div>
                   )}
-                  {(p.limite_fotos != null || p.limite_galerias != null) && (
-                    <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 4 }}>
-                      {p.limite_fotos != null ? `${p.limite_fotos.toLocaleString("pt-BR")} fotos` : ""}
-                      {p.limite_fotos != null && p.limite_galerias != null ? " · " : ""}
-                      {p.limite_galerias != null ? `${p.limite_galerias} galerias de entrega` : ""}
-                    </div>
-                  )}
+                  <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 4 }}>
+                    {p.limite_fotos != null ? `${p.limite_fotos.toLocaleString("pt-BR")} fotos` : "Fotos ilimitadas"}
+                    {" · "}
+                    {p.limite_galerias != null
+                      ? `${p.limite_galerias} galeria${p.limite_galerias === 1 ? "" : "s"} de entrega`
+                      : "Galerias de entrega ilimitadas"}
+                  </div>
                 </div>
                 <ul style={{ listStyle: "none", padding: 0, margin: "0 0 18px", flex: 1 }}>
                   {(Array.isArray(p.features) ? p.features : []).map((f: string) => (

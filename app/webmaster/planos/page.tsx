@@ -124,10 +124,17 @@ export default function PlanosPage() {
                   {`R$${Number(p.preco).toFixed(2).replace(".", ",")}/mês`}
                   {p.preco_anual != null ? ` · R$${Number(p.preco_anual).toFixed(2).replace(".", ",")}/mês anual` : ""}
                   {p.limite_fotos != null ? ` · ${p.limite_fotos.toLocaleString("pt-BR")} fotos` : " · fotos ilimitadas"}
-                  {p.limite_galerias != null ? ` · ${p.limite_galerias} galerias entrega` : ""}
+                  <span style={{ color: p.limite_galerias == null ? "#059669" : "inherit" }}>
+                    {p.limite_galerias != null ? ` · ${p.limite_galerias} gal. entrega` : " · galerias ilimitadas"}
+                  </span>
                   {p.duracao_dias != null ? ` · ${p.duracao_dias}d` : ""}
                   {p.valido_ate ? ` · válido até ${new Date(p.valido_ate + "T12:00:00").toLocaleDateString("pt-BR")}` : ""}
                 </div>
+                {p.descricao && (
+                  <div style={{ fontSize: 10, color: "var(--color-text-secondary)", marginTop: 2, fontStyle: "italic", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 380 }}>
+                    {p.descricao}
+                  </div>
+                )}
               </div>
               <div style={{ display: "flex", gap: 6 }}>
                 <button
