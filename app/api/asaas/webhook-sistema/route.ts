@@ -36,8 +36,12 @@ export async function POST(req: Request) {
   if (!ass) return NextResponse.json({ ok: true, skipped: true });
 
   const agora = new Date().toISOString();
-  const expira = new Date();
-  expira.setDate(expira.getDate() + 31);
+  const expira = ass.periodo_fim ? new Date(ass.periodo_fim + "T23:59:59") : (() => { const d = new Date(); d.setDate(d.getDate() + 31); return d; })();
+
+  const duracaoDias = ass.periodo_inicio && ass.periodo_fim
+    ? Math.round((new Date(ass.periodo_fim).getTime() - new Date(ass.periodo_inicio).getTime()) / 86400000)
+    : 31;
+  const planoPeriodo = duracaoDias > 200 ? "anual" : "mensal";
 
   await Promise.all([
     admin.from("assinaturas").update({ status: "pago", pago_em: agora }).eq("id", ass.id),
@@ -45,6 +49,7 @@ export async function POST(req: Request) {
       plano:              ass.plano,
       plano_ativado_em:   agora,
       plano_expira_em:    expira.toISOString(),
+      plano_periodo:      planoPeriodo,
       asaas_cobranca_id:  asaasId,
     }).eq("id", ass.fotografo_id),
   ]);
@@ -64,7 +69,7 @@ export async function POST(req: Request) {
       <div style="font-family:sans-serif;font-size:15px;line-height:1.7;color:#222;max-width:560px">
         <p>Olá, <strong>${nome}</strong>!</p>
         <p>Seu plano <strong>Profissional</strong> foi ativado com sucesso.</p>
-        <p>Acesso a <strong>10.000 fotos</strong> disponível até <strong>${expiraFmt}</strong>.</p>
+        <p>Assinatura <strong>${planoPeriodo}</strong> ativa até <strong>${expiraFmt}</strong>.</p>
         <p><a href="${appUrl}/conta/plano" style="color:#2563EB">Acessar meu plano</a></p>
         <hr style="margin:24px 0;border:none;border-top:1px solid #eee">
         <div style="font-size:12px;color:#aaa">UseFokio</div>

@@ -7,7 +7,7 @@ export async function GET() {
 
   const { data, error } = await admin
     .from("planos_config")
-    .select("id, codigo, nome, descricao, preco, limite_fotos, duracao_dias, eh_campanha, valido_ate, cor, features, ordem")
+    .select("id, codigo, nome, descricao, preco, preco_anual, limite_fotos, limite_galerias, duracao_dias, eh_campanha, valido_ate, cor, features, ordem")
     .eq("ativo", true)
     .or(`valido_ate.is.null,valido_ate.gte.${hoje}`)
     .order("ordem")

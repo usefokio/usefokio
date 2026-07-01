@@ -22,6 +22,7 @@ export async function POST(req: Request) {
 
   const body = await req.json().catch(() => ({}));
   const planoConfigId: string | undefined = body.plano_config_id;
+  const periodoReq: "mensal" | "anual" = body.periodo === "anual" ? "anual" : "mensal";
 
   const admin = createAdminClient();
   const { data: foto } = await admin
@@ -41,7 +42,7 @@ export async function POST(req: Request) {
   if (planoConfigId) {
     const { data: pc } = await admin
       .from("planos_config")
-      .select("id, codigo, nome, preco, duracao_dias, ativo, valido_ate")
+      .select("id, codigo, nome, preco, preco_anual, duracao_dias, ativo, valido_ate")
       .eq("id", planoConfigId)
       .maybeSingle();
 
@@ -49,15 +50,19 @@ export async function POST(req: Request) {
       const hoje = new Date().toISOString().slice(0, 10);
       if (!pc.valido_ate || pc.valido_ate >= hoje) {
         planoNome = pc.codigo;
-        preco = Number(pc.preco);
-        duracaoDias = pc.duracao_dias ?? 31;
+        preco = periodoReq === "anual" && pc.preco_anual ? Number(pc.preco_anual) : Number(pc.preco);
+        duracaoDias = periodoReq === "anual" ? 365 : (pc.duracao_dias ?? 31);
         resolvedPlanoConfigId = pc.id;
       }
     }
+  } else if (periodoReq === "anual") {
+    duracaoDias = 365;
   }
 
-  if (foto.plano === planoNome) {
-    return NextResponse.json({ error: `Plano ${planoNome} já ativo` }, { status: 400 });
+  // Permite renovar o mesmo plano (além de fazer upgrade)
+  const estaRenovando = foto.plano === planoNome;
+  if (estaRenovando && periodoReq === "mensal" && !planoConfigId) {
+    return NextResponse.json({ error: `Plano ${planoNome} já ativo — escolha um plano para renovar` }, { status: 400 });
   }
 
   const hoje = new Date();

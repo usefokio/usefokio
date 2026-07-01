@@ -25,7 +25,9 @@ type PlanoPublico = {
   nome: string;
   descricao: string | null;
   preco: number;
+  preco_anual: number | null;
   limite_fotos: number | null;
+  limite_galerias: number | null;
   duracao_dias: number | null;
   eh_campanha: boolean;
   valido_ate: string | null;
@@ -67,10 +69,11 @@ function BarraRecurso({ label, icone, qtd, total, cor }: {
 }
 
 // ─── Modal de checkout PIX ─────────────────────────────────────────────────────
-function ModalCheckout({ planoNome, planoPreco, planoConfigId, onClose }: {
+function ModalCheckout({ planoNome, planoPreco, planoConfigId, periodo, onClose }: {
   planoNome: string;
   planoPreco: number;
   planoConfigId?: string;
+  periodo?: "mensal" | "anual";
   onClose: () => void;
 }) {
   const [etapa, setEtapa]     = useState<"carregando" | "pix" | "erro">("carregando");
@@ -81,10 +84,13 @@ function ModalCheckout({ planoNome, planoPreco, planoConfigId, onClose }: {
   useEffect(() => {
     (async () => {
       try {
+        const body: Record<string, unknown> = {};
+        if (planoConfigId) body.plano_config_id = planoConfigId;
+        if (periodo) body.periodo = periodo;
         const res  = await fetch("/api/assinaturas/criar", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(planoConfigId ? { plano_config_id: planoConfigId } : {}),
+          body: JSON.stringify(body),
         });
         const json = await res.json();
         if (!res.ok) { setErro(json.error ?? "Erro ao gerar cobrança."); setEtapa("erro"); return; }
@@ -115,8 +121,8 @@ function ModalCheckout({ planoNome, planoPreco, planoConfigId, onClose }: {
               {planoNome}
             </div>
             <div style={{ fontSize: 13, color: "var(--color-text-secondary)", marginTop: 2 }}>
-              R${Number(planoPreco).toFixed(2).replace(".", ",")} ·{" "}
-              {planoConfigId ? "pagamento único" : "acesso mensal"}
+              R${Number(planoPreco).toFixed(2).replace(".", ",")}{periodo === "anual" ? "/mês · 12x anual" : "/mês"}
+              {planoConfigId ? " · campanha" : ""}
             </div>
           </div>
           <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 18, color: "var(--color-text-secondary)", padding: 4, lineHeight: 1 }}>✕</button>
@@ -203,7 +209,8 @@ export default function PlanoPage() {
   const [planoExpiraEm,    setPlanoExpiraEm]    = useState<string | null>(null);
   const [modalCheckout,    setModalCheckout]    = useState(false);
   const [planosDB,         setPlanosDB]         = useState<PlanoPublico[]>([]);
-  const [planoSelecionado, setPlanoSelecionado] = useState<{ id?: string; nome: string; preco: number } | null>(null);
+  const [planoSelecionado, setPlanoSelecionado] = useState<{ id?: string; nome: string; preco: number; periodo?: "mensal" | "anual" } | null>(null);
+  const [periodosPorPlano, setPeriodosPorPlano] = useState<Record<string, "mensal" | "anual">>({});
 
   useEffect(() => {
     fetch("/api/planos-publicos")
@@ -269,6 +276,7 @@ export default function PlanoPage() {
           planoNome={planoSelecionado.nome}
           planoPreco={planoSelecionado.preco}
           planoConfigId={planoSelecionado.id}
+          periodo={planoSelecionado.periodo}
           onClose={() => { setModalCheckout(false); setPlanoSelecionado(null); }}
         />
       )}
@@ -371,7 +379,9 @@ export default function PlanoPage() {
             nome: p.nome,
             descricao: p.descricao,
             preco: p.preco,
+            preco_anual: null,
             limite_fotos: p.limite_fotos ?? null,
+            limite_galerias: null,
             duracao_dias: null,
             eh_campanha: false,
             valido_ate: null,
@@ -382,7 +392,16 @@ export default function PlanoPage() {
             const isAtual   = fotografo.plano === p.codigo;
             const isUpgrade = Number(p.preco) > Number(planoAtual.preco);
             const cor       = p.cor ?? "#2563EB";
-            const precoFmt  = Number(p.preco) === 0 ? "Gratuito" : `R$${Number(p.preco).toFixed(2).replace(".", ",")}`;
+            const temAnual   = p.preco_anual != null && !p.eh_campanha;
+            const periodoCard = periodosPorPlano[p.codigo] ?? "mensal";
+            const setPeriodoCard = (v: "mensal" | "anual") => setPeriodosPorPlano((prev) => ({ ...prev, [p.codigo]: v }));
+            const precoExibido = temAnual && periodoCard === "anual" ? Number(p.preco_anual) : Number(p.preco);
+            const precoFmt = precoExibido === 0 ? "Gratuito" : `R$${precoExibido.toFixed(2).replace(".", ",")}`;
+
+            function abrirCheckout() {
+              setPlanoSelecionado({ id: p.id, nome: p.nome, preco: precoExibido, periodo: temAnual ? periodoCard : "mensal" });
+              setModalCheckout(true);
+            }
 
             return (
               <div key={p.codigo} style={{ background: "var(--color-background-primary)", border: isAtual ? `2px solid ${cor}` : "0.5px solid var(--color-border-tertiary)", borderRadius: 14, padding: "22px 22px 20px", display: "flex", flexDirection: "column", position: "relative", transition: "border 0.15s" }}>
@@ -397,10 +416,41 @@ export default function PlanoPage() {
                     {p.descricao}
                     {p.valido_ate && <span style={{ color: "#B45309", fontWeight: 600 }}> · até {new Date(p.valido_ate + "T12:00:00").toLocaleDateString("pt-BR")}</span>}
                   </div>
+
+                  {/* Seletor mensal/anual */}
+                  {temAnual && Number(p.preco) > 0 && (
+                    <div style={{ display: "flex", gap: 4, marginBottom: 10 }}>
+                      {(["mensal", "anual"] as const).map((opt) => (
+                        <button
+                          key={opt}
+                          onClick={() => setPeriodoCard(opt)}
+                          style={{ flex: 1, padding: "4px 8px", borderRadius: 6, cursor: "pointer", fontSize: 11, fontWeight: 600, border: periodoCard === opt ? `1.5px solid ${cor}` : "0.5px solid var(--color-border-secondary)", background: periodoCard === opt ? cor + "12" : "transparent", color: periodoCard === opt ? cor : "var(--color-text-secondary)" }}
+                        >
+                          {opt === "mensal" ? "Mensal" : "Anual"}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
                   <div style={{ fontSize: 22, fontWeight: 800, color: cor, letterSpacing: "-0.02em", lineHeight: 1 }}>
                     {precoFmt}
+                    {precoExibido > 0 && <span style={{ fontSize: 13, fontWeight: 500, color: "var(--color-text-secondary)" }}>/mês</span>}
                   </div>
-                  {p.duracao_dias && <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 3 }}>{p.duracao_dias} dias de acesso</div>}
+                  {temAnual && periodoCard === "anual" && (
+                    <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 3 }}>
+                      Cobrado em 12× no cartão · Acesso por 365 dias
+                    </div>
+                  )}
+                  {p.duracao_dias && periodoCard !== "anual" && (
+                    <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 3 }}>{p.duracao_dias} dias de acesso</div>
+                  )}
+                  {(p.limite_fotos != null || p.limite_galerias != null) && (
+                    <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 4 }}>
+                      {p.limite_fotos != null ? `${p.limite_fotos.toLocaleString("pt-BR")} fotos` : ""}
+                      {p.limite_fotos != null && p.limite_galerias != null ? " · " : ""}
+                      {p.limite_galerias != null ? `${p.limite_galerias} galerias de entrega` : ""}
+                    </div>
+                  )}
                 </div>
                 <ul style={{ listStyle: "none", padding: 0, margin: "0 0 18px", flex: 1 }}>
                   {(Array.isArray(p.features) ? p.features : []).map((f: string) => (
@@ -410,18 +460,28 @@ export default function PlanoPage() {
                     </li>
                   ))}
                 </ul>
-                {isAtual ? (
-                  <div style={{ textAlign: "center", padding: "9px", borderRadius: 9, background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-secondary)", fontSize: 12, fontWeight: 700, color: "var(--color-text-secondary)" }}>
-                    ✓ Plano atual
+                {isAtual && !isUpgrade ? (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    <div style={{ textAlign: "center", padding: "9px", borderRadius: 9, background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-secondary)", fontSize: 12, fontWeight: 700, color: "var(--color-text-secondary)" }}>
+                      ✓ Plano atual
+                    </div>
+                    {fotografo.plano !== "gratuito" && (
+                      <button
+                        onClick={abrirCheckout}
+                        style={{ padding: "9px", borderRadius: 9, border: `0.5px solid ${cor}`, background: "transparent", color: cor, fontSize: 12, fontWeight: 700, cursor: "pointer" }}
+                      >
+                        Renovar
+                      </button>
+                    )}
                   </div>
                 ) : isUpgrade ? (
                   <button
-                    onClick={() => { setPlanoSelecionado({ id: p.id, nome: p.nome, preco: Number(p.preco) }); setModalCheckout(true); }}
+                    onClick={abrirCheckout}
                     style={{ padding: "9px", borderRadius: 9, border: "none", background: cor, color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer", transition: "opacity 0.15s" }}
                     onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.88")}
                     onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
                   >
-                    {p.eh_campanha ? `🏷 Aproveitar — ${precoFmt}` : `↑ Fazer upgrade — ${precoFmt}`}
+                    {p.eh_campanha ? `🏷 Aproveitar — ${precoFmt}` : `↑ Fazer upgrade — ${precoFmt}/mês`}
                   </button>
                 ) : (
                   <button
