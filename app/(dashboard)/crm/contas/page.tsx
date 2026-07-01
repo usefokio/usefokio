@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { Field } from "@/components/ui/Field";
 import { inputStyle } from "@/lib/styles";
-import { isValidDate, normalizarValor, formatarValor, parsearValor } from "@/lib/utils/format";
+import { isValidDate, mascaraValor, parsearValor } from "@/lib/utils/format";
 import type { CrmContaBancaria } from "@/lib/supabase/types";
 
 const TIPOS: { value: CrmContaBancaria["tipo"]; label: string }[] = [
@@ -442,8 +442,7 @@ export default function ContasBancariasPage() {
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
                 <Field label="Valor (R$) *">
                   <input type="text" inputMode="decimal" value={transfValor}
-                    onChange={e => setTransfValor(normalizarValor(e.target.value))}
-                    onBlur={e => setTransfValor(formatarValor(e.target.value))}
+                    onChange={e => setTransfValor(mascaraValor(e.target.value))}
                     placeholder="0,00" style={inputStyle} />
                 </Field>
                 <Field label="Data *">

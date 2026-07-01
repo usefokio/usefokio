@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { useWindowWidth } from "@/lib/hooks/useWindowWidth";
 import { usePersistState } from "@/lib/hooks/usePersistState";
-import { formatBRL, isValidDate, normalizarValor, formatarValor, parsearValor } from "@/lib/utils/format";
+import { formatBRL, isValidDate, mascaraValor, parsearValor } from "@/lib/utils/format";
 import { fetchAllRows } from "@/lib/supabase/fetchAll";
 import { IcoEdit, IcoTrash, IcoMail, IcoCheck } from "@/app/(dashboard)/crm/_components/Icons";
 import { Paginacao } from "@/app/(dashboard)/crm/_components/Paginacao";
@@ -830,8 +830,7 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
                 <div>
                   <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>Valor (R$)</div>
                   <input type="text" inputMode="decimal" value={modalEditar.valor}
-                    onChange={e => setModalEditar(m => m ? { ...m, valor: normalizarValor(e.target.value) } : m)}
-                    onBlur={e => setModalEditar(m => m ? { ...m, valor: formatarValor(e.target.value) } : m)}
+                    onChange={e => setModalEditar(m => m ? { ...m, valor: mascaraValor(e.target.value) } : m)}
                     style={{ width: "100%", boxSizing: "border-box", padding: "9px 12px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", fontSize: 13, color: "var(--color-text-primary)", outline: "none" }} />
                 </div>
                 <div>
@@ -915,8 +914,7 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
                 <div>
                   <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>Valor (R$) *</div>
                   <input type="text" inputMode="decimal" value={novoValor}
-                    onChange={e => setNovoValor(normalizarValor(e.target.value))}
-                    onBlur={e => setNovoValor(formatarValor(e.target.value))}
+                    onChange={e => setNovoValor(mascaraValor(e.target.value))}
                     placeholder="0,00"
                     style={{ width: "100%", boxSizing: "border-box", padding: "9px 12px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", fontSize: 13, color: "var(--color-text-primary)", outline: "none" }} />
                 </div>

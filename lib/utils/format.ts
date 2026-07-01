@@ -20,15 +20,11 @@ export function mascaraTelefone(v: string): string {
   return `${d.slice(0,2)} ${d.slice(2,4)} ${d.slice(4,9)}-${d.slice(9)}`;
 }
 
-export const normalizarValor = (v: string): string => {
-  let s = v.replace(/[^\d,]/g, "");
-  const idx = s.indexOf(",");
-  if (idx !== -1) s = s.slice(0, idx + 1) + s.slice(idx + 1).replace(/,/g, "");
-  return s;
-};
-
-export const formatarValor = (v: string): string => {
-  const n = parseFloat(v.replace(",", ".")) || 0;
+// Formata enquanto digita: dígitos entram pela direita nos centavos (ex: "1" → "0,01", "150" → "1,50")
+export const mascaraValor = (v: string): string => {
+  const digits = v.replace(/\D/g, "");
+  if (!digits) return "";
+  const n = parseInt(digits, 10) / 100;
   return n.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 };
 
