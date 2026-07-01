@@ -254,7 +254,6 @@ export default function PlanoPage() {
   const limiteAtual = limiteEfetivo(planoAtual, fotografo.limite_fotos_custom);
   const pct         = pctUso(usadas, planoAtual, fotografo.limite_fotos_custom);
   const barCor      = pct !== null ? corBarra(pct) : "#2563EB";
-  const totalUso    = uso ? uso.selecao + uso.entrega : usadas;
 
   const diasParaExpirar = planoExpiraEm
     ? Math.ceil((new Date(planoExpiraEm).getTime() - Date.now()) / 86400000)
@@ -358,8 +357,8 @@ export default function PlanoPage() {
             <div style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>Calculando…</div>
           ) : (
             <>
-              <BarraRecurso label="Galerias de Seleção" icone="🖼" qtd={uso?.selecao ?? 0} total={totalUso} cor="#2563EB" />
-              <BarraRecurso label="Galerias de Entrega"  icone="📦" qtd={uso?.entrega ?? 0} total={totalUso} cor="#059669" />
+              <BarraRecurso label="Galerias de Seleção" icone="🖼" qtd={uso?.selecao ?? 0} total={limiteAtual ?? 0} cor="#2563EB" />
+              <BarraRecurso label="Galerias de Entrega"  icone="📦" qtd={uso?.entrega ?? 0} total={limiteAtual ?? 0} cor="#059669" />
             </>
           )}
         </div>
