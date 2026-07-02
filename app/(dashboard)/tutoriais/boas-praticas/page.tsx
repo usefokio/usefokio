@@ -14,6 +14,7 @@ type App = {
 export default function BoasPraticasPage() {
   const [apps,    setApps]    = useState<App[]>([]);
   const [loading, setLoading] = useState(true);
+  const [preset,  setPreset]  = useState<{ url: string | null; nome: string | null; descricao: string | null } | null>(null);
 
   useEffect(() => {
     fetch("/api/apps-recomendados")
@@ -21,6 +22,10 @@ export default function BoasPraticasPage() {
       .then((j) => setApps(j.apps ?? []))
       .catch(() => {})
       .finally(() => setLoading(false));
+    fetch("/api/boas-praticas/preset")
+      .then((r) => r.json())
+      .then((j) => setPreset(j))
+      .catch(() => {});
   }, []);
 
   return (
@@ -109,7 +114,7 @@ export default function BoasPraticasPage() {
           Preset de Exportação — Lightroom
         </div>
         <div style={{ fontSize: 12.5, color: "var(--color-text-secondary)", marginBottom: 16 }}>
-          Configuração de exportação para otimizar as imagens da galeria de entrega (tamanho e qualidade ideais).
+          {preset?.descricao || "Configuração de exportação para otimizar as imagens da galeria de entrega (tamanho e qualidade ideais)."}
         </div>
         <div style={{
           display: "flex",
@@ -117,7 +122,7 @@ export default function BoasPraticasPage() {
           gap: 14,
           padding: "18px 20px",
           background: "var(--color-background-primary)",
-          border: "0.5px dashed var(--color-border-secondary)",
+          border: preset?.url ? "0.5px solid var(--color-border-tertiary)" : "0.5px dashed var(--color-border-secondary)",
           borderRadius: 12,
         }}>
           <div style={{ fontSize: 26, lineHeight: 1, flexShrink: 0 }}>🎞️</div>
@@ -126,18 +131,32 @@ export default function BoasPraticasPage() {
               Preset de exportação para entrega
             </div>
             <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginTop: 2 }}>
-              Estará disponível para download aqui em breve.
+              {preset?.url
+                ? "Baixe e importe no Lightroom (Arquivo → Importar perfis e predefinições)."
+                : "Estará disponível para download aqui em breve."}
             </div>
           </div>
-          <span style={{
-            flexShrink: 0,
-            fontSize: 11, fontWeight: 700,
-            padding: "5px 12px", borderRadius: 20,
-            background: "var(--color-background-secondary)",
-            color: "var(--color-text-secondary)",
-          }}>
-            Em breve
-          </span>
+          {preset?.url ? (
+            <a
+              href={preset.url}
+              download={preset.nome ?? undefined}
+              target="_blank"
+              rel="noopener"
+              style={{ flexShrink: 0, fontSize: 12, fontWeight: 700, padding: "8px 16px", borderRadius: 8, background: "#2563EB", color: "#fff", textDecoration: "none" }}
+            >
+              Baixar preset
+            </a>
+          ) : (
+            <span style={{
+              flexShrink: 0,
+              fontSize: 11, fontWeight: 700,
+              padding: "5px 12px", borderRadius: 20,
+              background: "var(--color-background-secondary)",
+              color: "var(--color-text-secondary)",
+            }}>
+              Em breve
+            </span>
+          )}
         </div>
       </div>
     </div>

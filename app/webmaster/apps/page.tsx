@@ -32,10 +32,48 @@ export default function WebmasterAppsPage() {
   const [salvando, setSalvando] = useState(false);
   const [msg,      setMsg]      = useState("");
 
+  const [preset,       setPreset]       = useState<{ url: string | null; nome: string | null; descricao: string | null }>({ url: null, nome: null, descricao: null });
+  const [presetFile,   setPresetFile]   = useState<File | null>(null);
+  const [presetDesc,   setPresetDesc]   = useState("");
+  const [presetSaving, setPresetSaving] = useState(false);
+  const [presetMsg,    setPresetMsg]    = useState("");
+
   const modalRef = useRef<Partial<App> | null>(null);
   useEffect(() => { modalRef.current = modal; }, [modal]);
 
-  useEffect(() => { carregar(); }, []);
+  useEffect(() => { carregar(); carregarPreset(); }, []);
+
+  async function carregarPreset() {
+    const supabase = createClient();
+    const { data: { session } } = await supabase.auth.getSession();
+    const res = await fetch("/api/webmaster/preset-lr", { headers: { Authorization: `Bearer ${session?.access_token ?? ""}` } });
+    if (res.ok) {
+      const j = await res.json();
+      setPreset({ url: j.url, nome: j.nome, descricao: j.descricao });
+      setPresetDesc(j.descricao ?? "");
+    }
+  }
+
+  async function salvarPreset() {
+    setPresetSaving(true); setPresetMsg("");
+    const supabase = createClient();
+    const { data: { session } } = await supabase.auth.getSession();
+    const fd = new FormData();
+    if (presetFile) fd.append("file", presetFile);
+    fd.append("descricao", presetDesc);
+    const res = await fetch("/api/webmaster/preset-lr", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${session?.access_token ?? ""}` },
+      body: fd,
+    });
+    const j = await res.json().catch(() => ({}));
+    if (!res.ok) { setPresetMsg("❌ " + (j.error ?? "Erro ao salvar")); setPresetSaving(false); return; }
+    setPresetFile(null);
+    await carregarPreset();
+    setPresetMsg("✅ Preset salvo");
+    setTimeout(() => setPresetMsg(""), 3000);
+    setPresetSaving(false);
+  }
 
   async function carregar() {
     setLoading(true);
@@ -98,6 +136,37 @@ export default function WebmasterAppsPage() {
       </div>
       <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginBottom: 24 }}>
         Apps indicados na aba Boas Práticas. Use o campo Link para o seu código de afiliado.
+      </div>
+
+      {/* Preset de Exportação — Lightroom */}
+      <div style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 12, padding: "18px 20px", marginBottom: 28 }}>
+        <div style={{ fontSize: 14, fontWeight: 800, color: "var(--color-text-primary)", marginBottom: 4 }}>
+          Preset de Exportação — Lightroom
+        </div>
+        <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginBottom: 14 }}>
+          Arquivo do preset (.xmp, .lrtemplate ou .zip) que o fotógrafo baixa na aba Boas Práticas.
+        </div>
+        {preset.url ? (
+          <div style={{ fontSize: 12, marginBottom: 12, color: "var(--color-text-secondary)" }}>
+            Atual: <a href={preset.url} target="_blank" rel="noopener" style={{ color: "#2563EB", fontWeight: 600 }}>{preset.nome ?? "arquivo"}</a>
+          </div>
+        ) : (
+          <div style={{ fontSize: 12, marginBottom: 12, color: "var(--color-text-secondary)" }}>Nenhum preset enviado ainda.</div>
+        )}
+        <div style={{ display: "flex", flexDirection: "column", gap: 10, maxWidth: 460 }}>
+          <input type="file" accept=".xmp,.lrtemplate,.zip" onChange={(e) => setPresetFile(e.target.files?.[0] ?? null)} style={{ fontSize: 12, color: "var(--color-text-secondary)" }} />
+          <input style={inputStyle} value={presetDesc} onChange={(e) => setPresetDesc(e.target.value)} placeholder="Descrição curta (opcional)" />
+          <div>
+            <button
+              onClick={salvarPreset}
+              disabled={presetSaving || (!presetFile && presetDesc.trim() === (preset.descricao ?? "").trim())}
+              style={{ padding: "8px 16px", borderRadius: 8, border: "none", background: (presetSaving || (!presetFile && presetDesc.trim() === (preset.descricao ?? "").trim())) ? "rgba(37,99,235,0.3)" : "#2563EB", color: "#fff", fontSize: 12, fontWeight: 700, cursor: presetSaving ? "default" : "pointer" }}
+            >
+              {presetSaving ? "Salvando…" : (preset.url ? "Atualizar preset" : "Enviar preset")}
+            </button>
+            {presetMsg && <span style={{ marginLeft: 12, fontSize: 12, color: presetMsg.startsWith("❌") ? "#EF4444" : "#059669" }}>{presetMsg}</span>}
+          </div>
+        </div>
       </div>
 
       {msg && <div style={{ fontSize: 12, marginBottom: 14, color: msg.startsWith("❌") ? "#EF4444" : "#059669" }}>{msg}</div>}
