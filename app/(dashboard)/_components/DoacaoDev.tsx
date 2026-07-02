@@ -96,14 +96,20 @@ export function DoacaoDev({ compacto = false }: { compacto?: boolean }) {
           </button>
         </>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {dados.manualPix && (
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ fontSize: 12, color: "var(--color-text-secondary)", flexShrink: 0 }}>Chave Pix:</span>
-              <code style={{ fontSize: 12, background: "var(--color-background-secondary)", padding: "5px 10px", borderRadius: 6, border: "0.5px solid var(--color-border-secondary)", color: "var(--color-text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>{dados.manualPix}</code>
-              <button onClick={copiarPix} style={{ padding: "5px 12px", borderRadius: 6, border: "0.5px solid var(--color-border-secondary)", background: pixCopiado ? "rgba(16,185,129,0.08)" : "var(--color-background-secondary)", fontSize: 11, fontWeight: 600, color: pixCopiado ? "#059669" : "var(--color-text-secondary)", cursor: "pointer", flexShrink: 0 }}>
-                {pixCopiado ? "✓" : "Copiar"}
-              </button>
+            <div style={{ background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-secondary)", borderRadius: 10, padding: "12px 14px" }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 7, display: "flex", alignItems: "center", gap: 5 }}>
+                <span>🔑</span> Chave Pix
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <code style={{ flex: 1, minWidth: 0, fontSize: 13, color: "var(--color-text-primary)", wordBreak: "break-all", lineHeight: 1.4 }}>
+                  {dados.manualPix}
+                </code>
+                <button onClick={copiarPix} style={{ flexShrink: 0, padding: "8px 16px", borderRadius: 8, border: "none", background: pixCopiado ? "rgba(16,185,129,0.12)" : "#2563EB", color: pixCopiado ? "#059669" : "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer", transition: "background 0.15s" }}>
+                  {pixCopiado ? "✓ Copiado" : "Copiar"}
+                </button>
+              </div>
             </div>
           )}
           {dados.manualLink && (

@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import type { Cliente, GaleriaSelecao } from "@/lib/supabase/types";
-import { DoacaoDev } from "../_components/DoacaoDev";
+import { ApoieProjeto } from "../_components/ApoieProjeto";
 type Stats = {
   totalClientes:         number;
   clientesEsteMes:       number;
@@ -320,13 +320,8 @@ export default function DashboardPage() {
 
       </div>
 
-      {/* Apoie o desenvolvedor */}
-      <div style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 10, padding: "18px 20px", marginBottom: 16 }}>
-        <div style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 10 }}>
-          ❤️ Apoie o desenvolvedor
-        </div>
-        <DoacaoDev />
-      </div>
+      {/* Apoie o desenvolvedor + convite + Instagram */}
+      <ApoieProjeto />
 
       {/* Atividade recente */}
       <div style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 10, padding: "18px 20px" }}>
