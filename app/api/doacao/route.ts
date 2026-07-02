@@ -24,13 +24,14 @@ export async function GET() {
   if (!user) return NextResponse.json({ erro: "Não autenticado" }, { status: 401 });
 
   const admin = createAdminClient();
-  const { data: cfg } = await admin.from("webmaster_config").select("asaas_ativo, doacao_manual_pix, doacao_manual_link, doacao_manual_msg").eq("id", 1).maybeSingle();
+  const { data: cfg } = await admin.from("webmaster_config").select("asaas_ativo, doacao_manual_pix, doacao_manual_link, doacao_manual_msg, pix_qrcode_url").eq("id", 1).maybeSingle();
 
   return NextResponse.json({
     asaasAtivo: cfg?.asaas_ativo ?? false,
     manualPix:  cfg?.doacao_manual_pix ?? null,
     manualLink: cfg?.doacao_manual_link ?? null,
     manualMsg:  cfg?.doacao_manual_msg ?? null,
+    qrCodeUrl:  cfg?.pix_qrcode_url ?? null,
   });
 }
 

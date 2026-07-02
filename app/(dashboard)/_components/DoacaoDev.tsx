@@ -10,6 +10,7 @@ type DadosDoacao = {
   manualPix: string | null;
   manualLink: string | null;
   manualMsg: string | null;
+  qrCodeUrl: string | null;
 };
 
 const VALORES = [10, 25, 50];
@@ -26,7 +27,7 @@ export function DoacaoDev({ compacto = false }: { compacto?: boolean }) {
     fetch("/api/doacao")
       .then((r) => r.json())
       .then(setDados)
-      .catch(() => setDados({ asaasAtivo: false, manualPix: null, manualLink: null, manualMsg: null }));
+      .catch(() => setDados({ asaasAtivo: false, manualPix: null, manualLink: null, manualMsg: null, qrCodeUrl: null }));
   }, []);
 
   async function doar() {
@@ -97,6 +98,18 @@ export function DoacaoDev({ compacto = false }: { compacto?: boolean }) {
         </>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {dados.qrCodeUrl && (
+            <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+              <img
+                src={dados.qrCodeUrl}
+                alt="QR Code Pix para doação"
+                style={{ width: 150, height: 150, objectFit: "contain", borderRadius: 10, background: "#fff", padding: 8, border: "0.5px solid var(--color-border-secondary)", flexShrink: 0 }}
+              />
+              <div style={{ fontSize: 12, color: "var(--color-text-secondary)", lineHeight: 1.6, minWidth: 140, flex: 1 }}>
+                Aponte a câmera do app do seu banco para o QR Code, ou copie a chave abaixo. 💙
+              </div>
+            </div>
+          )}
           {dados.manualPix && (
             <div style={{ background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-secondary)", borderRadius: 10, padding: "12px 14px" }}>
               <div style={{ fontSize: 10, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 7, display: "flex", alignItems: "center", gap: 5 }}>
