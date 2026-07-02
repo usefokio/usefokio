@@ -8,7 +8,11 @@ const CANCELLED_STATUSES = ["REFUNDED", "CHARGEBACK_REQUESTED", "DELETED"];
 export async function POST(request: NextRequest) {
   const token = request.headers.get("asaas-access-token");
   const expectedToken = process.env.ASAAS_WEBHOOK_TOKEN;
-  if (expectedToken && token !== expectedToken) {
+  if (!expectedToken) {
+    console.error("[webhook/asaas] ASAAS_WEBHOOK_TOKEN não configurado — rejeitando");
+    return NextResponse.json({ error: "not configured" }, { status: 503 });
+  }
+  if (token !== expectedToken) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
