@@ -109,6 +109,7 @@ export default function CampanhaPage() {
         .select("id, token, estagio, resposta, respondido_em, email_1_em, email_2_em, whatsapp_em, agradecimento_em, drive_revogado, created_at, galerias_entrega(id, titulo, foto_capa_url, cover_color, data_evento, drive_link, expires_at, clientes(nome, email, telefone, whatsapp))")
         .eq("fotografo_id", fotografo!.id)
         .eq("ignorar_funil", false)
+        .neq("estagio", "sem_retorno")
         .order("created_at", { ascending: false });
 
       if (!data) { setLoading(false); return; }
@@ -214,7 +215,14 @@ export default function CampanhaPage() {
         body: JSON.stringify({ estagio: novoEstagio }),
       });
       const data = await res.json();
-      if (res.ok) atualizarEstagio(galeriaId, data);
+      if (res.ok) {
+        // "Sem retorno" tira a galeria do funil ativo — remove o card da lista
+        if (novoEstagio === "sem_retorno") {
+          setItens((prev) => prev.filter((i) => i.galeria.id !== galeriaId));
+        } else {
+          atualizarEstagio(galeriaId, data);
+        }
+      }
     } finally {
       setMovendoId(null);
     }
@@ -476,7 +484,7 @@ export default function CampanhaPage() {
                             <option value="email_1">📧 1º Email</option>
                             <option value="email_2">📧 2º Email</option>
                             <option value="whatsapp">📱 WhatsApp</option>
-                            <option value="encerrado">✓ Encerrado</option>
+                            <option value="sem_retorno">🚫 Sem retorno</option>
                           </select>}
                         </div>
                       );

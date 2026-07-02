@@ -223,6 +223,15 @@ export default function EntregaPage() {
 
   useEffect(() => { carregar(); }, [fotografo, recarregarKey]);
 
+  async function reativarCampanha(id: string) {
+    await fetch(`/api/campanha/galeria/${id}/estagio`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ estagio: "nao_contatado" }),
+    });
+    setRecarregarKey((k) => k + 1);
+  }
+
   async function toggleSuspender(id: string, suspensa: boolean, renovacao_dias: number) {
     if (suspensa) {
       // Reativar: faz direto, sem modal
@@ -600,6 +609,11 @@ export default function EntregaPage() {
                           </span>
                         );
                       }
+                      if (rc.estagio === "sem_retorno") return (
+                        <span title="Sem retorno — cliente não respondeu. Reative para uma 2ª verificação." style={{ flexShrink: 0, fontSize: 10, fontWeight: 600, padding: "2px 7px", borderRadius: 20, background: "rgba(107,114,128,0.12)", color: "#6B7280" }}>
+                          🚫 sem retorno
+                        </span>
+                      );
                       if (rc.estagio === "encerrado") return (
                         <span title="Encerrado sem resposta" style={{ flexShrink: 0, fontSize: 10, fontWeight: 600, padding: "2px 7px", borderRadius: 20, background: "rgba(107,114,128,0.10)", color: "#6B7280" }}>
                           encerrado
@@ -660,6 +674,16 @@ export default function EntregaPage() {
 
                 {/* Ações */}
                 <div style={{ flexShrink: 0, display: "flex", gap: 3 }} onClick={(e) => e.stopPropagation()}>
+
+                  {(g.respostas_campanha?.[0] as any)?.estagio === "sem_retorno" && (
+                    <button
+                      onClick={() => reativarCampanha(g.id)}
+                      title="Reativar na campanha de reativação (2ª verificação)"
+                      style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 26, height: 26, borderRadius: 6, border: "0.5px solid rgba(245,158,11,0.45)", color: "#B45309", background: "rgba(245,158,11,0.08)", cursor: "pointer", fontSize: 13 }}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(245,158,11,0.16)")}
+                      onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(245,158,11,0.08)")}
+                    >🔄</button>
+                  )}
 
                   <button
                     onClick={() => setEmailClienteId(g.id)}

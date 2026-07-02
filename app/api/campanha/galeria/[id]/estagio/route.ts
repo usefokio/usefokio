@@ -4,7 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import type { EstagioFunil } from "@/lib/supabase/types";
 
-const ESTAGIOS_VALIDOS: EstagioFunil[] = ["nao_contatado", "email_1", "email_2", "whatsapp", "encerrado"];
+const ESTAGIOS_VALIDOS: EstagioFunil[] = ["nao_contatado", "email_1", "email_2", "whatsapp", "encerrado", "sem_retorno"];
 
 const PROXIMO: Record<EstagioFunil, EstagioFunil | null> = {
   nao_contatado: "email_1",
@@ -12,6 +12,7 @@ const PROXIMO: Record<EstagioFunil, EstagioFunil | null> = {
   email_2:       "whatsapp",
   whatsapp:      "encerrado",
   encerrado:     null,
+  sem_retorno:   null,
 };
 
 const TIMESTAMP_CAMPO: Partial<Record<EstagioFunil, string>> = {
@@ -86,7 +87,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   // Manual card moves via PUT must NOT overwrite them to avoid showing false "last contact" dates.
 
   // When regressing to an earlier stage, clear timestamps of stages being reverted.
-  const ORDEM: EstagioFunil[] = ["nao_contatado", "email_1", "email_2", "whatsapp", "encerrado"];
+  const ORDEM: EstagioFunil[] = ["nao_contatado", "email_1", "email_2", "whatsapp", "encerrado", "sem_retorno"];
   const idxAtual = ORDEM.indexOf(registro.estagio as EstagioFunil);
   const idxNovo  = ORDEM.indexOf(novoEstagio);
   if (idxNovo < idxAtual) {

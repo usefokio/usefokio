@@ -128,7 +128,7 @@ export type Categoria = {
   created_at: string;
 };
 
-export type EstagioFunil = "nao_contatado" | "email_1" | "email_2" | "whatsapp" | "encerrado";
+export type EstagioFunil = "nao_contatado" | "email_1" | "email_2" | "whatsapp" | "encerrado" | "sem_retorno";
 
 export type RespostaCampanha = {
   id: string;
