@@ -139,7 +139,28 @@ export default function CadastroPage() {
       options: {
         // emailRedirectTo é usado quando a confirmação de email estiver ativa
         emailRedirectTo: `${window.location.origin}/auth/callback`,
-        data: { nome_completo: form.nomeCompleto, nome_empresa: form.nomeEmpresa },
+        // Todos os campos vão para o user_metadata para que o trigger
+        // on_auth_user_created monte o perfil completo já no cadastro,
+        // mesmo quando a confirmação de email está ativa (sessão null).
+        data: {
+          nome_completo: form.nomeCompleto,
+          nome_empresa:  form.nomeEmpresa,
+          telefone:      form.telefone,
+          whatsapp:      form.whatsapp,
+          cep:           form.cep,
+          rua:           form.rua,
+          numero:        form.numero,
+          complemento:   form.complemento,
+          bairro:        form.bairro,
+          cidade:        form.cidade,
+          estado:        form.estado,
+          instagram:     form.instagram,
+          facebook:      form.facebook,
+          tiktok:        form.tiktok,
+          youtube:       form.youtube,
+          site:          form.site,
+          aceita_emails: form.aceitaEmails,
+        },
       },
     });
 
