@@ -10,7 +10,7 @@ const MOCK_PREVIEW_COLORS = [
 ];
 const SELECTED_INDICES = [0, 2, 4, 5, 8, 11];
 
-type Section = "home" | "features" | "plans" | "blog";
+type Section = "home" | "features" | "plans";
 
 export default function LandingPage() {
   const [nav, setNav] = useState<Section>("home");
@@ -34,9 +34,9 @@ export default function LandingPage() {
           <img src="/usefokio-logo.svg" alt="UseFokio" style={{ height: 26, width: "auto", display: "block" }} />
         </div>
         <div style={{ display: "flex", gap: 2, flex: 1 }}>
-          {(["home","features","plans","blog"] as const).map((id) => (
+          {(["home","features","plans"] as const).map((id) => (
             <button key={id} onClick={() => setNav(id)} style={{ padding: "5px 12px", borderRadius: 7, border: "none", background: nav === id ? "#f4f4f5" : "transparent", color: nav === id ? "#111" : "#555", fontSize: 13, fontWeight: nav === id ? 500 : 400, cursor: "pointer" }}>
-              {({ home: "Início", features: "Funcionalidades", plans: "Planos", blog: "Blog" })[id]}
+              {({ home: "Início", features: "Funcionalidades", plans: "Planos" })[id]}
             </button>
           ))}
         </div>
@@ -229,31 +229,6 @@ export default function LandingPage() {
         </div>
       )}
 
-      {/* ── BLOG ── */}
-      {nav === "blog" && (
-        <div style={{ maxWidth: 780, margin: "0 auto", padding: "64px 32px" }}>
-          <h1 style={{ fontSize: 36, fontWeight: 800, letterSpacing: "-0.04em", marginBottom: 10 }}>Blog</h1>
-          <p style={{ fontSize: 14, color: "#6B7280", marginBottom: 40 }}>Dicas de negócios, produtividade e técnica para fotógrafos.</p>
-          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            {[
-              { tag: "Produtividade", title: "Como automatizar a entrega de fotos e ganhar 5h por semana", date: "02 Jun 2025", read: "4 min", cover: "#7C6E5A" },
-              { tag: "Negócios",      title: "Precificação para fotógrafos: o guia definitivo para 2025",  date: "25 Mai 2025", read: "8 min", cover: "#5A6E7C" },
-              { tag: "Dicas",         title: "Como criar uma experiência premium na entrega das fotos",    date: "18 Mai 2025", read: "5 min", cover: "#6E5A7C" },
-            ].map((p, i) => (
-              <div key={i} style={{ display: "flex", gap: 20, border: "1px solid #e5e7eb", borderRadius: 12, overflow: "hidden", cursor: "pointer" }}>
-                <div style={{ width: 130, height: 100, background: p.cover, flexShrink: 0 }} />
-                <div style={{ padding: "18px 18px 18px 0", display: "flex", flexDirection: "column", justifyContent: "center" }}>
-                  <div style={{ display: "flex", gap: 7, marginBottom: 7 }}>
-                    <span style={{ fontSize: 11, fontWeight: 600, color: "#2563EB", background: "#eff6ff", padding: "2px 8px", borderRadius: 10 }}>{p.tag}</span>
-                    <span style={{ fontSize: 11, color: "#9CA3AF" }}>{p.date} · {p.read} de leitura</span>
-                  </div>
-                  <div style={{ fontSize: 15, fontWeight: 700, color: "#111", lineHeight: 1.4 }}>{p.title}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
