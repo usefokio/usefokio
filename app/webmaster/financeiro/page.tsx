@@ -132,6 +132,25 @@ export default function FinanceiroPage() {
     setAgindo(null);
   }
 
+  async function excluir(id: string) {
+    if (!confirm("Excluir este registro de assinatura permanentemente? Esta ação não pode ser desfeita.")) return;
+    setAgindo(id);
+    setMsg("");
+    const supabase = createClient();
+    const { data: { session } } = await supabase.auth.getSession();
+    const res = await fetch(`/api/webmaster/assinaturas/${id}/excluir`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${session?.access_token ?? ""}` },
+    });
+    if (res.ok) {
+      setAssinaturas((prev) => prev.filter((a) => a.id !== id));
+      setMsg("✅ Registro excluído.");
+    } else {
+      setMsg("❌ Erro ao excluir registro.");
+    }
+    setAgindo(null);
+  }
+
   function fmtBRL(v: number) { return `R$ ${v.toFixed(2).replace(".", ",")}`; }
 
   function diasAteExpira(exp: string) {
@@ -333,6 +352,14 @@ export default function FinanceiroPage() {
                               Cancelar
                             </button>
                           )}
+                          <button
+                            onClick={() => excluir(a.id)}
+                            disabled={agindo === a.id}
+                            title="Excluir registro"
+                            style={{ padding: "4px 10px", borderRadius: 6, border: "none", background: "rgba(239,68,68,0.14)", color: "#DC2626", fontSize: 11, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}
+                          >
+                            🗑
+                          </button>
                         </div>
                       </td>
                     </tr>

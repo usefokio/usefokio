@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Field } from "@/components/ui/Field";
 import { inputStyle } from "@/lib/styles";
 import { createClient } from "@/lib/supabase/client";
+import { buscarCep } from "@/lib/utils/cep";
 
 // ── Ícone do Google ───────────────────────────────────────────────────────────
 function GoogleIcon() {
@@ -340,7 +341,25 @@ export default function CadastroPage() {
             </div>
 
             <SectionTitle>Endereço</SectionTitle>
-            <Field label="CEP">{inp("cep", "00000-000", "text", true)}</Field>
+            <Field label="CEP">
+              <input
+                type="text"
+                value={form.cep}
+                onChange={(e) => upd("cep", e.target.value)}
+                onBlur={async (e) => {
+                  const end = await buscarCep(e.target.value);
+                  if (end) setForm((f) => ({
+                    ...f,
+                    rua:    end.logradouro || f.rua,
+                    bairro: end.bairro     || f.bairro,
+                    cidade: end.cidade     || f.cidade,
+                    estado: end.estado     || f.estado,
+                  }));
+                }}
+                placeholder="00000-000 (opcional)"
+                style={inputStyle}
+              />
+            </Field>
             <Field label="Estado">
               <select value={form.estado} onChange={(e) => upd("estado", e.target.value)} style={inputStyle}>
                 <option value="">Selecione</option>

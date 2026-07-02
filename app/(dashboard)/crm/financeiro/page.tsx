@@ -186,9 +186,11 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
   })();
 
   const filtradas = entries.filter(e => {
+    const q = busca.toLowerCase();
+    const clienteNome = e.crm_orders?.clientes?.nome ?? e.clientes?.nome ?? "";
     const matchBusca = busca === "" ||
-      e.descricao.toLowerCase().includes(busca.toLowerCase()) ||
-      (e.crm_orders?.nome ?? "").toLowerCase().includes(busca.toLowerCase());
+      clienteNome.toLowerCase().includes(q) ||
+      (e.crm_orders?.nome ?? "").toLowerCase().includes(q);
 
     const dataRef = (aba === "recebidas" || aba === "pagas") && e.pago_em ? e.pago_em : e.vencimento;
 
@@ -511,7 +513,7 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
             <circle cx="6" cy="6" r="4" stroke="var(--color-text-primary)" strokeWidth="1.3"/>
             <path d="M9.5 9.5L12 12" stroke="var(--color-text-primary)" strokeWidth="1.3" strokeLinecap="round"/>
           </svg>
-          <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar por descrição ou pedido…"
+          <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar por cliente…"
             style={{ flex: 1, border: "none", background: "transparent", fontSize: 13, color: "var(--color-text-primary)", outline: "none" }} />
           {busca && <button onClick={() => setBusca("")} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--color-text-secondary)", fontSize: 18, lineHeight: 1, padding: 0 }}>×</button>}
         </div>

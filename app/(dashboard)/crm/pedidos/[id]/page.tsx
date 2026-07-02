@@ -10,7 +10,7 @@ import { formatBRL, formatData } from "@/lib/utils/format";
 import type { CrmOrder, CrmFinancialEntry, CrmContractTemplate, CrmContract } from "@/lib/supabase/types";
 import { RichTextEditor } from "@/app/(dashboard)/crm/_components/RichTextEditor";
 
-type OrderWithCliente = CrmOrder & { clientes?: { id: string; nome: string; email?: string | null } | null };
+type OrderWithCliente = CrmOrder & { clientes?: { id: string; nome: string; email?: string | null; telefone?: string | null; whatsapp?: string | null } | null };
 
 type OrderItem = {
   id: string;
@@ -39,6 +39,8 @@ export default function PedidoDetailPage() {
   const [agendaMsg,     setAgendaMsg]     = useState("");
   const [modalTaxa,     setModalTaxa]     = useState<{ receita: CrmFinancialEntry; taxa: string } | null>(null);
   const [salvandoTaxa,  setSalvandoTaxa]  = useState(false);
+  const [reciboModal,   setReciboModal]   = useState<CrmFinancialEntry | null>(null);
+  const [reciboCopiado, setReciboCopiado] = useState(false);
 
   // Contratos
   const [contratos,           setContratos]           = useState<CrmContract[]>([]);
@@ -69,7 +71,7 @@ export default function PedidoDetailPage() {
   const carregar = () => {
     const sb = createClient();
     Promise.all([
-      sb.from("crm_orders").select("*, clientes(id, nome, email)").eq("id", id).single(),
+      sb.from("crm_orders").select("*, clientes(id, nome, email, telefone, whatsapp)").eq("id", id).single(),
       sb.from("crm_financial_entries").select("*").eq("pedido_id", id).order("vencimento"),
       sb.from("crm_order_items").select("*, crm_products(nome)").eq("pedido_id", id).order("descricao"),
       sb.from("crm_contracts").select("*").eq("pedido_id", id).order("created_at"),
@@ -234,6 +236,60 @@ export default function PedidoDetailPage() {
   const st  = STATUS_MAP[pedido.status] ?? STATUS_MAP.aguardando_sinal;
   const fmt = formatBRL;
   const fmtData = formatData;
+
+  const urlRecibo = (entryId: string) =>
+    (typeof window !== "undefined" ? window.location.origin : "") + `/recibo/${entryId}`;
+
+  const msgRecibo = (f: CrmFinancialEntry) => {
+    const nome = pedido?.clientes?.nome ?? "";
+    return `Olá${nome ? ` ${nome}` : ""}!\n\nSegue o recibo referente a *${fmt(f.valor)}* (${f.descricao}).\n\n🔗 Acesse:\n${urlRecibo(f.id)}\n\nObrigado pela confiança! 🙏`;
+  };
+
+  const grupoLancamentos = (titulo: string, itens: CrmFinancialEntry[], ehReceita: boolean) => {
+    if (itens.length === 0) return null;
+    const GRID = "1fr 88px 88px 100px 78px 88px";
+    return (
+      <div style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 12, overflow: "hidden", marginBottom: 16 }}>
+        <div style={{ padding: "9px 20px", borderBottom: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-secondary)" }}>
+          <span style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.06em" }}>{titulo}</span>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: GRID, gap: 8, padding: "7px 20px", borderBottom: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-secondary)" }}>
+          {["Descrição", "Vencimento", "Pago em", "Valor", "Status", ehReceita ? "Recibo" : ""].map((h, i) => (
+            <div key={i} style={{ fontSize: 10, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em" }}>{h}</div>
+          ))}
+        </div>
+        {itens.map((f, i) => {
+          const stFin = STATUS_FIN[f.status] ?? STATUS_FIN.pendente;
+          return (
+            <div key={f.id} style={{ display: "grid", gridTemplateColumns: GRID, gap: 8, padding: "11px 20px", borderBottom: i < itens.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", alignItems: "center" }}>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 500, color: "var(--color-text-primary)" }}>{f.descricao}</div>
+                {f.parcela && <div style={{ fontSize: 11, color: "var(--color-text-secondary)" }}>Parcela {f.parcela}</div>}
+              </div>
+              <div style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>
+                {new Date(f.vencimento + "T12:00:00").toLocaleDateString("pt-BR")}
+              </div>
+              <div style={{ fontSize: 12, color: f.pago_em ? "#059669" : "var(--color-text-secondary)" }}>
+                {f.pago_em ? new Date(f.pago_em + "T12:00:00").toLocaleDateString("pt-BR") : "—"}
+              </div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: ehReceita ? "#059669" : "#EF4444" }}>
+                {ehReceita ? "+" : "-"}{fmt(f.valor)}
+              </div>
+              <div><span style={{ fontSize: 11, fontWeight: 600, color: stFin.color }}>{stFin.label}</span></div>
+              {ehReceita ? (
+                <div>
+                  <button onClick={() => { setReciboCopiado(false); setReciboModal(f); }} title="Reenviar recibo ao cliente"
+                    style={{ padding: "4px 9px", borderRadius: 6, border: "0.5px solid rgba(37,99,235,0.3)", background: "transparent", color: "#2563EB", fontSize: 11, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}>
+                    🧾 Recibo
+                  </button>
+                </div>
+              ) : <div />}
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
 
   const liquido = (pedido.total ?? 0) - (pedido.discount ?? 0) + (pedido.other_expenses ?? 0);
   const totalPago = financeiro.filter(f => f.tipo === "receita" && f.status === "pago").reduce((s, f) => s + f.valor, 0);
@@ -420,32 +476,58 @@ export default function PedidoDetailPage() {
             return null;
           })()}
 
-          {/* Lançamentos financeiros */}
+          {/* Lançamentos financeiros — separados em receitas (a receber do cliente) e custos do pedido */}
           {financeiro.length > 0 && (
-            <div style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 12, overflow: "hidden", marginBottom: 16 }}>
-              <div style={{ padding: "9px 20px", borderBottom: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-secondary)" }}>
-                <span style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.06em" }}>Lançamentos financeiros</span>
+            <>
+              {grupoLancamentos("Receitas — a receber do cliente", financeiro.filter(f => f.tipo === "receita"), true)}
+              {grupoLancamentos("Custos do pedido", financeiro.filter(f => f.tipo === "despesa"), false)}
+            </>
+          )}
+
+          {/* Modal — reenviar recibo ao cliente */}
+          {reciboModal && (
+            <div onClick={(e) => e.target === e.currentTarget && setReciboModal(null)}
+              style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+              <div style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 14, padding: "24px 28px", width: 440, maxWidth: "100%", boxShadow: "0 24px 64px rgba(0,0,0,0.22)" }}>
+                <div style={{ fontSize: 15, fontWeight: 800, color: "var(--color-text-primary)", marginBottom: 4 }}>Reenviar recibo</div>
+                <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginBottom: 16 }}>
+                  {reciboModal.descricao}{reciboModal.parcela ? ` · Parcela ${reciboModal.parcela}` : ""} — {fmt(reciboModal.valor)}
+                </div>
+
+                <div style={{ display: "flex", gap: 8, alignItems: "center", background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 9, padding: "8px 12px", marginBottom: 16 }}>
+                  <code style={{ flex: 1, minWidth: 0, fontSize: 12, color: "var(--color-text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{urlRecibo(reciboModal.id)}</code>
+                  <button onClick={async () => { await navigator.clipboard.writeText(urlRecibo(reciboModal.id)); setReciboCopiado(true); setTimeout(() => setReciboCopiado(false), 2000); }}
+                    style={{ flexShrink: 0, padding: "6px 12px", borderRadius: 7, border: "none", background: reciboCopiado ? "rgba(16,185,129,0.12)" : "#2563EB", color: reciboCopiado ? "#059669" : "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+                    {reciboCopiado ? "✓ Copiado" : "Copiar"}
+                  </button>
+                </div>
+
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  <button onClick={() => {
+                      const tel = (pedido?.clientes?.whatsapp ?? pedido?.clientes?.telefone ?? "").replace(/\D/g, "");
+                      window.open(`https://wa.me/${tel ? "55" + tel : ""}?text=${encodeURIComponent(msgRecibo(reciboModal))}`, "_blank");
+                    }}
+                    style={{ flex: 1, minWidth: 130, padding: "9px 14px", borderRadius: 8, border: "none", background: "#25D366", color: "#fff", fontSize: 12.5, fontWeight: 700, cursor: "pointer" }}>
+                    WhatsApp
+                  </button>
+                  <button onClick={() => {
+                      const email = pedido?.clientes?.email ?? "";
+                      if (!email) { alert("Este cliente não tem email cadastrado."); return; }
+                      window.location.href = `mailto:${email}?subject=${encodeURIComponent("Recibo — " + reciboModal.descricao)}&body=${encodeURIComponent(msgRecibo(reciboModal))}`;
+                    }}
+                    style={{ flex: 1, minWidth: 120, padding: "9px 14px", borderRadius: 8, border: "0.5px solid rgba(37,99,235,0.4)", background: "transparent", color: "#2563EB", fontSize: 12.5, fontWeight: 700, cursor: "pointer" }}>
+                    Email
+                  </button>
+                  <button onClick={() => window.open(urlRecibo(reciboModal.id), "_blank")}
+                    style={{ flex: 1, minWidth: 90, padding: "9px 14px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "transparent", color: "var(--color-text-secondary)", fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>
+                    Abrir
+                  </button>
+                </div>
+
+                <button onClick={() => setReciboModal(null)} style={{ display: "block", margin: "14px auto 0", background: "none", border: "none", fontSize: 12, color: "var(--color-text-secondary)", cursor: "pointer", textDecoration: "underline" }}>
+                  Fechar
+                </button>
               </div>
-              {financeiro.map((f, i) => {
-                const stFin = STATUS_FIN[f.status] ?? STATUS_FIN.pendente;
-                return (
-                  <div key={f.id} style={{ display: "grid", gridTemplateColumns: "1fr 120px 100px 90px", padding: "11px 20px", borderBottom: i < financeiro.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", alignItems: "center" }}>
-                    <div>
-                      <div style={{ fontSize: 13, fontWeight: 500, color: "var(--color-text-primary)" }}>{f.descricao}</div>
-                      {f.parcela && <div style={{ fontSize: 11, color: "var(--color-text-secondary)" }}>Parcela {f.parcela}</div>}
-                    </div>
-                    <div style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>
-                      {new Date(f.vencimento + "T12:00:00").toLocaleDateString("pt-BR")}
-                    </div>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: f.tipo === "receita" ? "#059669" : "#EF4444" }}>
-                      {f.tipo === "receita" ? "+" : "-"}{fmt(f.valor)}
-                    </div>
-                    <div>
-                      <span style={{ fontSize: 11, fontWeight: 600, color: stFin.color }}>{stFin.label}</span>
-                    </div>
-                  </div>
-                );
-              })}
             </div>
           )}
 
