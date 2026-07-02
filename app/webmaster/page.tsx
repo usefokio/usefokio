@@ -187,7 +187,7 @@ export default function WebmasterPage() {
       if (res.ok) {
         setStats((prev) => prev.map((f) => f.id === id ? { ...f, aprovado: valor } : f));
       } else {
-        alert("Não foi possível atualizar a aprovação. Faça login novamente e tente de novo.");
+        alert("Não foi possível atualizar a aprovação. Tente novamente em instantes.");
       }
     } finally {
       setPendingIds((prev) => { const n = new Set(prev); n.delete(id); return n; });

@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { verificarWebmaster } from "@/lib/webmaster/auth";
 import { resend, FROM_DEFAULT, APP_URL } from "@/lib/email/resend";
@@ -52,16 +52,21 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   // Email de "acesso liberado" — apenas quando o fotógrafo sai de pendente para aprovado.
+  // Enviado via after() (pós-resposta) para não bloquear nem derrubar a aprovação
+  // caso o provedor de email demore/falhe.
   if (dispararEmailAprovacao && fotografoEmail) {
-    try {
-      const { subject, html } = templateContaAprovada({
-        nomeCompleto: fotografoNome ?? "Fotógrafo",
-        loginUrl:     `${APP_URL}/login`,
-      });
-      await resend.emails.send({ from: FROM_DEFAULT, to: [fotografoEmail], subject, html });
-    } catch (e) {
-      console.error("[fotografo-config] Falha ao enviar email de aprovação:", e);
-    }
+    const to = fotografoEmail;
+    after(async () => {
+      try {
+        const { subject, html } = templateContaAprovada({
+          nomeCompleto: fotografoNome ?? "Fotógrafo",
+          loginUrl:     `${APP_URL}/login`,
+        });
+        await resend.emails.send({ from: FROM_DEFAULT, to: [to], subject, html });
+      } catch (e) {
+        console.error("[fotografo-config] Falha ao enviar email de aprovação:", e);
+      }
+    });
   }
 
   return NextResponse.json({ ok: true });
