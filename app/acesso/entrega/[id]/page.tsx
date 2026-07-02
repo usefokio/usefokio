@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { fetchAllRows } from "@/lib/supabase/fetchAll";
 import type { GaleriaEntrega, GaleriaEntregaFoto } from "@/lib/supabase/types";
 import { useWindowWidth, MOBILE } from "@/lib/hooks/useWindowWidth";
 
@@ -159,14 +158,15 @@ export default function AcessoEntregaPage() {
 
   useEffect(() => {
     const supabase = createClient();
-    Promise.all([
-      supabase.from("galerias_entrega").select("*, clientes(nome, email, cpf), fotografos(logo_url, nome_empresa)").eq("id", id).maybeSingle(),
-      fetchAllRows<GaleriaEntregaFoto>((sb, from, to) => sb.from("galerias_entrega_fotos").select("*").eq("galeria_id", id).order("ordem").order("created_at").range(from, to), supabase),
-    ]).then(([{ data: g }, f]) => {
+    // Leitura via RPC SECURITY DEFINER: entrega apenas ESTA galeria (por id), sem expor
+    // a tabela ao anon (evita enumeração em massa das galerias/drive_links).
+    supabase.rpc("galeria_entrega_publica", { p_id: id }).then(({ data }) => {
+      const res = data as { encontrada?: boolean; galeria?: any; fotografo?: any; fotos?: GaleriaEntregaFoto[] } | null;
+      const g = res?.encontrada ? { ...res.galeria, fotografos: res.fotografo ?? null } : null;
       if (!g || g.rascunho) { setTela("nao_encontrada"); return; }
       setGaleria(g);
       // Aplica a ordenação configurada pelo fotógrafo
-      const lista = [...((f as GaleriaEntregaFoto[]) ?? [])];
+      const lista = [...((res?.fotos as GaleriaEntregaFoto[]) ?? [])];
       if (g.ordenacao_fotos === "nome") {
         lista.sort((a, b) => (a.nome_arquivo ?? "").localeCompare(b.nome_arquivo ?? "", "pt-BR", { numeric: true }));
       } else if (g.ordenacao_fotos === "nome_desc") {
