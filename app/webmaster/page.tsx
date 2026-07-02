@@ -46,6 +46,11 @@ const RECURSOS_LABELS: { chave: string; label: string }[] = [
   { chave: "crm",        label: "CRM" },
 ];
 
+async function authHeaders(): Promise<Record<string, string>> {
+  const { data: { session } } = await createClient().auth.getSession();
+  return { Authorization: `Bearer ${session?.access_token ?? ""}` };
+}
+
 function RecursosCell({ fotografoId }: { fotografoId: string }) {
   const [aberto,   setAberto]   = useState(false);
   const [recursos, setRecursos] = useState<Record<string, boolean> | null>(null);
@@ -53,7 +58,9 @@ function RecursosCell({ fotografoId }: { fotografoId: string }) {
 
   async function abrir() {
     if (!aberto && !recursos) {
-      const res = await fetch(`/api/webmaster/fotografo-config/${fotografoId}`);
+      const res = await fetch(`/api/webmaster/fotografo-config/${fotografoId}`, {
+        headers: await authHeaders(),
+      });
       const data = await res.json();
       setRecursos((data?.recursos as Record<string, boolean>) ?? { selecao: true, entrega: true, album: true, contatos: true, pagamentos: true });
     }
@@ -67,7 +74,7 @@ function RecursosCell({ fotografoId }: { fotografoId: string }) {
     setSalvando(true);
     await fetch(`/api/webmaster/fotografo-config/${fotografoId}`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...(await authHeaders()) },
       body: JSON.stringify({ recursos: novos }),
     });
     setSalvando(false);
@@ -171,13 +178,20 @@ export default function WebmasterPage() {
 
   async function aprovar(id: string, valor: boolean) {
     setPendingIds((prev) => new Set([...prev, id]));
-    await fetch(`/api/webmaster/fotografo-config/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ aprovado: valor }),
-    });
-    setStats((prev) => prev.map((f) => f.id === id ? { ...f, aprovado: valor } : f));
-    setPendingIds((prev) => { const n = new Set(prev); n.delete(id); return n; });
+    try {
+      const res = await fetch(`/api/webmaster/fotografo-config/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", ...(await authHeaders()) },
+        body: JSON.stringify({ aprovado: valor }),
+      });
+      if (res.ok) {
+        setStats((prev) => prev.map((f) => f.id === id ? { ...f, aprovado: valor } : f));
+      } else {
+        alert("Não foi possível atualizar a aprovação. Faça login novamente e tente de novo.");
+      }
+    } finally {
+      setPendingIds((prev) => { const n = new Set(prev); n.delete(id); return n; });
+    }
   }
 
   function abrirAtivacao(fotografoId: string, nome: string) {

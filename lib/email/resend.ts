@@ -19,5 +19,5 @@ export const resend = new Proxy({} as Resend, {
 });
 
 export const FROM_DEFAULT    = process.env.EMAIL_FROM         ?? "UseFokio <noreply@usefokio.com.br>";
-export const WEBMASTER_EMAIL = process.env.WEBMASTER_EMAIL    ?? "";
+export const WEBMASTER_EMAIL = process.env.WEBMASTER_EMAIL    ?? "usefokio@gmail.com";
 export const APP_URL         = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
