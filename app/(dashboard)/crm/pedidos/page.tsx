@@ -257,7 +257,14 @@ export default function PedidosPage() {
                   <div style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {p.nome ?? p.numero ?? `Pedido #${p.id.slice(0, 8)}`}
                   </div>
-                  {p.categoria && <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 2 }}>{p.categoria}</div>}
+                  {(p.categoria || (p as { crm_nativo?: boolean }).crm_nativo === false) && (
+                    <div style={{ marginTop: 2, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                      {p.categoria && <span style={{ fontSize: 11, color: "var(--color-text-secondary)" }}>{p.categoria}</span>}
+                      {(p as { crm_nativo?: boolean }).crm_nativo === false && (
+                        <span title="Pedido importado da base antiga" style={{ fontSize: 9, fontWeight: 700, padding: "1px 6px", borderRadius: 6, background: "rgba(217,119,6,0.10)", color: "#B45309", border: "0.5px solid rgba(217,119,6,0.25)", letterSpacing: "0.03em" }}>IMPORTADO</span>
+                      )}
+                    </div>
+                  )}
                 </div>
                 {verLarge && (
                   <div style={{ cursor: "pointer" }} onClick={() => router.push(`/crm/pedidos/${p.id}`)}>

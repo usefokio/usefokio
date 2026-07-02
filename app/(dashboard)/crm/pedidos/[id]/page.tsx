@@ -7,10 +7,11 @@ import { createClient } from "@/lib/supabase/client";
 import FormPedido from "../_components/FormPedido";
 import { PEDIDO_STATUS_MAP, FIN_STATUS_MAP } from "@/lib/constants/statusMaps";
 import { formatBRL, formatData } from "@/lib/utils/format";
-import type { CrmOrder, CrmFinancialEntry, CrmContractTemplate, CrmContract } from "@/lib/supabase/types";
+import { usePersistState } from "@/lib/hooks/usePersistState";
+import type { CrmOrder, CrmFinancialEntry, CrmContractTemplate, CrmContract, CrmProduct } from "@/lib/supabase/types";
 import { RichTextEditor } from "@/app/(dashboard)/crm/_components/RichTextEditor";
 
-type OrderWithCliente = CrmOrder & { clientes?: { id: string; nome: string; email?: string | null; telefone?: string | null; whatsapp?: string | null } | null };
+type OrderWithCliente = CrmOrder & { crm_nativo?: boolean | null; clientes?: { id: string; nome: string; email?: string | null; telefone?: string | null; whatsapp?: string | null } | null };
 
 type OrderItem = {
   id: string;
@@ -41,6 +42,21 @@ export default function PedidoDetailPage() {
   const [salvandoTaxa,  setSalvandoTaxa]  = useState(false);
   const [reciboModal,   setReciboModal]   = useState<CrmFinancialEntry | null>(null);
   const [reciboCopiado, setReciboCopiado] = useState(false);
+
+  // Produtos (informativo — não gera pagamento)
+  const [produtos,     setProdutos]     = useState<CrmProduct[]>([]);
+  const [buscaProduto, setBuscaProduto] = useState("");
+  const [showProdDrop, setShowProdDrop] = useState(false);
+  const [modalProd,    setModalProd]    = useState<{ prod: CrmProduct; quantidade: string; preco: string } | null>(null);
+  const [salvandoItem, setSalvandoItem] = useState(false);
+
+  // Ordenação dos lançamentos (padrão de sistema: usePersistState + toggleSort)
+  const [lancSortCol, setLancSortCol] = usePersistState("pedidoLanc:sortCol", "vencimento");
+  const [lancSortDir, setLancSortDir] = usePersistState<"asc" | "desc">("pedidoLanc:sortDir", "asc");
+
+  // Editar lançamento em aberto (nunca pago)
+  const [editLanc,     setEditLanc]     = useState<{ entry: CrmFinancialEntry; descricao: string; valor: string; vencimento: string } | null>(null);
+  const [salvandoLanc, setSalvandoLanc] = useState(false);
 
   // Contratos
   const [contratos,           setContratos]           = useState<CrmContract[]>([]);
@@ -82,6 +98,65 @@ export default function PedidoDetailPage() {
       setContratos((ct ?? []) as CrmContract[]);
       setLoading(false);
     });
+  };
+
+  // Carrega o catálogo de produtos do fotógrafo (para o módulo informativo)
+  useEffect(() => {
+    const fid = pedido?.fotografo_id;
+    if (!fid) return;
+    createClient().from("crm_products").select("*").eq("fotografo_id", fid).eq("ativo", true).order("nome")
+      .then(({ data }) => setProdutos((data ?? []) as CrmProduct[]));
+  }, [pedido?.fotografo_id]);
+
+  const toggleLancSort = (col: string) => {
+    if (lancSortCol === col) setLancSortDir(d => d === "asc" ? "desc" : "asc");
+    else { setLancSortCol(col); setLancSortDir("asc"); }
+  };
+
+  // ── Produtos informativos (grava só em crm_order_items, sem tocar em pagamentos/total) ──
+  const abrirModalProduto = (prod: CrmProduct) => {
+    setModalProd({ prod, quantidade: "1", preco: prod.preco != null ? String(prod.preco) : "0" });
+    setBuscaProduto("");
+    setShowProdDrop(false);
+  };
+
+  const confirmarProduto = async () => {
+    if (!modalProd) return;
+    const qtd   = Math.max(1, parseInt(modalProd.quantidade) || 1);
+    const preco = parseFloat(modalProd.preco.replace(",", ".")) || 0;
+    setSalvandoItem(true);
+    await createClient().from("crm_order_items").insert({
+      pedido_id:  id,
+      produto_id: modalProd.prod.id,
+      descricao:  modalProd.prod.nome,
+      quantidade: qtd,
+      preco_unit: preco,
+      total:      qtd * preco,
+    });
+    setSalvandoItem(false);
+    setModalProd(null);
+    carregar();
+  };
+
+  const removerItem = async (itemId: string) => {
+    await createClient().from("crm_order_items").delete().eq("id", itemId);
+    carregar();
+  };
+
+  // ── Editar lançamento em aberto ── (nunca altera pagos/recebidos)
+  const salvarLancEditado = async () => {
+    if (!editLanc) return;
+    if (editLanc.entry.status !== "pendente") { setEditLanc(null); return; }
+    const valor = parseFloat(editLanc.valor.replace(",", ".")) || 0;
+    if (!editLanc.descricao.trim() || valor <= 0 || !editLanc.vencimento) return;
+    setSalvandoLanc(true);
+    await createClient().from("crm_financial_entries")
+      .update({ descricao: editLanc.descricao.trim(), valor, vencimento: editLanc.vencimento })
+      .eq("id", editLanc.entry.id)
+      .eq("status", "pendente"); // guarda extra no banco: só se ainda pendente
+    setSalvandoLanc(false);
+    setEditLanc(null);
+    carregar();
   };
 
   const abrirModalContrato = async () => {
@@ -245,17 +320,46 @@ export default function PedidoDetailPage() {
     return `Olá${nome ? ` ${nome}` : ""}!\n\nSegue o recibo referente a *${fmt(f.valor)}* (${f.descricao}).\n\n🔗 Acesse:\n${urlRecibo(f.id)}\n\nObrigado pela confiança! 🙏`;
   };
 
-  const grupoLancamentos = (titulo: string, itens: CrmFinancialEntry[], ehReceita: boolean) => {
-    if (itens.length === 0) return null;
-    const GRID = "1fr 88px 88px 100px 78px 88px";
+  const grupoLancamentos = (titulo: string, itensRaw: CrmFinancialEntry[], ehReceita: boolean) => {
+    if (itensRaw.length === 0) return null;
+    const GRID = "1fr 84px 84px 96px 74px 96px";
+    const cols: { label: string; col: string }[] = [
+      { label: "Descrição",  col: "descricao" },
+      { label: "Vencimento", col: "vencimento" },
+      { label: "Pago em",    col: "pago_em" },
+      { label: "Valor",      col: "valor" },
+      { label: "Status",     col: "status" },
+      { label: "Ações",      col: "" },
+    ];
+    const valSort = (f: CrmFinancialEntry): string | number => {
+      switch (lancSortCol) {
+        case "descricao":  return f.descricao ?? "";
+        case "pago_em":    return f.pago_em ?? "";
+        case "valor":      return Number(f.valor);
+        case "status":     return f.status ?? "";
+        case "vencimento":
+        default:           return f.vencimento ?? "";
+      }
+    };
+    const itens = [...itensRaw].sort((a, b) => {
+      const va = valSort(a), vb = valSort(b);
+      const cmp = (typeof va === "number" && typeof vb === "number")
+        ? va - vb
+        : String(va).localeCompare(String(vb), "pt-BR");
+      return lancSortDir === "asc" ? cmp : -cmp;
+    });
     return (
       <div style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 12, overflow: "hidden", marginBottom: 16 }}>
         <div style={{ padding: "9px 20px", borderBottom: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-secondary)" }}>
           <span style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.06em" }}>{titulo}</span>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: GRID, gap: 8, padding: "7px 20px", borderBottom: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-secondary)" }}>
-          {["Descrição", "Vencimento", "Pago em", "Valor", "Status", ehReceita ? "Recibo" : ""].map((h, i) => (
-            <div key={i} style={{ fontSize: 10, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em" }}>{h}</div>
+          {cols.map(({ label, col }) => (
+            <div key={label} onClick={() => col && toggleLancSort(col)}
+              style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 10, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", cursor: col ? "pointer" : "default", userSelect: "none" }}>
+              {label}
+              {col && lancSortCol === col && <span style={{ fontSize: 9, opacity: 0.7 }}>{lancSortDir === "asc" ? "↑" : "↓"}</span>}
+            </div>
           ))}
         </div>
         {itens.map((f, i) => {
@@ -276,14 +380,20 @@ export default function PedidoDetailPage() {
                 {ehReceita ? "+" : "-"}{fmt(f.valor)}
               </div>
               <div><span style={{ fontSize: 11, fontWeight: 600, color: stFin.color }}>{stFin.label}</span></div>
-              {ehReceita ? (
-                <div>
-                  <button onClick={() => { setReciboCopiado(false); setReciboModal(f); }} title="Reenviar recibo ao cliente"
-                    style={{ padding: "4px 9px", borderRadius: 6, border: "0.5px solid rgba(37,99,235,0.3)", background: "transparent", color: "#2563EB", fontSize: 11, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}>
-                    🧾 Recibo
+              <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+                {f.status === "pendente" && (
+                  <button onClick={() => setEditLanc({ entry: f, descricao: f.descricao ?? "", valor: String(f.valor), vencimento: f.vencimento })} title="Editar lançamento em aberto"
+                    style={{ padding: "4px 8px", borderRadius: 6, border: "0.5px solid var(--color-border-secondary)", background: "transparent", cursor: "pointer", fontSize: 12 }}>
+                    ✏️
                   </button>
-                </div>
-              ) : <div />}
+                )}
+                {ehReceita && f.status === "pago" && (
+                  <button onClick={() => { setReciboCopiado(false); setReciboModal(f); }} title="Reenviar recibo ao cliente"
+                    style={{ padding: "4px 8px", borderRadius: 6, border: "0.5px solid rgba(37,99,235,0.3)", background: "transparent", cursor: "pointer", fontSize: 12 }}>
+                    🧾
+                  </button>
+                )}
+              </div>
             </div>
           );
         })}
@@ -325,6 +435,9 @@ export default function PedidoDetailPage() {
               {pedido.nome ?? pedido.numero ?? "Pedido"}
             </h2>
             <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 10, background: st.bg, color: st.color, whiteSpace: "nowrap" }}>{st.label}</span>
+            {pedido.crm_nativo === false && (
+              <span title="Pedido importado da base antiga (não criado no CRM)" style={{ fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 8, background: "rgba(217,119,6,0.10)", color: "#B45309", whiteSpace: "nowrap", border: "0.5px solid rgba(217,119,6,0.25)" }}>Importado</span>
+            )}
           </div>
 
           {/* Info row */}
@@ -415,37 +528,75 @@ export default function PedidoDetailPage() {
             </div>
           )}
 
-          {/* Produtos / Itens do pedido */}
-          {itens.length > 0 && (
-            <div style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 12, overflow: "hidden", marginBottom: 16 }}>
-              <div style={{ padding: "9px 20px", borderBottom: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-secondary)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.06em" }}>Produtos / Serviços</span>
-                <span style={{ fontSize: 11, color: "var(--color-text-secondary)" }}>{itens.length} {itens.length === 1 ? "item" : "itens"}</span>
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 70px 100px 100px", padding: "7px 20px", borderBottom: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-secondary)" }}>
-                {["Descrição", "Qtd", "Preço unit.", "Total"].map(h => (
-                  <span key={h} style={{ fontSize: 10, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.04em" }}>{h}</span>
-                ))}
-              </div>
-              {itens.map((item, i) => (
-                <div key={item.id} style={{ display: "grid", gridTemplateColumns: "1fr 70px 100px 100px", padding: "11px 20px", borderBottom: i < itens.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", alignItems: "center" }}>
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 500, color: "var(--color-text-primary)" }}>{item.descricao || item.crm_products?.nome || "—"}</div>
-                    {item.crm_products?.nome && item.descricao && item.descricao !== item.crm_products.nome && (
-                      <div style={{ fontSize: 11, color: "var(--color-text-secondary)" }}>{item.crm_products.nome}</div>
+          {/* Produtos / Serviços — informativo (não gera pagamento nem altera o total) */}
+          <div style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 12, overflow: "hidden", marginBottom: 16 }}>
+            <div style={{ padding: "9px 20px", borderBottom: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-secondary)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.06em" }}>Produtos / Serviços</span>
+              <span style={{ fontSize: 11, color: "var(--color-text-secondary)" }}>{itens.length} {itens.length === 1 ? "item" : "itens"}</span>
+            </div>
+
+            {/* Buscar e adicionar produto do catálogo */}
+            <div style={{ padding: "12px 20px", borderBottom: "0.5px solid var(--color-border-tertiary)", position: "relative" }}>
+              <input
+                value={buscaProduto}
+                onChange={e => { setBuscaProduto(e.target.value); setShowProdDrop(true); }}
+                onFocus={() => setShowProdDrop(true)}
+                onBlur={() => setTimeout(() => setShowProdDrop(false), 150)}
+                placeholder="Buscar e adicionar produto do catálogo…"
+                style={{ width: "100%", boxSizing: "border-box", padding: "9px 12px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", fontSize: 13, color: "var(--color-text-primary)", outline: "none" }}
+              />
+              {showProdDrop && (() => {
+                const lista = produtos.filter(p => buscaProduto === "" || p.nome.toLowerCase().includes(buscaProduto.toLowerCase()));
+                return (
+                  <div style={{ position: "absolute", top: "calc(100% - 4px)", left: 20, right: 20, zIndex: 20, background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-secondary)", borderRadius: 8, boxShadow: "0 8px 28px rgba(0,0,0,0.16)", maxHeight: 260, overflowY: "auto" }}>
+                    {lista.slice(0, 12).map(p => (
+                      <div key={p.id} onMouseDown={() => abrirModalProduto(p)}
+                        style={{ padding: "9px 14px", fontSize: 13, color: "var(--color-text-primary)", cursor: "pointer", display: "flex", justifyContent: "space-between", gap: 10 }}
+                        onMouseEnter={e => (e.currentTarget.style.background = "var(--color-background-secondary)")}
+                        onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
+                        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.nome}</span>
+                        <span style={{ color: "var(--color-text-secondary)", whiteSpace: "nowrap" }}>{fmt(p.preco ?? 0)}</span>
+                      </div>
+                    ))}
+                    {lista.length === 0 && (
+                      <div style={{ padding: "10px 14px", fontSize: 13, color: "var(--color-text-secondary)" }}>Nenhum produto encontrado</div>
                     )}
                   </div>
-                  <div style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>{item.quantidade}×</div>
-                  <div style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>{fmt(item.preco_unit)}</div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: "var(--color-text-primary)" }}>{fmt(item.total)}</div>
-                </div>
-              ))}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 70px 100px 100px", padding: "10px 20px", borderTop: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-secondary)" }}>
-                <div style={{ gridColumn: "1 / 4", fontSize: 12, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.04em" }}>Total dos itens</div>
-                <div style={{ fontSize: 14, fontWeight: 800, color: "var(--color-text-primary)" }}>{fmt(itens.reduce((s, i) => s + i.total, 0))}</div>
-              </div>
+                );
+              })()}
             </div>
-          )}
+
+            {itens.length > 0 ? (
+              <>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 60px 100px 100px 40px", padding: "7px 20px", borderBottom: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-secondary)" }}>
+                  {["Descrição", "Qtd", "Preço unit.", "Total", ""].map(h => (
+                    <span key={h || "acao"} style={{ fontSize: 10, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.04em" }}>{h}</span>
+                  ))}
+                </div>
+                {itens.map((item, i) => (
+                  <div key={item.id} style={{ display: "grid", gridTemplateColumns: "1fr 60px 100px 100px 40px", padding: "11px 20px", borderBottom: i < itens.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", alignItems: "center" }}>
+                    <div style={{ fontSize: 13, fontWeight: 500, color: "var(--color-text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.descricao || item.crm_products?.nome || "—"}</div>
+                    <div style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>{item.quantidade}×</div>
+                    <div style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>{fmt(item.preco_unit)}</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: "var(--color-text-primary)" }}>{fmt(item.total)}</div>
+                    <button onClick={() => removerItem(item.id)} title="Remover item"
+                      style={{ background: "none", border: "none", cursor: "pointer", color: "var(--color-text-secondary)", fontSize: 14, padding: 0 }}>🗑</button>
+                  </div>
+                ))}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 60px 100px 100px 40px", padding: "10px 20px", borderTop: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-secondary)" }}>
+                  <div style={{ gridColumn: "1 / 4", fontSize: 12, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.04em" }}>Total dos itens (informativo)</div>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: "var(--color-text-primary)" }}>{fmt(itens.reduce((s, it) => s + it.total, 0))}</div>
+                  <div />
+                </div>
+              </>
+            ) : (
+              <div style={{ padding: "14px 20px", fontSize: 12.5, color: "var(--color-text-secondary)" }}>Nenhum produto lançado. Use a busca acima para adicionar.</div>
+            )}
+
+            <div style={{ padding: "9px 20px", fontSize: 11, color: "var(--color-text-secondary)", background: "var(--color-background-secondary)", borderTop: "0.5px solid var(--color-border-tertiary)" }}>
+              ℹ️ Informativo — não altera o valor do pedido nem gera pagamentos.
+            </div>
+          </div>
 
           {/* Aviso de taxa de cartão */}
           {(() => {
@@ -820,6 +971,79 @@ export default function PedidoDetailPage() {
                 {deleting ? "Excluindo…" : "Sim, excluir"}
               </button>
               <button onClick={() => setConfirmDel(false)} style={{ padding: "9px 18px", borderRadius: 8, background: "transparent", color: "var(--color-text-secondary)", border: "0.5px solid var(--color-border-secondary)", fontSize: 13, cursor: "pointer" }}>
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal — adicionar produto (informativo) */}
+      {modalProd && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}
+          onClick={e => e.target === e.currentTarget && setModalProd(null)}>
+          <div style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 14, padding: "24px 28px", width: 420, maxWidth: "100%", boxShadow: "0 24px 64px rgba(0,0,0,0.22)" }}>
+            <div style={{ fontSize: 15, fontWeight: 800, color: "var(--color-text-primary)", marginBottom: 4 }}>Adicionar produto</div>
+            <div style={{ fontSize: 13, color: "var(--color-text-secondary)", marginBottom: 18 }}>{modalProd.prod.nome}</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 18 }}>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>Quantidade</div>
+                <input type="number" min="1" value={modalProd.quantidade}
+                  onChange={e => setModalProd(m => m ? { ...m, quantidade: e.target.value } : m)}
+                  style={{ width: "100%", boxSizing: "border-box", padding: "9px 12px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", fontSize: 13, color: "var(--color-text-primary)", outline: "none" }} />
+              </div>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>Preço unit. (R$)</div>
+                <input type="number" min="0" step="0.01" value={modalProd.preco}
+                  onChange={e => setModalProd(m => m ? { ...m, preco: e.target.value } : m)}
+                  style={{ width: "100%", boxSizing: "border-box", padding: "9px 12px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", fontSize: 13, color: "var(--color-text-primary)", outline: "none" }} />
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button onClick={confirmarProduto} disabled={salvandoItem}
+                style={{ padding: "9px 22px", borderRadius: 8, background: "#111", color: "#fff", border: "none", fontSize: 13, fontWeight: 700, cursor: "pointer", opacity: salvandoItem ? 0.6 : 1 }}>
+                {salvandoItem ? "Adicionando…" : "Adicionar"}
+              </button>
+              <button onClick={() => setModalProd(null)} style={{ padding: "9px 16px", borderRadius: 8, background: "transparent", color: "var(--color-text-secondary)", border: "0.5px solid var(--color-border-secondary)", fontSize: 13, cursor: "pointer" }}>
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal — editar lançamento em aberto */}
+      {editLanc && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}
+          onClick={e => e.target === e.currentTarget && setEditLanc(null)}>
+          <div style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 14, padding: "24px 28px", width: 420, maxWidth: "100%", boxShadow: "0 24px 64px rgba(0,0,0,0.22)" }}>
+            <div style={{ fontSize: 15, fontWeight: 800, color: "var(--color-text-primary)", marginBottom: 4 }}>Editar lançamento</div>
+            <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginBottom: 18 }}>Em aberto · {editLanc.entry.parcela ? `Parcela ${editLanc.entry.parcela}` : editLanc.entry.tipo === "receita" ? "Receita" : "Custo"}</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 18 }}>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>Descrição</div>
+                <input value={editLanc.descricao} onChange={e => setEditLanc(m => m ? { ...m, descricao: e.target.value } : m)}
+                  style={{ width: "100%", boxSizing: "border-box", padding: "9px 12px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", fontSize: 13, color: "var(--color-text-primary)", outline: "none" }} />
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>Valor (R$)</div>
+                  <input type="number" min="0" step="0.01" value={editLanc.valor} onChange={e => setEditLanc(m => m ? { ...m, valor: e.target.value } : m)}
+                    style={{ width: "100%", boxSizing: "border-box", padding: "9px 12px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", fontSize: 13, color: "var(--color-text-primary)", outline: "none" }} />
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>Vencimento</div>
+                  <input type="date" value={editLanc.vencimento} onChange={e => setEditLanc(m => m ? { ...m, vencimento: e.target.value } : m)}
+                    style={{ width: "100%", boxSizing: "border-box", padding: "9px 12px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", fontSize: 13, color: "var(--color-text-primary)", outline: "none" }} />
+                </div>
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button onClick={salvarLancEditado} disabled={salvandoLanc}
+                style={{ padding: "9px 22px", borderRadius: 8, background: "#111", color: "#fff", border: "none", fontSize: 13, fontWeight: 700, cursor: "pointer", opacity: salvandoLanc ? 0.6 : 1 }}>
+                {salvandoLanc ? "Salvando…" : "Salvar"}
+              </button>
+              <button onClick={() => setEditLanc(null)} style={{ padding: "9px 16px", borderRadius: 8, background: "transparent", color: "var(--color-text-secondary)", border: "0.5px solid var(--color-border-secondary)", fontSize: 13, cursor: "pointer" }}>
                 Cancelar
               </button>
             </div>
