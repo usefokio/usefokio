@@ -5,11 +5,18 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { decryptKey, criarCobranca, type AsaasAmbiente } from "@/lib/asaas";
 import nodemailer from "nodemailer";
 import { getResend, FROM_DEFAULT } from "@/lib/email/resend";
+import { rateLimitOk, clientIp } from "@/lib/rate-limit";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+
+  const ip = clientIp(request);
+  if (!(await rateLimitOk(`renovar:${ip}`, 10, 60))) {
+    return NextResponse.json({ erro: "Muitas tentativas. Aguarde um instante e tente novamente." }, { status: 429 });
+  }
+
   const { nome, email, cpf } = await request.json().catch(() => ({}));
 
   if (!nome?.trim() || !EMAIL_RE.test(email?.trim() ?? "")) {
