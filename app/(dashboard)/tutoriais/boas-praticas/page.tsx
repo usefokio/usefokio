@@ -11,10 +11,18 @@ type App = {
   categoria: string | null;
 };
 
+type Arquivo = {
+  id: string;
+  nome: string;
+  descricao: string | null;
+  arquivo_url: string;
+  arquivo_nome: string | null;
+};
+
 export default function BoasPraticasPage() {
-  const [apps,    setApps]    = useState<App[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [preset,  setPreset]  = useState<{ url: string | null; nome: string | null; descricao: string | null } | null>(null);
+  const [apps,     setApps]     = useState<App[]>([]);
+  const [loading,  setLoading]  = useState(true);
+  const [arquivos, setArquivos] = useState<Arquivo[]>([]);
 
   useEffect(() => {
     fetch("/api/apps-recomendados")
@@ -22,9 +30,9 @@ export default function BoasPraticasPage() {
       .then((j) => setApps(j.apps ?? []))
       .catch(() => {})
       .finally(() => setLoading(false));
-    fetch("/api/boas-praticas/preset")
+    fetch("/api/arquivos-download")
       .then((r) => r.json())
-      .then((j) => setPreset(j))
+      .then((j) => setArquivos(j.arquivos ?? []))
       .catch(() => {});
   }, []);
 
@@ -108,56 +116,53 @@ export default function BoasPraticasPage() {
         </div>
       )}
 
-      {/* Preset de exportação Lightroom */}
+      {/* Materiais para download */}
       <div style={{ marginTop: 40 }}>
         <div style={{ fontSize: 16, fontWeight: 800, color: "var(--color-text-primary)", letterSpacing: "-0.01em", marginBottom: 4 }}>
-          Preset de Exportação — Lightroom
+          Materiais para download
         </div>
         <div style={{ fontSize: 12.5, color: "var(--color-text-secondary)", marginBottom: 16 }}>
-          {preset?.descricao || "Configuração de exportação para otimizar as imagens da galeria de entrega (tamanho e qualidade ideais)."}
+          Presets, guias e outros arquivos para o seu fluxo de trabalho.
         </div>
-        <div style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 14,
-          padding: "18px 20px",
-          background: "var(--color-background-primary)",
-          border: preset?.url ? "0.5px solid var(--color-border-tertiary)" : "0.5px dashed var(--color-border-secondary)",
-          borderRadius: 12,
-        }}>
-          <div style={{ fontSize: 26, lineHeight: 1, flexShrink: 0 }}>🎞️</div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 13.5, fontWeight: 700, color: "var(--color-text-primary)" }}>
-              Preset de exportação para entrega
-            </div>
-            <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginTop: 2 }}>
-              {preset?.url
-                ? "Baixe e importe no Lightroom (Arquivo → Importar perfis e predefinições)."
-                : "Estará disponível para download aqui em breve."}
+        {arquivos.length === 0 ? (
+          <div style={{
+            display: "flex", alignItems: "center", gap: 14, padding: "18px 20px",
+            background: "var(--color-background-primary)",
+            border: "0.5px dashed var(--color-border-secondary)",
+            borderRadius: 12,
+          }}>
+            <div style={{ fontSize: 26, lineHeight: 1, flexShrink: 0 }}>📎</div>
+            <div style={{ flex: 1, fontSize: 12.5, color: "var(--color-text-secondary)" }}>
+              Nenhum material disponível ainda — em breve.
             </div>
           </div>
-          {preset?.url ? (
-            <a
-              href={preset.url}
-              download={preset.nome ?? undefined}
-              target="_blank"
-              rel="noopener"
-              style={{ flexShrink: 0, fontSize: 12, fontWeight: 700, padding: "8px 16px", borderRadius: 8, background: "#2563EB", color: "#fff", textDecoration: "none" }}
-            >
-              Baixar preset
-            </a>
-          ) : (
-            <span style={{
-              flexShrink: 0,
-              fontSize: 11, fontWeight: 700,
-              padding: "5px 12px", borderRadius: 20,
-              background: "var(--color-background-secondary)",
-              color: "var(--color-text-secondary)",
-            }}>
-              Em breve
-            </span>
-          )}
-        </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {arquivos.map((a) => (
+              <div key={a.id} style={{
+                display: "flex", alignItems: "center", gap: 14, padding: "16px 18px",
+                background: "var(--color-background-primary)",
+                border: "0.5px solid var(--color-border-tertiary)",
+                borderRadius: 12,
+              }}>
+                <div style={{ fontSize: 24, lineHeight: 1, flexShrink: 0 }}>📎</div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13.5, fontWeight: 700, color: "var(--color-text-primary)" }}>{a.nome}</div>
+                  {a.descricao && <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginTop: 2 }}>{a.descricao}</div>}
+                </div>
+                <a
+                  href={a.arquivo_url}
+                  download={a.arquivo_nome ?? undefined}
+                  target="_blank"
+                  rel="noopener"
+                  style={{ flexShrink: 0, fontSize: 12, fontWeight: 700, padding: "8px 16px", borderRadius: 8, background: "#2563EB", color: "#fff", textDecoration: "none" }}
+                >
+                  Baixar
+                </a>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

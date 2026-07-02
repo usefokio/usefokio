@@ -3,13 +3,12 @@
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
-type App = {
+type Arquivo = {
   id: string;
   nome: string;
   descricao: string | null;
-  logo_url: string | null;
-  link: string;
-  categoria: string | null;
+  arquivo_url: string;
+  arquivo_nome: string | null;
   ordem: number;
   ativo: boolean;
 };
@@ -25,15 +24,18 @@ const inputStyle: React.CSSProperties = {
   boxSizing: "border-box",
 };
 
-export default function WebmasterAppsPage() {
-  const [apps,     setApps]     = useState<App[]>([]);
+export default function WebmasterArquivosPage() {
+  const [arquivos, setArquivos] = useState<Arquivo[]>([]);
   const [loading,  setLoading]  = useState(true);
-  const [modal,    setModal]    = useState<Partial<App> | null>(null);
+  const [modal,    setModal]    = useState<Partial<Arquivo> | null>(null);
+  const [file,     setFile]     = useState<File | null>(null);
   const [salvando, setSalvando] = useState(false);
   const [msg,      setMsg]      = useState("");
 
-  const modalRef = useRef<Partial<App> | null>(null);
+  const modalRef = useRef<Partial<Arquivo> | null>(null);
   useEffect(() => { modalRef.current = modal; }, [modal]);
+  const fileRef = useRef<File | null>(null);
+  useEffect(() => { fileRef.current = file; }, [file]);
 
   useEffect(() => { carregar(); }, []);
 
@@ -41,41 +43,56 @@ export default function WebmasterAppsPage() {
     setLoading(true);
     const supabase = createClient();
     const { data: { session } } = await supabase.auth.getSession();
-    const res = await fetch("/api/webmaster/apps-recomendados", {
+    const res = await fetch("/api/webmaster/arquivos-download", {
       headers: { Authorization: `Bearer ${session?.access_token ?? ""}` },
     });
-    if (res.ok) setApps((await res.json()).apps ?? []);
+    if (res.ok) setArquivos((await res.json()).arquivos ?? []);
     setLoading(false);
+  }
+
+  function abrir(a?: Arquivo) {
+    setFile(null);
+    setMsg("");
+    setModal(a ? { ...a } : { ordem: arquivos.length * 10 });
   }
 
   async function salvar() {
     const current = modalRef.current;
     if (!current) return;
+    const isNovo = !current.id;
+    if (!current.nome?.trim()) { setMsg("❌ Nome obrigatório"); return; }
+    if (isNovo && !fileRef.current) { setMsg("❌ Selecione o arquivo"); return; }
+
     setSalvando(true); setMsg("");
     const supabase = createClient();
     const { data: { session } } = await supabase.auth.getSession();
-    const isNovo = !current.id;
+    const fd = new FormData();
+    fd.append("nome", current.nome ?? "");
+    fd.append("descricao", current.descricao ?? "");
+    fd.append("ordem", String(current.ordem ?? 0));
+    if (fileRef.current) fd.append("file", fileRef.current);
+
     const res = await fetch(
-      isNovo ? "/api/webmaster/apps-recomendados" : `/api/webmaster/apps-recomendados/${current.id}`,
+      isNovo ? "/api/webmaster/arquivos-download" : `/api/webmaster/arquivos-download/${current.id}`,
       {
         method: isNovo ? "POST" : "PATCH",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token ?? ""}` },
-        body: JSON.stringify(current),
+        headers: { Authorization: `Bearer ${session?.access_token ?? ""}` },
+        body: fd,
       }
     );
-    const json = await res.json();
+    const json = await res.json().catch(() => ({}));
     if (!res.ok) { setMsg("❌ " + (json.error ?? "Erro ao salvar")); setSalvando(false); return; }
-    setModal(null);
+    setModal(null); setFile(null);
     await carregar();
-    setMsg("✅ App salvo com sucesso");
+    setMsg("✅ Arquivo salvo com sucesso");
     setTimeout(() => setMsg(""), 3000);
     setSalvando(false);
   }
 
-  async function toggleAtivo(a: App) {
+  async function toggleAtivo(a: Arquivo) {
     const supabase = createClient();
     const { data: { session } } = await supabase.auth.getSession();
-    await fetch(`/api/webmaster/apps-recomendados/${a.id}`, {
+    await fetch(`/api/webmaster/arquivos-download/${a.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token ?? ""}` },
       body: JSON.stringify({ ativo: !a.ativo }),
@@ -87,28 +104,28 @@ export default function WebmasterAppsPage() {
     <div>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
         <div style={{ fontSize: 20, fontWeight: 800, color: "var(--color-text-primary)", letterSpacing: "-0.02em" }}>
-          Apps / Boas Práticas
+          Materiais / Downloads
         </div>
         <button
-          onClick={() => setModal({ ordem: apps.length * 10 })}
+          onClick={() => abrir()}
           style={{ padding: "8px 16px", borderRadius: 8, border: "none", background: "#2563EB", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
         >
-          + Novo App
+          + Novo Arquivo
         </button>
       </div>
       <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginBottom: 24 }}>
-        Apps indicados na aba Boas Práticas. Use o campo Link para o seu código de afiliado.
+        Arquivos que o fotógrafo baixa na aba Boas Práticas (preset do Lightroom, PDFs, qualquer material).
       </div>
 
       {msg && <div style={{ fontSize: 12, marginBottom: 14, color: msg.startsWith("❌") ? "#EF4444" : "#059669" }}>{msg}</div>}
 
       {loading ? (
         <div style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>Carregando…</div>
-      ) : apps.length === 0 ? (
-        <div style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>Nenhum app cadastrado.</div>
+      ) : arquivos.length === 0 ? (
+        <div style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>Nenhum arquivo cadastrado.</div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {apps.map((a) => (
+          {arquivos.map((a) => (
             <div key={a.id} style={{
               display: "flex", alignItems: "center", gap: 12, padding: "14px 18px",
               background: "var(--color-background-primary)",
@@ -116,32 +133,24 @@ export default function WebmasterAppsPage() {
               borderRadius: 10,
               opacity: a.ativo ? 1 : 0.5,
             }}>
-              {a.logo_url ? (
-                <img src={a.logo_url} alt={a.nome} width={32} height={32} style={{ borderRadius: 7, flexShrink: 0, display: "block" }} />
-              ) : (
-                <div style={{ width: 32, height: 32, borderRadius: 7, flexShrink: 0, background: "var(--color-background-secondary)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 800, color: "var(--color-text-secondary)" }}>
-                  {a.nome.charAt(0).toUpperCase()}
-                </div>
-              )}
+              <div style={{ fontSize: 18, lineHeight: 1, flexShrink: 0 }}>📎</div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontWeight: 700, fontSize: 13, color: "var(--color-text-primary)" }}>
                   {a.nome}
-                  {a.categoria && (
-                    <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 500, color: "var(--color-text-secondary)" }}>
-                      {a.categoria}
-                    </span>
-                  )}
                   <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 500, color: "var(--color-text-secondary)" }}>
                     ordem {a.ordem}
                   </span>
                 </div>
                 <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {a.link}
+                  <a href={a.arquivo_url} target="_blank" rel="noopener" style={{ color: "#2563EB", textDecoration: "none" }}>
+                    {a.arquivo_nome ?? "arquivo"}
+                  </a>
+                  {a.descricao && <span> · {a.descricao}</span>}
                 </div>
               </div>
               <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
                 <button
-                  onClick={() => setModal({ ...a })}
+                  onClick={() => abrir(a)}
                   style={{ padding: "5px 14px", borderRadius: 7, border: "0.5px solid var(--color-border-secondary)", background: "transparent", fontSize: 11, fontWeight: 600, color: "var(--color-text-primary)", cursor: "pointer" }}
                 >
                   Editar
@@ -161,32 +170,29 @@ export default function WebmasterAppsPage() {
       {modal && (
         <div
           style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 200 }}
-          onClick={(e) => { if (e.target === e.currentTarget && !salvando) { setModal(null); setMsg(""); } }}
+          onClick={(e) => { if (e.target === e.currentTarget && !salvando) { setModal(null); setFile(null); setMsg(""); } }}
         >
           <div style={{ background: "var(--color-background-primary)", borderRadius: 14, padding: "28px 30px", width: 460, boxShadow: "0 8px 40px rgba(0,0,0,0.25)" }}>
             <div style={{ fontSize: 15, fontWeight: 800, color: "var(--color-text-primary)", marginBottom: 20 }}>
-              {modal.id ? "Editar App" : "Novo App"}
+              {modal.id ? "Editar Arquivo" : "Novo Arquivo"}
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               <div>
                 <div style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", marginBottom: 4 }}>Nome</div>
-                <input style={inputStyle} value={modal.nome ?? ""} onChange={(e) => { const v = e.target.value; setModal((m) => m ? { ...m, nome: v } : m); }} placeholder="Ex: JPEGmini" />
+                <input style={inputStyle} value={modal.nome ?? ""} onChange={(e) => { const v = e.target.value; setModal((m) => m ? { ...m, nome: v } : m); }} placeholder="Ex: Preset de Exportação — Lightroom" />
               </div>
               <div>
-                <div style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", marginBottom: 4 }}>Link (afiliado)</div>
-                <input style={inputStyle} value={modal.link ?? ""} onChange={(e) => { const v = e.target.value; setModal((m) => m ? { ...m, link: v } : m); }} placeholder="https://…" />
-              </div>
-              <div>
-                <div style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", marginBottom: 4 }}>Logo (URL)</div>
-                <input style={inputStyle} value={modal.logo_url ?? ""} onChange={(e) => { const v = e.target.value; setModal((m) => m ? { ...m, logo_url: v } : m); }} placeholder="/apps/exemplo.svg ou https://…" />
-              </div>
-              <div>
-                <div style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", marginBottom: 4 }}>Categoria</div>
-                <input style={inputStyle} value={modal.categoria ?? ""} onChange={(e) => { const v = e.target.value; setModal((m) => m ? { ...m, categoria: v } : m); }} placeholder="Ex: Compactação, IA / Edição, Seleção" />
+                <div style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", marginBottom: 4 }}>
+                  Arquivo {modal.id && <span style={{ fontWeight: 400 }}>(deixe vazio para manter o atual)</span>}
+                </div>
+                <input type="file" onChange={(e) => setFile(e.target.files?.[0] ?? null)} style={{ fontSize: 12, color: "var(--color-text-secondary)" }} />
+                {modal.id && modal.arquivo_nome && !file && (
+                  <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 4 }}>Atual: {modal.arquivo_nome}</div>
+                )}
               </div>
               <div>
                 <div style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", marginBottom: 4 }}>Descrição (opcional)</div>
-                <textarea style={{ ...inputStyle, resize: "vertical", fontFamily: "inherit" }} rows={2} value={modal.descricao ?? ""} onChange={(e) => { const v = e.target.value; setModal((m) => m ? { ...m, descricao: v } : m); }} placeholder="Breve descrição do app" />
+                <textarea style={{ ...inputStyle, resize: "vertical", fontFamily: "inherit" }} rows={2} value={modal.descricao ?? ""} onChange={(e) => { const v = e.target.value; setModal((m) => m ? { ...m, descricao: v } : m); }} placeholder="Breve descrição do material" />
               </div>
               <div>
                 <div style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", marginBottom: 4 }}>Ordem</div>
@@ -196,7 +202,7 @@ export default function WebmasterAppsPage() {
             {msg && <div style={{ fontSize: 12, marginTop: 12, color: msg.startsWith("❌") ? "#EF4444" : "#059669" }}>{msg}</div>}
             <div style={{ display: "flex", gap: 8, marginTop: 20 }}>
               <button
-                onClick={() => { setModal(null); setMsg(""); }}
+                onClick={() => { setModal(null); setFile(null); setMsg(""); }}
                 disabled={salvando}
                 style={{ flex: 1, padding: "9px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "transparent", fontSize: 13, color: "var(--color-text-secondary)", cursor: "pointer" }}
               >
@@ -204,8 +210,8 @@ export default function WebmasterAppsPage() {
               </button>
               <button
                 onClick={salvar}
-                disabled={salvando || !modal.nome?.trim() || !modal.link?.trim()}
-                style={{ flex: 2, padding: "9px", borderRadius: 8, border: "none", background: salvando || !modal.nome?.trim() || !modal.link?.trim() ? "rgba(37,99,235,0.3)" : "#2563EB", color: "#fff", fontSize: 13, fontWeight: 700, cursor: salvando || !modal.nome?.trim() || !modal.link?.trim() ? "default" : "pointer" }}
+                disabled={salvando}
+                style={{ flex: 2, padding: "9px", borderRadius: 8, border: "none", background: salvando ? "rgba(37,99,235,0.3)" : "#2563EB", color: "#fff", fontSize: 13, fontWeight: 700, cursor: salvando ? "default" : "pointer" }}
               >
                 {salvando ? "Salvando…" : "Salvar"}
               </button>
