@@ -251,6 +251,39 @@ function FinanceiroSubItems({ pathname }: { pathname: string }) {
   );
 }
 
+function TutoriaisSubItems({ pathname, crmAtivo }: { pathname: string; crmAtivo: boolean }) {
+  const searchParams = useSearchParams();
+  const cat = searchParams.get("cat");
+  if (!pathname.startsWith("/tutoriais")) return null;
+
+  const isBoas   = pathname.startsWith("/tutoriais/boas-praticas");
+  const isVideos = !isBoas;
+
+  const style = (active: boolean): React.CSSProperties => ({
+    display: "flex", alignItems: "center", gap: 7,
+    padding: "5px 10px 5px 44px", borderRadius: 7, marginBottom: 1,
+    background: active ? "var(--color-background-secondary)" : "transparent",
+    color: active ? "var(--color-text-primary)" : "var(--color-text-secondary)",
+    fontSize: 11, fontWeight: active ? 500 : 400, textDecoration: "none",
+  });
+
+  const link = (href: string, label: string, active: boolean) => (
+    <Link href={href} style={style(active)}
+      onMouseEnter={e => { if (!active) e.currentTarget.style.background = "var(--color-background-secondary)"; }}
+      onMouseLeave={e => { if (!active) e.currentTarget.style.background = "transparent"; }}>
+      <span style={{ whiteSpace: "nowrap" }}>{label}</span>
+    </Link>
+  );
+
+  return (
+    <>
+      {link("/tutoriais", "UseFokio", isVideos && cat !== "crm")}
+      {crmAtivo && link("/tutoriais?cat=crm", "CRM", isVideos && cat === "crm")}
+      {link("/tutoriais/boas-praticas", "Boas Práticas", isBoas)}
+    </>
+  );
+}
+
 // Ícone de seta para o botão de colapso
 function IcoChevron({ collapsed }: { collapsed: boolean }) {
   return (
@@ -506,6 +539,9 @@ export function Sidebar({ isMobile = false, mobileAberta = false, onFechar }: Si
                 <div key={item.href}>
                   {renderSub(item.href, item.label)}
                   {item.href === "/entrega" && renderSub("/entrega/campanha", "Funil de Campanha")}
+                  {item.href === "/tutoriais" && (
+                    <Suspense><TutoriaisSubItems pathname={pathname} crmAtivo={fotografo?.recursos?.crm !== false} /></Suspense>
+                  )}
                 </div>
               ))}
             </>

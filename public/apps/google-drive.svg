@@ -1,0 +1,8 @@
+<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Google Drive">
+  <rect width="64" height="64" rx="14" fill="#F1F3F4"/>
+  <g transform="translate(0,1)">
+    <path d="M24 14h16l14 24H38z" fill="#FFCF44"/>
+    <path d="M40 38h14L46 52H18z" fill="#11A861"/>
+    <path d="M24 14L10 38l8 14 14-24z" fill="#4688F1"/>
+  </g>
+</svg>

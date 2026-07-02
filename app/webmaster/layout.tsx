@@ -13,6 +13,7 @@ const NAV = [
   { href: "/webmaster/financeiro",  label: "Financeiro", icon: "📊" },
   { href: "/webmaster/planos",      label: "Planos",     icon: "📋" },
   { href: "/webmaster/tutoriais",   label: "Tutoriais",  icon: "🎬" },
+  { href: "/webmaster/apps",        label: "Apps / Boas Práticas", icon: "🧩" },
   { href: "/webmaster/sistema",     label: "Sistema",    icon: "⚙" },
   { href: "/webmaster/storage",     label: "Storage",    icon: "🗑️" },
 ];

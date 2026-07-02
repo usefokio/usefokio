@@ -1,0 +1,11 @@
+<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Photo Mechanic">
+  <rect width="64" height="64" rx="14" fill="#2A2E35"/>
+  <circle cx="32" cy="32" r="15" fill="none" stroke="#F26722" stroke-width="2.6"/>
+  <g fill="#F26722">
+    <path d="M32 18l7 5-3.5 6h-7z"/>
+    <path d="M46 32l-5 7-6-3.5v-7z"/>
+    <path d="M32 46l-7-5 3.5-6h7z"/>
+    <path d="M18 32l5-7 6 3.5v7z"/>
+  </g>
+  <circle cx="32" cy="32" r="4.4" fill="#fff"/>
+</svg>

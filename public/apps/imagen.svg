@@ -1,0 +1,12 @@
+<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Imagen AI">
+  <defs>
+    <linearGradient id="imagen-g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#8B5CF6"/>
+      <stop offset="1" stop-color="#6366F1"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="url(#imagen-g)"/>
+  <path d="M32 15l3.4 9.1L45 27.6l-9.6 3.5L32 40l-3.4-8.9L19 27.6l9.6-3.5z" fill="#fff"/>
+  <circle cx="45.5" cy="44" r="3.2" fill="#fff" opacity="0.95"/>
+  <circle cx="21" cy="43" r="2.2" fill="#fff" opacity="0.8"/>
+</svg>

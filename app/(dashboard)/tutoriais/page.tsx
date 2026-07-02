@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 
 type Tutorial = {
   id: string;
@@ -8,6 +9,7 @@ type Tutorial = {
   url_youtube: string;
   descricao: string | null;
   ordem: number;
+  categoria: string;
 };
 
 function youtubeEmbedUrl(url: string): string | null {
@@ -15,7 +17,10 @@ function youtubeEmbedUrl(url: string): string | null {
   return m ? `https://www.youtube.com/embed/${m[1]}` : null;
 }
 
-export default function TutoriaisPage() {
+function TutoriaisConteudo() {
+  const searchParams = useSearchParams();
+  const cat = searchParams.get("cat") === "crm" ? "crm" : "usefokio";
+
   const [tutoriais, setTutoriais] = useState<Tutorial[]>([]);
   const [loading,   setLoading]   = useState(true);
 
@@ -27,20 +32,26 @@ export default function TutoriaisPage() {
       .finally(() => setLoading(false));
   }, []);
 
+  const lista = tutoriais.filter((t) => (t.categoria ?? "usefokio") === cat);
+  const titulo = cat === "crm" ? "Tutoriais — CRM" : "Tutoriais — UseFokio";
+  const subtitulo = cat === "crm"
+    ? "Vídeos sobre o módulo de CRM (agenda, oportunidades, pedidos, financeiro)"
+    : "Vídeos explicativos sobre como usar o UseFokio";
+
   return (
     <div style={{ padding: "32px 32px 48px" }}>
       <div style={{ marginBottom: 28 }}>
         <div style={{ fontSize: 22, fontWeight: 800, color: "var(--color-text-primary)", letterSpacing: "-0.02em", marginBottom: 4 }}>
-          Tutoriais
+          {titulo}
         </div>
         <div style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>
-          Vídeos explicativos sobre como usar o UseFokio
+          {subtitulo}
         </div>
       </div>
 
       {loading ? (
         <div style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>Carregando…</div>
-      ) : tutoriais.length === 0 ? (
+      ) : lista.length === 0 ? (
         <div style={{
           padding: "48px 32px",
           textAlign: "center",
@@ -58,7 +69,7 @@ export default function TutoriaisPage() {
           gridTemplateColumns: "repeat(auto-fill, minmax(360px, 1fr))",
           gap: 24,
         }}>
-          {tutoriais.map((t) => {
+          {lista.map((t) => {
             const embedUrl = youtubeEmbedUrl(t.url_youtube);
             return (
               <div key={t.id} style={{
@@ -111,5 +122,13 @@ export default function TutoriaisPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function TutoriaisPage() {
+  return (
+    <Suspense fallback={<div style={{ padding: 32, fontSize: 13, color: "var(--color-text-secondary)" }}>Carregando…</div>}>
+      <TutoriaisConteudo />
+    </Suspense>
   );
 }

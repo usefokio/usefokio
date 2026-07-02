@@ -7,37 +7,38 @@ export async function GET(req: Request) {
 
   const admin = createAdminClient();
   const { data } = await admin
-    .from("tutoriais")
+    .from("apps_recomendados")
     .select("*")
     .order("ordem")
     .order("created_at");
 
-  return NextResponse.json({ tutoriais: data ?? [] });
+  return NextResponse.json({ apps: data ?? [] });
 }
 
 export async function POST(req: Request) {
   if (!await verificarWebmaster(req)) return NextResponse.json({ error: "forbidden" }, { status: 403 });
 
   const body = await req.json().catch(() => ({}));
-  const { titulo, url_youtube, descricao, ordem, categoria } = body;
+  const { nome, link, descricao, logo_url, categoria, ordem } = body;
 
-  if (!titulo?.trim())     return NextResponse.json({ error: "título obrigatório" }, { status: 400 });
-  if (!url_youtube?.trim()) return NextResponse.json({ error: "URL do YouTube obrigatória" }, { status: 400 });
+  if (!nome?.trim()) return NextResponse.json({ error: "nome obrigatório" }, { status: 400 });
+  if (!link?.trim()) return NextResponse.json({ error: "link obrigatório" }, { status: 400 });
 
   const admin = createAdminClient();
   const { data, error } = await admin
-    .from("tutoriais")
+    .from("apps_recomendados")
     .insert({
-      titulo:      titulo.trim(),
-      url_youtube: url_youtube.trim(),
-      descricao:   descricao?.trim() || null,
-      ordem:       ordem ?? 0,
-      categoria:   categoria === "crm" ? "crm" : "usefokio",
-      ativo:       true,
+      nome:      nome.trim(),
+      link:      link.trim(),
+      descricao: descricao?.trim() || null,
+      logo_url:  logo_url?.trim() || null,
+      categoria: categoria?.trim() || null,
+      ordem:     ordem ?? 0,
+      ativo:     true,
     })
     .select()
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ ok: true, tutorial: data });
+  return NextResponse.json({ ok: true, app: data });
 }
