@@ -99,13 +99,16 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(new URL("/login?erro=perfil", request.url));
     }
 
-    // Notifica o webmaster sobre o novo cadastro (fire-and-forget — não bloqueia o fluxo)
-    fetch(new URL("/api/email/novo-fotografo", request.url), {
-      method:  "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ nomeCompleto, nomeEmpresa, email }),
-    }).catch(() => { /* silencioso */ });
   }
+
+  // Notifica o webmaster sobre o novo cadastro (fire-and-forget, idempotente pela flag
+  // notificado_webmaster no endpoint). Fica FORA do if(!perfil): o trigger
+  // on_auth_user_created já cria o perfil no signup, então o bloco acima não roda no Google.
+  fetch(new URL("/api/email/novo-fotografo", request.url), {
+    method:  "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ fotografoId: user.id }),
+  }).catch(() => { /* silencioso */ });
 
   const WEBMASTER_EMAIL = process.env.WEBMASTER_EMAIL ?? "";
   const WEBMASTER_ID    = process.env.NEXT_PUBLIC_WEBMASTER_ID ?? "";

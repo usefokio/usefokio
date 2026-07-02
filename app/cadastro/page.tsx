@@ -221,6 +221,7 @@ export default function CadastroPage() {
       method:  "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        fotografoId:  userId,
         nomeCompleto: form.nomeCompleto,
         nomeEmpresa:  form.nomeEmpresa,
         email:        form.email,
