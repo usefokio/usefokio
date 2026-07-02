@@ -2,6 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function GET(request: NextRequest) {
   const url       = new URL(request.url);
@@ -67,8 +68,11 @@ export async function GET(request: NextRequest) {
     const nomeEmpresa  = meta.nome_empresa  ?? nomeCompleto;
     const email        = user.email ?? "";
 
-    // Cria perfil — o fotógrafo pode completar depois em /conta/editar
-    await supabase.rpc("criar_perfil_fotografo", {
+    // Cria o perfil via service_role. A overload com p_user_id não é executável
+    // pelo papel `authenticated` (hardening de segurança contra spoofing de id),
+    // então usamos o admin client. p_user_id vem da sessão já verificada (user.id).
+    const admin = createAdminClient();
+    const { error: perfilError } = await admin.rpc("criar_perfil_fotografo", {
       p_nome_completo: nomeCompleto,
       p_nome_empresa:  nomeEmpresa,
       p_email:         email,
@@ -89,6 +93,18 @@ export async function GET(request: NextRequest) {
       p_aceita_emails: false,
       p_user_id:       user.id,
     });
+
+    if (perfilError) {
+      console.error("[auth/callback] Erro ao criar perfil do fotógrafo:", perfilError);
+      return NextResponse.redirect(new URL("/login?erro=perfil", request.url));
+    }
+
+    // Notifica o webmaster sobre o novo cadastro (fire-and-forget — não bloqueia o fluxo)
+    fetch(new URL("/api/email/novo-fotografo", request.url), {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ nomeCompleto, nomeEmpresa, email }),
+    }).catch(() => { /* silencioso */ });
   }
 
   const WEBMASTER_EMAIL = process.env.WEBMASTER_EMAIL ?? "";
