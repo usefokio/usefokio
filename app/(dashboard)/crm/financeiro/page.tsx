@@ -16,7 +16,7 @@ import { ComboSelect } from "@/components/ui/ComboSelect";
 import type { CrmFinancialEntry } from "@/lib/supabase/types";
 
 type EntryWithPedido = CrmFinancialEntry & {
-  crm_orders?: { nome: string | null; numero: string | null; clientes?: { nome: string | null; email: string | null; telefone: string | null; whatsapp: string | null } | null } | null;
+  crm_orders?: { nome: string | null; numero: string | null; cliente_id?: string | null; clientes?: { nome: string | null; email: string | null; telefone: string | null; whatsapp: string | null } | null } | null;
   clientes?: { nome: string | null; email: string | null } | null;
 };
 
@@ -61,6 +61,13 @@ type ModalConfirmacao = {
   entry: EntryWithPedido;
   contaNome: string;
   dataPagamento: string;
+  entries?: EntryWithPedido[]; // presente = recibo combinado (várias parcelas)
+};
+
+type ModalReceberLote = {
+  entries: EntryWithPedido[];
+  dataPagamento: string;
+  contaId: string;
 };
 
 const STATUS_MAP: Record<string, { label: string; color: string; bg: string }> = {
@@ -92,6 +99,8 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
   const [modalConfirmacao, setModalConfirmacao] = useState<ModalConfirmacao | null>(null);
   const [modalExcluir,     setModalExcluir]     = useState<EntryWithPedido | null>(null);
   const [emailModal, setEmailModal] = useState<{ para: string; nome?: string | null; assunto: string; corpo: string } | null>(null);
+  const [selecionadas,     setSelecionadas]     = useState<Set<string>>(new Set());
+  const [modalReceberLote, setModalReceberLote] = useState<ModalReceberLote | null>(null);
   const [excluindo,        setExcluindo]        = useState(false);
   const [copiado,          setCopiado]          = useState(false);
   const [drillEntry,       setDrillEntry]       = useState<EntryWithPedido | null>(null);
@@ -133,7 +142,7 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
       (client, from, to) =>
         client
           .from("crm_financial_entries")
-          .select("*, crm_orders!pedido_id(nome, numero, clientes!cliente_id(nome, email, telefone, whatsapp)), clientes!cliente_id(nome, email)")
+          .select("*, crm_orders!pedido_id(nome, numero, cliente_id, clientes!cliente_id(nome, email, telefone, whatsapp)), clientes!cliente_id(nome, email)")
           .eq("fotografo_id", fotografo.id)
           .eq("tipo", cfg.tipo)
           .in("status", pendentesStatuses)
@@ -304,6 +313,41 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
     carregar();
   };
 
+  // Cliente resolvido de uma entry (direto ou via pedido)
+  const clienteDe = (e: EntryWithPedido) => e.cliente_id ?? e.crm_orders?.cliente_id ?? null;
+
+  // Receber várias parcelas juntas → 1 recibo
+  const abrirReceberLote = () => {
+    const sel = entries.filter(e => selecionadas.has(e.id));
+    if (sel.length === 0) return;
+    const clientes = new Set(sel.map(clienteDe));
+    if (clientes.size > 1 || clientes.has(null)) {
+      alert("Selecione parcelas do mesmo cliente (com cliente vinculado) para gerar um recibo único.");
+      return;
+    }
+    setErroPagamento("");
+    setModalReceberLote({ entries: sel, dataPagamento: hoje, contaId: contas.length === 1 ? contas[0].id : "" });
+  };
+
+  const confirmarReceberLote = async () => {
+    if (!modalReceberLote) return;
+    if (!isValidDate(modalReceberLote.dataPagamento)) { setErroPagamento("Data de pagamento inválida."); return; }
+    setSalvandoPag(true);
+    setErroPagamento("");
+    const { entries: sel, dataPagamento, contaId } = modalReceberLote;
+    const { error } = await createClient()
+      .from("crm_financial_entries")
+      .update({ status: "pago", pago_em: dataPagamento, conta_bancaria_id: contaId || null })
+      .in("id", sel.map(e => e.id));
+    setSalvandoPag(false);
+    if (error) { setErroPagamento(error.message); return; }
+    const contaNome = contas.find(c => c.id === contaId)?.nome ?? "Conta";
+    setModalReceberLote(null);
+    setSelecionadas(new Set());
+    setModalConfirmacao({ entry: sel[0], entries: sel, contaNome, dataPagamento });
+    carregar();
+  };
+
   // Novo lançamento — abrir modal
   const abrirNovo = async () => {
     if (!fotografo) return;
@@ -373,17 +417,26 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
     carregar();
   };
 
-  // Mensagem de recibo com link público
-  const gerarMensagem = (conf: ModalConfirmacao) => {
-    const { entry } = conf;
-    const clienteNome = entry.crm_orders?.clientes?.nome ?? "";
-    const url = urlRecibo(entry, conf.contaNome);
-    return `Olá${clienteNome ? ` ${clienteNome}` : ""}!\n\nConfirmamos o recebimento de *${fmt(entry.valor)}* referente a ${entry.descricao}.\n\n🔗 Acesse seu recibo:\n${url}\n\nObrigado pela confiança! 🙏`;
+  // Link do recibo — combina várias parcelas via ?ids= quando conf.entries tem >1
+  const urlRecibo = (conf: ModalConfirmacao) => {
+    const ids = (conf.entries && conf.entries.length > 1) ? conf.entries.map(e => e.id) : [conf.entry.id];
+    const base = typeof window !== "undefined" ? window.location.origin : "";
+    const params = new URLSearchParams();
+    if (ids.length > 1) params.set("ids", ids.join(","));
+    if (conf.contaNome) params.set("conta", conf.contaNome);
+    const qs = params.toString();
+    return `${base}/recibo/${ids[0]}${qs ? `?${qs}` : ""}`;
   };
 
-  const urlRecibo = (entry: EntryWithPedido, contaNome?: string) => {
-    const base = typeof window !== "undefined" ? `${window.location.origin}/recibo/${entry.id}` : `/recibo/${entry.id}`;
-    return contaNome ? `${base}?conta=${encodeURIComponent(contaNome)}` : base;
+  // Mensagem de recibo com link público
+  const gerarMensagem = (conf: ModalConfirmacao) => {
+    const clienteNome = conf.entry.crm_orders?.clientes?.nome ?? conf.entry.clientes?.nome ?? "";
+    const url = urlRecibo(conf);
+    if (conf.entries && conf.entries.length > 1) {
+      const total = conf.entries.reduce((s, e) => s + Number(e.valor), 0);
+      return `Olá${clienteNome ? ` ${clienteNome}` : ""}!\n\nConfirmamos o recebimento de *${fmt(total)}* referente a ${conf.entries.length} parcelas.\n\n🔗 Acesse seu recibo:\n${url}\n\nObrigado pela confiança! 🙏`;
+    }
+    return `Olá${clienteNome ? ` ${clienteNome}` : ""}!\n\nConfirmamos o recebimento de *${fmt(conf.entry.valor)}* referente a ${conf.entry.descricao}.\n\n🔗 Acesse seu recibo:\n${url}\n\nObrigado pela confiança! 🙏`;
   };
 
   const copiarMensagem = async (conf: ModalConfirmacao) => {
@@ -461,7 +514,7 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
       {/* Abas */}
       <div style={{ display: "flex", gap: 0, marginBottom: 20, borderBottom: "0.5px solid var(--color-border-tertiary)" }}>
         {abasVisiveis.map((a) => (
-          <button key={a} onClick={() => { setAba(a); setMesFiltro(""); setBusca(""); setPeriodoRapido(""); }}
+          <button key={a} onClick={() => { setAba(a); setMesFiltro(""); setBusca(""); setPeriodoRapido(""); setSelecionadas(new Set()); }}
             style={{ padding: "9px 20px", fontSize: 13, fontWeight: aba === a ? 700 : 500, border: "none", background: "transparent", cursor: "pointer", color: aba === a ? "var(--color-text-primary)" : "var(--color-text-secondary)", borderBottom: aba === a ? "2px solid var(--color-text-primary)" : "2px solid transparent", marginBottom: -1 }}>
             {ABA_CONFIG[a].label}
           </button>
@@ -538,6 +591,25 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
           )}
         </div>
       </div>
+
+      {/* Barra de ação — recebimento em lote (várias parcelas → 1 recibo) */}
+      {aba === "receber" && selecionadas.size > 0 && (
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 14, padding: "10px 16px", borderRadius: 10, background: "rgba(16,185,129,0.08)", border: "0.5px solid rgba(16,185,129,0.3)" }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "#059669" }}>
+            {selecionadas.size} selecionada{selecionadas.size !== 1 ? "s" : ""} · Total {fmt(entries.filter(e => selecionadas.has(e.id)).reduce((s, e) => s + Number(e.valor), 0))}
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={abrirReceberLote}
+              style={{ padding: "8px 16px", borderRadius: 8, border: "none", background: "#059669", color: "#fff", fontSize: 12.5, fontWeight: 700, cursor: "pointer" }}>
+              Receber e gerar recibo
+            </button>
+            <button onClick={() => setSelecionadas(new Set())}
+              style={{ padding: "8px 14px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "transparent", color: "var(--color-text-secondary)", fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>
+              Limpar
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Lista */}
       {loading ? (
@@ -621,6 +693,15 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
                 )}
                 {/* Ações */}
                 <div style={{ display: "flex", gap: 5, justifyContent: "flex-end", alignItems: "center" }}>
+                  {aba === "receber" && (
+                    <input
+                      type="checkbox"
+                      checked={selecionadas.has(e.id)}
+                      onChange={() => setSelecionadas(prev => { const n = new Set(prev); if (n.has(e.id)) n.delete(e.id); else n.add(e.id); return n; })}
+                      title="Selecionar para recibo em lote"
+                      style={{ width: 15, height: 15, accentColor: "#059669", cursor: "pointer", marginRight: 3 }}
+                    />
+                  )}
                   {(aba === "receber" || aba === "pagar") && (
                     <button onClick={() => abrirReceber(e)} title={aba === "receber" ? "Confirmar recebimento" : "Confirmar pagamento"}
                       style={btnIcon({ color: aba === "receber" ? "#059669" : "#EF4444", border: `0.5px solid ${aba === "receber" ? "rgba(16,185,129,0.4)" : "rgba(239,68,68,0.3)"}` })}>
@@ -787,7 +868,9 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
               </div>
               <div style={{ fontSize: 17, fontWeight: 800, color: "#059669", marginBottom: 4 }}>Pagamento registrado!</div>
               <div style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>
-                {fmt(modalConfirmacao.entry.valor)} — {modalConfirmacao.contaNome}
+                {modalConfirmacao.entries && modalConfirmacao.entries.length > 1
+                  ? `${fmt(modalConfirmacao.entries.reduce((s, e) => s + Number(e.valor), 0))} · ${modalConfirmacao.entries.length} parcelas — ${modalConfirmacao.contaNome}`
+                  : `${fmt(modalConfirmacao.entry.valor)} — ${modalConfirmacao.contaNome}`}
               </div>
             </div>
 
@@ -795,14 +878,14 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
             <div style={{ marginBottom: 18 }}>
               <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>Link do recibo</div>
               <a
-                href={urlRecibo(modalConfirmacao.entry, modalConfirmacao.contaNome)}
+                href={urlRecibo(modalConfirmacao)}
                 target="_blank"
                 rel="noreferrer"
                 style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", borderRadius: 9, background: "rgba(37,99,235,0.06)", border: "0.5px solid rgba(37,99,235,0.25)", textDecoration: "none" }}
               >
                 <div style={{ flex: 1, overflow: "hidden" }}>
                   <div style={{ fontSize: 12, fontWeight: 600, color: "#2563EB", marginBottom: 2 }}>Ver recibo</div>
-                  <div style={{ fontSize: 11, color: "var(--color-text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{urlRecibo(modalConfirmacao.entry, modalConfirmacao.contaNome)}</div>
+                  <div style={{ fontSize: 11, color: "var(--color-text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{urlRecibo(modalConfirmacao)}</div>
                 </div>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2563EB" strokeWidth="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
               </a>
@@ -846,6 +929,60 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
             </div>
 
             <button onClick={() => setModalConfirmacao(null)} style={{ ...btnSec, width: "100%" }}>Fechar</button>
+          </div>
+        </div>
+      )}
+
+      {/* ═══════════════════════════════════════════════
+          MODAL — Receber várias parcelas juntas (1 recibo)
+      ═══════════════════════════════════════════════ */}
+      {modalReceberLote && (
+        <div style={overlay} onClick={e => e.target === e.currentTarget && setModalReceberLote(null)}>
+          <div style={box}>
+            <div style={{ fontSize: 17, fontWeight: 800, color: "var(--color-text-primary)", marginBottom: 4 }}>Receber parcelas juntas</div>
+            <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginBottom: 16 }}>
+              {modalReceberLote.entries[0].crm_orders?.clientes?.nome ?? modalReceberLote.entries[0].clientes?.nome ?? "Cliente"} · {modalReceberLote.entries.length} parcelas
+            </div>
+
+            <div style={{ border: "0.5px solid var(--color-border-tertiary)", borderRadius: 9, overflow: "hidden", marginBottom: 16 }}>
+              {modalReceberLote.entries.map((e, i) => (
+                <div key={e.id} style={{ display: "flex", justifyContent: "space-between", gap: 10, padding: "9px 14px", borderBottom: i < modalReceberLote.entries.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", fontSize: 12.5 }}>
+                  <span style={{ color: "var(--color-text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{e.descricao}{e.parcela ? ` · ${e.parcela}` : ""}</span>
+                  <span style={{ fontWeight: 700, color: "#059669", whiteSpace: "nowrap" }}>{fmt(e.valor)}</span>
+                </div>
+              ))}
+              <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 14px", background: "var(--color-background-secondary)", fontSize: 13, fontWeight: 800 }}>
+                <span style={{ color: "var(--color-text-secondary)" }}>Total</span>
+                <span style={{ color: "#059669" }}>{fmt(modalReceberLote.entries.reduce((s, e) => s + Number(e.valor), 0))}</span>
+              </div>
+            </div>
+
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>Data do pagamento</div>
+              <input type="date" value={modalReceberLote.dataPagamento}
+                onChange={e => setModalReceberLote(m => m ? { ...m, dataPagamento: e.target.value } : m)}
+                style={{ width: "100%", boxSizing: "border-box", padding: "9px 12px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", fontSize: 13, color: "var(--color-text-primary)", outline: "none" }} />
+            </div>
+
+            {contas.length > 0 && (
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>Conta que recebeu</div>
+                <ComboSelect
+                  options={[{ id: "", label: "Não especificar" }, ...contas.map(c => ({ id: c.id, label: c.nome }))]}
+                  value={modalReceberLote.contaId}
+                  onChange={v => setModalReceberLote(m => m ? { ...m, contaId: v } : m)}
+                />
+              </div>
+            )}
+
+            {erroPagamento && <div style={{ fontSize: 12, color: "#EF4444", marginBottom: 12 }}>{erroPagamento}</div>}
+
+            <div style={{ display: "flex", gap: 10 }}>
+              <button onClick={confirmarReceberLote} disabled={salvandoPag} style={{ ...btnPri, background: "#059669", opacity: salvandoPag ? 0.6 : 1 }}>
+                {salvandoPag ? "Registrando…" : "Confirmar recebimento"}
+              </button>
+              <button onClick={() => setModalReceberLote(null)} style={btnSec}>Cancelar</button>
+            </div>
           </div>
         </div>
       )}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, Suspense } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 type Entrada = {
@@ -12,6 +12,7 @@ type Entrada = {
   pago_em: string | null;
   status: string;
   conta_id: string | null;
+  parcela: string | null;
   fotografo_id: string;
   crm_orders?: {
     nome: string | null;
@@ -27,37 +28,42 @@ type Entrada = {
 
 function ReciboConteudo() {
   const { id } = useParams<{ id: string }>();
+  const searchParams = useSearchParams();
 
-  const [entrada, setEntrada] = useState<Entrada | null | undefined>(undefined);
+  const [entradas, setEntradas] = useState<Entrada[] | null | undefined>(undefined);
   const [nomefotografo, setNomefotografo] = useState<string>("Fotógrafo");
 
   useEffect(() => {
+    const idsParam = searchParams.get("ids");
+    const ids = idsParam ? idsParam.split(",").map(s => s.trim()).filter(Boolean) : (id ? [id] : []);
+    if (ids.length === 0) { setEntradas(null); return; }
+
     createClient()
       .from("crm_financial_entries")
-      .select("id, descricao, valor, vencimento, pago_em, status, conta_id, fotografo_id, crm_orders(nome, numero, data_evento, clientes(nome, email, telefone))")
-      .eq("id", id)
-      .single()
+      .select("id, descricao, valor, vencimento, pago_em, status, conta_id, parcela, fotografo_id, crm_orders(nome, numero, data_evento, clientes(nome, email, telefone))")
+      .in("id", ids)
+      .order("vencimento")
       .then(({ data }) => {
-        const entry = (data as unknown as Entrada) ?? null;
-        setEntrada(entry);
-        if (entry?.fotografo_id) {
+        const lista = (data as unknown as Entrada[]) ?? [];
+        setEntradas(lista.length > 0 ? lista : null);
+        const fid = lista[0]?.fotografo_id;
+        if (fid) {
           createClient()
             .from("fotografos_nomes")
             .select("nome_completo, nome_empresa")
-            .eq("id", entry.fotografo_id)
+            .eq("id", fid)
             .single()
             .then(({ data: f }) => {
               if (f) setNomefotografo((f as { nome_completo: string | null; nome_empresa: string | null }).nome_empresa || (f as { nome_completo: string | null }).nome_completo || "Fotógrafo");
             });
         }
       });
-  }, [id]);
+  }, [id, searchParams]);
 
   const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
   const fmtData = (s: string) => new Date(s + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" });
-  const numRecibo = id.slice(-8).toUpperCase();
 
-  if (entrada === undefined) {
+  if (entradas === undefined) {
     return (
       <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "system-ui, sans-serif", background: "#F9FAFB" }}>
         <div style={{ fontSize: 14, color: "#6B7280" }}>Carregando recibo…</div>
@@ -65,7 +71,7 @@ function ReciboConteudo() {
     );
   }
 
-  if (entrada === null) {
+  if (entradas === null || entradas.length === 0) {
     return (
       <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "system-ui, sans-serif", background: "#F9FAFB" }}>
         <div style={{ textAlign: "center" }}>
@@ -77,7 +83,11 @@ function ReciboConteudo() {
     );
   }
 
-  const isPago = entrada.status === "pago";
+  const primeira  = entradas[0];
+  const combinado = entradas.length > 1;
+  const total     = entradas.reduce((s, e) => s + Number(e.valor), 0);
+  const isPago    = entradas.every(e => e.status === "pago");
+  const numRecibo = primeira.id.slice(-8).toUpperCase();
 
   return (
     <>
@@ -137,41 +147,64 @@ function ReciboConteudo() {
             {/* Valor em destaque */}
             <div style={{ textAlign: "center", marginBottom: 32, paddingBottom: 28, borderBottom: "1px dashed #E5E7EB" }}>
               <div style={{ fontSize: 12, color: "#6B7280", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>Valor pago</div>
-              <div style={{ fontSize: 44, fontWeight: 900, color: "#059669", letterSpacing: "-0.02em" }}>{fmt(entrada.valor)}</div>
+              <div style={{ fontSize: 44, fontWeight: 900, color: "#059669", letterSpacing: "-0.02em" }}>{fmt(total)}</div>
+              {combinado && <div style={{ fontSize: 12, color: "#6B7280", marginTop: 6 }}>{entradas.length} parcelas</div>}
             </div>
 
             {/* Grid de informações */}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px 32px", marginBottom: 28 }}>
 
-              {entrada.crm_orders?.clientes?.nome && (
+              {primeira.crm_orders?.clientes?.nome && (
                 <div>
                   <div style={{ fontSize: 10, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 4 }}>Cliente</div>
-                  <div style={{ fontSize: 15, fontWeight: 700, color: "#111827" }}>{entrada.crm_orders.clientes.nome}</div>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: "#111827" }}>{primeira.crm_orders.clientes.nome}</div>
                 </div>
               )}
 
-              {isPago && entrada.pago_em && (
+              {isPago && primeira.pago_em && (
                 <div>
                   <div style={{ fontSize: 10, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 4 }}>Data do pagamento</div>
-                  <div style={{ fontSize: 15, fontWeight: 700, color: "#111827" }}>{fmtData(entrada.pago_em)}</div>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: "#111827" }}>{fmtData(primeira.pago_em)}</div>
                 </div>
               )}
 
-              <div style={{ gridColumn: "1 / -1" }}>
-                <div style={{ fontSize: 10, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 4 }}>Referente a</div>
-                <div style={{ fontSize: 15, fontWeight: 600, color: "#111827" }}>{entrada.descricao}</div>
-                {entrada.crm_orders?.nome && (
-                  <div style={{ fontSize: 13, color: "#6B7280", marginTop: 3 }}>Pedido: {entrada.crm_orders.nome}</div>
-                )}
-                {entrada.crm_orders?.data_evento && (
-                  <div style={{ fontSize: 13, color: "#6B7280", marginTop: 2 }}>Data do evento: {fmtData(entrada.crm_orders.data_evento)}</div>
-                )}
-              </div>
+              {combinado ? (
+                <div style={{ gridColumn: "1 / -1" }}>
+                  <div style={{ fontSize: 10, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>Parcelas incluídas</div>
+                  <div style={{ border: "1px solid #E5E7EB", borderRadius: 10, overflow: "hidden" }}>
+                    {entradas.map((e, i) => (
+                      <div key={e.id} style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: "10px 14px", borderBottom: i < entradas.length - 1 ? "1px solid #F3F4F6" : "none" }}>
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: "#111827", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{e.descricao}{e.parcela ? ` · ${e.parcela}` : ""}</div>
+                          <div style={{ fontSize: 11, color: "#9CA3AF" }}>Venc. {fmtData(e.vencimento)}</div>
+                        </div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: "#111827", whiteSpace: "nowrap" }}>{fmt(Number(e.valor))}</div>
+                      </div>
+                    ))}
+                  </div>
+                  {primeira.crm_orders?.nome && (
+                    <div style={{ fontSize: 13, color: "#6B7280", marginTop: 8 }}>Pedido: {primeira.crm_orders.nome}</div>
+                  )}
+                </div>
+              ) : (
+                <>
+                  <div style={{ gridColumn: "1 / -1" }}>
+                    <div style={{ fontSize: 10, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 4 }}>Referente a</div>
+                    <div style={{ fontSize: 15, fontWeight: 600, color: "#111827" }}>{primeira.descricao}</div>
+                    {primeira.crm_orders?.nome && (
+                      <div style={{ fontSize: 13, color: "#6B7280", marginTop: 3 }}>Pedido: {primeira.crm_orders.nome}</div>
+                    )}
+                    {primeira.crm_orders?.data_evento && (
+                      <div style={{ fontSize: 13, color: "#6B7280", marginTop: 2 }}>Data do evento: {fmtData(primeira.crm_orders.data_evento)}</div>
+                    )}
+                  </div>
 
-              <div>
-                <div style={{ fontSize: 10, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 4 }}>Vencimento original</div>
-                <div style={{ fontSize: 14, fontWeight: 600, color: "#111827" }}>{fmtData(entrada.vencimento)}</div>
-              </div>
+                  <div>
+                    <div style={{ fontSize: 10, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 4 }}>Vencimento original</div>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: "#111827" }}>{fmtData(primeira.vencimento)}</div>
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Status */}
@@ -188,7 +221,7 @@ function ReciboConteudo() {
           {/* Rodapé */}
           <div style={{ background: "#F9FAFB", borderTop: "1px solid #E5E7EB", padding: "14px 32px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div style={{ fontSize: 11, color: "#9CA3AF" }}>Documento gerado por UseFokio</div>
-            <div style={{ fontSize: 10, color: "#D1D5DB", fontFamily: "monospace" }}>{id}</div>
+            <div style={{ fontSize: 10, color: "#D1D5DB", fontFamily: "monospace" }}>{numRecibo}</div>
           </div>
         </div>
       </div>
