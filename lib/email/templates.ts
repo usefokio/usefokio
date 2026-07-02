@@ -371,3 +371,34 @@ export function templateNovoCadastro(p: NovoCadastroParams): { subject: string; 
     `),
   };
 }
+
+// ─── 8. Conta aprovada → fotógrafo ────────────────────────────────────────────
+export type ContaAprovadaParams = {
+  nomeCompleto: string;
+  loginUrl:     string;
+};
+
+export function templateContaAprovada(p: ContaAprovadaParams): { subject: string; html: string } {
+  const primeiroNome = p.nomeCompleto.trim().split(/\s+/)[0] || p.nomeCompleto;
+  return {
+    subject: `Seu acesso ao UseFokio foi liberado 🎉`,
+    html: base(`
+      <h2 style="margin:0 0 8px; font-size:20px; color:#111; letter-spacing:-0.02em;">Bem-vindo ao UseFokio! 🎉</h2>
+      <p style="color:#555; font-size:14px; line-height:1.6; margin:0 0 16px;">
+        Olá, <strong>${esc(primeiroNome)}</strong>! Boas notícias: seu cadastro foi aprovado e seu acesso já está liberado.
+      </p>
+      <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:10px; padding:16px 20px; margin-bottom:20px;">
+        <p style="margin:0; font-size:14px; color:#059669; font-weight:700;">✓ Conta ativada — você já pode entrar</p>
+      </div>
+      <p style="color:#555; font-size:14px; line-height:1.6; margin:0 0 4px;">
+        Faça login para configurar seu estúdio e começar a criar suas galerias de entrega e seleção.
+      </p>
+      <a href="${p.loginUrl}" style="${BTN_STYLE("#2563EB")}">
+        Entrar agora →
+      </a>
+      <p style="font-size:12px; color:#aaa; margin:12px 0 0;">
+        Se o botão não funcionar, acesse: <a href="${p.loginUrl}" style="color:#2563EB;">${esc(p.loginUrl)}</a>
+      </p>
+    `),
+  };
+}
