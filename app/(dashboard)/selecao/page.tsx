@@ -80,7 +80,7 @@ function SelecaoConteudo() {
 
   const appUrl = typeof window !== "undefined"
     ? window.location.origin
-    : (process.env.NEXT_PUBLIC_APP_URL ?? "https://usefokio.com.br");
+    : (process.env.NEXT_PUBLIC_APP_URL ?? "https://www.usefokio.com.br");
 
   useEffect(() => {
     if (!fotografo) return;

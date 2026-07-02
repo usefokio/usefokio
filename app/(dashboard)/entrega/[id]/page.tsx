@@ -289,7 +289,7 @@ export default function EntregaDetailPage() {
   const [confirmarExclusao,  setConfirmarExclusao]  = useState(false);
   const [confirmarTodas,     setConfirmarTodas]     = useState(false);
 
-  const appUrl = typeof window !== "undefined" ? window.location.origin : (process.env.NEXT_PUBLIC_APP_URL ?? "https://usefokio.com.br");
+  const appUrl = typeof window !== "undefined" ? window.location.origin : (process.env.NEXT_PUBLIC_APP_URL ?? "https://www.usefokio.com.br");
   const linkPublico = `${appUrl}/acesso/entrega/${id}`;
 
   useEffect(() => {

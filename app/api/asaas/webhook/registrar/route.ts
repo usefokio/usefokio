@@ -19,7 +19,7 @@ export async function POST() {
   }
 
   const apiKey = decryptKey(f.asaas_api_key_enc);
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://usefokio.com.br";
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://www.usefokio.com.br";
   const webhookUrl = `${appUrl}/api/asaas/webhook`;
   const webhookToken = process.env.ASAAS_WEBHOOK_TOKEN;
 

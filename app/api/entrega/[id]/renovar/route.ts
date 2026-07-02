@@ -78,7 +78,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     // Notifica fotógrafo por email
     try {
-      const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://usefokio.com.br";
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://www.usefokio.com.br";
       const valorFmt = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(galeria.renewal_fee);
       const emailTo = fotografo!.email ?? "";
       const subject = `Pagamento PIX recebido — ${galeria.titulo}`;

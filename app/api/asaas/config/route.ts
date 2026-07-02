@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
   if (error) return NextResponse.json({ erro: error.message }, { status: 500 });
 
   // Registra webhook automaticamente no Asaas
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://usefokio.com.br";
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://www.usefokio.com.br";
   const webhookUrl = `${appUrl}/api/asaas/webhook`;
   const webhookToken = process.env.ASAAS_WEBHOOK_TOKEN;
   try {

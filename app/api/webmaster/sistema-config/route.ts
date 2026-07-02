@@ -56,7 +56,7 @@ export async function POST(req: Request) {
       { chave: "asaas_ambiente",    valor: amb },
     ], { onConflict: "chave" });
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://usefokio.com.br";
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://www.usefokio.com.br";
     let webhookRegistrado = false;
     try {
       const { registrarWebhook } = await import("@/lib/asaas");

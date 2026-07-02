@@ -14,7 +14,7 @@ export async function GET(req: Request) {
   const em7d   = new Date(agora);
   em7d.setDate(em7d.getDate() + 7);
   const em7dStr = em7d.toISOString().slice(0, 10);
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://usefokio.com.br";
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://www.usefokio.com.br";
 
   let avisos   = 0;
   let downgrades = 0;

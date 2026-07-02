@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
     if (fotoErr) return NextResponse.json({ erro: fotoErr.message }, { status: 500 });
 
     // Registrar webhook (decriptar chave antes de chamar API Asaas)
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://usefokio.com.br";
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://www.usefokio.com.br";
     try {
       const rawKey = decryptKey(payload.apiKey_enc as string);
       await registrarWebhook(

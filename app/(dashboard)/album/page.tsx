@@ -22,7 +22,7 @@ const STATUS_BADGE: Record<StatusAlbum, { bg: string; color: string; label: stri
 const appUrl =
   typeof window !== "undefined"
     ? window.location.origin
-    : (process.env.NEXT_PUBLIC_APP_URL ?? "https://usefokio.com.br");
+    : (process.env.NEXT_PUBLIC_APP_URL ?? "https://www.usefokio.com.br");
 
 function formatarData(iso: string): string {
   return new Date(iso).toLocaleDateString("pt-BR");

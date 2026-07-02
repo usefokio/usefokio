@@ -101,7 +101,7 @@ export async function POST(req: Request) {
   if (foto?.email) {
     const nome = foto.nome_empresa ?? foto.nome_completo ?? "fotógrafo";
     const expiraFmt = expira.toLocaleDateString("pt-BR");
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://usefokio.com.br";
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://www.usefokio.com.br";
 
     const html = `
       <div style="font-family:sans-serif;font-size:15px;line-height:1.7;color:#222;max-width:560px">
