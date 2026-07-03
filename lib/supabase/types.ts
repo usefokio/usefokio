@@ -510,6 +510,7 @@ export type CrmContaBancaria = {
   fone: string | null;
   gerente: string | null;
   ativo: boolean;
+  principal: boolean;
   saldo_inicial: number | null;
   created_at: string;
   updated_at: string;
@@ -579,6 +580,7 @@ export type CrmFinancialEntry = {
   internal_account_type: "direto" | "pedido";
   legacy_id: number | null;
   conta_bancaria_id: string | null;
+  recibo_grupo_id: string | null;
   forma_pagamento: string | null;
   num_documento: string | null;
   created_at: string;

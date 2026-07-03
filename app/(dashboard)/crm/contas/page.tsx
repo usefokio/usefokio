@@ -145,6 +145,15 @@ export default function ContasBancariasPage() {
     carregar();
   };
 
+  // Marca esta como conta principal (padrão em baixas/recebimentos) — só uma por fotógrafo.
+  const marcarPrincipal = async (c: CrmContaBancaria) => {
+    if (!fotografo || c.principal) return;
+    const sb = createClient();
+    await sb.from("crm_contas_bancarias").update({ principal: false }).eq("fotografo_id", fotografo.id).eq("principal", true);
+    await sb.from("crm_contas_bancarias").update({ principal: true }).eq("id", c.id);
+    carregar();
+  };
+
   const excluir = async (id: string) => {
     await createClient().from("crm_contas_bancarias").delete().eq("id", id);
     setConfirmDel(null);
@@ -244,6 +253,11 @@ export default function ContasBancariasPage() {
                   <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 6, background: "var(--color-background-secondary)", color: "var(--color-text-secondary)", border: "0.5px solid var(--color-border-tertiary)" }}>
                     {TIPO_LABEL[c.tipo]}
                   </span>
+                  {c.principal && (
+                    <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 6, background: "rgba(16,185,129,0.1)", color: "#059669", border: "0.5px solid rgba(16,185,129,0.3)", fontWeight: 600 }}>
+                      ⭐ Principal
+                    </span>
+                  )}
                   {!c.ativo && (
                     <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 6, background: "rgba(239,68,68,0.08)", color: "#EF4444", border: "0.5px solid rgba(239,68,68,0.2)" }}>
                       Inativa
@@ -274,6 +288,13 @@ export default function ContasBancariasPage() {
 
               {/* Ações */}
               <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                <button
+                  onClick={() => marcarPrincipal(c)}
+                  title={c.principal ? "Conta principal" : "Definir como principal"}
+                  style={{ padding: "6px 10px", borderRadius: 6, border: `0.5px solid ${c.principal ? "rgba(16,185,129,0.4)" : "var(--color-border-secondary)"}`, background: c.principal ? "rgba(16,185,129,0.08)" : "transparent", fontSize: 12, cursor: "pointer", color: c.principal ? "#059669" : "var(--color-text-secondary)" }}
+                >
+                  {c.principal ? "⭐" : "☆"}
+                </button>
                 <button
                   onClick={() => toggleAtivo(c)}
                   title={c.ativo ? "Desativar" : "Ativar"}

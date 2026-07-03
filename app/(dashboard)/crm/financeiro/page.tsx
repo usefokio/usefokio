@@ -8,7 +8,7 @@ import { useWindowWidth, TABLET } from "@/lib/hooks/useWindowWidth";
 import { usePersistState } from "@/lib/hooks/usePersistState";
 import { formatBRL, isValidDate, mascaraValor, parsearValor } from "@/lib/utils/format";
 import { fetchAllRows } from "@/lib/supabase/fetchAll";
-import { IcoEdit, IcoTrash, IcoMail, IcoCheck } from "@/app/(dashboard)/crm/_components/Icons";
+import { IcoEdit, IcoTrash, IcoMail, IcoCheck, IcoOpen } from "@/app/(dashboard)/crm/_components/Icons";
 import { Paginacao } from "@/app/(dashboard)/crm/_components/Paginacao";
 import { EmailModal } from "@/app/(dashboard)/crm/_components/EmailModal";
 import { ClienteSelect } from "@/components/ui/ClienteSelect";
@@ -20,7 +20,7 @@ type EntryWithPedido = CrmFinancialEntry & {
   clientes?: { nome: string | null; email: string | null } | null;
 };
 
-type ContaBancaria = { id: string; nome: string; tipo: string };
+type ContaBancaria = { id: string; nome: string; tipo: string; principal: boolean };
 type ChartAccount  = { id: string; codigo: string; nome: string };
 
 const btnIcon = (extra?: React.CSSProperties): React.CSSProperties => ({
@@ -62,6 +62,7 @@ type ModalConfirmacao = {
   contaNome: string;
   dataPagamento: string;
   entries?: EntryWithPedido[]; // presente = recibo combinado (várias parcelas)
+  grupoId?: string;            // presente = recibo em lote recuperável (link ?grupo=)
 };
 
 type ModalReceberLote = {
@@ -163,7 +164,7 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
     if (!fotografo) return;
     const sb = createClient();
     sb.from("crm_contas_bancarias")
-      .select("id, nome, tipo")
+      .select("id, nome, tipo, principal")
       .eq("fotografo_id", fotografo.id)
       .eq("ativo", true)
       .order("nome")
@@ -275,7 +276,7 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
     setModalReceber({
       entry: e,
       dataPagamento: hoje,
-      contaId: contas.length === 1 ? contas[0].id : "",
+      contaId: contas.find(c => c.principal)?.id ?? (contas.length === 1 ? contas[0].id : ""),
       contaPlanoId: e.conta_id ?? "",
     });
     setErroPagamento("");
@@ -326,7 +327,7 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
       return;
     }
     setErroPagamento("");
-    setModalReceberLote({ entries: sel, dataPagamento: hoje, contaId: contas.length === 1 ? contas[0].id : "" });
+    setModalReceberLote({ entries: sel, dataPagamento: hoje, contaId: contas.find(c => c.principal)?.id ?? (contas.length === 1 ? contas[0].id : "") });
   };
 
   const confirmarReceberLote = async () => {
@@ -335,16 +336,17 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
     setSalvandoPag(true);
     setErroPagamento("");
     const { entries: sel, dataPagamento, contaId } = modalReceberLote;
+    const grupo = crypto.randomUUID();
     const { error } = await createClient()
       .from("crm_financial_entries")
-      .update({ status: "pago", pago_em: dataPagamento, conta_bancaria_id: contaId || null })
+      .update({ status: "pago", pago_em: dataPagamento, conta_bancaria_id: contaId || null, recibo_grupo_id: grupo })
       .in("id", sel.map(e => e.id));
     setSalvandoPag(false);
     if (error) { setErroPagamento(error.message); return; }
     const contaNome = contas.find(c => c.id === contaId)?.nome ?? "Conta";
     setModalReceberLote(null);
     setSelecionadas(new Set());
-    setModalConfirmacao({ entry: sel[0], entries: sel, contaNome, dataPagamento });
+    setModalConfirmacao({ entry: sel[0], entries: sel, grupoId: grupo, contaNome, dataPagamento });
     carregar();
   };
 
@@ -417,15 +419,13 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
     carregar();
   };
 
-  // Link do recibo — combina várias parcelas via ?ids= quando conf.entries tem >1
+  // Link do recibo — em lote via ?grupo= (curto e recuperável); senão parcela única.
   const urlRecibo = (conf: ModalConfirmacao) => {
-    const ids = (conf.entries && conf.entries.length > 1) ? conf.entries.map(e => e.id) : [conf.entry.id];
     const base = typeof window !== "undefined" ? window.location.origin : "";
-    const params = new URLSearchParams();
-    if (ids.length > 1) params.set("ids", ids.join(","));
-    if (conf.contaNome) params.set("conta", conf.contaNome);
-    const qs = params.toString();
-    return `${base}/recibo/${ids[0]}${qs ? `?${qs}` : ""}`;
+    const firstId = conf.entries?.[0]?.id ?? conf.entry.id;
+    if (conf.grupoId) return `${base}/recibo/${firstId}?grupo=${conf.grupoId}`;
+    if (conf.entries && conf.entries.length > 1) return `${base}/recibo/${firstId}?ids=${conf.entries.map(e => e.id).join(",")}`;
+    return `${base}/recibo/${conf.entry.id}`;
   };
 
   // Mensagem de recibo com link público
@@ -473,9 +473,10 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
   const finVerMedium = largura >= 700 && largura < 1100;
   const isMobile = largura < TABLET;
 
+  const isPaga = aba === "recebidas" || aba === "pagas";
   const finGrid = isMobile
     ? "90px 1fr 80px 60px"
-    : "50px 75px 100px 65px 115px 65px 1fr 1fr 85px 100px";
+    : `50px 75px 100px ${isPaga ? "90px " : ""}65px 115px 65px 1fr 1fr 85px 100px`;
 
   const finCabecalhos = isMobile ? [
     { label: "Vencimento", col: "vencimento" },
@@ -486,6 +487,7 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
     { label: "#",          col: "" },
     { label: "Emissão",   col: "" },
     { label: "Vencimento", col: "vencimento" },
+    ...(isPaga ? [{ label: "Pago em", col: "pago_em" }] : []),
     { label: "Doc",       col: "" },
     { label: "Tipo",      col: "" },
     { label: "Pedido",    col: "" },
@@ -677,6 +679,7 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
                       {fmtData(e.vencimento)}
                       {vencido && <div style={{ fontSize: 10 }}>Vencido</div>}
                     </div>
+                    {isPaga && <div style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>{e.pago_em ? fmtData(e.pago_em) : "—"}</div>}
                     <div style={{ fontSize: 11, color: "var(--color-text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{e.num_documento ?? "—"}</div>
                     <div style={{ fontSize: 12, color: "var(--color-text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{e.forma_pagamento ?? "—"}</div>
                     <div style={{ fontSize: 11, color: "var(--color-text-secondary)" }}>{e.crm_orders?.numero ?? "—"}</div>
@@ -720,16 +723,27 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
                     <button
                       onClick={() => {
                         const contaNome = contas.find(c => c.id === e.conta_bancaria_id)?.nome ?? "Conta";
-                        setModalConfirmacao({ entry: e, contaNome, dataPagamento: e.pago_em ?? e.vencimento });
+                        if (e.recibo_grupo_id) {
+                          const grupo = entries.filter(x => x.recibo_grupo_id === e.recibo_grupo_id);
+                          setModalConfirmacao({ entry: e, entries: grupo, grupoId: e.recibo_grupo_id, contaNome, dataPagamento: e.pago_em ?? e.vencimento });
+                        } else {
+                          setModalConfirmacao({ entry: e, contaNome, dataPagamento: e.pago_em ?? e.vencimento });
+                        }
                       }}
                       title="Enviar recibo"
                       style={btnIcon({ color: "#2563EB", border: "0.5px solid rgba(37,99,235,0.3)" })}>
                       <IcoMail />
                     </button>
                   )}
-                  <button onClick={() => abrirEditar(e)} title="Editar" style={btnIcon()}>
-                    <IcoEdit />
-                  </button>
+                  {(aba === "recebidas" || aba === "pagas") ? (
+                    <button onClick={() => setDrillEntry(e)} title="Visualizar" style={btnIcon({ color: "#2563EB" })}>
+                      <IcoOpen />
+                    </button>
+                  ) : (
+                    <button onClick={() => abrirEditar(e)} title="Editar" style={btnIcon()}>
+                      <IcoEdit />
+                    </button>
+                  )}
                   {(aba === "recebidas" || aba === "pagas") ? (
                     <button onClick={() => estornarPagamento(e)} title="Estornar pagamento"
                       style={btnIcon({ color: "#D97706", border: "0.5px solid rgba(217,119,6,0.3)", opacity: 0.6, fontSize: 14 })}
@@ -752,7 +766,7 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
           <Paginacao pagina={page} total={ordenadas.length} pageSize={pageSize} onPagina={setPage} onPageSize={setPageSize} />
           {/* Linha totalizadora */}
           <div style={{ display: "grid", gridTemplateColumns: finGrid, padding: "11px 16px", borderTop: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-secondary)", alignItems: "center" }}>
-            <div style={{ gridColumn: isMobile ? "1 / 3" : "1 / 9", fontSize: 12, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+            <div style={{ gridColumn: isMobile ? "1 / 3" : (isPaga ? "1 / 10" : "1 / 9"), fontSize: 12, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
               {labelTotal} · {filtradas.length} lançamento{filtradas.length !== 1 ? "s" : ""}
             </div>
             <div style={{ fontSize: 14, fontWeight: 800, color: (aba === "receber" || aba === "recebidas") ? "#059669" : "#EF4444" }}>

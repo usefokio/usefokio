@@ -34,15 +34,16 @@ function ReciboConteudo() {
   const [nomefotografo, setNomefotografo] = useState<string>("Fotógrafo");
 
   useEffect(() => {
+    const grupo = searchParams.get("grupo");
     const idsParam = searchParams.get("ids");
     const ids = idsParam ? idsParam.split(",").map(s => s.trim()).filter(Boolean) : (id ? [id] : []);
-    if (ids.length === 0) { setEntradas(null); return; }
+    if (!grupo && ids.length === 0) { setEntradas(null); return; }
 
-    createClient()
+    const base = createClient()
       .from("crm_financial_entries")
       .select("id, descricao, valor, vencimento, pago_em, status, conta_id, parcela, fotografo_id, crm_orders(nome, numero, data_evento, clientes(nome, email, telefone))")
-      .in("id", ids)
-      .order("vencimento")
+      .order("vencimento");
+    (grupo ? base.eq("recibo_grupo_id", grupo) : base.in("id", ids))
       .then(({ data }) => {
         const lista = (data as unknown as Entrada[]) ?? [];
         setEntradas(lista.length > 0 ? lista : null);
