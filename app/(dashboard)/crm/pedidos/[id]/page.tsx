@@ -125,15 +125,20 @@ export default function PedidoDetailPage() {
     const qtd   = Math.max(1, parseInt(modalProd.quantidade) || 1);
     const preco = parsearValor(modalProd.preco);
     setSalvandoItem(true);
-    await createClient().from("crm_order_items").insert({
+    // `total` é coluna gerada no banco (quantidade * preco_unit) — não pode ser enviada no insert.
+    const { error } = await createClient().from("crm_order_items").insert({
       pedido_id:  id,
       produto_id: modalProd.prod.id,
       descricao:  modalProd.descricao.trim() || modalProd.prod.nome,
       quantidade: qtd,
       preco_unit: preco,
-      total:      qtd * preco,
     });
     setSalvandoItem(false);
+    if (error) {
+      console.error("crm_order_items insert:", error);
+      alert("Não foi possível adicionar o produto: " + error.message);
+      return;
+    }
     setModalProd(null);
     carregar();
   };

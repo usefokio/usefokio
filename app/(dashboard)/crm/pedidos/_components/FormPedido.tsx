@@ -438,13 +438,13 @@ export default function FormPedido({ inicial, onSalvo }: Props) {
 
       // Itens
       if (itens.length > 0) {
+        // `total` é coluna gerada no banco (quantidade * preco_unit) — não enviar no insert.
         await sb.from("crm_order_items").insert(itens.map(i => ({
           pedido_id:  id,
           produto_id: i.produto_id,
           descricao:  i.descricao,
           quantidade: i.quantidade,
           preco_unit: i.preco_unit,
-          total:      +(i.quantidade * i.preco_unit).toFixed(2),
         })));
 
         // Gerar contas a pagar a partir dos custos dos produtos
