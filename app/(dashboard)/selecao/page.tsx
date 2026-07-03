@@ -62,6 +62,12 @@ const IcoSend = () => (
   </svg>
 );
 
+const IcoClock = () => (
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+  </svg>
+);
+
 
 function SelecaoConteudo() {
   const router        = useRouter();
@@ -74,6 +80,7 @@ function SelecaoConteudo() {
   const [excluindo,      setExcluindo]      = useState<GaleriaComCliente | null>(null);
   const [deletando,      setDeletando]      = useState(false);
   const [enviarAcessoId, setEnviarAcessoId] = useState<string | null>(null);
+  const [lembreteId,     setLembreteId]     = useState<string | null>(null);
 
   const filtroInicial = (searchParams.get("filtro") as Filtro) ?? "todas";
   const [filtro, setFiltro] = usePersistedState<Filtro>("selecao:filtro", filtroInicial);
@@ -183,6 +190,12 @@ function SelecaoConteudo() {
       {enviarAcessoId && (() => {
         const g = galerias.find((g) => g.id === enviarAcessoId);
         return g ? <ModalEnviarAcesso galeria={g} cliente={g.cliente as any} onClose={() => setEnviarAcessoId(null)} /> : null;
+      })()}
+
+      {/* Modal lembrete de prazo */}
+      {lembreteId && (() => {
+        const g = galerias.find((g) => g.id === lembreteId);
+        return g ? <ModalEnviarAcesso galeria={g} cliente={g.cliente as any} modo="lembrete" onClose={() => setLembreteId(null)} /> : null;
       })()}
 
       {/* Modal confirmar exclusão */}
@@ -362,6 +375,14 @@ function SelecaoConteudo() {
                     onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(37,99,235,0.12)")}
                     onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(37,99,235,0.05)")}
                   ><IcoSend /></button>
+
+                  <button
+                    onClick={() => setLembreteId(g.id)}
+                    title="Enviar lembrete de prazo"
+                    style={{ ...iconBtn("#D97706", "0.5px solid rgba(217,119,6,0.4)", "rgba(217,119,6,0.05)") }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(217,119,6,0.12)")}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(217,119,6,0.05)")}
+                  ><IcoClock /></button>
 
                   <button
                     onClick={() => copiarLink(g.id)}
