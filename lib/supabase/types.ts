@@ -577,7 +577,7 @@ export type CrmFinancialEntry = {
   status: "pendente" | "vencido" | "pago" | "cancelado";
   parcela: string | null;
   document_type_id: number | null;
-  internal_account_type: "direto" | "pedido";
+  internal_account_type: "direto" | "pedido" | "transferencia";
   legacy_id: number | null;
   conta_bancaria_id: string | null;
   recibo_grupo_id: string | null;

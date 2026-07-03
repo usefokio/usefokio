@@ -8,8 +8,9 @@ import FormPedido from "../_components/FormPedido";
 import { PEDIDO_STATUS_MAP, FIN_STATUS_MAP } from "@/lib/constants/statusMaps";
 import { formatBRL, formatData, formatNum, mascaraValor, parsearValor } from "@/lib/utils/format";
 import { usePersistState } from "@/lib/hooks/usePersistState";
-import type { CrmOrder, CrmFinancialEntry, CrmContractTemplate, CrmContract } from "@/lib/supabase/types";
+import type { CrmOrder, CrmFinancialEntry, CrmContractTemplate, CrmContract, CrmProduct } from "@/lib/supabase/types";
 import { RichTextEditor } from "@/app/(dashboard)/crm/_components/RichTextEditor";
+import { ProdutoSearch } from "@/components/ui/ProdutoSearch";
 
 type OrderWithCliente = CrmOrder & { crm_nativo?: boolean | null; clientes?: { id: string; nome: string; email?: string | null; telefone?: string | null; whatsapp?: string | null } | null };
 
@@ -22,6 +23,8 @@ type OrderItem = {
   total: number;
   crm_products?: { nome: string } | null;
 };
+
+type ItemEdit = { key: string; produto_id: string | null; descricao: string; quantidade: number; preco_unit: number };
 
 const STATUS_MAP = PEDIDO_STATUS_MAP;
 const STATUS_FIN = FIN_STATUS_MAP;
@@ -42,6 +45,13 @@ export default function PedidoDetailPage() {
   const [salvandoTaxa,  setSalvandoTaxa]  = useState(false);
   const [reciboModal,   setReciboModal]   = useState<CrmFinancialEntry | null>(null);
   const [reciboCopiado, setReciboCopiado] = useState(false);
+
+  // Editar produtos (isolado — grava só crm_order_items; NÃO toca em financeiro/contas)
+  const [produtos,         setProdutos]         = useState<CrmProduct[]>([]);
+  const [editandoProdutos, setEditandoProdutos] = useState(false);
+  const [itensEdit,        setItensEdit]        = useState<ItemEdit[]>([]);
+  const [salvandoProdutos, setSalvandoProdutos] = useState(false);
+  const [modalProd,        setModalProd]        = useState<{ prod: CrmProduct; descricao: string; quantidade: string; preco: string } | null>(null);
 
 
   // Ordenação dos lançamentos (padrão de sistema: usePersistState + toggleSort)
@@ -100,6 +110,48 @@ export default function PedidoDetailPage() {
   const toggleLancSort = (col: string) => {
     if (lancSortCol === col) setLancSortDir(d => d === "asc" ? "desc" : "asc");
     else { setLancSortCol(col); setLancSortDir("asc"); }
+  };
+
+  // Catálogo de produtos (para o editor de produtos do pedido)
+  useEffect(() => {
+    const fid = pedido?.fotografo_id;
+    if (!fid) return;
+    createClient().from("crm_products").select("*").eq("fotografo_id", fid).eq("ativo", true).order("nome")
+      .then(({ data }) => setProdutos((data ?? []) as CrmProduct[]));
+  }, [pedido?.fotografo_id]);
+
+  // ── Editor de produtos (isolado): grava só crm_order_items, sem tocar em nada financeiro ──
+  const iniciarEdicaoProdutos = () => {
+    setItensEdit(itens.map(i => ({ key: i.id, produto_id: i.produto_id, descricao: i.descricao, quantidade: i.quantidade, preco_unit: i.preco_unit })));
+    setEditandoProdutos(true);
+  };
+  const abrirModalProduto = (prod: CrmProduct) => {
+    setModalProd({ prod, descricao: prod.descricao?.trim() || prod.nome, quantidade: "1", preco: formatNum(prod.preco ?? 0) });
+  };
+  const confirmarProduto = () => {
+    if (!modalProd) return;
+    const qtd = Math.max(1, parseInt(modalProd.quantidade) || 1);
+    setItensEdit(prev => [...prev, { key: crypto.randomUUID(), produto_id: modalProd.prod.id, descricao: modalProd.descricao.trim() || modalProd.prod.nome, quantidade: qtd, preco_unit: parsearValor(modalProd.preco) }]);
+    setModalProd(null);
+  };
+  const atualizarItemEdit = (key: string, campo: "descricao" | "quantidade" | "preco_unit", valor: string | number) => {
+    setItensEdit(prev => prev.map(i => i.key === key ? { ...i, [campo]: valor } : i));
+  };
+  const removerItemEdit = (key: string) => setItensEdit(prev => prev.filter(i => i.key !== key));
+  const salvarProdutos = async () => {
+    setSalvandoProdutos(true);
+    const sb = createClient();
+    const { error: delErr } = await sb.from("crm_order_items").delete().eq("pedido_id", id);
+    if (delErr) { alert("Erro ao salvar produtos: " + delErr.message); setSalvandoProdutos(false); return; }
+    if (itensEdit.length > 0) {
+      const { error } = await sb.from("crm_order_items").insert(itensEdit.map(i => ({
+        pedido_id: id, produto_id: i.produto_id, descricao: i.descricao, quantidade: i.quantidade, preco_unit: i.preco_unit,
+      })));
+      if (error) { alert("Erro ao salvar produtos: " + error.message); setSalvandoProdutos(false); return; }
+    }
+    setSalvandoProdutos(false);
+    setEditandoProdutos(false);
+    carregar();
   };
 
 
@@ -520,10 +572,55 @@ export default function PedidoDetailPage() {
           <div style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 12, marginBottom: 16 }}>
             <div style={{ padding: "9px 20px", borderBottom: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-secondary)", display: "flex", justifyContent: "space-between", alignItems: "center", borderTopLeftRadius: 12, borderTopRightRadius: 12 }}>
               <span style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.06em" }}>Produtos / Serviços</span>
-              <span style={{ fontSize: 11, color: "var(--color-text-secondary)" }}>{itens.length} {itens.length === 1 ? "item" : "itens"}</span>
+              {editandoProdutos ? (
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button onClick={salvarProdutos} disabled={salvandoProdutos}
+                    style={{ padding: "5px 12px", borderRadius: 7, background: "#111", color: "#fff", border: "none", fontSize: 12, fontWeight: 600, cursor: "pointer", opacity: salvandoProdutos ? 0.6 : 1 }}>
+                    {salvandoProdutos ? "Salvando…" : "Salvar produtos"}
+                  </button>
+                  <button onClick={() => setEditandoProdutos(false)}
+                    style={{ padding: "5px 12px", borderRadius: 7, background: "transparent", color: "var(--color-text-secondary)", border: "0.5px solid var(--color-border-secondary)", fontSize: 12, cursor: "pointer" }}>
+                    Cancelar
+                  </button>
+                </div>
+              ) : (
+                <button onClick={iniciarEdicaoProdutos}
+                  style={{ padding: "5px 12px", borderRadius: 7, background: "transparent", color: "var(--color-text-primary)", border: "0.5px solid var(--color-border-secondary)", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+                  Editar produtos
+                </button>
+              )}
             </div>
 
-            {itens.length > 0 ? (
+            {editandoProdutos ? (
+              <>
+                <div style={{ padding: "12px 20px", borderBottom: "0.5px solid var(--color-border-tertiary)" }}>
+                  <ProdutoSearch produtos={produtos} onSelect={abrirModalProduto} placeholder="Buscar e adicionar produto…" />
+                </div>
+                {itensEdit.length > 0 ? (
+                  <>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 60px 100px 100px 32px", padding: "7px 20px", borderBottom: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-secondary)" }}>
+                      {["Descrição", "Qtd", "Preço unit.", "Total", ""].map(h => (
+                        <span key={h || "acao"} style={{ fontSize: 10, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.04em" }}>{h}</span>
+                      ))}
+                    </div>
+                    {itensEdit.map((item) => (
+                      <div key={item.key} style={{ display: "grid", gridTemplateColumns: "1fr 60px 100px 100px 32px", padding: "8px 20px", borderBottom: "0.5px solid var(--color-border-tertiary)", alignItems: "center", gap: 6 }}>
+                        <input value={item.descricao} onChange={e => atualizarItemEdit(item.key, "descricao", e.target.value)}
+                          style={{ fontSize: 12, padding: "5px 8px", borderRadius: 6, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", color: "var(--color-text-primary)", outline: "none", width: "100%", boxSizing: "border-box" }} />
+                        <input type="number" min="1" value={item.quantidade} onChange={e => atualizarItemEdit(item.key, "quantidade", Math.max(1, parseInt(e.target.value) || 1))}
+                          style={{ fontSize: 12, padding: "5px 8px", borderRadius: 6, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", color: "var(--color-text-primary)", outline: "none", width: "100%", boxSizing: "border-box" }} />
+                        <input type="text" inputMode="decimal" value={formatNum(item.preco_unit)} onChange={e => atualizarItemEdit(item.key, "preco_unit", parsearValor(mascaraValor(e.target.value)))}
+                          style={{ fontSize: 12, padding: "5px 8px", borderRadius: 6, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", color: "var(--color-text-primary)", outline: "none", width: "100%", boxSizing: "border-box" }} />
+                        <div style={{ fontSize: 12, fontWeight: 700, color: "var(--color-text-primary)" }}>{fmt(item.quantidade * item.preco_unit)}</div>
+                        <button onClick={() => removerItemEdit(item.key)} title="Remover" style={{ background: "none", border: "none", cursor: "pointer", color: "#EF4444", fontSize: 15, padding: 0 }}>×</button>
+                      </div>
+                    ))}
+                  </>
+                ) : (
+                  <div style={{ padding: "14px 20px", fontSize: 12.5, color: "var(--color-text-secondary)" }}>Nenhum produto. Use a busca acima para adicionar.</div>
+                )}
+              </>
+            ) : itens.length > 0 ? (
               <>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 60px 100px 100px", padding: "7px 20px", borderBottom: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-secondary)" }}>
                   {["Descrição", "Qtd", "Preço unit.", "Total"].map(h => (
@@ -551,6 +648,49 @@ export default function PedidoDetailPage() {
               ℹ️ Informativo — não altera o valor do pedido nem gera pagamentos.
             </div>
           </div>
+
+          {/* Modal — adicionar produto ao editor de itens */}
+          {modalProd && (
+            <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}
+              onClick={e => e.target === e.currentTarget && setModalProd(null)}>
+              <div style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 14, padding: "24px 28px", width: 420, maxWidth: "100%", boxShadow: "0 24px 64px rgba(0,0,0,0.22)" }}>
+                <div style={{ fontSize: 15, fontWeight: 800, color: "var(--color-text-primary)", marginBottom: 4 }}>Adicionar produto</div>
+                <div style={{ fontSize: 13, color: "var(--color-text-secondary)", marginBottom: 16 }}>{modalProd.prod.nome}</div>
+                <div style={{ marginBottom: 14 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>Descrição</div>
+                  <textarea value={modalProd.descricao} onChange={e => setModalProd(m => m ? { ...m, descricao: e.target.value } : m)} rows={3}
+                    style={{ width: "100%", boxSizing: "border-box", padding: "9px 12px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", fontSize: 13, color: "var(--color-text-primary)", outline: "none", resize: "vertical", lineHeight: 1.5 }} />
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14 }}>
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>Quantidade</div>
+                    <input type="number" min="1" value={modalProd.quantidade}
+                      onChange={e => setModalProd(m => m ? { ...m, quantidade: e.target.value } : m)}
+                      style={{ width: "100%", boxSizing: "border-box", padding: "9px 12px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", fontSize: 13, color: "var(--color-text-primary)", outline: "none" }} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>Preço unit. (R$)</div>
+                    <input type="text" inputMode="decimal" value={modalProd.preco}
+                      onChange={e => setModalProd(m => m ? { ...m, preco: mascaraValor(e.target.value) } : m)}
+                      style={{ width: "100%", boxSizing: "border-box", padding: "9px 12px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", fontSize: 13, color: "var(--color-text-primary)", outline: "none" }} />
+                  </div>
+                </div>
+                <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginBottom: 18 }}>
+                  Total: <strong style={{ color: "var(--color-text-primary)" }}>{fmt(parsearValor(modalProd.preco) * (Math.max(1, parseInt(modalProd.quantidade) || 1)))}</strong>
+                </div>
+                <div style={{ display: "flex", gap: 10 }}>
+                  <button onClick={confirmarProduto}
+                    style={{ padding: "9px 22px", borderRadius: 8, background: "#111", color: "#fff", border: "none", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+                    Adicionar
+                  </button>
+                  <button onClick={() => setModalProd(null)}
+                    style={{ padding: "9px 16px", borderRadius: 8, background: "transparent", color: "var(--color-text-secondary)", border: "0.5px solid var(--color-border-secondary)", fontSize: 13, cursor: "pointer" }}>
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Aviso de taxa de cartão */}
           {(() => {

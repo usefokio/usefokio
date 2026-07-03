@@ -171,8 +171,8 @@ export default function ContasBancariasPage() {
     const nomeOrigem  = contas.find(c => c.id === transfOrigem)?.nome  ?? "Origem";
     const nomeDestino = contas.find(c => c.id === transfDestino)?.nome ?? "Destino";
     const { error } = await createClient().from("crm_financial_entries").insert([
-      { fotografo_id: fotografo.id, tipo: "despesa", status: "pago", pago_em: transfData, conta_bancaria_id: transfOrigem,  descricao: transfDesc.trim() || `Transferência → ${nomeDestino}`, valor: v, vencimento: transfData, internal_account_type: "direto" },
-      { fotografo_id: fotografo.id, tipo: "receita", status: "pago", pago_em: transfData, conta_bancaria_id: transfDestino, descricao: transfDesc.trim() || `Transferência ← ${nomeOrigem}`,  valor: v, vencimento: transfData, internal_account_type: "direto" },
+      { fotografo_id: fotografo.id, tipo: "despesa", status: "pago", pago_em: transfData, conta_bancaria_id: transfOrigem,  descricao: transfDesc.trim() || `Transferência → ${nomeDestino}`, valor: v, vencimento: transfData, internal_account_type: "transferencia" },
+      { fotografo_id: fotografo.id, tipo: "receita", status: "pago", pago_em: transfData, conta_bancaria_id: transfDestino, descricao: transfDesc.trim() || `Transferência ← ${nomeOrigem}`,  valor: v, vencimento: transfData, internal_account_type: "transferencia" },
     ]);
     setTransfSaving(false);
     if (error) { setTransfErro(error.message); return; }

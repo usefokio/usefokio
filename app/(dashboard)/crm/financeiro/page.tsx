@@ -148,6 +148,7 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
           .eq("tipo", cfg.tipo)
           .in("status", pendentesStatuses)
           .or("num_documento.is.null,num_documento.neq.DRE")
+          .neq("internal_account_type", "transferencia")
           .order("vencimento", { ascending: true })
           .range(from, to),
       sb,

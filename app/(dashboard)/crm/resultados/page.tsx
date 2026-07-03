@@ -104,6 +104,7 @@ export default function ResultadosPage() {
           .select("conta_id, valor, pago_em")
           .eq("fotografo_id", fid).eq("tipo", "despesa").eq("status", "pago")
           .or("num_documento.is.null,num_documento.neq.DRE")
+          .neq("internal_account_type", "transferencia")
           .gte("pago_em", `${ano}-01-01`).lte("pago_em", `${ano}-12-31`).range(f, t), sb)
       : temDRELocal
         ? fetchAllRows<DespRow>((sbc, f, t) => sbc.from("crm_financial_entries")
@@ -113,6 +114,7 @@ export default function ResultadosPage() {
         : fetchAllRows<DespRow>((sbc, f, t) => sbc.from("crm_financial_entries")
             .select("conta_id, valor, vencimento, pago_em")
             .eq("fotografo_id", fid).eq("tipo", "despesa").eq("status", "pago")
+            .neq("internal_account_type", "transferencia")
             .gte("vencimento", `${ano}-01-01`).lte("vencimento", `${ano}-12-31`).range(f, t), sb);
 
     const pReceitas = regime === "caixa"
@@ -120,6 +122,7 @@ export default function ResultadosPage() {
           .select("conta_id, valor, pago_em")
           .eq("fotografo_id", fid).eq("tipo", "receita").eq("status", "pago")
           .or("num_documento.is.null,num_documento.neq.DRE")
+          .neq("internal_account_type", "transferencia")
           .gte("pago_em", `${ano}-01-01`).lte("pago_em", `${ano}-12-31`).range(f, t), sb)
       : temDRELocal
         ? fetchAllRows<RecRow>((sbc, f, t) => sbc.from("crm_financial_entries")
@@ -130,6 +133,7 @@ export default function ResultadosPage() {
             .select("conta_id, valor, vencimento")
             .eq("fotografo_id", fid).eq("tipo", "receita")
             .or("num_documento.is.null,num_documento.neq.DRE")
+            .neq("internal_account_type", "transferencia")
             .gte("vencimento", `${ano}-01-01`).lte("vencimento", `${ano}-12-31`).range(f, t), sb);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
