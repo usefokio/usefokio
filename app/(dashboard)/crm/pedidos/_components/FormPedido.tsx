@@ -755,11 +755,10 @@ export default function FormPedido({ inicial, onSalvo }: Props) {
                         )}
                         {editando ? (
                           <input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={pc.valor}
-                            onChange={e => atualizarParcelaSalva(planoIdx, pcIdx, "valor", e.target.value)}
+                            type="text"
+                            inputMode="decimal"
+                            value={formatNum(pc.valor)}
+                            onChange={e => atualizarParcelaSalva(planoIdx, pcIdx, "valor", String(parsearValor(mascaraValor(e.target.value))))}
                             style={{ ...inputStyle, fontSize: 12, padding: "4px 7px", borderRadius: 6, fontWeight: 600, color: "#059669" }}
                           />
                         ) : (
@@ -784,8 +783,8 @@ export default function FormPedido({ inicial, onSalvo }: Props) {
                           <div style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>{p.dataPrazo ? fmtDate(p.dataPrazo) : "—"}</div>
                         )}
                         {editando ? (
-                          <input type="number" min="0" step="0.01" value={p.valor}
-                            onChange={e => setPlanos(prev => prev.map((x, i) => i === planoIdx ? { ...x, valor: e.target.value } : x))}
+                          <input type="text" inputMode="decimal" value={p.valor === "" ? "" : formatNum(parseFloat(p.valor) || 0)}
+                            onChange={e => { const m = mascaraValor(e.target.value); setPlanos(prev => prev.map((x, i) => i === planoIdx ? { ...x, valor: m === "" ? "" : String(parsearValor(m)) } : x)); }}
                             style={{ ...inputStyle, fontSize: 12, padding: "4px 7px", borderRadius: 6, fontWeight: 600, color: "#059669" }} />
                         ) : (
                           <div style={{ fontSize: 12, fontWeight: 600, color: "#059669" }}>{fmt(parseFloat(p.valor) || 0)}</div>
@@ -958,8 +957,8 @@ export default function FormPedido({ inicial, onSalvo }: Props) {
               </Field>
               <Field label="Valor (R$)">
                 <input
-                  value={modalPlano.valor}
-                  onChange={e => updPlano("valor", e.target.value)}
+                  value={modalPlano.valor === "" ? "" : formatNum(parseFloat(modalPlano.valor) || 0)}
+                  onChange={e => { const m = mascaraValor(e.target.value); updPlano("valor", m === "" ? "" : String(parsearValor(m))); }}
                   placeholder="0,00"
                   style={inputStyle}
                 />

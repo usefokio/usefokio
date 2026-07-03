@@ -261,7 +261,7 @@ export default function PedidoDetailPage() {
 
   const confirmarTaxa = async () => {
     if (!modalTaxa || !pedido) return;
-    const taxa = parseFloat(modalTaxa.taxa.replace(",", ".")) || 0;
+    const taxa = parsearValor(modalTaxa.taxa) || 0;
     if (taxa <= 0) return;
     setSalvandoTaxa(true);
     await createClient()
@@ -571,7 +571,7 @@ export default function PedidoDetailPage() {
                     </div>
                   </div>
                   <button
-                    onClick={() => setModalTaxa({ receita: receitasCartaoPagas[0], taxa: diferenca.toFixed(2) })}
+                    onClick={() => setModalTaxa({ receita: receitasCartaoPagas[0], taxa: formatNum(diferenca) })}
                     style={{ padding: "7px 14px", borderRadius: 8, background: "#D97706", color: "#fff", border: "none", fontSize: 12, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>
                     Registrar taxa
                   </button>
@@ -706,20 +706,20 @@ export default function PedidoDetailPage() {
           <div style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 14, padding: "28px 32px", width: 420, boxShadow: "0 24px 64px rgba(0,0,0,0.22)" }}>
             <div style={{ fontSize: 15, fontWeight: 700, color: "var(--color-text-primary)", marginBottom: 6 }}>Registrar taxa de cartão</div>
             <div style={{ fontSize: 13, color: "var(--color-text-secondary)", marginBottom: 20, lineHeight: 1.6 }}>
-              A receita será ajustada para {fmt(modalTaxa.receita.valor + (parseFloat(modalTaxa.taxa.replace(",", ".")) || 0))} e uma despesa de Tarifa Bancária (5.6.4) será registrada.
+              A receita será ajustada para {fmt(modalTaxa.receita.valor + (parsearValor(modalTaxa.taxa) || 0))} e uma despesa de Tarifa Bancária (5.6.4) será registrada.
             </div>
             <div style={{ marginBottom: 20 }}>
               <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>Valor da taxa (R$)</div>
               <input
-                type="number" min="0" step="0.01"
+                type="text" inputMode="decimal"
                 value={modalTaxa.taxa}
-                onChange={e => setModalTaxa(m => m ? { ...m, taxa: e.target.value } : m)}
+                onChange={e => setModalTaxa(m => m ? { ...m, taxa: mascaraValor(e.target.value) } : m)}
                 style={{ width: "100%", boxSizing: "border-box", padding: "9px 12px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", fontSize: 13, color: "var(--color-text-primary)", outline: "none" }}
               />
             </div>
             <div style={{ display: "flex", gap: 10 }}>
-              <button onClick={confirmarTaxa} disabled={salvandoTaxa || !(parseFloat(modalTaxa.taxa.replace(",", ".")) > 0)}
-                style={{ padding: "9px 22px", borderRadius: 8, background: "#111", color: "#fff", border: "none", fontSize: 13, fontWeight: 700, cursor: "pointer", opacity: salvandoTaxa || !(parseFloat(modalTaxa.taxa.replace(",", ".")) > 0) ? 0.6 : 1 }}>
+              <button onClick={confirmarTaxa} disabled={salvandoTaxa || !(parsearValor(modalTaxa.taxa) > 0)}
+                style={{ padding: "9px 22px", borderRadius: 8, background: "#111", color: "#fff", border: "none", fontSize: 13, fontWeight: 700, cursor: "pointer", opacity: salvandoTaxa || !(parsearValor(modalTaxa.taxa) > 0) ? 0.6 : 1 }}>
                 {salvandoTaxa ? "Salvando…" : "Confirmar"}
               </button>
               <button onClick={() => setModalTaxa(null)}
