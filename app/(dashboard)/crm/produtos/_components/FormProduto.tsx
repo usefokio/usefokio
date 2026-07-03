@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { ComboSelect } from "@/components/ui/ComboSelect";
 import type { CrmProduct, CrmChartOfAccount, CrmProductCategory, CrmProductCusto } from "@/lib/supabase/types";
+import { formatNum, mascaraValor, parsearValor } from "@/lib/utils/format";
 
 type Tab = "info" | "custos";
 
@@ -418,11 +419,10 @@ export function FormProduto({ produto }: Props) {
                 <div>
                   <label style={labelStyle}>VALOR (R$)</label>
                   <input
-                    type="number"
-                    min={0}
-                    step={0.01}
-                    value={custoForm.percentual != null ? "" : custoForm.valor}
-                    onChange={(e) => setCustoForm((p) => p ? { ...p, valor: parseFloat(e.target.value) || 0, percentual: null } : p)}
+                    type="text"
+                    inputMode="decimal"
+                    value={custoForm.percentual != null ? "" : formatNum(custoForm.valor)}
+                    onChange={(e) => setCustoForm((p) => p ? { ...p, valor: parsearValor(mascaraValor(e.target.value)), percentual: null } : p)}
                     placeholder="0,00"
                     style={inputStyle}
                     disabled={custoForm.percentual != null}

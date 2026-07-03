@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
-import { isValidDate } from "@/lib/utils/format";
+import { isValidDate, mascaraValor, parsearValor } from "@/lib/utils/format";
 
 type ChartOfAccounts = { id: string; codigo: string; nome: string; tipo: string };
 
@@ -73,11 +73,11 @@ export default function NovoLancamentoPage() {
     sb.from("crm_chart_of_accounts").select("id, codigo, nome, tipo").eq("fotografo_id", fotografo.id).eq("ativo", true).order("codigo").then(({ data }) => setCategorias((data ?? []) as ChartOfAccounts[]));
   }, [fotografo]);
 
-  const totalCalculado = recorrente ? (parseFloat(valor.replace(",", ".")) || 0) * parseInt(numParcelas || "1") : (parseFloat(valor.replace(",", ".")) || 0);
+  const totalCalculado = recorrente ? parsearValor(valor) * parseInt(numParcelas || "1") : parsearValor(valor);
 
   const handleSave = async () => {
     if (!descricao.trim()) { setError("Descrição é obrigatória."); return; }
-    const v = parseFloat(valor.replace(",", "."));
+    const v = parsearValor(valor);
     if (!v || v <= 0) { setError("Informe um valor válido."); return; }
     if (!isValidDate(vencimento)) { setError("Data de vencimento inválida."); return; }
     if (!fotografo) return;
@@ -184,7 +184,7 @@ export default function NovoLancamentoPage() {
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
             <div>
               <Label>Valor (R$) *</Label>
-              <input value={valor} onChange={e => setValor(e.target.value)} placeholder="0,00" type="number" min="0" step="0.01" style={inputStyle} />
+              <input value={valor} onChange={e => setValor(mascaraValor(e.target.value))} placeholder="0,00" type="text" inputMode="decimal" style={inputStyle} />
             </div>
             <div>
               <Label>Total {recorrente ? `(${numParcelas} parcelas)` : ""}</Label>

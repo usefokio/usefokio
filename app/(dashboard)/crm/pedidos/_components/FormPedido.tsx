@@ -194,7 +194,7 @@ export default function FormPedido({ inicial, onSalvo }: Props) {
 
   // ── Helpers de UI ───────────────────────────────────────────────────────────
   const upd = (k: keyof FormData, v: string) => setForm(f => ({ ...f, [k]: v }));
-  const parseMoney = (v: string) => parseFloat(v.replace(",", ".")) || 0;
+  const parseMoney = parsearValor;
   const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
   const fmtDate = (s: string) => new Date(s + "T12:00:00").toLocaleDateString("pt-BR");
 
@@ -639,8 +639,8 @@ export default function FormPedido({ inicial, onSalvo }: Props) {
                 <input type="number" min="1" value={item.quantidade}
                   onChange={e => atualizarItem(item.tmpId, "quantidade", Math.max(1, parseInt(e.target.value) || 1))}
                   style={{ ...inputStyle, fontSize: 12, padding: "5px 8px" }} />
-                <input type="number" min="0" step="0.01" value={item.preco_unit}
-                  onChange={e => atualizarItem(item.tmpId, "preco_unit", parseFloat(e.target.value) || 0)}
+                <input type="text" inputMode="decimal" value={formatNum(item.preco_unit)}
+                  onChange={e => atualizarItem(item.tmpId, "preco_unit", parsearValor(mascaraValor(e.target.value)))}
                   style={{ ...inputStyle, fontSize: 12, padding: "5px 8px" }} />
                 <div style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)" }}>{fmt(item.quantidade * item.preco_unit)}</div>
                 <button onClick={() => removerItem(item.tmpId)}
@@ -660,14 +660,14 @@ export default function FormPedido({ inicial, onSalvo }: Props) {
         <div style={{ display: "grid", gridTemplateColumns: itens.length > 0 ? "1fr 1fr" : "1fr 1fr 1fr", gap: 14 }}>
           {itens.length === 0 && (
             <Field label="Total (R$)">
-              <input value={form.total} onChange={e => upd("total", e.target.value)} placeholder="0,00" style={inputStyle} />
+              <input value={form.total} onChange={e => upd("total", mascaraValor(e.target.value))} placeholder="0,00" style={inputStyle} />
             </Field>
           )}
           <Field label="Desconto (R$)">
-            <input value={form.discount} onChange={e => upd("discount", e.target.value)} placeholder="0,00" style={inputStyle} />
+            <input value={form.discount} onChange={e => upd("discount", mascaraValor(e.target.value))} placeholder="0,00" style={inputStyle} />
           </Field>
           <Field label="Despesas extras (R$)">
-            <input value={form.other_expenses} onChange={e => upd("other_expenses", e.target.value)} placeholder="0,00" style={inputStyle} />
+            <input value={form.other_expenses} onChange={e => upd("other_expenses", mascaraValor(e.target.value))} placeholder="0,00" style={inputStyle} />
           </Field>
         </div>
 
