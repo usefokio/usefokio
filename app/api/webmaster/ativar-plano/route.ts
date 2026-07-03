@@ -59,6 +59,7 @@ export async function POST(req: Request) {
     plano_expira_em:     planoAtivo === "gratuito" ? null : expira.toISOString(),
     plano_periodo:       planoAtivo === "gratuito" ? null : periodoFinal,
     limite_fotos_custom: limiteFotos,
+    plano_cortesia:      planoAtivo !== "gratuito", // ativação manual pelo webmaster = brinde (não conta no financeiro)
   }).eq("id", fotografo_id);
 
   if (planoAtivo !== "gratuito") {

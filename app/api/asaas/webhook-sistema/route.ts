@@ -89,6 +89,7 @@ export async function POST(req: Request) {
       plano_periodo:       planoPeriodo,
       asaas_cobranca_id:   asaasId,
       limite_fotos_custom: limiteFotos,
+      plano_cortesia:      false, // pagamento real via Asaas sobrepõe qualquer brinde anterior
     }).eq("id", ass.fotografo_id),
   ]);
 
