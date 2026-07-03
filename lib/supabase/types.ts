@@ -601,4 +601,4 @@ export type CrmSchedule = {
 };
 
 export type CrmContractTemplate = { id: string; fotografo_id: string; nome: string; corpo: string; created_at: string; updated_at: string };
-export type CrmContract = { id: string; fotografo_id: string; pedido_id: string; template_id: string | null; nome_template: string | null; corpo_gerado: string; created_at: string };
+export type CrmContract = { id: string; fotografo_id: string; pedido_id: string; template_id: string | null; nome_template: string | null; corpo_gerado: string | null; arquivo_path?: string | null; arquivo_url?: string | null; arquivo_nome?: string | null; created_at: string };

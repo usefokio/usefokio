@@ -92,7 +92,7 @@ function ContratoConteudo() {
 
           {/* Corpo do contrato */}
           <div className="contrato-body" style={{ padding: "40px 48px", fontSize: 14, lineHeight: 1.8, color: "#1F2937" }}
-            dangerouslySetInnerHTML={{ __html: contrato.corpo_gerado }} />
+            dangerouslySetInnerHTML={{ __html: contrato.corpo_gerado ?? "" }} />
 
           {/* Rodapé */}
           <div style={{ background: "#F9FAFB", borderTop: "1px solid #E5E7EB", padding: "14px 40px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>

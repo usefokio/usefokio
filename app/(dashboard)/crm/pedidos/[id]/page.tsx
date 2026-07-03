@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
@@ -68,6 +68,9 @@ export default function PedidoDetailPage() {
   const [estadoEvento,        setEstadoEvento]        = useState("");
   const [convidados,          setConvidados]          = useState("");
   const [gerandoContrato,     setGerandoContrato]     = useState(false);
+  // Enviar contrato assinado (upload de arquivo)
+  const [enviandoContrato,    setEnviandoContrato]    = useState(false);
+  const contratoFileRef = useRef<HTMLInputElement>(null);
   // Editar contrato
   const [modalEditarContrato, setModalEditarContrato] = useState<CrmContract | null>(null);
   const [corpoEditado,        setCorpoEditado]        = useState("");
@@ -267,6 +270,33 @@ export default function PedidoDetailPage() {
     setModalContrato(false);
     carregar();
     if (contrato?.id) window.open(`/crm-contrato/${contrato.id}`, "_blank");
+  };
+
+  // Enviar (upload) de um contrato já assinado em PDF/imagem para o pedido.
+  const enviarContratoArquivo = async (file: File) => {
+    if (!pedido || enviandoContrato) return;
+    setEnviandoContrato(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("pedido_id", pedido.id);
+      const res = await fetch("/api/crm/contratos/upload", { method: "POST", body: fd });
+      const data = await res.json();
+      if (!res.ok) { alert(data.error ?? "Erro ao enviar contrato."); setEnviandoContrato(false); return; }
+      await createClient().from("crm_contracts").insert({
+        fotografo_id:  pedido.fotografo_id,
+        pedido_id:     pedido.id,
+        nome_template: data.nome ?? file.name,
+        corpo_gerado:  null,
+        arquivo_path:  data.storage_path,
+        arquivo_url:   data.url_publica,
+        arquivo_nome:  data.nome ?? file.name,
+      });
+      carregar();
+    } catch {
+      alert("Erro ao enviar contrato.");
+    }
+    setEnviandoContrato(false);
   };
 
   const confirmarTaxa = async () => {
@@ -658,33 +688,53 @@ export default function PedidoDetailPage() {
           <div style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 12, overflow: "hidden" }}>
             <div style={{ padding: "9px 20px", borderBottom: contratos.length > 0 ? "0.5px solid var(--color-border-tertiary)" : "none", background: "var(--color-background-secondary)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <span style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.06em" }}>Contratos</span>
-              <button onClick={abrirModalContrato} style={{ padding: "5px 12px", borderRadius: 7, background: "#111", color: "#fff", border: "none", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
-                + Gerar contrato
-              </button>
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <button onClick={() => contratoFileRef.current?.click()} disabled={enviandoContrato}
+                  style={{ padding: "5px 12px", borderRadius: 7, background: "transparent", color: "var(--color-text-primary)", border: "0.5px solid var(--color-border-secondary)", fontSize: 12, fontWeight: 600, cursor: enviandoContrato ? "default" : "pointer", opacity: enviandoContrato ? 0.6 : 1 }}>
+                  {enviandoContrato ? "Enviando…" : "Enviar contrato"}
+                </button>
+                <button onClick={abrirModalContrato} style={{ padding: "5px 12px", borderRadius: 7, background: "#111", color: "#fff", border: "none", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+                  + Gerar contrato
+                </button>
+                <input ref={contratoFileRef} type="file" accept=".pdf,image/*" style={{ display: "none" }}
+                  onChange={(e) => { const f = e.target.files?.[0]; if (f) enviarContratoArquivo(f); e.target.value = ""; }} />
+              </div>
             </div>
             {contratos.length === 0 ? (
-              <div style={{ padding: "18px 20px", fontSize: 13, color: "var(--color-text-secondary)" }}>Nenhum contrato gerado para este pedido.</div>
+              <div style={{ padding: "18px 20px", fontSize: 13, color: "var(--color-text-secondary)" }}>Nenhum contrato neste pedido. Gere um a partir de um modelo ou envie o PDF assinado.</div>
             ) : (
               contratos.map((c, i) => (
                 <div key={c.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "11px 20px", borderBottom: i < contratos.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", flexWrap: "wrap" }}>
-                  <span style={{ fontSize: 20 }}>📄</span>
+                  <span style={{ fontSize: 20 }}>{c.arquivo_url ? "📎" : "📄"}</span>
                   <div style={{ flex: 1, minWidth: 120 }}>
-                    <div style={{ fontSize: 13, fontWeight: 500, color: "var(--color-text-primary)" }}>{c.nome_template ?? "Contrato"}</div>
-                    <div style={{ fontSize: 11, color: "var(--color-text-secondary)" }}>Gerado em {new Date(c.created_at).toLocaleDateString("pt-BR")}</div>
+                    <div style={{ fontSize: 13, fontWeight: 500, color: "var(--color-text-primary)", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                      {c.nome_template ?? "Contrato"}
+                      {c.arquivo_url && <span style={{ fontSize: 10, fontWeight: 700, color: "#059669", background: "rgba(16,185,129,0.1)", borderRadius: 10, padding: "1px 8px", textTransform: "uppercase", letterSpacing: "0.04em" }}>Enviado</span>}
+                    </div>
+                    <div style={{ fontSize: 11, color: "var(--color-text-secondary)" }}>{c.arquivo_url ? "Enviado" : "Gerado"} em {new Date(c.created_at).toLocaleDateString("pt-BR")}</div>
                   </div>
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                    <button onClick={() => window.open(`/crm-contrato/${c.id}`, "_blank")}
-                      style={{ padding: "5px 12px", borderRadius: 7, border: "0.5px solid var(--color-border-secondary)", background: "transparent", fontSize: 12, color: "var(--color-text-secondary)", cursor: "pointer" }}>
-                      Visualizar
-                    </button>
-                    <button onClick={() => { setCorpoEditado(c.corpo_gerado); setModalEditarContrato(c); }}
-                      style={{ padding: "5px 12px", borderRadius: 7, border: "0.5px solid var(--color-border-secondary)", background: "transparent", fontSize: 12, color: "var(--color-text-secondary)", cursor: "pointer" }}>
-                      Editar
-                    </button>
-                    <button onClick={() => { setEmailPara(pedido.clientes?.email ?? ""); setEmailAssunto(`Contrato — ${c.nome_template ?? "Contrato"}`); setEmailMensagem(""); setEmailEnviado(false); setModalEmailContrato(c); }}
-                      style={{ padding: "5px 12px", borderRadius: 7, border: "0.5px solid rgba(37,99,235,0.4)", background: "transparent", fontSize: 12, color: "#2563EB", cursor: "pointer" }}>
-                      E-mail
-                    </button>
+                    {c.arquivo_url ? (
+                      <button onClick={() => window.open(c.arquivo_url!, "_blank")}
+                        style={{ padding: "5px 12px", borderRadius: 7, border: "0.5px solid var(--color-border-secondary)", background: "transparent", fontSize: 12, color: "var(--color-text-secondary)", cursor: "pointer" }}>
+                        Abrir / Baixar
+                      </button>
+                    ) : (
+                      <>
+                        <button onClick={() => window.open(`/crm-contrato/${c.id}`, "_blank")}
+                          style={{ padding: "5px 12px", borderRadius: 7, border: "0.5px solid var(--color-border-secondary)", background: "transparent", fontSize: 12, color: "var(--color-text-secondary)", cursor: "pointer" }}>
+                          Visualizar
+                        </button>
+                        <button onClick={() => { setCorpoEditado(c.corpo_gerado ?? ""); setModalEditarContrato(c); }}
+                          style={{ padding: "5px 12px", borderRadius: 7, border: "0.5px solid var(--color-border-secondary)", background: "transparent", fontSize: 12, color: "var(--color-text-secondary)", cursor: "pointer" }}>
+                          Editar
+                        </button>
+                        <button onClick={() => { setEmailPara(pedido.clientes?.email ?? ""); setEmailAssunto(`Contrato — ${c.nome_template ?? "Contrato"}`); setEmailMensagem(""); setEmailEnviado(false); setModalEmailContrato(c); }}
+                          style={{ padding: "5px 12px", borderRadius: 7, border: "0.5px solid rgba(37,99,235,0.4)", background: "transparent", fontSize: 12, color: "#2563EB", cursor: "pointer" }}>
+                          E-mail
+                        </button>
+                      </>
+                    )}
                     <button onClick={() => setConfirmExcluirContrato(c)}
                       style={{ padding: "5px 12px", borderRadius: 7, border: "0.5px solid rgba(239,68,68,0.3)", background: "transparent", fontSize: 12, color: "#EF4444", cursor: "pointer" }}>
                       Excluir
@@ -915,6 +965,15 @@ export default function PedidoDetailPage() {
             <div style={{ display: "flex", gap: 10 }}>
               <button disabled={excluindoContrato} onClick={async () => {
                 setExcluindoContrato(true);
+                if (confirmExcluirContrato.arquivo_path) {
+                  try {
+                    await fetch("/api/storage/delete", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ items: [{ storage_path: confirmExcluirContrato.arquivo_path, url_publica: confirmExcluirContrato.arquivo_url }] }),
+                    });
+                  } catch { /* arquivo órfão é coberto pelo cleanup-storage */ }
+                }
                 await createClient().from("crm_contracts").delete().eq("id", confirmExcluirContrato.id);
                 setExcluindoContrato(false);
                 setConfirmExcluirContrato(null);
