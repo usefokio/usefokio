@@ -10,6 +10,7 @@ import { formatBRL, formatData, formatNum, mascaraValor, parsearValor } from "@/
 import { usePersistState } from "@/lib/hooks/usePersistState";
 import type { CrmOrder, CrmFinancialEntry, CrmContractTemplate, CrmContract, CrmProduct } from "@/lib/supabase/types";
 import { RichTextEditor } from "@/app/(dashboard)/crm/_components/RichTextEditor";
+import { ProdutoSearch } from "@/components/ui/ProdutoSearch";
 
 type OrderWithCliente = CrmOrder & { crm_nativo?: boolean | null; clientes?: { id: string; nome: string; email?: string | null; telefone?: string | null; whatsapp?: string | null } | null };
 
@@ -45,8 +46,6 @@ export default function PedidoDetailPage() {
 
   // Produtos (informativo — não gera pagamento)
   const [produtos,     setProdutos]     = useState<CrmProduct[]>([]);
-  const [buscaProduto, setBuscaProduto] = useState("");
-  const [showProdDrop, setShowProdDrop] = useState(false);
   const [modalProd,    setModalProd]    = useState<{ prod: CrmProduct; descricao: string; quantidade: string; preco: string } | null>(null);
   const [salvandoItem, setSalvandoItem] = useState(false);
 
@@ -116,8 +115,6 @@ export default function PedidoDetailPage() {
   // ── Produtos informativos (grava só em crm_order_items, sem tocar em pagamentos/total) ──
   const abrirModalProduto = (prod: CrmProduct) => {
     setModalProd({ prod, descricao: prod.descricao?.trim() || prod.nome, quantidade: "1", preco: formatNum(prod.preco ?? 0) });
-    setBuscaProduto("");
-    setShowProdDrop(false);
   };
 
   const confirmarProduto = async () => {
@@ -537,34 +534,8 @@ export default function PedidoDetailPage() {
             </div>
 
             {/* Buscar e adicionar produto do catálogo */}
-            <div style={{ padding: "12px 20px", borderBottom: "0.5px solid var(--color-border-tertiary)", position: "relative" }}>
-              <input
-                value={buscaProduto}
-                onChange={e => { setBuscaProduto(e.target.value); setShowProdDrop(true); }}
-                onFocus={() => setShowProdDrop(true)}
-                onBlur={() => setTimeout(() => setShowProdDrop(false), 150)}
-                placeholder="Buscar e adicionar produto do catálogo…"
-                style={{ width: "100%", boxSizing: "border-box", padding: "9px 12px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", fontSize: 13, color: "var(--color-text-primary)", outline: "none" }}
-              />
-              {showProdDrop && (() => {
-                const lista = produtos.filter(p => buscaProduto === "" || p.nome.toLowerCase().includes(buscaProduto.toLowerCase()));
-                return (
-                  <div style={{ position: "absolute", top: "calc(100% - 4px)", left: 20, right: 20, zIndex: 20, background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-secondary)", borderRadius: 8, boxShadow: "0 8px 28px rgba(0,0,0,0.16)", maxHeight: 260, overflowY: "auto" }}>
-                    {lista.slice(0, 12).map(p => (
-                      <div key={p.id} onMouseDown={() => abrirModalProduto(p)}
-                        style={{ padding: "9px 14px", fontSize: 13, color: "var(--color-text-primary)", cursor: "pointer", display: "flex", justifyContent: "space-between", gap: 10 }}
-                        onMouseEnter={e => (e.currentTarget.style.background = "var(--color-background-secondary)")}
-                        onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
-                        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.nome}</span>
-                        <span style={{ color: "var(--color-text-secondary)", whiteSpace: "nowrap" }}>{fmt(p.preco ?? 0)}</span>
-                      </div>
-                    ))}
-                    {lista.length === 0 && (
-                      <div style={{ padding: "10px 14px", fontSize: 13, color: "var(--color-text-secondary)" }}>Nenhum produto encontrado</div>
-                    )}
-                  </div>
-                );
-              })()}
+            <div style={{ padding: "12px 20px", borderBottom: "0.5px solid var(--color-border-tertiary)" }}>
+              <ProdutoSearch produtos={produtos} onSelect={abrirModalProduto} />
             </div>
 
             {itens.length > 0 ? (

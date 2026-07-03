@@ -9,6 +9,7 @@ import { Field } from "@/components/ui/Field";
 import { inputStyle } from "@/lib/styles";
 import { ClienteSelect } from "@/components/ui/ClienteSelect";
 import { ComboSelect } from "@/components/ui/ComboSelect";
+import { ProdutoSearch } from "@/components/ui/ProdutoSearch";
 import type { CrmOrder, CrmProduct, Cliente } from "@/lib/supabase/types";
 
 // ── Tipos locais ──────────────────────────────────────────────────────────────
@@ -141,8 +142,6 @@ export default function FormPedido({ inicial, onSalvo }: Props) {
   // Produtos
   const [produtos,     setProdutos]     = useState<CrmProduct[]>([]);
   const [itens,        setItens]        = useState<ItemPedido[]>([]);
-  const [buscaProduto, setBuscaProduto] = useState("");
-  const [showProdDrop, setShowProdDrop] = useState(false);
 
   // Modal de produto
   const [modalProd,     setModalProd]     = useState<CrmProduct | null>(null);
@@ -198,10 +197,6 @@ export default function FormPedido({ inicial, onSalvo }: Props) {
   const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
   const fmtDate = (s: string) => new Date(s + "T12:00:00").toLocaleDateString("pt-BR");
 
-  const produtosFiltrados = produtos.filter(p =>
-    buscaProduto === "" || p.nome.toLowerCase().includes(buscaProduto.toLowerCase())
-  );
-
   // ── Cálculos financeiros ────────────────────────────────────────────────────
   const totalItens = itens.reduce((s, i) => s + i.quantidade * i.preco_unit, 0);
   const totalNum   = itens.length > 0 ? totalItens : parseMoney(form.total);
@@ -216,8 +211,6 @@ export default function FormPedido({ inicial, onSalvo }: Props) {
     setModalProd(prod);
     setModalDescricao(prod.descricao ?? "");
     setModalQtd(1);
-    setBuscaProduto("");
-    setShowProdDrop(false);
   };
 
   const confirmarProduto = () => {
@@ -626,32 +619,8 @@ export default function FormPedido({ inicial, onSalvo }: Props) {
       {/* ── Produtos ── */}
       <div style={{ marginTop: 24, borderTop: "0.5px solid var(--color-border-tertiary)", paddingTop: 20 }}>
         {sec("Produtos")}
-        <div style={{ position: "relative", marginBottom: 12 }}>
-          <input
-            value={buscaProduto}
-            onChange={e => { setBuscaProduto(e.target.value); setShowProdDrop(true); }}
-            onFocus={() => setShowProdDrop(true)}
-            onBlur={() => setTimeout(() => setShowProdDrop(false), 150)}
-            placeholder="Buscar e adicionar produto…"
-            style={inputStyle}
-          />
-          {showProdDrop && (
-            <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 50, background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-secondary)", borderRadius: 8, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", maxHeight: 220, overflowY: "auto", marginTop: 4 }}>
-              {produtosFiltrados.slice(0, 10).map(p => (
-                <div key={p.id}
-                  onMouseDown={() => abrirModalProduto(p)}
-                  style={{ padding: "10px 14px", fontSize: 13, cursor: "pointer", borderBottom: "0.5px solid var(--color-border-tertiary)", display: "flex", justifyContent: "space-between", alignItems: "center" }}
-                  onMouseEnter={e => (e.currentTarget.style.background = "var(--color-background-secondary)")}
-                  onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
-                  <span>{p.nome}</span>
-                  <span style={{ color: "var(--color-text-secondary)", fontSize: 12 }}>{fmt(p.preco)}</span>
-                </div>
-              ))}
-              {produtosFiltrados.length === 0 && (
-                <div style={{ padding: "12px 14px", fontSize: 13, color: "var(--color-text-secondary)" }}>Nenhum produto encontrado</div>
-              )}
-            </div>
-          )}
+        <div style={{ marginBottom: 12 }}>
+          <ProdutoSearch produtos={produtos} onSelect={abrirModalProduto} placeholder="Buscar e adicionar produto…" />
         </div>
 
         {itens.length > 0 && (

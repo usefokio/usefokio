@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { inputStyle } from "@/lib/styles";
 import { normalizar } from "@/lib/utils/normalizar";
+import { DropdownPortal } from "./DropdownPortal";
 
 export type ComboOption = { id: string; label: string; sublabel?: string };
 
@@ -32,16 +33,6 @@ export function ComboSelect({
   const filtradas = busca.trim()
     ? options.filter((o) => normalizar(o.label).includes(normalizar(busca)) || (o.sublabel && normalizar(o.sublabel).includes(normalizar(busca))))
     : options;
-
-  useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
-        fechar();
-      }
-    }
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, []);
 
   useEffect(() => {
     if (foco < 0 || !listaRef.current) return;
@@ -116,17 +107,8 @@ export function ComboSelect({
         </button>
       )}
 
-      {aberto && (
-        <div
-          ref={listaRef}
-          style={{
-            position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, zIndex: 40,
-            background: "var(--color-background-primary)",
-            border: "0.5px solid var(--color-border-secondary)",
-            borderRadius: 10, boxShadow: "0 4px 20px rgba(0,0,0,0.15)",
-            maxHeight: 220, overflowY: "auto",
-          }}
-        >
+      <DropdownPortal anchorRef={wrapperRef} open={aberto} onClose={fechar} maxHeight={220}>
+        <div ref={listaRef}>
           {filtradas.length === 0 ? (
             <div style={{ padding: "12px 14px", fontSize: 13, color: "var(--color-text-secondary)" }}>
               {busca ? `Nenhum resultado para "${busca}"` : "Nenhuma opção disponível"}
@@ -151,7 +133,7 @@ export function ComboSelect({
             ))
           )}
         </div>
-      )}
+      </DropdownPortal>
     </div>
   );
 }

@@ -9,6 +9,7 @@ import { gerarSenhaAcesso } from "@/lib/utils";
 import { normalizar } from "@/lib/utils/normalizar";
 import { mascaraTelefone } from "@/lib/utils/format";
 import type { Cliente } from "@/lib/supabase/types";
+import { DropdownPortal } from "./DropdownPortal";
 
 // ── Modal criar novo cliente ─────────────────────────────────────────────────
 function ModalNovoCliente({
@@ -222,6 +223,7 @@ export function ClienteSelect({
   const inputRef    = useRef<HTMLInputElement>(null);
   const listaRef    = useRef<HTMLDivElement>(null);
   const wrapperRef  = useRef<HTMLDivElement>(null);
+  const comboRef    = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!fotografo) return;
@@ -234,17 +236,6 @@ export function ClienteSelect({
       setLoading(false);
     });
   }, [fotografo]);
-
-  // Fecha ao clicar fora
-  useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
-        fechar();
-      }
-    }
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, []);
 
   const clienteSelecionado = clientes.find((c) => c.id === value) ?? null;
 
@@ -310,7 +301,7 @@ export function ClienteSelect({
     <>
       <div style={{ display: "flex", gap: 7 }} ref={wrapperRef}>
         {/* Combobox */}
-        <div style={{ flex: 1, position: "relative" }}>
+        <div ref={comboRef} style={{ flex: 1, position: "relative" }}>
           {aberto ? (
             /* Campo de busca */
             <input
@@ -356,17 +347,8 @@ export function ClienteSelect({
           )}
 
           {/* Dropdown */}
-          {aberto && (
-            <div
-              ref={listaRef}
-              style={{
-                position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, zIndex: 40,
-                background: "var(--color-background-primary)",
-                border: "0.5px solid var(--color-border-secondary)",
-                borderRadius: 10, boxShadow: "0 4px 20px rgba(0,0,0,0.15)",
-                maxHeight: 220, overflowY: "auto",
-              }}
-            >
+          <DropdownPortal anchorRef={comboRef} open={aberto} onClose={fechar} maxHeight={220}>
+            <div ref={listaRef}>
               {filtrados.length === 0 ? (
                 <div style={{ padding: "12px 14px", fontSize: 13, color: "var(--color-text-secondary)" }}>
                   {busca ? `Nenhum cliente encontrado para "${busca}"` : "Nenhum cliente cadastrado"}
@@ -395,7 +377,7 @@ export function ClienteSelect({
                 ))
               )}
             </div>
-          )}
+          </DropdownPortal>
         </div>
 
         <button
