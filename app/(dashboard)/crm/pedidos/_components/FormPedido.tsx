@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
-import { isValidDate } from "@/lib/utils/format";
+import { isValidDate, formatNum, mascaraValor, parsearValor } from "@/lib/utils/format";
 import { Field } from "@/components/ui/Field";
 import { inputStyle } from "@/lib/styles";
 import { ClienteSelect } from "@/components/ui/ClienteSelect";
@@ -147,7 +147,7 @@ export default function FormPedido({ inicial, onSalvo }: Props) {
   const [modalProd,     setModalProd]     = useState<CrmProduct | null>(null);
   const [modalDescricao, setModalDescricao] = useState("");
   const [modalQtd,      setModalQtd]      = useState(1);
-  const [modalPreco,    setModalPreco]    = useState(0);
+  const [modalPreco,    setModalPreco]    = useState("");
 
   // Planos de pagamento
   const [planos,             setPlanos]             = useState<PlanoItem[]>([]);
@@ -212,7 +212,7 @@ export default function FormPedido({ inicial, onSalvo }: Props) {
     setModalProd(prod);
     setModalDescricao(prod.descricao ?? "");
     setModalQtd(1);
-    setModalPreco(prod.preco);
+    setModalPreco(formatNum(prod.preco));
   };
 
   const confirmarProduto = () => {
@@ -222,7 +222,7 @@ export default function FormPedido({ inicial, onSalvo }: Props) {
       produto_id: modalProd.id,
       descricao:  modalDescricao || modalProd.nome,
       quantidade: modalQtd,
-      preco_unit: modalPreco,
+      preco_unit: parsearValor(modalPreco),
     }]);
     setModalProd(null);
   };
@@ -866,13 +866,13 @@ export default function FormPedido({ inicial, onSalvo }: Props) {
                   style={inputStyle} />
               </Field>
               <Field label="Preço unit. (R$)">
-                <input type="number" min="0" step="0.01" value={modalPreco} onChange={e => setModalPreco(parseFloat(e.target.value) || 0)}
+                <input type="text" inputMode="decimal" value={modalPreco} onChange={e => setModalPreco(mascaraValor(e.target.value))}
                   style={inputStyle} />
               </Field>
             </div>
 
             <div style={{ marginTop: 8, fontSize: 12, color: "var(--color-text-secondary)" }}>
-              Total: <strong style={{ color: "var(--color-text-primary)" }}>{fmt(modalPreco * modalQtd)}</strong>
+              Total: <strong style={{ color: "var(--color-text-primary)" }}>{fmt(parsearValor(modalPreco) * modalQtd)}</strong>
             </div>
 
             <div style={{ marginTop: 22, display: "flex", gap: 10 }}>
