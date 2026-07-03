@@ -65,6 +65,7 @@ function GaleriaSelecaoConteudo() {
   const [enviando, setEnviando]     = useState(0);
   const [copiado, setCopiado]       = useState(false);
   const [modalAcesso, setModalAcesso]     = useState(false);
+  const [modalLembrete, setModalLembrete] = useState(false);
   const [avisoLimite, setAvisoLimite]     = useState(false);
   const [modoSelecao, setModoSelecao]     = useState(false);
   const [selecionados, setSelecionados]   = useState<Set<string>>(new Set());
@@ -449,9 +450,14 @@ function GaleriaSelecaoConteudo() {
 
         <div style={{ display: "flex", gap: 8, flexShrink: 0, flexWrap: "wrap" }}>
           {galeria.status === "ativa" && (
-            <button onClick={() => setModalAcesso(true)} style={{ padding: "8px 14px", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 600, border: "0.5px solid rgba(37,99,235,0.4)", background: "rgba(37,99,235,0.07)", color: "#2563EB" }}>
-              📬 Enviar acesso
-            </button>
+            <>
+              <button onClick={() => setModalAcesso(true)} style={{ padding: "8px 14px", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 600, border: "0.5px solid rgba(37,99,235,0.4)", background: "rgba(37,99,235,0.07)", color: "#2563EB" }}>
+                📬 Enviar acesso
+              </button>
+              <button onClick={() => setModalLembrete(true)} style={{ padding: "8px 14px", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 600, border: "0.5px solid rgba(217,119,6,0.4)", background: "rgba(217,119,6,0.07)", color: "#D97706" }}>
+                ⏰ Lembrete de prazo
+              </button>
+            </>
           )}
           <button onClick={copiarLink} style={{ padding: "8px 14px", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 600, border: "0.5px solid var(--color-border-secondary)", background: copiado ? "rgba(16,185,129,0.1)" : "var(--color-background-secondary)", color: copiado ? "#059669" : "var(--color-text-secondary)" }}>
             {copiado ? "✓ Link copiado!" : "🔗 Copiar link"}
@@ -698,6 +704,11 @@ function GaleriaSelecaoConteudo() {
       {/* Modal enviar acesso */}
       {modalAcesso && galeria && (
         <ModalEnviarAcesso galeria={galeria} cliente={cliente} onClose={() => setModalAcesso(false)} />
+      )}
+
+      {/* Modal lembrete de prazo */}
+      {modalLembrete && galeria && (
+        <ModalEnviarAcesso galeria={galeria} cliente={cliente} modo="lembrete" onClose={() => setModalLembrete(false)} />
       )}
 
       {/* Popup de progresso do delete em lote */}

@@ -13,10 +13,12 @@ export function ModalEnviarAcesso({
   galeria,
   cliente,
   onClose,
+  modo = "acesso",
 }: {
   galeria:  GaleriaSelecao;
   cliente:  Cliente | null;
   onClose:  () => void;
+  modo?: "acesso" | "lembrete";
 }) {
   const link  = typeof window !== "undefined" ? `${window.location.origin}/galeria/${galeria.id}` : `/galeria/${galeria.id}`;
   const email = cliente?.email ?? "";
@@ -38,8 +40,27 @@ export function ModalEnviarAcesso({
     setSalvandoSenha(false);
   }
 
-  const assuntoDefault = `Sua galeria de seleção está pronta — ${galeria.titulo}`;
-  const mensagemDefault = [
+  const prazoTxt = galeria.expira_em ? new Date(galeria.expira_em).toLocaleDateString("pt-BR") : null;
+
+  const assuntoDefault = modo === "lembrete"
+    ? `Lembrete: ${prazoTxt ? `sua galeria expira em ${prazoTxt}` : "conclua sua seleção"} — ${galeria.titulo}`
+    : `Sua galeria de seleção está pronta — ${galeria.titulo}`;
+
+  const mensagemDefault = (modo === "lembrete" ? [
+    `Olá${cliente?.nome ? `, ${cliente.nome.split(" ")[0]}` : ""}! ⏰`,
+    ``,
+    prazoTxt
+      ? `Passando para lembrar que sua galeria de seleção encerra em ${prazoTxt}.`
+      : `Passando para lembrar de finalizar a seleção das suas fotos.`,
+    ``,
+    `📸 ${galeria.titulo}`,
+    `🔗 Acesso: ${link}`,
+    `🔑 Senha: ${senha}`,
+    ``,
+    `Não deixe para depois — faça sua seleção com calma antes do prazo!`,
+    ``,
+    `Qualquer dúvida, estou à disposição!`,
+  ] : [
     `Olá${cliente?.nome ? `, ${cliente.nome.split(" ")[0]}` : ""}! 🎉`,
     ``,
     `Sua galeria de fotos está pronta para seleção!`,
@@ -48,12 +69,12 @@ export function ModalEnviarAcesso({
     `🔗 Acesso: ${link}`,
     `🔑 Senha: ${senha}`,
     ``,
-    galeria.expira_em
-      ? `Selecione suas fotos favoritas até ${new Date(galeria.expira_em).toLocaleDateString("pt-BR")}.`
+    prazoTxt
+      ? `Selecione suas fotos favoritas até ${prazoTxt}.`
       : `Selecione suas fotos favoritas no prazo combinado.`,
     ``,
     `Qualquer dúvida, estou à disposição!`,
-  ].join("\n");
+  ]).join("\n");
 
   const [assunto,      setAssunto]      = useState(assuntoDefault);
   const [mensagem,     setMensagem]     = useState(mensagemDefault);
@@ -122,10 +143,12 @@ export function ModalEnviarAcesso({
       <div style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 16, padding: "28px 32px", width: 500, maxWidth: "95vw", boxShadow: "0 24px 64px rgba(0,0,0,0.2)", maxHeight: "90vh", overflowY: "auto" }}>
 
         <div style={{ fontSize: 16, fontWeight: 700, color: "var(--color-text-primary)", marginBottom: 4 }}>
-          📬 Enviar acesso ao cliente
+          {modo === "lembrete" ? "⏰ Lembrete de prazo" : "📬 Enviar acesso ao cliente"}
         </div>
         <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginBottom: 22 }}>
-          Compartilhe as informações abaixo com{cliente?.nome ? ` ${cliente.nome}` : " seu cliente"}.
+          {modo === "lembrete"
+            ? `Lembre ${cliente?.nome ?? "seu cliente"} de concluir a seleção${prazoTxt ? ` até ${prazoTxt}` : ""}.`
+            : `Compartilhe as informações abaixo com${cliente?.nome ? ` ${cliente.nome}` : " seu cliente"}.`}
           {!email && " (cliente sem e-mail cadastrado)"}
         </div>
 
