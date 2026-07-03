@@ -6,7 +6,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import FormPedido from "../_components/FormPedido";
 import { PEDIDO_STATUS_MAP, FIN_STATUS_MAP } from "@/lib/constants/statusMaps";
-import { formatBRL, formatData } from "@/lib/utils/format";
+import { formatBRL, formatData, formatNum, mascaraValor, parsearValor } from "@/lib/utils/format";
 import { usePersistState } from "@/lib/hooks/usePersistState";
 import type { CrmOrder, CrmFinancialEntry, CrmContractTemplate, CrmContract, CrmProduct } from "@/lib/supabase/types";
 import { RichTextEditor } from "@/app/(dashboard)/crm/_components/RichTextEditor";
@@ -47,7 +47,7 @@ export default function PedidoDetailPage() {
   const [produtos,     setProdutos]     = useState<CrmProduct[]>([]);
   const [buscaProduto, setBuscaProduto] = useState("");
   const [showProdDrop, setShowProdDrop] = useState(false);
-  const [modalProd,    setModalProd]    = useState<{ prod: CrmProduct; quantidade: string; preco: string } | null>(null);
+  const [modalProd,    setModalProd]    = useState<{ prod: CrmProduct; descricao: string; quantidade: string; preco: string } | null>(null);
   const [salvandoItem, setSalvandoItem] = useState(false);
 
   // Ordenação dos lançamentos (padrão de sistema: usePersistState + toggleSort)
@@ -115,7 +115,7 @@ export default function PedidoDetailPage() {
 
   // ── Produtos informativos (grava só em crm_order_items, sem tocar em pagamentos/total) ──
   const abrirModalProduto = (prod: CrmProduct) => {
-    setModalProd({ prod, quantidade: "1", preco: prod.preco != null ? String(prod.preco) : "0" });
+    setModalProd({ prod, descricao: prod.descricao?.trim() || prod.nome, quantidade: "1", preco: formatNum(prod.preco ?? 0) });
     setBuscaProduto("");
     setShowProdDrop(false);
   };
@@ -123,12 +123,12 @@ export default function PedidoDetailPage() {
   const confirmarProduto = async () => {
     if (!modalProd) return;
     const qtd   = Math.max(1, parseInt(modalProd.quantidade) || 1);
-    const preco = parseFloat(modalProd.preco.replace(",", ".")) || 0;
+    const preco = parsearValor(modalProd.preco);
     setSalvandoItem(true);
     await createClient().from("crm_order_items").insert({
       pedido_id:  id,
       produto_id: modalProd.prod.id,
-      descricao:  modalProd.prod.nome,
+      descricao:  modalProd.descricao.trim() || modalProd.prod.nome,
       quantidade: qtd,
       preco_unit: preco,
       total:      qtd * preco,
@@ -146,14 +146,14 @@ export default function PedidoDetailPage() {
   // ── Editar lançamento em aberto ── (nunca altera pagos/recebidos)
   const salvarLancEditado = async () => {
     if (!editLanc) return;
-    if (editLanc.entry.status !== "pendente") { setEditLanc(null); return; }
-    const valor = parseFloat(editLanc.valor.replace(",", ".")) || 0;
+    if (!["pendente", "vencido"].includes(editLanc.entry.status)) { setEditLanc(null); return; }
+    const valor = parsearValor(editLanc.valor);
     if (!editLanc.descricao.trim() || valor <= 0 || !editLanc.vencimento) return;
     setSalvandoLanc(true);
     await createClient().from("crm_financial_entries")
       .update({ descricao: editLanc.descricao.trim(), valor, vencimento: editLanc.vencimento })
       .eq("id", editLanc.entry.id)
-      .eq("status", "pendente"); // guarda extra no banco: só se ainda pendente
+      .in("status", ["pendente", "vencido"]); // guarda extra no banco: nunca edita pago/cancelado
     setSalvandoLanc(false);
     setEditLanc(null);
     carregar();
@@ -381,8 +381,8 @@ export default function PedidoDetailPage() {
               </div>
               <div><span style={{ fontSize: 11, fontWeight: 600, color: stFin.color }}>{stFin.label}</span></div>
               <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
-                {f.status === "pendente" && (
-                  <button onClick={() => setEditLanc({ entry: f, descricao: f.descricao ?? "", valor: String(f.valor), vencimento: f.vencimento })} title="Editar lançamento em aberto"
+                {(f.status === "pendente" || f.status === "vencido") && (
+                  <button onClick={() => setEditLanc({ entry: f, descricao: f.descricao ?? "", valor: formatNum(f.valor), vencimento: f.vencimento })} title="Editar lançamento em aberto"
                     style={{ padding: "4px 8px", borderRadius: 6, border: "0.5px solid var(--color-border-secondary)", background: "transparent", cursor: "pointer", fontSize: 12 }}>
                     ✏️
                   </button>
@@ -984,7 +984,14 @@ export default function PedidoDetailPage() {
           onClick={e => e.target === e.currentTarget && setModalProd(null)}>
           <div style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 14, padding: "24px 28px", width: 420, maxWidth: "100%", boxShadow: "0 24px 64px rgba(0,0,0,0.22)" }}>
             <div style={{ fontSize: 15, fontWeight: 800, color: "var(--color-text-primary)", marginBottom: 4 }}>Adicionar produto</div>
-            <div style={{ fontSize: 13, color: "var(--color-text-secondary)", marginBottom: 18 }}>{modalProd.prod.nome}</div>
+            <div style={{ fontSize: 13, color: "var(--color-text-secondary)", marginBottom: 16 }}>{modalProd.prod.nome}</div>
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>Descrição</div>
+              <textarea value={modalProd.descricao} onChange={e => setModalProd(m => m ? { ...m, descricao: e.target.value } : m)} rows={3}
+                placeholder="Descrição que aparece no pedido e no contrato"
+                style={{ width: "100%", boxSizing: "border-box", padding: "9px 12px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", fontSize: 13, color: "var(--color-text-primary)", outline: "none", resize: "vertical", lineHeight: 1.5 }} />
+              <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 5 }}>Editável — é essa descrição que o contrato vai puxar.</div>
+            </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 18 }}>
               <div>
                 <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>Quantidade</div>
@@ -994,8 +1001,8 @@ export default function PedidoDetailPage() {
               </div>
               <div>
                 <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>Preço unit. (R$)</div>
-                <input type="number" min="0" step="0.01" value={modalProd.preco}
-                  onChange={e => setModalProd(m => m ? { ...m, preco: e.target.value } : m)}
+                <input type="text" inputMode="decimal" value={modalProd.preco}
+                  onChange={e => setModalProd(m => m ? { ...m, preco: mascaraValor(e.target.value) } : m)}
                   style={{ width: "100%", boxSizing: "border-box", padding: "9px 12px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", fontSize: 13, color: "var(--color-text-primary)", outline: "none" }} />
               </div>
             </div>
@@ -1028,7 +1035,7 @@ export default function PedidoDetailPage() {
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                 <div>
                   <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>Valor (R$)</div>
-                  <input type="number" min="0" step="0.01" value={editLanc.valor} onChange={e => setEditLanc(m => m ? { ...m, valor: e.target.value } : m)}
+                  <input type="text" inputMode="decimal" value={editLanc.valor} onChange={e => setEditLanc(m => m ? { ...m, valor: mascaraValor(e.target.value) } : m)}
                     style={{ width: "100%", boxSizing: "border-box", padding: "9px 12px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", fontSize: 13, color: "var(--color-text-primary)", outline: "none" }} />
                 </div>
                 <div>
