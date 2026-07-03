@@ -529,8 +529,9 @@ export default function PedidoDetailPage() {
           )}
 
           {/* Produtos / Serviços — informativo (não gera pagamento nem altera o total) */}
-          <div style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 12, overflow: "hidden", marginBottom: 16 }}>
-            <div style={{ padding: "9px 20px", borderBottom: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-secondary)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          {/* sem overflow:hidden para o dropdown de busca não ser cortado pelo card */}
+          <div style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 12, marginBottom: 16 }}>
+            <div style={{ padding: "9px 20px", borderBottom: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-secondary)", display: "flex", justifyContent: "space-between", alignItems: "center", borderTopLeftRadius: 12, borderTopRightRadius: 12 }}>
               <span style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.06em" }}>Produtos / Serviços</span>
               <span style={{ fontSize: 11, color: "var(--color-text-secondary)" }}>{itens.length} {itens.length === 1 ? "item" : "itens"}</span>
             </div>
@@ -593,7 +594,7 @@ export default function PedidoDetailPage() {
               <div style={{ padding: "14px 20px", fontSize: 12.5, color: "var(--color-text-secondary)" }}>Nenhum produto lançado. Use a busca acima para adicionar.</div>
             )}
 
-            <div style={{ padding: "9px 20px", fontSize: 11, color: "var(--color-text-secondary)", background: "var(--color-background-secondary)", borderTop: "0.5px solid var(--color-border-tertiary)" }}>
+            <div style={{ padding: "9px 20px", fontSize: 11, color: "var(--color-text-secondary)", background: "var(--color-background-secondary)", borderTop: "0.5px solid var(--color-border-tertiary)", borderBottomLeftRadius: 12, borderBottomRightRadius: 12 }}>
               ℹ️ Informativo — não altera o valor do pedido nem gera pagamentos.
             </div>
           </div>
