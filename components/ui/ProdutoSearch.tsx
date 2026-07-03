@@ -1,7 +1,8 @@
 "use client";
 
-// Busca de produto reutilizável (input + dropdown via portal). Padrão do sistema.
-import { useRef, useState } from "react";
+// Busca de produto reutilizável (input + dropdown via portal). Padrão do sistema:
+// filtra enquanto digita e tem navegação por teclado (setas / Enter / Esc).
+import { useEffect, useRef, useState } from "react";
 import { inputStyle } from "@/lib/styles";
 import { formatBRL } from "@/lib/utils/format";
 import { normalizar } from "@/lib/utils/normalizar";
@@ -19,38 +20,78 @@ export function ProdutoSearch({
 }) {
   const [busca,  setBusca]  = useState("");
   const [aberto, setAberto] = useState(false);
+  const [foco,   setFoco]   = useState(-1);
   const anchorRef = useRef<HTMLDivElement>(null);
+  const listaRef  = useRef<HTMLDivElement>(null);
 
-  const filtrados = busca.trim()
+  const filtrados = (busca.trim()
     ? produtos.filter((p) => normalizar(p.nome).includes(normalizar(busca)))
-    : produtos;
+    : produtos
+  ).slice(0, 30);
+
+  function selecionar(p: CrmProduct) {
+    onSelect(p);
+    setBusca("");
+    setAberto(false);
+    setFoco(-1);
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setAberto(true);
+      setFoco((f) => Math.min(f + 1, filtrados.length - 1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setFoco((f) => Math.max(f - 1, -1));
+    } else if (e.key === "Enter") {
+      if (foco >= 0 && filtrados[foco]) { e.preventDefault(); selecionar(filtrados[foco]); }
+      else if (filtrados.length === 1)  { e.preventDefault(); selecionar(filtrados[0]); }
+    } else if (e.key === "Escape") {
+      setAberto(false);
+      setFoco(-1);
+    }
+  }
+
+  // Rola o item focado para visível
+  useEffect(() => {
+    if (foco < 0 || !listaRef.current) return;
+    const item = listaRef.current.children[foco] as HTMLElement | undefined;
+    item?.scrollIntoView({ block: "nearest" });
+  }, [foco]);
 
   return (
     <div ref={anchorRef} style={{ position: "relative" }}>
       <input
         value={busca}
-        onChange={(e) => { setBusca(e.target.value); setAberto(true); }}
+        onChange={(e) => { setBusca(e.target.value); setAberto(true); setFoco(-1); }}
         onFocus={() => setAberto(true)}
+        onKeyDown={handleKeyDown}
         placeholder={placeholder}
         autoComplete="off"
         style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }}
       />
       <DropdownPortal anchorRef={anchorRef} open={aberto} onClose={() => setAberto(false)}>
-        {filtrados.slice(0, 30).map((p) => (
-          <div
-            key={p.id}
-            onMouseDown={() => { onSelect(p); setBusca(""); setAberto(false); }}
-            style={{ padding: "10px 14px", fontSize: 13, color: "var(--color-text-primary)", cursor: "pointer", display: "flex", justifyContent: "space-between", gap: 10 }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = "var(--color-background-secondary)")}
-            onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-          >
-            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.nome}</span>
-            <span style={{ color: "var(--color-text-secondary)", whiteSpace: "nowrap" }}>{formatBRL(p.preco ?? 0)}</span>
-          </div>
-        ))}
-        {filtrados.length === 0 && (
-          <div style={{ padding: "10px 14px", fontSize: 13, color: "var(--color-text-secondary)" }}>Nenhum produto encontrado</div>
-        )}
+        <div ref={listaRef}>
+          {filtrados.map((p, i) => (
+            <div
+              key={p.id}
+              onMouseDown={() => selecionar(p)}
+              onMouseEnter={() => setFoco(i)}
+              style={{
+                padding: "10px 14px", fontSize: 13, color: "var(--color-text-primary)", cursor: "pointer",
+                display: "flex", justifyContent: "space-between", gap: 10,
+                background: i === foco ? "var(--color-background-secondary)" : "transparent",
+              }}
+            >
+              <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.nome}</span>
+              <span style={{ color: "var(--color-text-secondary)", whiteSpace: "nowrap" }}>{formatBRL(p.preco ?? 0)}</span>
+            </div>
+          ))}
+          {filtrados.length === 0 && (
+            <div style={{ padding: "10px 14px", fontSize: 13, color: "var(--color-text-secondary)" }}>Nenhum produto encontrado</div>
+          )}
+        </div>
       </DropdownPortal>
     </div>
   );

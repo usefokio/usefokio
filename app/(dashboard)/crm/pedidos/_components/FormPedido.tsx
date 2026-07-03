@@ -147,6 +147,7 @@ export default function FormPedido({ inicial, onSalvo }: Props) {
   const [modalProd,     setModalProd]     = useState<CrmProduct | null>(null);
   const [modalDescricao, setModalDescricao] = useState("");
   const [modalQtd,      setModalQtd]      = useState(1);
+  const [modalPreco,    setModalPreco]    = useState(0);
 
   // Planos de pagamento
   const [planos,             setPlanos]             = useState<PlanoItem[]>([]);
@@ -211,6 +212,7 @@ export default function FormPedido({ inicial, onSalvo }: Props) {
     setModalProd(prod);
     setModalDescricao(prod.descricao ?? "");
     setModalQtd(1);
+    setModalPreco(prod.preco);
   };
 
   const confirmarProduto = () => {
@@ -220,7 +222,7 @@ export default function FormPedido({ inicial, onSalvo }: Props) {
       produto_id: modalProd.id,
       descricao:  modalDescricao || modalProd.nome,
       quantidade: modalQtd,
-      preco_unit: modalProd.preco,
+      preco_unit: modalPreco,
     }]);
     setModalProd(null);
   };
@@ -846,7 +848,6 @@ export default function FormPedido({ inicial, onSalvo }: Props) {
             <div style={{ marginBottom: 14 }}>
               <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 4 }}>Produto</div>
               <div style={{ fontSize: 15, fontWeight: 600, color: "var(--color-text-primary)" }}>{modalProd.nome}</div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: "#059669", marginTop: 2 }}>{fmt(modalProd.preco)}</div>
             </div>
 
             <Field label="Descrição">
@@ -859,15 +860,19 @@ export default function FormPedido({ inicial, onSalvo }: Props) {
               />
             </Field>
 
-            <div style={{ marginTop: 14 }}>
+            <div style={{ marginTop: 14, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
               <Field label="Quantidade">
                 <input type="number" min="1" value={modalQtd} onChange={e => setModalQtd(Math.max(1, parseInt(e.target.value) || 1))}
-                  style={{ ...inputStyle, maxWidth: 100 }} />
+                  style={inputStyle} />
+              </Field>
+              <Field label="Preço unit. (R$)">
+                <input type="number" min="0" step="0.01" value={modalPreco} onChange={e => setModalPreco(parseFloat(e.target.value) || 0)}
+                  style={inputStyle} />
               </Field>
             </div>
 
             <div style={{ marginTop: 8, fontSize: 12, color: "var(--color-text-secondary)" }}>
-              Total: <strong style={{ color: "var(--color-text-primary)" }}>{fmt(modalProd.preco * modalQtd)}</strong>
+              Total: <strong style={{ color: "var(--color-text-primary)" }}>{fmt(modalPreco * modalQtd)}</strong>
             </div>
 
             <div style={{ marginTop: 22, display: "flex", gap: 10 }}>
