@@ -69,7 +69,7 @@ const TEMPLATES: Template[] = [
   },
 ];
 
-function substituirVars(texto: string, vars: TemplateVars & { prazo: string; dataEmail1?: string; dataEmail2?: string }): string {
+function substituirVars(texto: string, vars: TemplateVars & { prazo: string; dataEmail1?: string; dataEmail2?: string; emailCliente?: string }): string {
   return texto
     .replace(/\{nomeCliente\}/g, vars.nomeCliente)
     .replace(/\{titulo\}/g, vars.titulo)
@@ -80,7 +80,8 @@ function substituirVars(texto: string, vars: TemplateVars & { prazo: string; dat
     .replace(/\{prazo\}/g, vars.prazo)
     .replace(/\{diasRestantes\}/g, vars.diasRestantes !== null ? String(vars.diasRestantes) : "")
     .replace(/\{dataEmail1\}/g, vars.dataEmail1 ?? "—")
-    .replace(/\{dataEmail2\}/g, vars.dataEmail2 ?? "—");
+    .replace(/\{dataEmail2\}/g, vars.dataEmail2 ?? "—")
+    .replace(/\{emailCliente\}/g, vars.emailCliente || "(não informado)");
 }
 
 function formatarDataContato(iso: string | null): string {
@@ -131,6 +132,9 @@ const CAMPANHA_WHATSAPP_DEFAULT = `Oi, {nomeCliente}! Aqui é {nomeEmpresa}.
 Tentamos entrar em contato por email duas vezes sobre as fotos de {titulo}, mas acreditamos que você pode não ter recebido:
 📧 1º email enviado em {dataEmail1}
 📧 2º email enviado em {dataEmail2}
+
+Esses emails foram enviados para: {emailCliente}
+Esse email ainda está ativo? Se tiver mudado, me envie o email atual — assim consigo entrar em contato com você no futuro, se precisar.
 
 O motivo do contato: com o aumento nos custos de armazenamento, não é mais possível manter os arquivos ativos indefinidamente. Precisamos de uma posição sua antes de tomar uma decisão definitiva sobre essas fotos.
 
@@ -240,7 +244,7 @@ export function ModalEmailCliente({ galeria, onFechar, templateInicial, onEstagi
           const customText = tpls?.[cfg.key];
           const dataEmail1 = formatarDataContato(info.email_1_em);
           const dataEmail2 = formatarDataContato(info.email_2_em);
-          setMensagem(substituirVars(customText ?? cfg.default, { ...vars, prazo, dataEmail1, dataEmail2 }));
+          setMensagem(substituirVars(customText ?? cfg.default, { ...vars, prazo, dataEmail1, dataEmail2, emailCliente: email ?? undefined }));
           setAssunto(cfg.assunto.replace("{titulo}", galeria.titulo));
         }
       } finally {
