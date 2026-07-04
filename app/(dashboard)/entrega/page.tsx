@@ -584,6 +584,15 @@ export default function EntregaPage() {
                     {(() => {
                       const rc = g.respostas_campanha?.[0] as any;
                       const elegivel = g.suspensa || (!g.suspensa && g.expires_at && new Date(g.expires_at) < new Date());
+                      // Acesso ativo (renovação válida) é autoritativo: nenhum estágio de campanha sobrepõe.
+                      const acessoAtivoBadge = !g.suspensa && (!g.expires_at || new Date(g.expires_at) > new Date());
+                      if (acessoAtivoBadge) {
+                        return rc ? (
+                          <span title="Renovação paga — acesso ativo" style={{ flexShrink: 0, fontSize: 10, fontWeight: 600, padding: "2px 7px", borderRadius: 20, background: "rgba(37,99,235,0.10)", color: "#2563EB" }}>
+                            ✓ acesso reativado
+                          </span>
+                        ) : null;
+                      }
                       if (!rc && !elegivel) return null;
                       if (!rc) return (
                         <span title="Na campanha de reativação — sem contato ainda" style={{ flexShrink: 0, fontSize: 10, fontWeight: 600, padding: "2px 7px", borderRadius: 20, background: "rgba(245,158,11,0.10)", color: "#B45309" }}>
