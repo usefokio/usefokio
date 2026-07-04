@@ -58,8 +58,7 @@ export async function POST(_request: NextRequest, { params }: { params: Promise<
       // Marca a resposta da campanha como "renovar" para exibir a tag na listagem
       await admin.from("respostas_campanha")
         .update({ resposta: "renovar", estagio: "encerrado", respondido_em: new Date().toISOString() })
-        .eq("galeria_id", id)
-        .is("resposta", null);
+        .eq("galeria_id", id);
 
       return NextResponse.json({ liberado: true, novaData: novaData.toISOString() });
     } catch {

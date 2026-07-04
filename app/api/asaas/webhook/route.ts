@@ -73,8 +73,7 @@ export async function POST(request: NextRequest) {
 
       await admin.from("respostas_campanha")
         .update({ resposta: "renovar", estagio: "encerrado", respondido_em: new Date().toISOString() })
-        .eq("galeria_id", galeriaId)
-        .is("resposta", null);
+        .eq("galeria_id", galeriaId);
     }
 
     await admin.from("pagamentos").update({

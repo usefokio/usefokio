@@ -58,5 +58,10 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
     paid_at: new Date().toISOString(),
   }).eq("id", pgto.id);
 
+  // Renovação paga → encerra a campanha (sai do funil).
+  await admin.from("respostas_campanha")
+    .update({ resposta: "renovar", estagio: "encerrado", respondido_em: new Date().toISOString() })
+    .eq("galeria_id", id);
+
   return NextResponse.json({ ok: true, pago: true, expiresAt: novaData.toISOString() });
 }

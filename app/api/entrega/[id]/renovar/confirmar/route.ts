@@ -37,8 +37,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
 
   await admin.from("respostas_campanha")
     .update({ resposta: "renovar", estagio: "encerrado", respondido_em: new Date().toISOString() })
-    .eq("galeria_id", id)
-    .is("resposta", null);
+    .eq("galeria_id", id);
 
   await admin.from("pagamentos").update({
     status: "pago",

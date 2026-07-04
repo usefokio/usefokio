@@ -163,7 +163,9 @@ export default function CampanhaPage() {
           cliente_whatsapp: r.galerias_entrega?.clientes?.whatsapp ?? null,
         },
       }));
-      setItens(mapped);
+      // Galeria com renovação válida (expires_at no futuro) não deve aparecer no funil.
+      const nowMs = Date.now();
+      setItens(mapped.filter((it) => !(it.galeria.expires_at && new Date(it.galeria.expires_at).getTime() > nowMs)));
       setLoading(false);
     }
 
