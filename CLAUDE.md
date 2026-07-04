@@ -2,9 +2,9 @@
 
 ## Visão Geral
 
-SaaS para fotógrafos. Este repositório é o projeto Next.js principal (`usefokio`), branch **master** (produção ativa em usefokio.com.br). O CRM está em produção — todas as alterações vão para `master` e são deployadas diretamente.
+SaaS para fotógrafos. Este repositório é o projeto Next.js principal (`usefokio`), branch **master** (produção ativa em usefokio.com.br). **Há usuários reais — não editar nem deployar direto em produção.**
 
-**Fluxo de trabalho:** editar → commit → `git push origin master` → deploy automático.
+**Fluxo de trabalho (atual):** desenvolver **localmente** contra o banco de DEV, numa **branch** → testar local → `git push` da branch (o Vercel gera um **Preview URL** com auth real) → quando um conjunto de features estiver pronto, **merge/push em `master`** = deploy de produção. **Deploys em lote, não a cada commit.**
 
 ## Como rodar localmente
 
@@ -19,12 +19,19 @@ Acesse: http://localhost:3001
 
 - **Porta:** 3001
 - **Banco:** Supabase de dev exclusivo (`usefokio-crm-dev`, project id: `lcpoufencuaawpztmclb`)
-- **Autenticação:** desativada em dev — nenhum login necessário
-- **`.env.local`** deve existir na raiz com:
+- **Autenticação:** desativada em dev — nenhum login necessário (mock fotografo com todos os recursos)
+- **Menu completo em dev:** UseFokio + CRM + painel `/webmaster` acessíveis (bypass gated por `NODE_ENV`,
+  nunca afeta prod/preview do Vercel).
+- **Setup do `.env.local`:** copie **`.env.example`** → `.env.local` (já vem apontando para o DEV) e cole o
+  **`SUPABASE_SERVICE_ROLE_KEY` do projeto DEV** (Dashboard dev → Settings → API) — necessário para as rotas
+  `/api` que usam `createAdminClient`. `.env.local` **nunca** deve conter chaves de PRODUÇÃO.
+- **Rodar:** `npm run dev:crm` → http://localhost:3001.
 
 ```
 NEXT_PUBLIC_SUPABASE_URL="https://lcpoufencuaawpztmclb.supabase.co"
-NEXT_PUBLIC_SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxjcG91ZmVuY3VhYXdwenRtY2xiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE3MjYxMDUsImV4cCI6MjA5NzMwMjEwNX0.crgj1obPknWgoWq8-BovkDR8zDOLnYNep6PpTsTzI-4"
+NEXT_PUBLIC_SUPABASE_ANON_KEY="<anon do dev>"
+SUPABASE_SERVICE_ROLE_KEY="<service_role do dev>"
+# ...demais vars: ver .env.example
 ```
 
 ## Bypass de autenticação em dev
@@ -90,7 +97,8 @@ Dados copiados da produção (fotógrafo `contato@fernandoagrelafotografia.com.b
 - Sem comentários desnecessários no código
 - Sem login/auth em dev — qualquer chamada ao Supabase Auth deve ser protegida por `if (process.env.NODE_ENV === "development") return`
 - Commits em português no estilo `feat(crm): descrição`
-- Push para `origin master` após cada alteração (deploy automático)
+- Desenvolver em **branch**, testar local (dev DB), e deployar **em lote** via merge em `master` — não push direto a cada mudança
+- **Schema do banco:** mudanças via arquivo SQL em `supabase/migrations/`, aplicadas **primeiro no DEV**, testadas, e só então na PROD (fim de migration direto em produção)
 
 ---
 
