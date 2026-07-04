@@ -67,7 +67,11 @@ export default function PanoramaPage() {
   // DRE anual
   const [contas, setContas]       = useState<Conta[]>([]);
   const [anos, setAnos]           = useState<number[]>([]);
+  // mapaAnual é chaveado por CÓDIGO da conta (não por id): o plano de contas tem
+  // 2 versões por código (sistema + cópia do fotógrafo) e os lançamentos podem
+  // apontar para qualquer uma. Agregar por código evita perder valores.
   const [mapaAnual, setMapaAnual] = useState<Record<string, Record<number, number>>>({});
+  const [codigoIds, setCodigoIds] = useState<Record<string, string[]>>({});
   const [dreLoading, setDreLoading] = useState(true);
   const [temDRE, setTemDRE]       = useState(false);
 
@@ -109,13 +113,24 @@ export default function PanoramaPage() {
 
     const [{ data: contasData }, { count: dreCount }] = await Promise.all([
       sb.from("crm_chart_of_accounts").select("id, codigo, nome")
-        .or(`fotografo_id.is.null,fotografo_id.eq.${fid}`).eq("ativo", true).order("codigo"),
+        .or(`fotografo_id.is.null,fotografo_id.eq.${fid}`).eq("ativo", true)
+        .order("codigo").order("fotografo_id", { nullsFirst: false }),
       sb.from("crm_financial_entries").select("*", { count: "exact", head: true })
         .eq("fotografo_id", fid).eq("num_documento", "DRE"),
     ]);
 
+    // Índices sobre TODAS as versões de conta (sistema + cópia): id→código e código→[ids].
+    const todasContas = (contasData ?? []) as Conta[];
+    const idParaCodigo: Record<string, string> = {};
+    const codigoParaIds: Record<string, string[]> = {};
+    for (const c of todasContas) {
+      idParaCodigo[c.id] = c.codigo;
+      (codigoParaIds[c.codigo] ??= []).push(c.id);
+    }
+
+    // Dedup por código (mantém a 1ª — com o tie-breaker acima, a cópia do fotógrafo).
     const seen = new Set<string>();
-    const contasArr = ((contasData ?? []) as Conta[]).filter(c => {
+    const contasArr = todasContas.filter(c => {
       if (seen.has(c.codigo)) return false;
       seen.add(c.codigo);
       return true;
@@ -123,9 +138,7 @@ export default function PanoramaPage() {
     const temDRELocal = (dreCount ?? 0) > 0;
     setTemDRE(temDRELocal);
 
-    const cpCodigo: Record<string, string> = {};
-    for (const c of contasArr) cpCodigo[c.codigo] = c.id;
-
+    // novoMapa é chaveado por CÓDIGO da conta.
     const novoMapa: Record<string, Record<number, number>> = {};
     const anosSet = new Set<number>();
 
@@ -146,10 +159,12 @@ export default function PanoramaPage() {
 
       for (const e of entries) {
         if (!e.pago_em || !e.conta_id) continue;
+        const cod = idParaCodigo[e.conta_id];
+        if (!cod) continue;
         const ano = parseInt(e.pago_em.slice(0, 4));
         anosSet.add(ano);
-        novoMapa[e.conta_id] ??= {};
-        novoMapa[e.conta_id][ano] = (novoMapa[e.conta_id][ano] ?? 0) + e.valor;
+        novoMapa[cod] ??= {};
+        novoMapa[cod][ano] = (novoMapa[cod][ano] ?? 0) + e.valor;
       }
     } else if (temDRELocal) {
       // Competência com DRE: entradas DRE legadas + pedidos crm_nativo
@@ -162,10 +177,12 @@ export default function PanoramaPage() {
 
       for (const e of dreEntries) {
         if (!e.vencimento || !e.conta_id) continue;
+        const cod = idParaCodigo[e.conta_id];
+        if (!cod) continue;
         const ano = parseInt(e.vencimento.slice(0, 4));
         anosSet.add(ano);
-        novoMapa[e.conta_id] ??= {};
-        novoMapa[e.conta_id][ano] = (novoMapa[e.conta_id][ano] ?? 0) + e.valor;
+        novoMapa[cod] ??= {};
+        novoMapa[cod][ano] = (novoMapa[cod][ano] ?? 0) + e.valor;
       }
 
       // Pedidos crm_nativo
@@ -180,12 +197,10 @@ export default function PanoramaPage() {
         if (!o.data_lancamento) continue;
         const codigo = CATEGORIA_CODIGO[o.categoria];
         if (!codigo) continue;
-        const cid = cpCodigo[codigo];
-        if (!cid) continue;
         const ano = parseInt(o.data_lancamento.slice(0, 4));
         anosSet.add(ano);
-        novoMapa[cid] ??= {};
-        novoMapa[cid][ano] = (novoMapa[cid][ano] ?? 0) + o.total;
+        novoMapa[codigo] ??= {};
+        novoMapa[codigo][ano] = (novoMapa[codigo][ano] ?? 0) + o.total;
       }
     } else {
       // Sem DRE: crm_financial_entries com conta_id direto
@@ -199,10 +214,12 @@ export default function PanoramaPage() {
 
       for (const e of entries) {
         if (!e.vencimento || !e.conta_id) continue;
+        const cod = idParaCodigo[e.conta_id];
+        if (!cod) continue;
         const ano = parseInt(e.vencimento.slice(0, 4));
         anosSet.add(ano);
-        novoMapa[e.conta_id] ??= {};
-        novoMapa[e.conta_id][ano] = (novoMapa[e.conta_id][ano] ?? 0) + e.valor;
+        novoMapa[cod] ??= {};
+        novoMapa[cod][ano] = (novoMapa[cod][ano] ?? 0) + e.valor;
       }
     }
 
@@ -210,6 +227,7 @@ export default function PanoramaPage() {
     setContas(contasArr);
     setAnos(anosOrdenados);
     setMapaAnual(novoMapa);
+    setCodigoIds(codigoParaIds);
     setDreLoading(false);
   }, [fotografo, regime]);
 
@@ -230,8 +248,8 @@ export default function PanoramaPage() {
     return result;
   }, [anos, agrupamento]);
 
-  const valorPeriodo = (contaId: string, p: Periodo) =>
-    p.anos.reduce((s, a) => s + (mapaAnual[contaId]?.[a] ?? 0), 0);
+  const valorPeriodo = (codigo: string, p: Periodo) =>
+    p.anos.reduce((s, a) => s + (mapaAnual[codigo]?.[a] ?? 0), 0);
 
   // Drill-down
   const abrirDrill = useCallback(async (conta: Conta, anosP: number[], label: string) => {
@@ -251,7 +269,7 @@ export default function PanoramaPage() {
         .select("id, descricao, valor, pago_em, pedido_id")
         .eq("fotografo_id", fid).eq("tipo", tipo).eq("status", "pago")
         .or("num_documento.is.null,num_documento.neq.DRE")
-        .eq("conta_id", conta.id)
+        .in("conta_id", codigoIds[conta.codigo] ?? [conta.id])
         .gte("pago_em", anoStart).lt("pago_em", anoEnd)
         .order("pago_em");
       for (const e of (data ?? []) as { id: string; descricao: string | null; valor: number; pago_em: string; pedido_id?: string | null }[]) {
@@ -261,18 +279,14 @@ export default function PanoramaPage() {
       const { data: dreData } = await sb.from("crm_financial_entries")
         .select("id, descricao, valor, vencimento, pedido_id")
         .eq("fotografo_id", fid).eq("tipo", "receita").eq("num_documento", "DRE")
-        .eq("conta_id", conta.id).gte("vencimento", anoStart).lt("vencimento", anoEnd)
+        .in("conta_id", codigoIds[conta.codigo] ?? [conta.id]).gte("vencimento", anoStart).lt("vencimento", anoEnd)
         .order("vencimento");
       for (const e of (dreData ?? []) as { id: string; descricao: string | null; valor: number; vencimento: string; pedido_id?: string | null }[]) {
         entries.push({ id: e.id, descricao: e.descricao, valor: e.valor, data: e.vencimento, pedido_id: e.pedido_id });
       }
-      // Pedidos crm_nativo mapeados para esta conta
+      // Pedidos crm_nativo mapeados para esta conta (via código)
       const cats = Object.entries(CATEGORIA_CODIGO)
-        .filter(([, cod]) => {
-          const contasArr = contas;
-          const contaAlvo = contasArr.find(c => c.id === conta.id);
-          return contaAlvo && cod === contaAlvo.codigo;
-        }).map(([cat]) => cat);
+        .filter(([, cod]) => cod === conta.codigo).map(([cat]) => cat);
       if (cats.length > 0) {
         const { data: ordData } = await sb.from("crm_orders")
           .select("id, nome, total, data_lancamento")
@@ -289,7 +303,7 @@ export default function PanoramaPage() {
         .select("id, descricao, valor, vencimento, pago_em, pedido_id")
         .eq("fotografo_id", fid).eq("tipo", tipo)
         .or("num_documento.is.null,num_documento.neq.DRE")
-        .eq("conta_id", conta.id)
+        .in("conta_id", codigoIds[conta.codigo] ?? [conta.id])
         .gte("vencimento", anoStart).lt("vencimento", anoEnd)
         .order("vencimento");
       for (const e of (data ?? []) as { id: string; descricao: string | null; valor: number; vencimento: string; pago_em?: string | null; pedido_id?: string | null }[]) {
@@ -300,7 +314,7 @@ export default function PanoramaPage() {
     entries.sort((a, b) => a.data.localeCompare(b.data));
     setDrillItems(entries);
     setDrillLoading(false);
-  }, [fotografo, regime, temDRE, contas, anos]);
+  }, [fotografo, regime, temDRE, codigoIds]);
 
   // Export CSV
   const exportCSV = useCallback(() => {
@@ -308,7 +322,7 @@ export default function PanoramaPage() {
     const rows: string[][] = [];
 
     for (const c of contas) {
-      const vals = periodos.map(p => valorPeriodo(c.id, p));
+      const vals = periodos.map(p => valorPeriodo(c.codigo, p));
       const total = vals.reduce((s, v) => s + v, 0);
       if (total === 0) continue;
       rows.push([c.nome, c.codigo, ...vals.map(v => v.toFixed(2)), total.toFixed(2)]);
@@ -334,7 +348,7 @@ export default function PanoramaPage() {
 
   // Totais por seção por período
   const somaSecaoPeriodo = (lista: Conta[], p: Periodo) =>
-    lista.reduce((s, c) => s + valorPeriodo(c.id, p), 0);
+    lista.reduce((s, c) => s + valorPeriodo(c.codigo, p), 0);
 
   const thStyle: React.CSSProperties = {
     fontSize: 10, fontWeight: 700, color: "var(--color-text-secondary)",
@@ -367,7 +381,7 @@ export default function PanoramaPage() {
   };
 
   const renderContaRow = (c: Conta, cor: string) => {
-    const vals = periodos.map(p => valorPeriodo(c.id, p));
+    const vals = periodos.map(p => valorPeriodo(c.codigo, p));
     const total = vals.reduce((s, v) => s + v, 0);
     if (total === 0) return null;
     return (
@@ -532,7 +546,7 @@ export default function PanoramaPage() {
               {renderSaldoRow(
                 "Total Receitas",
                 periodos.map(p => somaSecaoPeriodo(receitas, p)),
-                receitas.reduce((s, c) => s + Object.values(mapaAnual[c.id] ?? {}).reduce((a, b) => a + b, 0), 0)
+                receitas.reduce((s, c) => s + Object.values(mapaAnual[c.codigo] ?? {}).reduce((a, b) => a + b, 0), 0)
               )}
 
               {/* Custos */}
@@ -541,7 +555,7 @@ export default function PanoramaPage() {
               {custos.length > 0 && renderSaldoRow(
                 "Total Custos",
                 periodos.map(p => somaSecaoPeriodo(custos, p)),
-                custos.reduce((s, c) => s + Object.values(mapaAnual[c.id] ?? {}).reduce((a, b) => a + b, 0), 0),
+                custos.reduce((s, c) => s + Object.values(mapaAnual[c.codigo] ?? {}).reduce((a, b) => a + b, 0), 0),
                 "#EF4444"
               )}
 
@@ -551,7 +565,7 @@ export default function PanoramaPage() {
               {despesas.length > 0 && renderSaldoRow(
                 "Total Despesas",
                 periodos.map(p => somaSecaoPeriodo(despesas, p)),
-                despesas.reduce((s, c) => s + Object.values(mapaAnual[c.id] ?? {}).reduce((a, b) => a + b, 0), 0),
+                despesas.reduce((s, c) => s + Object.values(mapaAnual[c.codigo] ?? {}).reduce((a, b) => a + b, 0), 0),
                 "#D97706"
               )}
 
@@ -559,8 +573,8 @@ export default function PanoramaPage() {
               {renderSaldoRow(
                 "Resultado",
                 periodos.map(p => somaSecaoPeriodo(receitas, p) - somaSecaoPeriodo(custos, p) - somaSecaoPeriodo(despesas, p)),
-                receitas.reduce((s, c) => s + Object.values(mapaAnual[c.id] ?? {}).reduce((a, b) => a + b, 0), 0) -
-                [...custos, ...despesas].reduce((s, c) => s + Object.values(mapaAnual[c.id] ?? {}).reduce((a, b) => a + b, 0), 0)
+                receitas.reduce((s, c) => s + Object.values(mapaAnual[c.codigo] ?? {}).reduce((a, b) => a + b, 0), 0) -
+                [...custos, ...despesas].reduce((s, c) => s + Object.values(mapaAnual[c.codigo] ?? {}).reduce((a, b) => a + b, 0), 0)
               )}
             </tbody>
           </table>

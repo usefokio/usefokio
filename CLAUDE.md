@@ -141,11 +141,37 @@ Dados copiados da produção (fotógrafo `contato@fernandoagrelafotografia.com.b
 | `lib/constants/statusMaps.ts` | `PEDIDO_STATUS_MAP`, `FIN_STATUS_MAP` |
 | `app/(dashboard)/crm/_components/Icons.tsx` | `IcoEdit`, `IcoTrash`, `IcoOpen`, `IcoMail`, `IcoCheck`, `IcoWhatsApp` |
 
-### Lógica de Resultados (DRE)
+### Lógica de Resultados (DRE) — fontes e regras (auditoria 2026-07-04)
 
-- **Regime de Competência**: receitas = `crm_orders` agrupados por `data_lancamento`, mapeados via `CATEGORIA_CODIGO` em `resultados/page.tsx`. Despesas = `crm_financial_entries` por `vencimento`.
-- **Regime de Caixa**: receitas = `crm_financial_entries` com `tipo=receita` e `pago_em` no período. Despesas = idem por `pago_em`.
-- `CATEGORIA_CODIGO` é hardcoded em `resultados/page.tsx` — atualizar sempre que adicionar nova categoria de pedido ou conta de receita. Categorias sem mapeamento exibem aviso amarelo na tela.
+**Duas telas, DUAS fontes distintas** (podem divergir — cuidado ao comparar):
+
+1. **Cards do topo + gráfico "por ano"** (`resultados/page.tsx` e `resultados/panorama/page.tsx`): RPC
+   `get_panorama_financeiro` → soma `crm_financial_entries` com `num_documento='DRE'`, `status='pago'`, por
+   ano de **`vencimento`**, agrupado por `tipo`. NÃO inclui pedidos `crm_nativo` nem lançamentos não-DRE.
+2. **Tabela "DRE por Plano de Contas" (panorama) + Resultados mensal**: função `carregarDRE`/`carregar`:
+   - **Competência**: lançamentos `num_documento='DRE'` por `vencimento` **+** pedidos `crm_orders`
+     `crm_nativo=true` por `data_lancamento` (mapeados via `CATEGORIA_CODIGO`). Não filtra `status`.
+   - **Caixa**: `crm_financial_entries` `status='pago'` (exceto DRE) por `pago_em`.
+   - **Usuário novo (sem DRE)**: lançamentos não-DRE por `conta_id`.
+
+**`CATEGORIA_CODIGO`** (categoria do pedido → código contábil) é hardcoded nos dois arquivos — atualizar ao
+adicionar categoria/conta. Categorias sem mapeamento exibem aviso amarelo (só no Resultados).
+
+**Dados importados (contas recebidas/pagas):** vão para `crm_financial_entries` — recebidas `tipo=receita`,
+pagas `tipo=despesa`, `status='pago'`, `pago_em=vencimento`, marcadas **`num_documento='DRE'`**; `conta_id`
+derivado (recebidas: categoria do pedido→código→conta; pagas: `account_id` do CSV→código→conta). Nota: os
+scripts `scripts/import-contas-*.mjs` apontam pro **dev** e setam `num_documento=document_number` — a
+marcação `'DRE'` de produção veio por outra importação (SQL).
+
+**⚠️ Plano de contas tem 2 versões por código** (conta do sistema `fotografo_id IS NULL` + cópia do
+fotógrafo, ids diferentes). Os lançamentos apontam pra cópia. Por isso a agregação da DRE é **por CÓDIGO da
+conta**, não por `conta_id` (senão a dedup por código escolhe a versão errada e perde valores → totais
+errados; foi o bug corrigido em 2026-07-04). Ao mexer na DRE, sempre agregar por `codigo` e, no drill-down,
+buscar `.in("conta_id", <todos os ids do código>)`.
+
+**Divergências conhecidas (não corrigidas):** a RPC (cards) filtra `status='pago'` e ignora `crm_nativo`,
+enquanto a tabela DRE (competência) não filtra status e inclui `crm_nativo` → podem divergir com pedidos
+novos/lançamentos pendentes. O card "Despesas" soma custos (seção 4) + despesas (seção 5) juntos.
 
 ### Dados importados (histórico photomanager)
 
