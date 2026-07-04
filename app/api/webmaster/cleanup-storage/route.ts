@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { verificarWebmaster } from "@/lib/webmaster/auth";
 
-export async function POST() {
+export async function POST(req: Request) {
+  if (!await verificarWebmaster(req)) return NextResponse.json({ error: "forbidden" }, { status: 403 });
   const admin = createAdminClient();
 
   let totalDeleted = 0;

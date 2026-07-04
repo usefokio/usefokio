@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { createClient } from "@/lib/supabase/client";
 
 export default function StoragePage() {
   const [status,  setStatus]  = useState<{ deleted?: number; total?: number; errors?: string[]; error?: string } | null>(null);
@@ -11,7 +12,11 @@ export default function StoragePage() {
     setRodando(true);
     setStatus(null);
     try {
-      const res = await fetch("/api/webmaster/cleanup-storage", { method: "POST" });
+      const { data: { session } } = await createClient().auth.getSession();
+      const res = await fetch("/api/webmaster/cleanup-storage", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${session?.access_token ?? ""}` },
+      });
       setStatus(await res.json());
     } catch (e) {
       setStatus({ error: String(e) });

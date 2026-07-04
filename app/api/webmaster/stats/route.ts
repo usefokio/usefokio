@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { verificarWebmaster } from "@/lib/webmaster/auth";
 
-export async function GET() {
+export async function GET(req: Request) {
+  if (!await verificarWebmaster(req)) return NextResponse.json({ error: "forbidden" }, { status: 403 });
   try {
     const admin = createAdminClient();
     const { data, error } = await admin.rpc("webmaster_get_stats");

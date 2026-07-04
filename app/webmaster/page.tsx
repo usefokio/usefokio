@@ -170,7 +170,7 @@ export default function WebmasterPage() {
 
   async function carregarStats() {
     setLoading(true);
-    const res  = await fetch("/api/webmaster/stats");
+    const res  = await fetch("/api/webmaster/stats", { headers: await authHeaders() });
     const json = await res.json();
     if (res.ok && json.data) setStats(json.data as FotografoStats[]);
     setLoading(false);

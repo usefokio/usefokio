@@ -97,7 +97,7 @@ export default function ComunicacaoPage() {
   }
 
   async function carregarFotografos() {
-    const res = await fetch("/api/webmaster/stats");
+    const res = await fetch("/api/webmaster/stats", { headers: await authHeaders() });
     const json = await res.json();
     if (res.ok && json.data) setFotografos(json.data as Foto[]);
   }
