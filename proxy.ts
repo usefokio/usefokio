@@ -7,6 +7,11 @@ const WEBMASTER_ID = process.env.NEXT_PUBLIC_WEBMASTER_ID ?? "";
 const PROTECTED = ["/dashboard", "/clientes", "/selecao", "/entrega", "/config", "/conta"];
 
 export async function proxy(request: NextRequest) {
+  // Em dev não há sessão real (auth bypassada pelo mock). Gated por NODE_ENV:
+  // no build de produção/preview do Vercel NODE_ENV === "production", então o
+  // proxy continua protegendo as rotas normalmente.
+  if (process.env.NODE_ENV === "development") return NextResponse.next();
+
   const { pathname } = request.nextUrl;
 
   // Verifica se é rota protegida do dashboard
