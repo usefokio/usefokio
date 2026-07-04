@@ -604,3 +604,32 @@ export type CrmSchedule = {
 
 export type CrmContractTemplate = { id: string; fotografo_id: string; nome: string; corpo: string; created_at: string; updated_at: string };
 export type CrmContract = { id: string; fotografo_id: string; pedido_id: string; template_id: string | null; nome_template: string | null; corpo_gerado: string | null; arquivo_path?: string | null; arquivo_url?: string | null; arquivo_nome?: string | null; created_at: string };
+
+// Comunicação webmaster → fotógrafos (listas + disparo de email)
+export type WebmasterEmailList = {
+  id: string;
+  nome: string;
+  descricao: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type WebmasterEmailListMember = {
+  id: string;
+  list_id: string;
+  fotografo_id: string;
+  created_at: string;
+};
+
+export type WebmasterEmailCampaign = {
+  id: string;
+  list_id: string | null;
+  list_nome: string | null;
+  assunto: string;
+  corpo: string;
+  total_destinatarios: number | null;
+  total_enviados: number | null;
+  total_falhas: number;
+  falhas: { email: string; erro: string }[] | null;
+  enviado_em: string;
+};

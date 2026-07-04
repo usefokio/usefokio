@@ -10,6 +10,7 @@ const WEBMASTER_EMAIL = "usefokio@gmail.com";
 
 const NAV = [
   { href: "/webmaster",             label: "Fotógrafos", icon: "👤" },
+  { href: "/webmaster/comunicacao", label: "Comunicação", icon: "✉️" },
   { href: "/webmaster/financeiro",  label: "Financeiro", icon: "📊" },
   { href: "/webmaster/planos",      label: "Planos",     icon: "📋" },
   { href: "/webmaster/tutoriais",   label: "Tutoriais",  icon: "🎬" },

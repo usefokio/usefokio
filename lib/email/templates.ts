@@ -402,3 +402,17 @@ export function templateContaAprovada(p: ContaAprovadaParams): { subject: string
     `),
   };
 }
+
+// ─── 9. Comunicação webmaster → fotógrafo (corpo livre) ───────────────────────
+// corpoHtml já vem escapado, com variáveis substituídas e \n convertido em <br>
+// (montado na route de envio). Aqui apenas envolvemos no shell padrão UseFokio.
+export function templateComunicacaoWebmaster(p: { assunto: string; corpoHtml: string }): { subject: string; html: string } {
+  return {
+    subject: p.assunto,
+    html: base(`
+      <div style="color:#333; font-size:14px; line-height:1.7;">
+        ${p.corpoHtml}
+      </div>
+    `),
+  };
+}
