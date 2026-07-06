@@ -27,6 +27,7 @@ export default function WebmasterLayout({ children }: { children: React.ReactNod
 
   useEffect(() => {
     async function verificar() {
+      if (process.env.NODE_ENV === "development") { setVerificado(true); return; }
       const supabase = createClient();
       const { data: { session } } = await supabase.auth.getSession();
       const ok = session && (

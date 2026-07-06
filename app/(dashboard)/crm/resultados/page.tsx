@@ -60,12 +60,14 @@ export default function ResultadosPage() {
   const [ano,            setAno]            = useState(anoAtual);
   const [regime,         setRegime]         = useState<Regime>("competencia");
   const [contas,         setContas]         = useState<Conta[]>([]);
+  // mapa é chaveado por CÓDIGO da conta (o plano tem 2 versões por código:
+  // sistema + cópia; agregar por código evita perder lançamentos).
   const [mapa,           setMapa]           = useState<Record<string, Record<number, number>>>({});
+  const [codigoIds,      setCodigoIds]      = useState<Record<string, string[]>>({});
   const [loading,        setLoading]        = useState(true);
   const [naoMapeados,    setNaoMapeados]    = useState<{ categoria: string; total: number }[]>([]);
   const [panorama,       setPanorama]       = useState<PanoramaItem[]>([]);
   const [temDRE,         setTemDRE]         = useState(false);
-  const [contaPorCodigo, setContaPorCodigo] = useState<Record<string, string>>({});
   const [drillDown,      setDrillDown]      = useState<{ conta: Conta; mes: number | null } | null>(null);
   const [drillEntries,   setDrillEntries]   = useState<DrillEntry[]>([]);
   const [drillLoading,   setDrillLoading]   = useState(false);
@@ -156,14 +158,19 @@ export default function ResultadosPage() {
       qContas, qOrders, pDespesas, pReceitas,
     ]);
 
+    const todasContas = (contasData ?? []) as Conta[];
+    const idParaCodigo: Record<string, string> = {};
+    const codigoParaIds: Record<string, string[]> = {};
+    for (const c of todasContas) {
+      idParaCodigo[c.id] = c.codigo;
+      (codigoParaIds[c.codigo] ??= []).push(c.id);
+    }
     const seen = new Set<string>();
-    const contasArr = ((contasData ?? []) as Conta[]).filter(c => {
+    const contasArr = todasContas.filter(c => {
       if (seen.has(c.codigo)) return false;
       seen.add(c.codigo);
       return true;
     });
-    const cpCodigo: Record<string, string> = {};
-    for (const c of contasArr) cpCodigo[c.codigo] = c.id;
 
     const novoMapa: Record<string, Record<number, number>> = {};
     const semMapeamento: Record<string, number> = {};
@@ -172,34 +179,38 @@ export default function ResultadosPage() {
       // Receitas caixa: transações individuais reais por pago_em
       for (const e of (receitasData ?? []) as { conta_id: string; valor: number; pago_em: string }[]) {
         if (!e.conta_id || !e.pago_em) continue;
+        const cod = idParaCodigo[e.conta_id];
+        if (!cod) continue;
         const mes = parseInt(e.pago_em.slice(5, 7));
-        novoMapa[e.conta_id] ??= {};
-        novoMapa[e.conta_id][mes] = (novoMapa[e.conta_id][mes] ?? 0) + e.valor;
+        novoMapa[cod] ??= {};
+        novoMapa[cod][mes] = (novoMapa[cod][mes] ?? 0) + e.valor;
       }
     } else if (temDRELocal) {
       // Competência com DRE (Fernando): entradas DRE legadas + pedidos crm_nativo
       for (const e of (receitasData ?? []) as { conta_id: string; valor: number; vencimento: string }[]) {
         if (!e.conta_id) continue;
+        const cod = idParaCodigo[e.conta_id];
+        if (!cod) continue;
         const mes = parseInt(e.vencimento.slice(5, 7));
-        novoMapa[e.conta_id] ??= {};
-        novoMapa[e.conta_id][mes] = (novoMapa[e.conta_id][mes] ?? 0) + e.valor;
+        novoMapa[cod] ??= {};
+        novoMapa[cod][mes] = (novoMapa[cod][mes] ?? 0) + e.valor;
       }
       for (const o of (ordersData ?? []) as { categoria: string; total: number; data_lancamento: string }[]) {
         const codigo = CATEGORIA_CODIGO[o.categoria];
         if (!codigo) { semMapeamento[o.categoria || "(sem categoria)"] = (semMapeamento[o.categoria || "(sem categoria)"] ?? 0) + o.total; continue; }
-        const cid = cpCodigo[codigo];
-        if (!cid) continue;
         const mes = parseInt(o.data_lancamento.slice(5, 7));
-        novoMapa[cid] ??= {};
-        novoMapa[cid][mes] = (novoMapa[cid][mes] ?? 0) + o.total;
+        novoMapa[codigo] ??= {};
+        novoMapa[codigo][mes] = (novoMapa[codigo][mes] ?? 0) + o.total;
       }
     } else {
       // Competência sem DRE (novos usuários): crm_financial_entries com conta_id direto
       for (const e of (receitasData ?? []) as { conta_id: string; valor: number; vencimento: string }[]) {
         if (!e.conta_id) continue;
+        const cod = idParaCodigo[e.conta_id];
+        if (!cod) continue;
         const mes = parseInt(e.vencimento.slice(5, 7));
-        novoMapa[e.conta_id] ??= {};
-        novoMapa[e.conta_id][mes] = (novoMapa[e.conta_id][mes] ?? 0) + e.valor;
+        novoMapa[cod] ??= {};
+        novoMapa[cod][mes] = (novoMapa[cod][mes] ?? 0) + e.valor;
       }
     }
     setNaoMapeados(Object.entries(semMapeamento).map(([categoria, total]) => ({ categoria, total })));
@@ -209,18 +220,18 @@ export default function ResultadosPage() {
       const dataRef = regime === "caixa" ? e.pago_em : e.vencimento;
       if (!dataRef) continue;
       const mes = parseInt(dataRef.slice(5, 7));
-      const cid = e.conta_id ?? UNCAT_ID;
-      novoMapa[cid] ??= {};
-      novoMapa[cid][mes] = (novoMapa[cid][mes] ?? 0) + e.valor;
+      const cod = (e.conta_id ? idParaCodigo[e.conta_id] : null) ?? UNCAT_CONTA.codigo;
+      novoMapa[cod] ??= {};
+      novoMapa[cod][mes] = (novoMapa[cod][mes] ?? 0) + e.valor;
     }
 
-    const contasComUncat = novoMapa[UNCAT_ID]
+    const contasComUncat = novoMapa[UNCAT_CONTA.codigo]
       ? [...contasArr, UNCAT_CONTA]
       : contasArr;
     setContas(contasComUncat);
     setMapa(novoMapa);
+    setCodigoIds(codigoParaIds);
     setTemDRE(temDRELocal);
-    setContaPorCodigo(cpCodigo);
     setLoading(false);
     void dateField;
   }, [fotografo, ano, regime]);
@@ -272,7 +283,7 @@ export default function ResultadosPage() {
         .select("id, descricao, valor, pago_em, pedido_id")
         .eq("fotografo_id", fid).eq("tipo", tipo).eq("status", "pago")
         .or("num_documento.is.null,num_documento.neq.DRE")
-        .eq("conta_id", conta.id)
+        .in("conta_id", codigoIds[conta.codigo] ?? [conta.id])
         .gte("pago_em", mesStart).lte("pago_em", mesEnd);
       for (const e of (data ?? []) as { id: string; descricao: string | null; valor: number; pago_em: string; pedido_id?: string | null }[]) {
         entries.push({ id: e.id, descricao: e.descricao, valor: e.valor, data: e.pago_em, pedido_id: e.pedido_id, fonte: "entry" });
@@ -282,13 +293,13 @@ export default function ResultadosPage() {
       const { data: dreData } = await sb.from("crm_financial_entries")
         .select("id, descricao, valor, vencimento, pedido_id")
         .eq("fotografo_id", fid).eq("tipo", "receita").eq("num_documento", "DRE")
-        .eq("conta_id", conta.id).gte("vencimento", mesStart).lte("vencimento", mesEnd);
+        .in("conta_id", codigoIds[conta.codigo] ?? [conta.id]).gte("vencimento", mesStart).lte("vencimento", mesEnd);
       for (const e of (dreData ?? []) as { id: string; descricao: string | null; valor: number; vencimento: string; pedido_id?: string | null }[]) {
         entries.push({ id: e.id, descricao: e.descricao, valor: e.valor, data: e.vencimento, pedido_id: e.pedido_id, fonte: "entry" });
       }
       // Pedidos crm_nativo mapeados para esta conta via CATEGORIA_CODIGO
       const categoriasDaConta = Object.entries(CATEGORIA_CODIGO)
-        .filter(([, cod]) => contaPorCodigo[cod] === conta.id).map(([cat]) => cat);
+        .filter(([, cod]) => cod === conta.codigo).map(([cat]) => cat);
       if (categoriasDaConta.length > 0) {
         const { data: ordData } = await sb.from("crm_orders")
           .select("id, nome, total, data_lancamento")
@@ -303,7 +314,7 @@ export default function ResultadosPage() {
       const { data } = await sb.from("crm_financial_entries")
         .select("id, descricao, valor, vencimento, pedido_id")
         .eq("fotografo_id", fid).eq("tipo", "despesa").eq("num_documento", "DRE")
-        .eq("conta_id", conta.id).gte("vencimento", mesStart).lte("vencimento", mesEnd);
+        .in("conta_id", codigoIds[conta.codigo] ?? [conta.id]).gte("vencimento", mesStart).lte("vencimento", mesEnd);
       for (const e of (data ?? []) as { id: string; descricao: string | null; valor: number; vencimento: string; pedido_id?: string | null }[]) {
         entries.push({ id: e.id, descricao: e.descricao, valor: e.valor, data: e.vencimento, pedido_id: e.pedido_id, fonte: "entry" });
       }
@@ -312,7 +323,7 @@ export default function ResultadosPage() {
       const { data } = await sb.from("crm_financial_entries")
         .select("id, descricao, valor, vencimento, pedido_id")
         .eq("fotografo_id", fid).eq("tipo", tipo)
-        .eq("conta_id", conta.id).gte("vencimento", mesStart).lte("vencimento", mesEnd);
+        .in("conta_id", codigoIds[conta.codigo] ?? [conta.id]).gte("vencimento", mesStart).lte("vencimento", mesEnd);
       for (const e of (data ?? []) as { id: string; descricao: string | null; valor: number; vencimento: string; pedido_id?: string | null }[]) {
         entries.push({ id: e.id, descricao: e.descricao, valor: e.valor, data: e.vencimento, pedido_id: e.pedido_id, fonte: "entry" });
       }
@@ -321,17 +332,17 @@ export default function ResultadosPage() {
     entries.sort((a, b) => a.data.localeCompare(b.data));
     setDrillEntries(entries);
     setDrillLoading(false);
-  }, [fotografo, ano, regime, temDRE, contaPorCodigo]);
+  }, [fotografo, ano, regime, temDRE, codigoIds]);
 
   const contasPorPrefixo = (prefixo: string) =>
-    contas.filter(c => c.codigo.startsWith(prefixo) && mapa[c.id]);
+    contas.filter(c => c.codigo.startsWith(prefixo) && mapa[c.codigo]);
 
   const totalSecao = (cs: Conta[], mes?: number) => {
     if (mes !== undefined) {
-      return cs.reduce((s, c) => s + (mapa[c.id]?.[mes] ?? 0), 0);
+      return cs.reduce((s, c) => s + (mapa[c.codigo]?.[mes] ?? 0), 0);
     }
     return cs.reduce((s, c) =>
-      s + Object.values(mapa[c.id] ?? {}).reduce((a, b) => a + b, 0), 0);
+      s + Object.values(mapa[c.codigo] ?? {}).reduce((a, b) => a + b, 0), 0);
   };
 
   const receitas  = contasPorPrefixo("3");
@@ -344,7 +355,7 @@ export default function ResultadosPage() {
     const addSecao = (label: string, cs: Conta[]) => {
       linhas.push(`${label},,,,,,,,,,,,,,`);
       for (const c of cs) {
-        const vals = Array.from({ length: 12 }, (_, i) => mapa[c.id]?.[i + 1] ?? 0);
+        const vals = Array.from({ length: 12 }, (_, i) => mapa[c.codigo]?.[i + 1] ?? 0);
         const total = vals.reduce((a, b) => a + b, 0);
         linhas.push([c.codigo, `"${c.nome}"`, ...vals.map(v => v.toFixed(2)), total.toFixed(2)].join(","));
       }
@@ -412,7 +423,7 @@ export default function ResultadosPage() {
   );
 
   const ContaRow = ({ c, negativo }: { c: Conta; negativo?: boolean }) => {
-    const vals = Array.from({ length: 12 }, (_, i) => mapa[c.id]?.[i + 1] ?? 0);
+    const vals = Array.from({ length: 12 }, (_, i) => mapa[c.codigo]?.[i + 1] ?? 0);
     const total = vals.reduce((a, b) => a + b, 0);
     const cor = negativo ? "#EF4444" : "#059669";
     return (

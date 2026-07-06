@@ -31,6 +31,20 @@ function formatarData(d: Date): string {
   return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" });
 }
 
+// Re-tenta uma operação de upload algumas vezes antes de desistir (mitiga
+// falhas intermitentes de rede/timeout no envio ao R2).
+async function comRetry<T>(fn: () => Promise<T>, tentativas = 3): Promise<T> {
+  let ultimoErro: unknown;
+  for (let i = 0; i < tentativas; i++) {
+    try { return await fn(); }
+    catch (e) {
+      ultimoErro = e;
+      if (i < tentativas - 1) await new Promise((r) => setTimeout(r, 800 * (i + 1)));
+    }
+  }
+  throw ultimoErro;
+}
+
 export default function NovaEntregaPage() {
   const router = useRouter();
   const { fotografo } = useFotografo();
@@ -64,6 +78,10 @@ export default function NovaEntregaPage() {
   const inputFotosRef = useRef<HTMLInputElement>(null);
   const proximoRef   = useRef<(() => void) | null>(null);
   const canceladoRef = useRef(false);
+  // Guarda a galeria já criada para NÃO duplicar em novas tentativas de publicar.
+  const galeriaCriadaIdRef = useRef<string | null>(null);
+  const capaEnviadaRef     = useRef(false);
+  const [erroPublicar, setErroPublicar] = useState<string | null>(null);
 
   const [capaFile,    setCapaFile]    = useState<File | null>(null);
   const [capaPreview, setCapaPreview] = useState<string | null>(null);
@@ -125,19 +143,22 @@ export default function NovaEntregaPage() {
     setUploadAtual(0);
   }
 
-  async function enviarFila(idGaleria: string) {
-    if (fila.length === 0 || !fotografo) return;
+  async function enviarFila(idGaleria: string): Promise<number> {
+    if (!fotografo) return 0;
+    // Só envia o que ainda não subiu — re-tentativas não reenviam fotos "ok".
+    const pendentes = fila.filter((f) => f.status !== "ok");
+    if (pendentes.length === 0) return 0;
     canceladoRef.current = false;
-    setUploadTotal(fila.length);
+    setUploadTotal(pendentes.length);
     setUploadAtual(0);
     let concluidos = 0;
+    let falhas = 0;
     const supabase = createClient();
     const fotoId = fotografo.id;
 
     // Semáforo: máximo 3 uploads simultâneos
     const CONCORRENCIA = 3;
     let slots = CONCORRENCIA;
-    const pendentes = [...fila];
 
     await new Promise<void>((done) => {
       let iniciados = 0;
@@ -155,12 +176,13 @@ export default function NovaEntregaPage() {
 
           (async () => {
             try {
-              upd({ status: "processando", progresso: 15 });
+              upd({ status: "processando", progresso: 15, erro: undefined });
               const processed = await processarImagemEntrega(item.file, 1200);
               upd({ status: "enviando", progresso: 50 });
 
               const path = `entrega/${fotoId}/${idGaleria}/${crypto.randomUUID()}.jpg`;
-              const { storage_path, url_publica } = await uploadFileClient(path, processed.blob, processed.blob.type || "image/jpeg");
+              const { storage_path, url_publica } = await comRetry(() =>
+                uploadFileClient(path, processed.blob, processed.blob.type || "image/jpeg"));
               upd({ progresso: 80 });
 
               const { error: dbErr } = await supabase.from("galerias_entrega_fotos").insert({
@@ -176,6 +198,7 @@ export default function NovaEntregaPage() {
               if (dbErr) throw new Error(dbErr.message);
               upd({ status: "ok", progresso: 100 });
             } catch (e) {
+              falhas++;
               upd({ status: "erro", erro: e instanceof Error ? e.message : "Erro no upload", progresso: 0 });
             } finally {
               slots++;
@@ -193,6 +216,7 @@ export default function NovaEntregaPage() {
       proximo();
     });
     proximoRef.current = null;
+    return falhas;
   }
 
   const diasEfetivos = prazoFixo === "custom" ? (parseInt(prazoCustom) || 0) : prazoFixo;
@@ -201,66 +225,92 @@ export default function NovaEntregaPage() {
   async function handlePublicar() {
     if (!titulo.trim() || !fotografo) return;
     setErroLimite(null);
+    setErroPublicar(null);
     setSaving(true);
     const supabase = createClient();
     try {
+      // Reutiliza a galeria criada numa tentativa anterior — evita duplicar a
+      // cada clique quando o upload falha no meio.
+      let galeriaId = galeriaCriadaIdRef.current;
 
-    const { data: pcLimit } = await supabase
-      .from("planos_config")
-      .select("limite_galerias")
-      .eq("codigo", fotografo.plano)
-      .eq("ativo", true)
-      .maybeSingle();
-    const limitGalerias: number | null = pcLimit?.limite_galerias ?? null;
+      if (!galeriaId) {
+        const { data: pcLimit } = await supabase
+          .from("planos_config")
+          .select("limite_galerias")
+          .eq("codigo", fotografo.plano)
+          .eq("ativo", true)
+          .maybeSingle();
+        const limitGalerias: number | null = pcLimit?.limite_galerias ?? null;
 
-    if (limitGalerias !== null) {
-      const { count } = await supabase
-        .from("galerias_entrega")
-        .select("id", { count: "exact", head: true })
-        .eq("fotografo_id", fotografo.id)
-        .eq("rascunho", false);
-      if ((count ?? 0) >= limitGalerias) {
-        setErroLimite(`Seu plano permite até ${limitGalerias} galeria${limitGalerias === 1 ? "" : "s"} de entrega. Faça upgrade em /conta/plano.`);
+        if (limitGalerias !== null) {
+          const { count } = await supabase
+            .from("galerias_entrega")
+            .select("id", { count: "exact", head: true })
+            .eq("fotografo_id", fotografo.id)
+            .eq("rascunho", false);
+          if ((count ?? 0) >= limitGalerias) {
+            setErroLimite(`Seu plano permite até ${limitGalerias} galeria${limitGalerias === 1 ? "" : "s"} de entrega. Faça upgrade em /conta/plano.`);
+            setSaving(false);
+            return;
+          }
+        }
+
+        const expires_at = dataExpiracao ? dataExpiracao.toISOString() : null;
+        const { data, error } = await supabase.from("galerias_entrega")
+          .insert({
+            fotografo_id: fotografo.id,
+            cliente_id:   clienteId || null,
+            categoria_id: categoriaId || null,
+            titulo:       titulo.trim(),
+            data_evento:  dataEvento || null,
+            drive_link:   driveLink.trim() || null,
+            expires_at,
+            renewal_fee:  parseMoeda(renovacao),
+            renovacao_dias: parseInt(renovacaoDias) || 30,
+            mensagem:     mensagem.trim() || null,
+            apenas_zip:   apenaZip,
+            identificacao_obrigatoria: identificacaoObrig,
+            drive_apenas_identificado: driveApenasIdentif,
+            ordenacao_fotos: ordenacaoFotos,
+            rascunho: false,
+          })
+          .select("id")
+          .single();
+
+        if (error || !data) {
+          setErroPublicar("Não foi possível criar a galeria. Verifique sua conexão e tente novamente.");
+          setSaving(false);
+          return;
+        }
+        galeriaId = data.id;
+        galeriaCriadaIdRef.current = galeriaId;
+      }
+
+      if (!galeriaId) { setSaving(false); return; }
+
+      // Capa: só envia se ainda não subiu com sucesso (com retry).
+      if (capaFile && !capaEnviadaRef.current) {
+        const processed = await processarImagemEntrega(capaFile, 1920);
+        const capaPath = `entrega/${fotografo.id}/${galeriaId}/capa.jpg`;
+        const { url_publica: capaUrlPublica, storage_path: capaStoragePath } = await comRetry(() =>
+          uploadFileClient(capaPath, processed.blob, "image/jpeg"));
+        await supabase.from("galerias_entrega")
+          .update({ foto_capa_url: capaUrlPublica, foto_capa_storage_path: capaStoragePath })
+          .eq("id", galeriaId);
+        capaEnviadaRef.current = true;
+      }
+
+      const falhas = await enviarFila(galeriaId);
+      if (falhas > 0) {
+        setErroPublicar(`${falhas} foto${falhas > 1 ? "s" : ""} não ${falhas > 1 ? "foram enviadas" : "foi enviada"}. Clique em "Publicar" de novo para reenviar — a galeria NÃO será duplicada.`);
         setSaving(false);
         return;
       }
-    }
 
-    const expires_at = dataExpiracao ? dataExpiracao.toISOString() : null;
-    const { data, error } = await supabase.from("galerias_entrega")
-      .insert({
-        fotografo_id: fotografo.id,
-        cliente_id:   clienteId || null,
-        categoria_id: categoriaId || null,
-        titulo:       titulo.trim(),
-        data_evento:  dataEvento || null,
-        drive_link:   driveLink.trim() || null,
-        expires_at,
-        renewal_fee:  parseMoeda(renovacao),
-        renovacao_dias: parseInt(renovacaoDias) || 30,
-        mensagem:     mensagem.trim() || null,
-        apenas_zip:   apenaZip,
-        identificacao_obrigatoria: identificacaoObrig,
-        drive_apenas_identificado: driveApenasIdentif,
-        ordenacao_fotos: ordenacaoFotos,
-        rascunho: false,
-      })
-      .select("id")
-      .single();
-
-    if (error || !data) { setSaving(false); return; }
-
-    if (capaFile && fotografo) {
-      const processed = await processarImagemEntrega(capaFile, 1920);
-      const capaPath = `entrega/${fotografo.id}/${data.id}/capa.jpg`;
-      const { url_publica: capaUrlPublica, storage_path: capaStoragePath } = await uploadFileClient(capaPath, processed.blob, "image/jpeg");
-      await supabase.from("galerias_entrega").update({ foto_capa_url: capaUrlPublica, foto_capa_storage_path: capaStoragePath }).eq("id", data.id);
-    }
-
-      await enviarFila(data.id);
-      router.push(`/entrega/${data.id}`);
+      router.push(`/entrega/${galeriaId}`);
     } catch (e) {
       console.error("Erro ao publicar galeria:", e);
+      setErroPublicar(e instanceof Error ? e.message : 'Ocorreu um erro ao publicar. Clique em "Publicar" de novo — a galeria NÃO será duplicada.');
       setSaving(false);
     }
   }
@@ -295,6 +345,12 @@ export default function NovaEntregaPage() {
         <div style={{ marginBottom: 16, padding: "12px 16px", borderRadius: 10, background: "rgba(239,68,68,0.08)", border: "0.5px solid rgba(239,68,68,0.25)", fontSize: 13, color: "#DC2626" }}>
           {erroLimite}{" "}
           <a href="/conta/plano" style={{ color: "#DC2626", fontWeight: 700, textDecoration: "underline" }}>Ver planos</a>
+        </div>
+      )}
+
+      {erroPublicar && (
+        <div style={{ marginBottom: 16, padding: "12px 16px", borderRadius: 10, background: "rgba(239,68,68,0.08)", border: "0.5px solid rgba(239,68,68,0.25)", fontSize: 13, color: "#DC2626", lineHeight: 1.5 }}>
+          ⚠️ {erroPublicar}
         </div>
       )}
 

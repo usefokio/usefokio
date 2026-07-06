@@ -561,12 +561,7 @@ export function Sidebar({ isMobile = false, mobileAberta = false, onFechar }: Si
             </>
           );
 
-          // Em dev: só módulo CRM (sempre expandido)
-          if (process.env.NODE_ENV === "development") {
-            return renderModule("/crm/agenda", "CRM", icoCRM, crmChildren, true, crmOpen, () => setCrmOpen(v => !v));
-          }
-
-          // Em prod: UseFokio + CRM (se habilitado)
+          // Dev e prod: UseFokio + CRM (se habilitado). Em dev o mock tem todos os recursos.
           const crmHabilitado = fotografo?.recursos?.crm !== false;
 
           return (

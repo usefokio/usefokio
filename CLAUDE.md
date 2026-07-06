@@ -2,9 +2,9 @@
 
 ## Visão Geral
 
-SaaS para fotógrafos. Este repositório é o projeto Next.js principal (`usefokio`), branch **master** (produção ativa em usefokio.com.br). O CRM está em produção — todas as alterações vão para `master` e são deployadas diretamente.
+SaaS para fotógrafos. Este repositório é o projeto Next.js principal (`usefokio`), branch **master** (produção ativa em usefokio.com.br). **Há usuários reais — não editar nem deployar direto em produção.**
 
-**Fluxo de trabalho:** editar → commit → `git push origin master` → deploy automático.
+**Fluxo de trabalho (atual):** desenvolver **localmente** contra o banco de DEV, numa **branch** → testar local → `git push` da branch (o Vercel gera um **Preview URL** com auth real) → quando um conjunto de features estiver pronto, **merge/push em `master`** = deploy de produção. **Deploys em lote, não a cada commit.**
 
 ## Como rodar localmente
 
@@ -19,12 +19,19 @@ Acesse: http://localhost:3001
 
 - **Porta:** 3001
 - **Banco:** Supabase de dev exclusivo (`usefokio-crm-dev`, project id: `lcpoufencuaawpztmclb`)
-- **Autenticação:** desativada em dev — nenhum login necessário
-- **`.env.local`** deve existir na raiz com:
+- **Autenticação:** desativada em dev — nenhum login necessário (mock fotografo com todos os recursos)
+- **Menu completo em dev:** UseFokio + CRM + painel `/webmaster` acessíveis (bypass gated por `NODE_ENV`,
+  nunca afeta prod/preview do Vercel).
+- **Setup do `.env.local`:** copie **`.env.example`** → `.env.local` (já vem apontando para o DEV) e cole o
+  **`SUPABASE_SERVICE_ROLE_KEY` do projeto DEV** (Dashboard dev → Settings → API) — necessário para as rotas
+  `/api` que usam `createAdminClient`. `.env.local` **nunca** deve conter chaves de PRODUÇÃO.
+- **Rodar:** `npm run dev:crm` → http://localhost:3001.
 
 ```
 NEXT_PUBLIC_SUPABASE_URL="https://lcpoufencuaawpztmclb.supabase.co"
-NEXT_PUBLIC_SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxjcG91ZmVuY3VhYXdwenRtY2xiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE3MjYxMDUsImV4cCI6MjA5NzMwMjEwNX0.crgj1obPknWgoWq8-BovkDR8zDOLnYNep6PpTsTzI-4"
+NEXT_PUBLIC_SUPABASE_ANON_KEY="<anon do dev>"
+SUPABASE_SERVICE_ROLE_KEY="<service_role do dev>"
+# ...demais vars: ver .env.example
 ```
 
 ## Bypass de autenticação em dev
@@ -90,7 +97,8 @@ Dados copiados da produção (fotógrafo `contato@fernandoagrelafotografia.com.b
 - Sem comentários desnecessários no código
 - Sem login/auth em dev — qualquer chamada ao Supabase Auth deve ser protegida por `if (process.env.NODE_ENV === "development") return`
 - Commits em português no estilo `feat(crm): descrição`
-- Push para `origin master` após cada alteração (deploy automático)
+- Desenvolver em **branch**, testar local (dev DB), e deployar **em lote** via merge em `master` — não push direto a cada mudança
+- **Schema do banco:** mudanças via arquivo SQL em `supabase/migrations/`, aplicadas **primeiro no DEV**, testadas, e só então na PROD (fim de migration direto em produção)
 
 ---
 
@@ -133,11 +141,37 @@ Dados copiados da produção (fotógrafo `contato@fernandoagrelafotografia.com.b
 | `lib/constants/statusMaps.ts` | `PEDIDO_STATUS_MAP`, `FIN_STATUS_MAP` |
 | `app/(dashboard)/crm/_components/Icons.tsx` | `IcoEdit`, `IcoTrash`, `IcoOpen`, `IcoMail`, `IcoCheck`, `IcoWhatsApp` |
 
-### Lógica de Resultados (DRE)
+### Lógica de Resultados (DRE) — fontes e regras (auditoria 2026-07-04)
 
-- **Regime de Competência**: receitas = `crm_orders` agrupados por `data_lancamento`, mapeados via `CATEGORIA_CODIGO` em `resultados/page.tsx`. Despesas = `crm_financial_entries` por `vencimento`.
-- **Regime de Caixa**: receitas = `crm_financial_entries` com `tipo=receita` e `pago_em` no período. Despesas = idem por `pago_em`.
-- `CATEGORIA_CODIGO` é hardcoded em `resultados/page.tsx` — atualizar sempre que adicionar nova categoria de pedido ou conta de receita. Categorias sem mapeamento exibem aviso amarelo na tela.
+**Duas telas, DUAS fontes distintas** (podem divergir — cuidado ao comparar):
+
+1. **Cards do topo + gráfico "por ano"** (`resultados/page.tsx` e `resultados/panorama/page.tsx`): RPC
+   `get_panorama_financeiro` → soma `crm_financial_entries` com `num_documento='DRE'`, `status='pago'`, por
+   ano de **`vencimento`**, agrupado por `tipo`. NÃO inclui pedidos `crm_nativo` nem lançamentos não-DRE.
+2. **Tabela "DRE por Plano de Contas" (panorama) + Resultados mensal**: função `carregarDRE`/`carregar`:
+   - **Competência**: lançamentos `num_documento='DRE'` por `vencimento` **+** pedidos `crm_orders`
+     `crm_nativo=true` por `data_lancamento` (mapeados via `CATEGORIA_CODIGO`). Não filtra `status`.
+   - **Caixa**: `crm_financial_entries` `status='pago'` (exceto DRE) por `pago_em`.
+   - **Usuário novo (sem DRE)**: lançamentos não-DRE por `conta_id`.
+
+**`CATEGORIA_CODIGO`** (categoria do pedido → código contábil) é hardcoded nos dois arquivos — atualizar ao
+adicionar categoria/conta. Categorias sem mapeamento exibem aviso amarelo (só no Resultados).
+
+**Dados importados (contas recebidas/pagas):** vão para `crm_financial_entries` — recebidas `tipo=receita`,
+pagas `tipo=despesa`, `status='pago'`, `pago_em=vencimento`, marcadas **`num_documento='DRE'`**; `conta_id`
+derivado (recebidas: categoria do pedido→código→conta; pagas: `account_id` do CSV→código→conta). Nota: os
+scripts `scripts/import-contas-*.mjs` apontam pro **dev** e setam `num_documento=document_number` — a
+marcação `'DRE'` de produção veio por outra importação (SQL).
+
+**⚠️ Plano de contas tem 2 versões por código** (conta do sistema `fotografo_id IS NULL` + cópia do
+fotógrafo, ids diferentes). Os lançamentos apontam pra cópia. Por isso a agregação da DRE é **por CÓDIGO da
+conta**, não por `conta_id` (senão a dedup por código escolhe a versão errada e perde valores → totais
+errados; foi o bug corrigido em 2026-07-04). Ao mexer na DRE, sempre agregar por `codigo` e, no drill-down,
+buscar `.in("conta_id", <todos os ids do código>)`.
+
+**Divergências conhecidas (não corrigidas):** a RPC (cards) filtra `status='pago'` e ignora `crm_nativo`,
+enquanto a tabela DRE (competência) não filtra status e inclui `crm_nativo` → podem divergir com pedidos
+novos/lançamentos pendentes. O card "Despesas" soma custos (seção 4) + despesas (seção 5) juntos.
 
 ### Dados importados (histórico photomanager)
 

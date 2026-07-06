@@ -6,12 +6,6 @@ const WEBMASTER_ID    = process.env.NEXT_PUBLIC_WEBMASTER_ID ?? "";
 
 const stripBOM = (s: string) => s.replace(/^﻿/, "");
 
-const adminClient = createClient(
-  stripBOM(process.env.NEXT_PUBLIC_SUPABASE_URL ?? ""),
-  stripBOM(process.env.SUPABASE_SERVICE_ROLE_KEY ?? ""),
-  { auth: { autoRefreshToken: false, persistSession: false } }
-);
-
 function decodeJwtPayload(token: string): { sub?: string; email?: string } | null {
   try {
     const parts = token.split(".");
@@ -38,6 +32,15 @@ export async function POST(req: Request) {
 
   const { fotografo_id } = await req.json() as { fotografo_id: string };
   if (!fotografo_id) return NextResponse.json({ error: "missing fotografo_id" }, { status: 400 });
+
+  // Instanciar dentro do handler (não no top-level do módulo): assim o build não
+  // avalia o createClient na fase "collect page data", que quebra quando as env
+  // vars faltam (ex.: ambiente Preview do Vercel).
+  const adminClient = createClient(
+    stripBOM(process.env.NEXT_PUBLIC_SUPABASE_URL ?? ""),
+    stripBOM(process.env.SUPABASE_SERVICE_ROLE_KEY ?? ""),
+    { auth: { autoRefreshToken: false, persistSession: false } }
+  );
 
   const { error: delError } = await adminClient.rpc("webmaster_excluir_fotografo", {
     p_fotografo_id: fotografo_id,
