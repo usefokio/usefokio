@@ -2,6 +2,10 @@ import { uploadFile } from "@/lib/storage/upload";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
+// Dá mais tempo para o envio ao R2 (imagens grandes/capa) não estourar o
+// tempo-limite padrão da função serverless em conexões lentas.
+export const maxDuration = 60;
+
 export async function POST(req: Request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
