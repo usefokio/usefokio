@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { fetchAllRows } from "@/lib/supabase/fetchAll";
 import { useFotografo } from "@/lib/context/FotografoContext";
 
 type Pagamento = {
@@ -133,16 +134,21 @@ export default function RecebimentosPage() {
 
   useEffect(() => {
     if (!fotografo) return;
-    createClient()
-      .from("pagamentos")
-      .select("*, galerias_entrega(id, titulo)")
-      .eq("fotografo_id", fotografo.id)
-      .eq("tipo", "renovacao")
-      .order("created_at", { ascending: false })
-      .then(({ data }) => {
-        setPagamentos((data as Pagamento[]) ?? []);
-        setCarregando(false);
-      });
+    const supabase = createClient();
+    fetchAllRows<Pagamento>(
+      (sb, from, to) =>
+        sb
+          .from("pagamentos")
+          .select("*, galerias_entrega(id, titulo)")
+          .eq("fotografo_id", fotografo.id)
+          .eq("tipo", "renovacao")
+          .order("created_at", { ascending: false })
+          .range(from, to),
+      supabase,
+    ).then((data) => {
+      setPagamentos(data);
+      setCarregando(false);
+    });
   }, [fotografo]);
 
   async function verificarPagamento(p: Pagamento) {

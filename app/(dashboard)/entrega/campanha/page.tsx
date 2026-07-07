@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { fetchAllRows } from "@/lib/supabase/fetchAll";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { ModalEmailCliente } from "../_components/ModalEmailCliente";
 import type { EstagioFunil, GaleriaEntrega } from "@/lib/supabase/types";
@@ -83,11 +84,16 @@ export default function CampanhaPage() {
 
     async function carregar() {
       // 1. Auto-enroll suspended/expired galleries that aren't in the funnel yet
-      const { data: todasGalerias } = await supabase
-        .from("galerias_entrega")
-        .select("id, suspensa, expires_at, respostas_campanha(id)")
-        .eq("fotografo_id", fotografo!.id)
-        .eq("rascunho", false);
+      const todasGalerias = await fetchAllRows<any>(
+        (sb, from, to) =>
+          sb
+            .from("galerias_entrega")
+            .select("id, suspensa, expires_at, respostas_campanha(id)")
+            .eq("fotografo_id", fotografo!.id)
+            .eq("rascunho", false)
+            .range(from, to),
+        supabase,
+      );
 
       if (todasGalerias) {
         const agora = new Date();
@@ -104,15 +110,18 @@ export default function CampanhaPage() {
       }
 
       // 2. Load funnel records
-      const { data } = await supabase
-        .from("respostas_campanha")
-        .select("id, token, estagio, resposta, respondido_em, email_1_em, email_2_em, whatsapp_em, agradecimento_em, drive_revogado, created_at, galerias_entrega(id, titulo, foto_capa_url, cover_color, data_evento, drive_link, expires_at, clientes(nome, email, telefone, whatsapp))")
-        .eq("fotografo_id", fotografo!.id)
-        .eq("ignorar_funil", false)
-        .neq("estagio", "sem_retorno")
-        .order("created_at", { ascending: false });
-
-      if (!data) { setLoading(false); return; }
+      const data = await fetchAllRows<any>(
+        (sb, from, to) =>
+          sb
+            .from("respostas_campanha")
+            .select("id, token, estagio, resposta, respondido_em, email_1_em, email_2_em, whatsapp_em, agradecimento_em, drive_revogado, created_at, galerias_entrega(id, titulo, foto_capa_url, cover_color, data_evento, drive_link, expires_at, clientes(nome, email, telefone, whatsapp))")
+            .eq("fotografo_id", fotografo!.id)
+            .eq("ignorar_funil", false)
+            .neq("estagio", "sem_retorno")
+            .order("created_at", { ascending: false })
+            .range(from, to),
+        supabase,
+      );
 
       // 3. Fetch payments (pendente + pago) for all galleries in the funnel
       const galeriaIds = (data as any[]).map((r) => r.galerias_entrega?.id).filter(Boolean);

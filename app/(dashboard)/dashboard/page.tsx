@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { fetchAllRows } from "@/lib/supabase/fetchAll";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import type { Cliente, GaleriaSelecao } from "@/lib/supabase/types";
 import { ApoieProjeto } from "../_components/ApoieProjeto";
@@ -65,16 +66,27 @@ export default function DashboardPage() {
       if (!user) return;
       const fid = user.id;
 
-      const [{ data: clientes }, { data: galerias }, { data: entregas }] = await Promise.all([
-        supabase.from("clientes").select("id, nome, created_at").eq("fotografo_id", fid).order("created_at", { ascending: false }),
-        supabase.from("galerias_selecao")
-          .select("id, titulo, status, selecao_enviada_em, created_at, foto_capa_id, cliente:clientes(nome), capa_foto:galerias_selecao_fotos!foto_capa_id(thumbnail_path, url_publica)")
-          .eq("fotografo_id", fid)
-          .order("created_at", { ascending: false }),
-        supabase.from("galerias_entrega")
-          .select("id, rascunho, suspensa, expires_at")
-          .eq("fotografo_id", fid)
-          .eq("rascunho", false),
+      const [clientes, galerias, entregas] = await Promise.all([
+        fetchAllRows(
+          (sb, from, to) => sb.from("clientes").select("id, nome, created_at").eq("fotografo_id", fid).order("created_at", { ascending: false }).range(from, to),
+          supabase,
+        ),
+        fetchAllRows(
+          (sb, from, to) => sb.from("galerias_selecao")
+            .select("id, titulo, status, selecao_enviada_em, created_at, foto_capa_id, cliente:clientes(nome), capa_foto:galerias_selecao_fotos!foto_capa_id(thumbnail_path, url_publica)")
+            .eq("fotografo_id", fid)
+            .order("created_at", { ascending: false })
+            .range(from, to),
+          supabase,
+        ),
+        fetchAllRows(
+          (sb, from, to) => sb.from("galerias_entrega")
+            .select("id, rascunho, suspensa, expires_at")
+            .eq("fotografo_id", fid)
+            .eq("rascunho", false)
+            .range(from, to),
+          supabase,
+        ),
       ]);
 
       const lista    = (clientes ?? []) as Pick<Cliente, "id" | "nome" | "created_at">[];

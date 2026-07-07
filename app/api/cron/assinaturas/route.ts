@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getResend, FROM_DEFAULT } from "@/lib/email/resend";
+import { fetchAllRows } from "@/lib/supabase/fetchAll";
 
 export async function GET(req: Request) {
   const auth   = req.headers.get("authorization");
@@ -20,12 +21,22 @@ export async function GET(req: Request) {
   let downgrades = 0;
 
   // ── Avisos: expira em 7 dias ────────────────────────────────────────────────
-  const { data: expirandoBreve } = await admin
-    .from("fotografos")
-    .select("id, email, nome_completo, nome_empresa, plano_expira_em")
-    .eq("plano", "profissional")
-    .gte("plano_expira_em", `${hoje}T00:00:00`)
-    .lte("plano_expira_em", `${em7dStr}T23:59:59`);
+  const expirandoBreve = await fetchAllRows<{
+    id: string;
+    email: string | null;
+    nome_completo: string | null;
+    nome_empresa: string | null;
+    plano_expira_em: string;
+  }>(
+    (sb, from, to) => sb
+      .from("fotografos")
+      .select("id, email, nome_completo, nome_empresa, plano_expira_em")
+      .eq("plano", "profissional")
+      .gte("plano_expira_em", `${hoje}T00:00:00`)
+      .lte("plano_expira_em", `${em7dStr}T23:59:59`)
+      .range(from, to),
+    admin,
+  );
 
   for (const foto of expirandoBreve ?? []) {
     if (!foto.email) continue;
@@ -58,11 +69,21 @@ export async function GET(req: Request) {
   }
 
   // ── Downgrade: expirou ───────────────────────────────────────────────────────
-  const { data: expirados } = await admin
-    .from("fotografos")
-    .select("id, email, nome_completo, nome_empresa, plano_expira_em")
-    .eq("plano", "profissional")
-    .lt("plano_expira_em", `${hoje}T00:00:00`);
+  const expirados = await fetchAllRows<{
+    id: string;
+    email: string | null;
+    nome_completo: string | null;
+    nome_empresa: string | null;
+    plano_expira_em: string;
+  }>(
+    (sb, from, to) => sb
+      .from("fotografos")
+      .select("id, email, nome_completo, nome_empresa, plano_expira_em")
+      .eq("plano", "profissional")
+      .lt("plano_expira_em", `${hoje}T00:00:00`)
+      .range(from, to),
+    admin,
+  );
 
   const idsParaDowngrade = (expirados ?? []).map(f => f.id);
 

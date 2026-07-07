@@ -162,7 +162,7 @@ export default function EntregaPage() {
     if (!fotografo) return;
     const supabase = createClient();
 
-    const [data, { data: rcData }] = await Promise.all([
+    const [data, rcData] = await Promise.all([
       fetchAllRows<any>(
         (sbc, f, t) => sbc
           .from("galerias_entrega")
@@ -172,10 +172,14 @@ export default function EntregaPage() {
           .range(f, t),
         supabase
       ),
-      supabase
-        .from("respostas_campanha")
-        .select("galeria_id, token, estagio, resposta, respondido_em, email_1_em, email_2_em")
-        .eq("fotografo_id", fotografo.id),
+      fetchAllRows<any>(
+        (sbc, f, t) => sbc
+          .from("respostas_campanha")
+          .select("galeria_id, token, estagio, resposta, respondido_em, email_1_em, email_2_em")
+          .eq("fotografo_id", fotografo.id)
+          .range(f, t),
+        supabase
+      ),
     ]);
 
     // Indexar respostas por galeria_id para merge O(1)

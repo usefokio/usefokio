@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { fetchAllRows } from "@/lib/supabase/fetchAll";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { Field } from "@/components/ui/Field";
 import { inputStyle } from "@/lib/styles";
@@ -70,13 +71,16 @@ export default function ContasBancariasPage() {
     if (!fotografo) return;
     setLoading(true);
     const sb = createClient();
-    const [{ data: contasData }, { data: movData }] = await Promise.all([
+    const [{ data: contasData }, movData] = await Promise.all([
       sb.from("crm_contas_bancarias").select("*").eq("fotografo_id", fotografo.id).order("nome"),
-      sb.from("crm_financial_entries").select("conta_bancaria_id, tipo, valor").eq("fotografo_id", fotografo.id).eq("status", "pago").not("conta_bancaria_id", "is", null),
+      fetchAllRows<{ conta_bancaria_id: string; tipo: string; valor: number }>(
+        (client, from, to) => client.from("crm_financial_entries").select("conta_bancaria_id, tipo, valor").eq("fotografo_id", fotografo.id).eq("status", "pago").not("conta_bancaria_id", "is", null).range(from, to),
+        sb,
+      ),
     ]);
     setContas((contasData ?? []) as CrmContaBancaria[]);
     const acc: Record<string, SaldoConta> = {};
-    for (const m of (movData ?? []) as { conta_bancaria_id: string; tipo: string; valor: number }[]) {
+    for (const m of movData) {
       if (!acc[m.conta_bancaria_id]) acc[m.conta_bancaria_id] = { receitas: 0, despesas: 0 };
       if (m.tipo === "receita") acc[m.conta_bancaria_id].receitas += m.valor;
       else acc[m.conta_bancaria_id].despesas += m.valor;

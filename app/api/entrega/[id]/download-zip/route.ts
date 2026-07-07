@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { fetchAllRows } from "@/lib/supabase/fetchAll";
 // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
 const createArchive: (...args: any[]) => import("archiver").Archiver = require("archiver");
 import { PassThrough } from "stream";
@@ -35,19 +36,22 @@ async function streamZip(galeriaId: string, fotoIds: string[] | null) {
   }
 
   // Fetch photos
-  let query = supabase
-    .from("galerias_entrega_fotos")
-    .select("nome_arquivo, url_publica")
-    .eq("galeria_id", galeriaId)
-    .order("ordem")
-    .order("created_at");
-
-  if (fotoIds) {
-    query = query.in("id", fotoIds);
-  }
-
-  const { data: fotos, error } = await query;
-  if (error || !fotos || fotos.length === 0) {
+  const fotos = await fetchAllRows<{ nome_arquivo: string | null; url_publica: string }>(
+    (sb, from, to) => {
+      let query = sb
+        .from("galerias_entrega_fotos")
+        .select("nome_arquivo, url_publica")
+        .eq("galeria_id", galeriaId)
+        .order("ordem")
+        .order("created_at");
+      if (fotoIds) {
+        query = query.in("id", fotoIds);
+      }
+      return query.range(from, to);
+    },
+    supabase,
+  );
+  if (fotos.length === 0) {
     return new Response("Sem fotos", { status: 404 });
   }
 

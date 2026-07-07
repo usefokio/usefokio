@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { deleteFilesBatch } from "@/lib/storage/delete";
+import { fetchAllRows } from "@/lib/supabase/fetchAll";
 
 function getAdminClient() {
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -40,11 +41,16 @@ export async function POST(req: NextRequest) {
   const sb = getAdminClient() ?? userClient;
 
   if (galeria_id && !ids) {
-    const { data: fotos } = await sb
-      .from("galerias_selecao_fotos")
-      .select("storage_path, thumbnail_path, url_publica")
-      .eq("galeria_id", galeria_id);
-    if (fotos?.length) {
+    const fotos = await fetchAllRows<{ storage_path: string; thumbnail_path: string | null; url_publica: string | null }>(
+      (sb2, from, to) =>
+        sb2
+          .from("galerias_selecao_fotos")
+          .select("storage_path, thumbnail_path, url_publica")
+          .eq("galeria_id", galeria_id)
+          .range(from, to),
+      sb,
+    );
+    if (fotos.length) {
       const storageItems = fotos.flatMap((f) => [
         { storage_path: f.storage_path, url_publica: f.url_publica as string | null },
         f.thumbnail_path ? { storage_path: f.thumbnail_path as string, url_publica: null } : null,

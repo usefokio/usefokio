@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { verificarWebmaster } from "@/lib/webmaster/auth";
+import { fetchAllRows } from "@/lib/supabase/fetchAll";
 
 export async function GET(req: Request) {
   if (!await verificarWebmaster(req)) return NextResponse.json({ error: "forbidden" }, { status: 403 });
@@ -10,9 +11,15 @@ export async function GET(req: Request) {
   const inicioMes = new Date(agora.getFullYear(), agora.getMonth(), 1).toISOString();
   const em30dias = new Date(agora.getTime() + 30 * 86400 * 1000).toISOString();
 
-  const [{ data: assinaturas }, { data: fotografos }, { data: planosConfig }] = await Promise.all([
-    admin.from("assinaturas").select("preco_cobrado, valor, status, pago_em, asaas_id"),
-    admin.from("fotografos").select("id, nome_completo, nome_empresa, email, plano, plano_expira_em, plano_periodo, plano_cortesia"),
+  const [assinaturas, fotografos, { data: planosConfig }] = await Promise.all([
+    fetchAllRows<{ preco_cobrado: number | null; valor: number | null; status: string | null; pago_em: string | null; asaas_id: string | null }>(
+      (sb, from, to) => sb.from("assinaturas").select("preco_cobrado, valor, status, pago_em, asaas_id").range(from, to),
+      admin,
+    ),
+    fetchAllRows<{ id: string; nome_completo: string | null; nome_empresa: string | null; email: string | null; plano: string | null; plano_expira_em: string | null; plano_periodo: string | null; plano_cortesia: boolean | null }>(
+      (sb, from, to) => sb.from("fotografos").select("id, nome_completo, nome_empresa, email, plano, plano_expira_em, plano_periodo, plano_cortesia").range(from, to),
+      admin,
+    ),
     admin.from("planos_config").select("codigo, preco, preco_anual").eq("ativo", true),
   ]);
 

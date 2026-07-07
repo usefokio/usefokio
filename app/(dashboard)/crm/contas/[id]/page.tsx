@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { fetchAllRows } from "@/lib/supabase/fetchAll";
 import type { CrmContaBancaria, CrmFinancialEntry } from "@/lib/supabase/types";
 
 type Movimento = CrmFinancialEntry & {
@@ -23,16 +24,22 @@ export default function ExtratoConta() {
   const carregar = useCallback(async () => {
     setLoading(true);
     const sb = createClient();
-    const [{ data: c }, { data: m }] = await Promise.all([
+    const [{ data: c }, m] = await Promise.all([
       sb.from("crm_contas_bancarias").select("*").eq("id", id).single(),
-      sb.from("crm_financial_entries")
-        .select("*, crm_orders(nome, clientes(nome))")
-        .eq("conta_bancaria_id", id)
-        .eq("status", "pago")
-        .order("pago_em", { ascending: false }),
+      fetchAllRows<Movimento>(
+        (client, from, to) =>
+          client
+            .from("crm_financial_entries")
+            .select("*, crm_orders(nome, clientes(nome))")
+            .eq("conta_bancaria_id", id)
+            .eq("status", "pago")
+            .order("pago_em", { ascending: false })
+            .range(from, to),
+        sb,
+      ),
     ]);
     setConta(c as CrmContaBancaria);
-    setMovimentos((m ?? []) as Movimento[]);
+    setMovimentos(m);
     setLoading(false);
   }, [id]);
 

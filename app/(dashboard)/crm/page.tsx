@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { fetchAllRows } from "@/lib/supabase/fetchAll";
 import { useFotografo } from "@/lib/context/FotografoContext";
 
 type Stats = {
@@ -105,16 +106,24 @@ export default function CrmDashboard() {
     const fid = fotografo.id;
 
     Promise.all([
-      sb.from("clientes").select("tipo_contato", { count: "exact", head: false }).eq("fotografo_id", fid).eq("crm_ativo", true),
-      sb.from("crm_opportunities").select("status", { count: "exact", head: false }).eq("fotografo_id", fid),
-      sb.from("crm_orders").select("status", { count: "exact", head: false }).eq("fotografo_id", fid),
+      fetchAllRows<{ tipo_contato: string }>(
+        (client, from, to) => client.from("clientes").select("tipo_contato").eq("fotografo_id", fid).eq("crm_ativo", true).range(from, to),
+        sb,
+      ),
+      fetchAllRows<{ status: string }>(
+        (client, from, to) => client.from("crm_opportunities").select("status").eq("fotografo_id", fid).range(from, to),
+        sb,
+      ),
+      fetchAllRows<{ status: string }>(
+        (client, from, to) => client.from("crm_orders").select("status").eq("fotografo_id", fid).range(from, to),
+        sb,
+      ),
       sb.from("crm_products").select("id", { count: "exact", head: true }).eq("fotografo_id", fid),
-      sb.from("crm_financial_entries").select("tipo, status", { count: "exact", head: false }).eq("fotografo_id", fid).eq("status", "pendente"),
-    ]).then(([clRaw, oppRaw, pedRaw, prodRaw, finRaw]) => {
-      const cls = (clRaw.data ?? []) as { tipo_contato: string }[];
-      const opps = (oppRaw.data ?? []) as { status: string }[];
-      const peds = (pedRaw.data ?? []) as { status: string }[];
-      const fins = (finRaw.data ?? []) as { tipo: string; status: string }[];
+      fetchAllRows<{ tipo: string; status: string }>(
+        (client, from, to) => client.from("crm_financial_entries").select("tipo, status").eq("fotografo_id", fid).eq("status", "pendente").range(from, to),
+        sb,
+      ),
+    ]).then(([cls, opps, peds, prodRaw, fins]) => {
 
       setStats({
         clientes: cls.filter(c => c.tipo_contato === "cliente").length,

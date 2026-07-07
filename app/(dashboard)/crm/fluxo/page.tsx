@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { fetchAllRows } from "@/lib/supabase/fetchAll";
 import { useFotografo } from "@/lib/context/FotografoContext";
 
 const MESES = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
@@ -44,20 +45,24 @@ export default function FluxoPage() {
     if (!fotografo) return;
     setLoading(true);
     const sb = createClient();
-    const { data } = await sb
-      .from("crm_financial_entries")
-      .select("tipo, valor, pago_em, conta_id, crm_chart_of_accounts(codigo)")
-      .eq("fotografo_id", fotografo.id)
-      .eq("status", "pago")
-      .or("num_documento.is.null,num_documento.neq.DRE")
-      .gte("pago_em", `${ano}-01-01`)
-      .lte("pago_em", `${ano}-12-31`)
-      .not("pago_em", "is", null);
+    const data = await fetchAllRows<{ tipo: string; valor: number; pago_em: string; conta_id: string | null; crm_chart_of_accounts: { codigo: string } | null }>(
+      (client, from, to) => client
+        .from("crm_financial_entries")
+        .select("tipo, valor, pago_em, conta_id, crm_chart_of_accounts(codigo)")
+        .eq("fotografo_id", fotografo.id)
+        .eq("status", "pago")
+        .or("num_documento.is.null,num_documento.neq.DRE")
+        .gte("pago_em", `${ano}-01-01`)
+        .lte("pago_em", `${ano}-12-31`)
+        .not("pago_em", "is", null)
+        .range(from, to),
+      sb,
+    );
 
     const ent = Array(12).fill(0);
     const sai = Array(12).fill(0);
 
-    for (const e of (data ?? []) as unknown as { tipo: string; valor: number; pago_em: string; conta_id: string | null; crm_chart_of_accounts: { codigo: string } | null }[]) {
+    for (const e of data) {
       const mes = parseInt(e.pago_em.slice(5, 7)) - 1;
       if (mes < 0 || mes > 11) continue;
       const codigo = e.crm_chart_of_accounts?.codigo ?? "";
