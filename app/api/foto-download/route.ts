@@ -8,6 +8,7 @@ export async function GET(req: NextRequest) {
 
   const allowedOrigins = [
     "https://fhsoqlttxggjpgrupjse.supabase.co/storage/",
+    "https://lcpoufencuaawpztmclb.supabase.co/storage/", // Supabase Storage do DEV (upload local)
     "https://arquivos.usefokio.com.br/",
     "https://pub-e66279e0a17e4483ab3779c6326d2f65.r2.dev/",
   ];
