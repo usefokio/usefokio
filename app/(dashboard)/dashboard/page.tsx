@@ -59,12 +59,10 @@ export default function DashboardPage() {
   const [aguardando, setAguardando]           = useState<GaleriaRevisao[]>([]);
   const [loading, setLoading]                 = useState(true);
   useEffect(() => {
+    if (!fotografo) return;
+    const fid = fotografo.id;
     async function load() {
       const supabase = createClient();
-
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      const fid = user.id;
 
       const [clientes, galerias, entregas] = await Promise.all([
         fetchAllRows(
@@ -150,7 +148,7 @@ export default function DashboardPage() {
       setLoading(false);
     }
     load();
-  }, []);
+  }, [fotografo]);
 
   const saudacao = () => {
     const h = new Date().getHours();
