@@ -121,6 +121,7 @@ export default function AcessoEntregaPage() {
   // Seleção de fotos para download
   const [modoSelecao,   setModoSelecao]   = useState(false);
   const [selecionadas,  setSelecionadas]  = useState<Set<string>>(new Set());
+  const [zipProgresso,  setZipProgresso]  = useState<number | null>(null); // null = ocioso; 0-100 = gerando ZIP
 
   // Form identificação
   const [nome,     setNome]     = useState("");
@@ -233,21 +234,56 @@ export default function AcessoEntregaPage() {
   function selecionarTodas() { setSelecionadas(new Set(fotos.map((f) => f.id))); }
   function desmarcarTodas()  { setSelecionadas(new Set()); }
 
-  function baixarSelecionadas(ids?: string[]) {
+  async function baixarSelecionadas(ids?: string[]) {
     const fotosParaBaixar = fotos.filter((f) => ids ? ids.includes(f.id) : selecionadas.has(f.id));
-    if (fotosParaBaixar.length === 0) return;
+    if (fotosParaBaixar.length === 0 || zipProgresso !== null) return;
 
     fetch(`/api/entrega/${id}/download`, { method: "POST" }).catch(() => {});
 
-    // Dispara todos os cliques de uma vez — mesmo contexto de gesto, sem await entre eles
-    fotosParaBaixar.forEach((foto) => {
+    // Monta UM único .zip no navegador (mesma lib jszip usada na seleção)
+    setZipProgresso(0);
+    try {
+      const JSZip = (await import("jszip")).default;
+      const zip = new JSZip();
+      const usados = new Map<string, number>();
+      let concluidas = 0;
+      await Promise.all(
+        fotosParaBaixar.map(async (foto) => {
+          try {
+            const resp = await fetch(urlDownload(foto.url_publica, foto.nome_arquivo));
+            if (resp.ok) {
+              const blob = await resp.blob();
+              let nome = foto.nome_arquivo ?? "foto.jpg";
+              const c = usados.get(nome) ?? 0;
+              usados.set(nome, c + 1);
+              if (c > 0) {
+                const d = nome.lastIndexOf(".");
+                nome = d > 0 ? `${nome.slice(0, d)}_${c}${nome.slice(d)}` : `${nome}_${c}`;
+              }
+              zip.file(nome, blob);
+            }
+          } catch { /* pula foto que falhar */ }
+          concluidas++;
+          setZipProgresso(Math.round((concluidas / fotosParaBaixar.length) * 85));
+        })
+      );
+      const nomeZip = `${(galeria?.titulo ?? "fotos").replace(/[^a-zA-Z0-9À-ÿ\s_-]/g, "").trim() || "fotos"}.zip`;
+      const blob = await zip.generateAsync(
+        { type: "blob", compression: "DEFLATE", compressionOptions: { level: 3 } },
+        (meta) => setZipProgresso(85 + Math.round(meta.percent * 0.15)),
+      );
       const a = document.createElement("a");
-      a.href = urlDownload(foto.url_publica, foto.nome_arquivo);
-      a.download = foto.nome_arquivo ?? "foto.jpg";
+      a.href = URL.createObjectURL(blob);
+      a.download = nomeZip;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-    });
+      setTimeout(() => URL.revokeObjectURL(a.href), 60_000);
+    } catch {
+      alert("Não foi possível gerar o ZIP. Tente novamente.");
+    } finally {
+      setZipProgresso(null);
+    }
   }
 
   // ── Renovação de acesso ──────────────────────────────────────────────────────
@@ -757,10 +793,11 @@ export default function AcessoEntregaPage() {
           <div style={{ display: "flex", gap: 8, flexShrink: 0, alignItems: "center" }}>
             <button
               onClick={() => baixarSelecionadas(fotos.map((f) => f.id))}
-              style={{ display: "flex", alignItems: "center", gap: 6, padding: isMobile ? "8px 10px" : "8px 14px", borderRadius: 8, background: "#111", color: "#fff", fontSize: 12, fontWeight: 700, border: "none", cursor: "pointer" }}
+              disabled={zipProgresso !== null}
+              style={{ display: "flex", alignItems: "center", gap: 6, padding: isMobile ? "8px 10px" : "8px 14px", borderRadius: 8, background: "#111", color: "#fff", fontSize: 12, fontWeight: 700, border: "none", cursor: zipProgresso !== null ? "wait" : "pointer", opacity: zipProgresso !== null ? 0.7 : 1 }}
             >
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-              {!isMobile && "Baixar todas"}
+              {zipProgresso !== null ? `Gerando ZIP… ${zipProgresso}%` : (!isMobile && "Baixar todas")}
             </button>
             {!isMobile && (
               <button
@@ -789,10 +826,11 @@ export default function AcessoEntregaPage() {
             {selecionadas.size > 0 && (
               <button
                 onClick={() => baixarSelecionadas([...selecionadas])}
-                style={{ display: "flex", alignItems: "center", gap: 5, padding: "6px 14px", borderRadius: 7, background: "#111", color: "#fff", fontSize: 12, fontWeight: 700, border: "none", cursor: "pointer" }}
+                disabled={zipProgresso !== null}
+                style={{ display: "flex", alignItems: "center", gap: 5, padding: "6px 14px", borderRadius: 7, background: "#111", color: "#fff", fontSize: 12, fontWeight: 700, border: "none", cursor: zipProgresso !== null ? "wait" : "pointer", opacity: zipProgresso !== null ? 0.7 : 1 }}
               >
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                Baixar {selecionadas.size}
+                {zipProgresso !== null ? `ZIP… ${zipProgresso}%` : `Baixar ${selecionadas.size}`}
               </button>
             )}
             <button
