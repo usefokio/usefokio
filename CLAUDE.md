@@ -26,6 +26,10 @@ Acesse: http://localhost:3001
   **`SUPABASE_SERVICE_ROLE_KEY` do projeto DEV** (Dashboard dev → Settings → API) — necessário para as rotas
   `/api` que usam `createAdminClient`. `.env.local` **nunca** deve conter chaves de PRODUÇÃO.
 - **Rodar:** `npm run dev:crm` → http://localhost:3001.
+- **Porta presa** (node órfão em 3000/3001): `Get-Process node | Stop-Process -Force` no PowerShell, ou usar
+  `preview_start`/`preview_stop` (que gerenciam o processo) apenas quando o Fernando pedir teste.
+- **Dois PCs (desktop + notebook):** ao iniciar/retomar, rodar `git fetch` e conferir `git status -sb` no
+  usefokio antes de editar — o outro PC pode ter commits mais recentes.
 
 ```
 NEXT_PUBLIC_SUPABASE_URL="https://lcpoufencuaawpztmclb.supabase.co"
@@ -172,6 +176,39 @@ buscar `.in("conta_id", <todos os ids do código>)`.
 **Divergências conhecidas (não corrigidas):** a RPC (cards) filtra `status='pago'` e ignora `crm_nativo`,
 enquanto a tabela DRE (competência) não filtra status e inclui `crm_nativo` → podem divergir com pedidos
 novos/lançamentos pendentes. O card "Despesas" soma custos (seção 4) + despesas (seção 5) juntos.
+
+## Padrões de sistema — REVISAR esta lista antes de entregar QUALQUER tela/form novo
+
+São regras válidas em **todo o sistema** (não só na tela citada no pedido). Foram repetidas várias vezes
+sessão após sessão — tratar como checklist obrigatório, não como preferência pontual.
+
+- **Campo de valor R$**: sempre com máscara — `mascaraValor`/`parsearValor` (ou `mascaraMoeda`/`parseMoeda`).
+  Nunca `<input>` numérico cru para dinheiro. Exibir com `formatNum`/`formatBRL` (`lib/utils/format.ts`).
+- **Listagens/somas: NUNCA `select` direto** — sempre `fetchAllRows` (`lib/supabase/fetchAll.ts`) para listas,
+  ou RPC de agregação para totais. O PostgREST corta em **1000 linhas silenciosamente** → totais/listas
+  errados. Este bug já reapareceu em ~9 telas.
+- **Visualizar ≠ Editar**: telas de visualização são **read-only**. Alterações só em **modo de edição** com
+  botão **Salvar** explícito. Nunca auto-save ao selecionar/clicar (ex.: produtos no pedido). Ver memória
+  [[feedback_view_vs_edit]].
+- **Listagens**: título da coluna é **clicável** e alterna a ordenação; filtros e busca **persistentes**;
+  paginação universal.
+- **Selects/dropdowns**: opções em **ordem alfabética** (ou por `ordem` explícita quando houver).
+- **Formulários longos**: botão **Salvar** no **topo e no rodapé**.
+- **Data**: campos de data começam com **hoje** por padrão.
+- **Upload de fotos**: sempre em **fila/blocos** com barra de progresso e concorrência limitada; reaproveitar
+  o padrão de `entrega/nova` (retry + idempotência, não recriar a galeria a cada tentativa).
+- **Email para cliente**: seguir o padrão já existente na tela (manual via `mailto`/botão) — não disparar
+  envio automático sem pedido.
+- **Nada hardcoded de negócio**: preços, limites de fotos/galerias e regras de plano vêm de **`planos_config`**
+  (não constantes no código).
+- **Cliente único**: uma só tabela `clientes` compartilhada por CRM/seleção/entrega. Nunca base paralela nem
+  recadastro. Ver [[project_cliente_unico]].
+
+## Migrações de schema (regra)
+Toda mudança de schema vira um **arquivo SQL numerado** em `supabase/migrations/`, aplicado **primeiro no dev**
+(`lcpoufencuaawpztmclb`), testado, e só então na **prod** (`fhsoqlttxggjpgrupjse`) no dia do deploy em lote.
+Nunca alterar schema direto em produção sem passar pelo dev. (O guard de SQL destrutivo em prod é mecânico —
+ver memória [[project_setup_hooks]].)
 
 ### Dados importados (histórico photomanager)
 
