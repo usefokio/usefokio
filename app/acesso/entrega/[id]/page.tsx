@@ -138,7 +138,7 @@ export default function AcessoEntregaPage() {
   const [renovFormAberto,  setRenovFormAberto]  = useState(false);
   const [renovInvoiceUrl,  setRenovInvoiceUrl]  = useState<string | null>(null);
   const [renovGerando,     setRenovGerando]     = useState(false);
-  const [pixInfo,          setPixInfo]          = useState<{ chave: string; tipo: string; valor: number } | null>(null);
+  const [pixInfo,          setPixInfo]          = useState<{ chave: string; tipo: string; valor: number; qrDataUrl?: string | null; copiaECola?: string | null } | null>(null);
   const [renovVerificando, setRenovVerificando] = useState(false);
   const [renovMsg,         setRenovMsg]         = useState("");
   const [renovNome,        setRenovNome]        = useState("");
@@ -146,7 +146,7 @@ export default function AcessoEntregaPage() {
   const [renovCpf,         setRenovCpf]         = useState("");
   const [modalCpf,         setModalCpf]         = useState(false);
   const [cpfTemp,          setCpfTemp]          = useState("");
-  const [asaasAtivo,       setAsaasAtivo]       = useState<boolean | null>(null);
+  const [pagamentoAtivo,   setPagamentoAtivo]   = useState<boolean | null>(null);
 
   const largura  = useWindowWidth();
   const isMobile = largura < MOBILE;
@@ -311,8 +311,8 @@ export default function AcessoEntregaPage() {
       verificarRenovacao(true);
       fetch(`/api/acesso/entrega/${id}/pagamento`)
         .then(r => r.json())
-        .then(d => setAsaasAtivo(d.asaas_ativo ?? false))
-        .catch(() => setAsaasAtivo(false));
+        .then(d => setPagamentoAtivo(d.pagamento_ativo ?? false))
+        .catch(() => setPagamentoAtivo(false));
     }
   }, [tela]);
 
@@ -341,7 +341,7 @@ export default function AcessoEntregaPage() {
       const json = await res.json();
       if (!res.ok) { setRenovMsg(json.erro ?? "Erro ao gerar pagamento."); return; }
       if (json.gateway === "pix_manual") {
-        setPixInfo({ chave: json.pixChave, tipo: json.pixTipo, valor: json.valor });
+        setPixInfo({ chave: json.pixChave, tipo: json.pixTipo, valor: json.valor, qrDataUrl: json.pixQrDataUrl, copiaECola: json.pixCopiaECola });
       } else {
         setRenovInvoiceUrl(json.invoiceUrl);
         window.open(json.invoiceUrl, "_blank", "noopener,noreferrer");
@@ -429,7 +429,7 @@ export default function AcessoEntregaPage() {
   // Bloco de pagamento de renovação — usado nas telas expirada e suspensa.
   // Chamado como função (não como <Componente/>) para não remontar os inputs a cada render.
   function renderBlocoRenovacao({ cor }: { cor: string }) {
-    if (!asaasAtivo) return (
+    if (!pagamentoAtivo) return (
       <div style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", marginTop: 6 }}>
         Entre em contato com o fotógrafo para renovar o acesso.
       </div>
@@ -442,8 +442,13 @@ export default function AcessoEntregaPage() {
         {pixInfo ? (
           <div>
             <div style={{ fontSize: 13, color: "rgba(255,255,255,0.8)", lineHeight: 1.6, marginBottom: 12 }}>
-              Realize o pagamento via PIX para renovar o acesso.
+              Escaneie o QR code ou use a chave PIX abaixo para renovar o acesso.
             </div>
+            {pixInfo.qrDataUrl && (
+              <div style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}>
+                <img src={pixInfo.qrDataUrl} alt="QR code do PIX" width={200} height={200} style={{ background: "#fff", borderRadius: 12, padding: 10 }} />
+              </div>
+            )}
             <div style={{ background: "rgba(255,255,255,0.1)", borderRadius: 10, padding: "14px 16px", marginBottom: 12 }}>
               <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>
                 Chave PIX {pixInfo.tipo !== "aleatoria" ? `(${pixInfo.tipo})` : "(aleatória)"}
@@ -455,12 +460,22 @@ export default function AcessoEntregaPage() {
                 Valor: <strong style={{ color: "#fff" }}>R$ {pixInfo.valor.toFixed(2).replace(".", ",")}</strong>
               </div>
             </div>
-            <button
-              onClick={() => { navigator.clipboard.writeText(pixInfo.chave); }}
-              style={{ padding: "10px 18px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.3)", background: "transparent", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer", marginBottom: 10 }}
-            >
-              📋 Copiar chave PIX
-            </button>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
+              {pixInfo.copiaECola && (
+                <button
+                  onClick={() => { navigator.clipboard.writeText(pixInfo.copiaECola!); }}
+                  style={{ padding: "10px 18px", borderRadius: 8, border: "none", background: "#fff", color: "#000", fontSize: 13, fontWeight: 700, cursor: "pointer" }}
+                >
+                  📋 Copiar código PIX
+                </button>
+              )}
+              <button
+                onClick={() => { navigator.clipboard.writeText(pixInfo.chave); }}
+                style={{ padding: "10px 18px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.3)", background: "transparent", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer" }}
+              >
+                Copiar chave PIX
+              </button>
+            </div>
             <div style={{ fontSize: 12, color: "rgba(255,255,255,0.5)", lineHeight: 1.6 }}>
               Após realizar o pagamento, aguarde a confirmação do fotógrafo para liberar o acesso.
             </div>
@@ -788,8 +803,8 @@ export default function AcessoEntregaPage() {
             {!isMobile && "Baixar todas"}
           </a>
         )}
-        {/* Sem Drive link → Baixar todas + Selecionar */}
-        {!galeria?.drive_link && fotos.length > 0 && !modoSelecao && (
+        {/* Sem Drive link → Baixar todas + Selecionar (oculto em galeria só-visualização) */}
+        {!galeria?.drive_link && !galeria?.apenas_zip && fotos.length > 0 && !modoSelecao && (
           <div style={{ display: "flex", gap: 8, flexShrink: 0, alignItems: "center" }}>
             <button
               onClick={() => baixarSelecionadas(fotos.map((f) => f.id))}
@@ -809,8 +824,8 @@ export default function AcessoEntregaPage() {
             )}
           </div>
         )}
-        {/* Modo seleção ativo */}
-        {!galeria?.drive_link && modoSelecao && (
+        {/* Modo seleção ativo (oculto em galeria só-visualização) */}
+        {!galeria?.drive_link && !galeria?.apenas_zip && modoSelecao && (
           <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0, flexWrap: "wrap" }}>
             <span style={{ fontSize: 12, color: "#666" }}>
               {selecionadas.size} selecionada{selecionadas.size !== 1 ? "s" : ""}

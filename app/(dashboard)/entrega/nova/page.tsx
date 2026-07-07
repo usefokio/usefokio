@@ -590,9 +590,9 @@ export default function NovaEntregaPage() {
               <div>
                 <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}>
                   <span style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)" }}>Galeria somente visualização</span>
-                  <TooltipIcon text="O cliente pode ver as fotos mas não pode baixá-las individualmente. O botão de download fica oculto." />
+                  <TooltipIcon text="O cliente pode ver as fotos mas não pode baixá-las: os botões de download individual, 'Baixar todas' e 'Selecionar para baixar' ficam ocultos. Se houver link do Google Drive, o download por lá continua disponível." />
                 </div>
-                <div style={{ fontSize: 12, color: "var(--color-text-secondary)", lineHeight: 1.5 }}>Desativa o download individual de fotos.</div>
+                <div style={{ fontSize: 12, color: "var(--color-text-secondary)", lineHeight: 1.5 }}>Oculta os botões de download (individual e em lote). O link do Drive, se houver, continua liberado.</div>
               </div>
             </label>
             <label style={{ display: "flex", alignItems: "flex-start", gap: 12, cursor: "pointer" }}>

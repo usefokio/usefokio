@@ -6,6 +6,8 @@ import { decryptKey, criarCobranca, type AsaasAmbiente } from "@/lib/asaas";
 import nodemailer from "nodemailer";
 import { getResend, FROM_DEFAULT } from "@/lib/email/resend";
 import { rateLimitOk, clientIp } from "@/lib/rate-limit";
+import QRCode from "qrcode";
+import { gerarBrCodePix } from "@/lib/pix/brcode";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -37,7 +39,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   const { data: fotografo } = await admin
     .from("fotografos")
-    .select("id, nome_empresa, nome_completo, email, asaas_api_key_enc, asaas_ambiente, asaas_ativo, pix_ativo, pix_chave, pix_tipo, abacate_api_key_enc, abacate_ativo, mp_api_key_enc, mp_ativo, smtp_host, smtp_port, smtp_user, smtp_pass_enc, smtp_from")
+    .select("id, nome_empresa, nome_completo, cidade, email, asaas_api_key_enc, asaas_ambiente, asaas_ativo, pix_ativo, pix_chave, pix_tipo, abacate_api_key_enc, abacate_ativo, mp_api_key_enc, mp_ativo, smtp_host, smtp_port, smtp_user, smtp_pass_enc, smtp_from")
     .eq("id", galeria.fotografo_id)
     .maybeSingle();
 
@@ -81,14 +83,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://www.usefokio.com.br";
       const valorFmt = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(galeria.renewal_fee);
       const emailTo = fotografo!.email ?? "";
-      const subject = `Pagamento PIX recebido — ${galeria.titulo}`;
+      const subject = `Renovação solicitada — ${galeria.titulo}`;
       const html = `<div style="font-family:sans-serif;font-size:15px;line-height:1.7;color:#222;max-width:600px">
-        <p><strong>${nome.trim()}</strong> realizou um pagamento PIX para renovação da galeria <strong>${galeria.titulo}</strong>.</p>
+        <p><strong>${nome.trim()}</strong> solicitou a renovação de acesso da galeria <strong>${galeria.titulo}</strong> e vai pagar via PIX.</p>
         <p>Valor: <strong>${valorFmt}</strong><br>E-mail: ${emailNorm}</p>
-        <p>Acesse o painel para confirmar o pagamento e liberar o acesso:<br>
+        <p>Assim que o pagamento cair na sua conta, confira o recebimento no seu banco e acesse o painel para <strong>confirmar e liberar</strong> o acesso do cliente:<br>
         <a href="${appUrl}/entrega/${id}">${appUrl}/entrega/${id}</a></p>
         <hr style="margin:24px 0;border:none;border-top:1px solid #eee">
-        <div style="font-size:12px;color:#aaa">UseFokio · pagamento PIX manual pendente de confirmação</div>
+        <div style="font-size:12px;color:#aaa">UseFokio · o cliente escolheu renovar — liberação manual após conferir o PIX</div>
       </div>`;
 
       let enviado = false;
@@ -115,12 +117,29 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       }
     } catch { /* email não bloqueia o fluxo */ }
 
+    // Gera o "copia e cola" (BR Code) e o QR a partir da chave PIX do fotógrafo.
+    let pixCopiaECola: string | null = null;
+    let pixQrDataUrl: string | null = null;
+    try {
+      pixCopiaECola = gerarBrCodePix({
+        chave: fotografo!.pix_chave!,
+        nome: fotografo!.nome_empresa || fotografo!.nome_completo || "UseFokio",
+        cidade: fotografo!.cidade || "BRASIL",
+        valor: galeria.renewal_fee,
+      });
+      pixQrDataUrl = await QRCode.toDataURL(pixCopiaECola, { width: 240, margin: 1 });
+    } catch (e) {
+      console.error("[renovar] Falha ao gerar QR PIX:", e instanceof Error ? e.message : e);
+    }
+
     return NextResponse.json({
       ok: true,
       gateway: "pix_manual",
       pixChave: fotografo!.pix_chave,
       pixTipo: fotografo!.pix_tipo,
       valor: galeria.renewal_fee,
+      pixCopiaECola,
+      pixQrDataUrl,
       pagamentoId: pgto.id,
     });
   }
