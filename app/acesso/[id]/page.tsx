@@ -275,7 +275,7 @@ export default function AcessoPage() {
   }
 
   const base: React.CSSProperties = {
-    minHeight: "100vh", background: "#F3F4F6",
+    minHeight: "calc(100vh - var(--dev-banner-h, 0px))", background: "#F3F4F6",
     display: "flex", flexDirection: "column", alignItems: "center",
     fontFamily: "'Inter', system-ui, sans-serif",
   };

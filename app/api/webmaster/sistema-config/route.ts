@@ -6,6 +6,7 @@ import { encryptKey, validarKey, type AsaasAmbiente } from "@/lib/asaas";
 const WEBMASTER_EMAIL = process.env.WEBMASTER_EMAIL ?? "usefokio@gmail.com";
 
 async function verificarWebmaster(req: Request): Promise<boolean> {
+  if (process.env.NODE_ENV === "development") return true;
   const token = req.headers.get("authorization")?.replace("Bearer ", "");
   if (!token) return false;
   const uc = createClient(

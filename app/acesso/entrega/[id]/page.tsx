@@ -522,14 +522,14 @@ export default function AcessoEntregaPage() {
 
   // ─── Tela: carregando ──────────────────────────────────────────────────────
   if (tela === "carregando") return (
-    <div style={{ height: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#0a0a0a" }}>
+    <div style={{ height: "calc(100vh - var(--dev-banner-h, 0px))", display: "flex", alignItems: "center", justifyContent: "center", background: "#0a0a0a" }}>
       <div style={{ fontSize: 13, color: "rgba(255,255,255,0.3)" }}>Carregando…</div>
     </div>
   );
 
   // ─── Tela: não encontrada ──────────────────────────────────────────────────
   if (tela === "nao_encontrada") return (
-    <div style={{ height: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "#0a0a0a", gap: 12 }}>
+    <div style={{ height: "calc(100vh - var(--dev-banner-h, 0px))", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "#0a0a0a", gap: 12 }}>
       <div style={{ fontSize: 36 }}>📷</div>
       <div style={{ fontSize: 16, fontWeight: 700, color: "#fff" }}>Galeria não encontrada</div>
       <div style={{ fontSize: 13, color: "rgba(255,255,255,0.4)" }}>O link pode estar incorreto ou a galeria foi removida.</div>
@@ -551,7 +551,7 @@ export default function AcessoEntregaPage() {
   if (tela === "expirada") return (
     <>
     {renderModalCpf()}
-    <div style={{ height: "100vh", position: "relative", overflow: "hidden", background: "#0a0a0a", display: "flex", alignItems: "center", justifyContent: "center" }}>
+    <div style={{ height: "calc(100vh - var(--dev-banner-h, 0px))", position: "relative", overflow: "hidden", background: "#0a0a0a", display: "flex", alignItems: "center", justifyContent: "center" }}>
       {capaUrl && <img src={capaUrl} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 0.3, filter: "blur(4px)", transform: "scale(1.05)" }} />}
       <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.65)" }} />
       <div style={{ position: "relative", zIndex: 1, textAlign: "center", padding: "0 24px", maxWidth: 460 }}>
@@ -588,7 +588,7 @@ export default function AcessoEntregaPage() {
   if (tela === "suspensa") return (
     <>
     {renderModalCpf()}
-    <div style={{ height: "100vh", position: "relative", overflow: "hidden", background: "#0a0a0a", display: "flex", alignItems: "center", justifyContent: "center" }}>
+    <div style={{ height: "calc(100vh - var(--dev-banner-h, 0px))", position: "relative", overflow: "hidden", background: "#0a0a0a", display: "flex", alignItems: "center", justifyContent: "center" }}>
       {capaUrl && <img src={capaUrl} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 0.25, filter: "blur(4px)", transform: "scale(1.05)" }} />}
       <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.65)" }} />
       <div style={{ position: "relative", zIndex: 1, textAlign: "center", padding: "0 24px", maxWidth: 460 }}>
@@ -623,7 +623,7 @@ export default function AcessoEntregaPage() {
 
   // ─── Tela: identificação ───────────────────────────────────────────────────
   if (tela === "identificacao") return (
-    <div style={{ height: "100vh", position: "relative", overflow: "hidden", background: "#0a0a0a", display: "flex", alignItems: "center", justifyContent: "center" }}>
+    <div style={{ height: "calc(100vh - var(--dev-banner-h, 0px))", position: "relative", overflow: "hidden", background: "#0a0a0a", display: "flex", alignItems: "center", justifyContent: "center" }}>
       {capaUrl && <img src={capaUrl} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 0.45 }} />}
       <div style={{ position: "absolute", inset: 0, background: "linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.8))" }} />
       <div style={{ position: "relative", zIndex: 1, width: "100%", maxWidth: 380, padding: "0 20px" }}>
@@ -665,7 +665,7 @@ export default function AcessoEntregaPage() {
 
   // ─── Tela: capa ────────────────────────────────────────────────────────────
   if (tela === "capa") return (
-    <div style={{ height: "100vh", position: "relative", overflow: "hidden", background: "#0a0a0a", display: "flex", alignItems: "center", justifyContent: "center" }}>
+    <div style={{ height: "calc(100vh - var(--dev-banner-h, 0px))", position: "relative", overflow: "hidden", background: "#0a0a0a", display: "flex", alignItems: "center", justifyContent: "center" }}>
       {capaUrl && (
         <img src={capaUrl} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 0.55 }} />
       )}
@@ -722,10 +722,10 @@ export default function AcessoEntregaPage() {
 
   // ─── Tela: galeria ─────────────────────────────────────────────────────────
   if (tela === "galeria") return (
-    <div style={{ minHeight: "100vh", background: "#f4f4f4" }}>
+    <div style={{ minHeight: "calc(100vh - var(--dev-banner-h, 0px))", background: "#f4f4f4" }}>
 
       {/* Barra superior fixa */}
-      <div style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 100, background: "rgba(255,255,255,0.96)", backdropFilter: "blur(12px)", borderBottom: "1px solid rgba(0,0,0,0.08)", padding: isMobile ? "0 8px" : "0 20px", height: 56, display: "flex", alignItems: "center", gap: isMobile ? 6 : 14 }}>
+      <div style={{ position: "fixed", top: "var(--dev-banner-h, 0px)", left: 0, right: 0, zIndex: 100, background: "rgba(255,255,255,0.96)", backdropFilter: "blur(12px)", borderBottom: "1px solid rgba(0,0,0,0.08)", padding: isMobile ? "0 8px" : "0 20px", height: 56, display: "flex", alignItems: "center", gap: isMobile ? 6 : 14 }}>
         <button
           onClick={() => setTela("capa")}
           style={{ background: "none", border: "none", color: "#666", fontSize: 20, cursor: "pointer", padding: "0 4px", lineHeight: 1, flexShrink: 0 }}

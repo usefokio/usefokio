@@ -8,6 +8,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { encryptKey, validarKey, type AsaasAmbiente } from "@/lib/asaas";
 
 async function getWebmaster() {
+  if (process.env.NODE_ENV === "development") return { id: "dev", email: "dev@local.dev" };
   const cookieStore = await cookies();
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

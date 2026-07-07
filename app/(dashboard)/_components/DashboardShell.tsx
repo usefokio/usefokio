@@ -14,7 +14,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     <div
       style={{
         display: "flex",
-        height: "100vh",
+        height: "calc(100vh - var(--dev-banner-h, 0px))",
         background: "var(--color-background-tertiary)",
         fontFamily: "var(--font-sans)",
       }}

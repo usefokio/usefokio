@@ -378,7 +378,7 @@ export default function AcessoAlbumPage() {
 
   if (carregando) {
     return (
-      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--color-background-tertiary)" }}>
+      <div style={{ minHeight: "calc(100vh - var(--dev-banner-h, 0px))", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--color-background-tertiary)" }}>
         <div style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>Carregando álbum…</div>
       </div>
     );
@@ -386,7 +386,7 @@ export default function AcessoAlbumPage() {
 
   if (naoEncontrado || !selecao) {
     return (
-      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--color-background-tertiary)", padding: 20 }}>
+      <div style={{ minHeight: "calc(100vh - var(--dev-banner-h, 0px))", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--color-background-tertiary)", padding: 20 }}>
         <div style={{ textAlign: "center" }}>
           <div style={{ fontSize: 36, marginBottom: 12 }}>📖</div>
           <div style={{ fontSize: 16, fontWeight: 600, color: "var(--color-text-primary)", marginBottom: 8 }}>Álbum não encontrado</div>
@@ -407,7 +407,7 @@ export default function AcessoAlbumPage() {
   ];
 
   return (
-    <div style={{ minHeight: "100vh", background: "var(--color-background-tertiary)", paddingBottom: 80 }}>
+    <div style={{ minHeight: "calc(100vh - var(--dev-banner-h, 0px))", background: "var(--color-background-tertiary)", paddingBottom: 80 }}>
 
       <div style={{ background: "var(--color-background-primary)", borderBottom: "0.5px solid var(--color-border-tertiary)", padding: "14px 20px", textAlign: "center" }}>
         {logoUrl && <img src={logoUrl} alt="" style={{ maxHeight: 32, maxWidth: 140, objectFit: "contain", display: "block", margin: "0 auto 8px" }} />}

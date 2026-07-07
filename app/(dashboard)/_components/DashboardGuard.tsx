@@ -159,7 +159,7 @@ export function DashboardGuard({ children }: { children: React.ReactNode }) {
     <>
       {(planoExpirado || vencendoEmBreve) && (
         <div style={{
-          position: "fixed", top: 0, left: 0, right: 0, zIndex: 150,
+          position: "fixed", top: "var(--dev-banner-h, 0px)", left: 0, right: 0, zIndex: 150,
           background: planoExpirado ? "#EF4444" : "#F59E0B",
           color: "#fff", textAlign: "center", padding: "7px 16px",
           fontSize: 12, fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center", gap: 10,

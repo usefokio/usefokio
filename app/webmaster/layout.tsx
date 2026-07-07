@@ -54,7 +54,7 @@ export default function WebmasterLayout({ children }: { children: React.ReactNod
   }
 
   return (
-    <div style={{ display: "flex", minHeight: "100vh", background: "var(--color-background-tertiary)", fontFamily: "var(--font-sans)" }}>
+    <div style={{ display: "flex", minHeight: "calc(100vh - var(--dev-banner-h, 0px))", background: "var(--color-background-tertiary)", fontFamily: "var(--font-sans)" }}>
       {/* Sidebar */}
       <aside style={{
         width: 220,
@@ -65,7 +65,7 @@ export default function WebmasterLayout({ children }: { children: React.ReactNod
         flexDirection: "column",
         position: "sticky",
         top: 0,
-        height: "100vh",
+        height: "calc(100vh - var(--dev-banner-h, 0px))",
       }}>
         <div style={{
           padding: "18px 20px",
