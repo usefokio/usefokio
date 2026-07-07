@@ -37,6 +37,11 @@ export default function LoginPage() {
     const params = new URLSearchParams(window.location.search);
     if (params.get("erro") === "link-invalido")
       setError("Link inválido ou expirado. Solicite um novo email de confirmação.");
+    if (params.get("expirado") === "1") {
+      setError("Sua sessão expirou. Entre novamente para continuar.");
+      // Limpa a sessão vencida para não reaproveitar o token morto.
+      createClient().auth.signOut().catch(() => {});
+    }
   }, []);
 
   // ── Login com email/senha ─────────────────────────────────────────────────
