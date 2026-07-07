@@ -98,12 +98,11 @@ function GaleriaSelecaoConteudo() {
 
   // ── Carrega galeria ──────────────────────────────────────────────────────────
   useEffect(() => {
+    if (!fotografo) return;
+    const fid = fotografo.id;
     async function load() {
       try {
         const supabase = createClient();
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
-        const fid = user.id;
         const [
           { data: gal,  error: eGal },
           fts,
@@ -141,7 +140,7 @@ function GaleriaSelecaoConteudo() {
       }
     }
     load();
-  }, [id]);
+  }, [id, fotografo]);
 
   // ── Upload com fila de concorrência limitada ──────────────────────────────────
   const handleFiles = useCallback(async (files: File[]) => {
