@@ -1,27 +1,15 @@
 // Doação ao desenvolvedor — usa a conta Asaas do webmaster (webmaster_config).
 // GET: dados de doação disponíveis (asaas ativo? dados manuais?)
 // POST: cria cobrança de doação para o fotógrafo logado.
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { fotografoIdAtual } from "@/lib/auth/fotografoAtual";
 import { decryptKey, criarCobranca, type AsaasAmbiente } from "@/lib/asaas";
 
-async function getUser() {
-  const cookieStore = await cookies();
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { cookies: { getAll() { return cookieStore.getAll(); }, setAll() {} } }
-  );
-  const { data: { user } } = await supabase.auth.getUser();
-  return user;
-}
-
 export async function GET() {
-  const user = await getUser();
-  if (!user) return NextResponse.json({ erro: "Não autenticado" }, { status: 401 });
+  const fotografoId = await fotografoIdAtual();
+  if (!fotografoId) return NextResponse.json({ erro: "Não autenticado" }, { status: 401 });
 
   const admin = createAdminClient();
   const { data: cfg } = await admin.from("webmaster_config").select("asaas_ativo, doacao_manual_pix, doacao_manual_link, doacao_manual_msg, pix_qrcode_url").eq("id", 1).maybeSingle();
@@ -36,8 +24,8 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  const user = await getUser();
-  if (!user) return NextResponse.json({ erro: "Não autenticado" }, { status: 401 });
+  const fotografoId = await fotografoIdAtual();
+  if (!fotografoId) return NextResponse.json({ erro: "Não autenticado" }, { status: 401 });
 
   const { valor } = await request.json().catch(() => ({}));
   const v = Number(valor);
@@ -49,22 +37,22 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ erro: "Doação online indisponível no momento." }, { status: 400 });
   }
 
-  const { data: doador } = await admin.from("fotografos").select("nome_completo, email").eq("id", user.id).maybeSingle();
+  const { data: doador } = await admin.from("fotografos").select("nome_completo, email").eq("id", fotografoId).maybeSingle();
 
   try {
     const apiKey = decryptKey(cfg.asaas_api_key_enc);
     const { paymentId, invoiceUrl } = await criarCobranca({
       apiKey,
       ambiente: cfg.asaas_ambiente as AsaasAmbiente,
-      cliente: { nome: doador?.nome_completo ?? "Fotógrafo UseFokio", email: doador?.email ?? user.email ?? "" },
+      cliente: { nome: doador?.nome_completo ?? "Fotógrafo UseFokio", email: doador?.email ?? "" },
       valor: v,
       descricao: "Doação ao desenvolvedor — UseFokio ❤️",
-      externalReference: `doacao:${user.id}`,
+      externalReference: `doacao:${fotografoId}`,
     });
 
     await admin.from("pagamentos").insert({
       tipo:                "doacao",
-      doador_fotografo_id: user.id,
+      doador_fotografo_id: fotografoId,
       asaas_payment_id:    paymentId,
       valor:               v,
       status:              "pendente",

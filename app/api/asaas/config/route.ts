@@ -1,25 +1,13 @@
 // Conecta/desconecta a conta Asaas do fotógrafo logado.
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { fotografoIdAtual } from "@/lib/auth/fotografoAtual";
 import { encryptKey, validarKey, registrarWebhook, type AsaasAmbiente } from "@/lib/asaas";
 
-async function getUser() {
-  const cookieStore = await cookies();
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { cookies: { getAll() { return cookieStore.getAll(); }, setAll() {} } }
-  );
-  const { data: { user } } = await supabase.auth.getUser();
-  return user;
-}
-
 export async function POST(request: NextRequest) {
-  const user = await getUser();
-  if (!user) return NextResponse.json({ erro: "Não autenticado" }, { status: 401 });
+  const fotografoId = await fotografoIdAtual();
+  if (!fotografoId) return NextResponse.json({ erro: "Não autenticado" }, { status: 401 });
 
   const { apiKey, ambiente } = await request.json().catch(() => ({}));
   if (!apiKey || !["producao", "sandbox"].includes(ambiente)) {
@@ -38,7 +26,7 @@ export async function POST(request: NextRequest) {
     asaas_api_key_enc: encryptKey(apiKey),
     asaas_ambiente:    ambiente,
     asaas_ativo:       true,
-  }).eq("id", user.id);
+  }).eq("id", fotografoId);
 
   if (error) return NextResponse.json({ erro: error.message }, { status: 500 });
 
@@ -57,14 +45,14 @@ export async function POST(request: NextRequest) {
 }
 
 export async function DELETE() {
-  const user = await getUser();
-  if (!user) return NextResponse.json({ erro: "Não autenticado" }, { status: 401 });
+  const fotografoId = await fotografoIdAtual();
+  if (!fotografoId) return NextResponse.json({ erro: "Não autenticado" }, { status: 401 });
 
   const admin = createAdminClient();
   const { error } = await admin.from("fotografos").update({
     asaas_api_key_enc: null,
     asaas_ativo:       false,
-  }).eq("id", user.id);
+  }).eq("id", fotografoId);
 
   if (error) return NextResponse.json({ erro: error.message }, { status: 500 });
   return NextResponse.json({ ok: true });

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { createClient as createServerClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { fotografoIdAtual } from "@/lib/auth/fotografoAtual";
 
 export type EventoAgenda = {
   uid: string;
@@ -78,14 +79,14 @@ function parseIcal(text: string): EventoAgenda[] {
 }
 
 export async function GET() {
-  const supabase = await createServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+  const fotografoId = await fotografoIdAtual();
+  if (!fotografoId) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
 
-  const { data: fotografo } = await supabase
+  const admin = createAdminClient();
+  const { data: fotografo } = await admin
     .from("fotografos")
     .select("ical_url")
-    .eq("id", user.id)
+    .eq("id", fotografoId)
     .single();
 
   const icalUrl = fotografo?.ical_url ?? null;

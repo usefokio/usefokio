@@ -3,9 +3,8 @@ import nodemailer from "nodemailer";
 import { APP_URL, getResend, FROM_DEFAULT } from "@/lib/email/resend";
 import { decryptKey } from "@/lib/asaas";
 import { templateGaleriaCriada } from "@/lib/email/templates";
-import { createServerClient } from "@supabase/ssr";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { cookies } from "next/headers";
+import { fotografoIdAtual } from "@/lib/auth/fotografoAtual";
 
 export async function POST(request: Request) {
   try {
@@ -16,42 +15,30 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "galeriaId obrigatório" }, { status: 400 });
     }
 
-    const cookieStore = await cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll()   { return cookieStore.getAll(); },
-          setAll(cs) { cs.forEach(({ name, value, options }) => cookieStore.set(name, value, options)); },
-        },
-      }
-    );
+    const fotografoId = await fotografoIdAtual();
+    if (!fotografoId) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
 
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
-
-    const { data: galeria } = await supabase
+    const admin = createAdminClient();
+    const { data: galeria } = await admin
       .from("galerias_selecao")
       .select("id, titulo, cliente_id, fotografo_id, data_evento, total_fotos")
       .eq("id", galeriaId)
-      .eq("fotografo_id", session.user.id)
+      .eq("fotografo_id", fotografoId)
       .single();
 
     if (!galeria) return NextResponse.json({ error: "Galeria não encontrada" }, { status: 404 });
 
-    const admin = createAdminClient();
     const { data: fotografo } = await admin
       .from("fotografos")
       .select("nome_completo, nome_empresa, email, site, smtp_host, smtp_port, smtp_user, smtp_pass_enc, smtp_from")
-      .eq("id", session.user.id)
+      .eq("id", fotografoId)
       .single();
 
     if (!galeria.cliente_id) {
       return NextResponse.json({ skipped: true, reason: "Galeria sem cliente vinculado" });
     }
 
-    const { data: cliente } = await supabase
+    const { data: cliente } = await admin
       .from("clientes")
       .select("nome, email, senha_acesso")
       .eq("id", galeria.cliente_id)

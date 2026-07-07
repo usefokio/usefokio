@@ -1,14 +1,13 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { fotografoIdAtual } from "@/lib/auth/fotografoAtual";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { encryptKey, decryptKey } from "@/lib/asaas";
 import nodemailer from "nodemailer";
 
 export async function POST(req: NextRequest) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ erro: "Não autenticado." }, { status: 401 });
+  const fotografoId = await fotografoIdAtual();
+  if (!fotografoId) return NextResponse.json({ erro: "Não autenticado." }, { status: 401 });
 
   const { host, port, user: smtpUser, pass, from } = await req.json().catch(() => ({}));
   if (!host || !smtpUser || !from) {
@@ -19,7 +18,7 @@ export async function POST(req: NextRequest) {
   const { data: fotografo } = await admin
     .from("fotografos")
     .select("email, smtp_pass_enc")
-    .eq("id", user.id)
+    .eq("id", fotografoId)
     .single();
 
   const senhaFinal = pass

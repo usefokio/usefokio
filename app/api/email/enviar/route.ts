@@ -1,15 +1,14 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import nodemailer from "nodemailer";
-import { createClient } from "@/lib/supabase/server";
+import { fotografoIdAtual } from "@/lib/auth/fotografoAtual";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { decryptKey } from "@/lib/asaas";
 import { getResend, FROM_DEFAULT } from "@/lib/email/resend";
 
 export async function POST(req: NextRequest) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ erro: "Não autenticado." }, { status: 401 });
+  const fotografoId = await fotografoIdAtual();
+  if (!fotografoId) return NextResponse.json({ erro: "Não autenticado." }, { status: 401 });
 
   const { to, subject, body } = await req.json().catch(() => ({}));
   if (!to || !subject || !body) {
@@ -19,7 +18,7 @@ export async function POST(req: NextRequest) {
   const admin = createAdminClient();
   const { data: f } = await admin.from("fotografos")
     .select("nome_empresa, nome_completo, email, site, smtp_host, smtp_port, smtp_user, smtp_pass_enc, smtp_from")
-    .eq("id", user.id).single();
+    .eq("id", fotografoId).single();
 
   const nome = f?.nome_empresa ?? f?.nome_completo ?? null;
   const assiLinhas = [

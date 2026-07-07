@@ -2,14 +2,13 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { createClient } from "@/lib/supabase/server";
+import { fotografoIdAtual } from "@/lib/auth/fotografoAtual";
 
 export async function POST(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ erro: "Não autenticado." }, { status: 401 });
+  const fotografoId = await fotografoIdAtual();
+  if (!fotografoId) return NextResponse.json({ erro: "Não autenticado." }, { status: 401 });
 
   const admin = createAdminClient();
 
@@ -21,7 +20,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
     .eq("tipo", "renovacao")
     .eq("status", "pendente")
     .eq("gateway", "pix_manual")
-    .eq("fotografo_id", user.id)
+    .eq("fotografo_id", fotografoId)
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();

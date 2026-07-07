@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
+import { fotografoIdAtual } from "@/lib/auth/fotografoAtual";
 import { deleteFilesBatch } from "@/lib/storage/delete";
 import { fetchAllRows } from "@/lib/supabase/fetchAll";
 
@@ -22,23 +23,23 @@ export async function POST(req: NextRequest) {
     ids?: string[];
   };
 
-  // Verificar autenticação via cookie
+  // Autenticação: sessão em produção, fotógrafo mock em dev.
   const userClient = await createServerClient();
-  const { data: { user } } = await userClient.auth.getUser();
-  if (!user) return NextResponse.json({ error: "não autenticado" }, { status: 401 });
+  const fotografoId = await fotografoIdAtual();
+  if (!fotografoId) return NextResponse.json({ error: "não autenticado" }, { status: 401 });
 
-  // Verificar que a galeria pertence ao fotógrafo autenticado
-  const { data: galeria } = await userClient
+  // Usar admin client (service role) se disponível para bypassar RLS
+  const sb = getAdminClient() ?? userClient;
+
+  // Verificar que a galeria pertence ao fotógrafo (via admin — em dev anon não lê por RLS)
+  const { data: galeria } = await sb
     .from("galerias_selecao")
     .select("fotografo_id")
     .eq("id", galeria_id)
     .single();
-  if (!galeria || galeria.fotografo_id !== user.id) {
+  if (!galeria || galeria.fotografo_id !== fotografoId) {
     return NextResponse.json({ error: "sem permissão" }, { status: 403 });
   }
-
-  // Usar admin client (service role) se disponível para bypassar RLS
-  const sb = getAdminClient() ?? userClient;
 
   if (galeria_id && !ids) {
     const fotos = await fetchAllRows<{ storage_path: string; thumbnail_path: string | null; url_publica: string | null }>(

@@ -1,17 +1,16 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { fotografoIdAtual } from "@/lib/auth/fotografoAtual";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { decryptKey, registrarWebhook, type AsaasAmbiente } from "@/lib/asaas";
 
 export async function POST() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ erro: "Não autenticado" }, { status: 401 });
+  const fotografoId = await fotografoIdAtual();
+  if (!fotografoId) return NextResponse.json({ erro: "Não autenticado" }, { status: 401 });
 
   const admin = createAdminClient();
   const { data: f } = await admin.from("fotografos")
     .select("asaas_api_key_enc, asaas_ambiente, asaas_ativo, email")
-    .eq("id", user.id)
+    .eq("id", fotografoId)
     .single();
 
   if (!f?.asaas_ativo || !f.asaas_api_key_enc) {

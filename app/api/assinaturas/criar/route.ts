@@ -1,24 +1,11 @@
 import { NextResponse } from "next/server";
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { fotografoIdAtual } from "@/lib/auth/fotografoAtual";
 import { criarCobrancaAssinatura } from "@/lib/asaas-sistema";
 
 export async function POST(req: Request) {
-  const cookieStore = await cookies();
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll()   { return cookieStore.getAll(); },
-        setAll(cs) { cs.forEach(({ name, value, options }) => cookieStore.set(name, value, options)); },
-      },
-    }
-  );
-
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+  const fotografoId = await fotografoIdAtual();
+  if (!fotografoId) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
 
   const body = await req.json().catch(() => ({}));
   const planoConfigId: string | undefined = body.plano_config_id;
@@ -28,7 +15,7 @@ export async function POST(req: Request) {
   const { data: foto } = await admin
     .from("fotografos")
     .select("id, nome_completo, email, plano")
-    .eq("id", session.user.id)
+    .eq("id", fotografoId)
     .maybeSingle();
 
   if (!foto) return NextResponse.json({ error: "Fotógrafo não encontrado" }, { status: 404 });

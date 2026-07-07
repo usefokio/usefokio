@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import crypto from "crypto";
 import nodemailer from "nodemailer";
-import { createClient } from "@/lib/supabase/server";
+import { fotografoIdAtual } from "@/lib/auth/fotografoAtual";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { encryptKey, decryptKey, validarKey, type AsaasAmbiente } from "@/lib/asaas";
 import { getResend, FROM_DEFAULT } from "@/lib/email/resend";
@@ -34,9 +34,8 @@ const emailHtml = (actionLabel: string, code: string) => `
 `;
 
 export async function POST(req: NextRequest) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ erro: "Não autenticado." }, { status: 401 });
+  const fotografoId = await fotografoIdAtual();
+  if (!fotografoId) return NextResponse.json({ erro: "Não autenticado." }, { status: 401 });
 
   const body = await req.json().catch(() => ({}));
   const { action } = body;
@@ -51,7 +50,7 @@ export async function POST(req: NextRequest) {
   const { data: foto } = await admin
     .from("fotografos")
     .select("email, smtp_host, smtp_port, smtp_user, smtp_pass_enc, smtp_from")
-    .eq("id", user.id)
+    .eq("id", fotografoId)
     .single();
 
   if (!foto?.email) return NextResponse.json({ erro: "Email do fotógrafo não encontrado." }, { status: 400 });
@@ -61,7 +60,7 @@ export async function POST(req: NextRequest) {
   const { data: recent } = await admin
     .from("email_confirmations")
     .select("id")
-    .eq("fotografo_id", user.id)
+    .eq("fotografo_id", fotografoId)
     .eq("action", action)
     .eq("used", false)
     .gte("created_at", umMinutoAtras)
@@ -103,7 +102,7 @@ export async function POST(req: NextRequest) {
 
   const { data: row, error } = await admin
     .from("email_confirmations")
-    .insert({ fotografo_id: user.id, code_hash: codeHash, action, payload })
+    .insert({ fotografo_id: fotografoId, code_hash: codeHash, action, payload })
     .select("id")
     .single();
 

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import crypto from "crypto";
-import { createClient } from "@/lib/supabase/server";
+import { fotografoIdAtual } from "@/lib/auth/fotografoAtual";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { decryptKey, registrarWebhook, type AsaasAmbiente } from "@/lib/asaas";
 
@@ -10,9 +10,8 @@ function sha256(text: string) {
 }
 
 export async function POST(req: NextRequest) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ erro: "Não autenticado." }, { status: 401 });
+  const fotografoId = await fotografoIdAtual();
+  if (!fotografoId) return NextResponse.json({ erro: "Não autenticado." }, { status: 401 });
 
   const { confirmationId, code } = await req.json().catch(() => ({}));
   if (!confirmationId || !code) {
@@ -25,7 +24,7 @@ export async function POST(req: NextRequest) {
     .from("email_confirmations")
     .select("*")
     .eq("id", confirmationId)
-    .eq("fotografo_id", user.id)
+    .eq("fotografo_id", fotografoId)
     .single();
 
   if (!conf) return NextResponse.json({ erro: "Confirmação não encontrada." }, { status: 404 });
@@ -59,7 +58,7 @@ export async function POST(req: NextRequest) {
       asaas_api_key_enc: apiKey_enc as string,
       asaas_ambiente:    ambiente as string,
       asaas_ativo:       true,
-    }).eq("id", user.id).select("email").single();
+    }).eq("id", fotografoId).select("email").single();
     if (fotoErr) return NextResponse.json({ erro: fotoErr.message }, { status: 500 });
 
     // Registrar webhook (decriptar chave antes de chamar API Asaas)
@@ -82,7 +81,7 @@ export async function POST(req: NextRequest) {
       pix_chave: (pix_chave as string) || null,
       pix_tipo:  (pix_tipo as string) || null,
       pix_ativo: Boolean(pix_ativo),
-    }).eq("id", user.id);
+    }).eq("id", fotografoId);
     if (error) return NextResponse.json({ erro: error.message }, { status: 500 });
   }
 
