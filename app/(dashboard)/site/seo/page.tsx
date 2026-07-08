@@ -1,5 +1,95 @@
-import { SitePlaceholder } from "../_components/SitePlaceholder";
+"use client";
 
-export default function SiteSeoPage() {
-  return <SitePlaceholder titulo="SEO" descricao="Título, descrição e imagem de compartilhamento do site — geral e por página." />;
+// SEO global do site: título, descrição e código de rastreamento (analytics).
+import { useEffect, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
+import { useFotografo } from "@/lib/context/FotografoContext";
+
+const inputStyle: React.CSSProperties = {
+  width: "100%", padding: "10px 12px", borderRadius: 8, boxSizing: "border-box",
+  border: "1px solid var(--color-border-secondary)", fontSize: 13,
+  background: "var(--color-background-primary)", color: "var(--color-text-primary)",
+};
+const labelStyle: React.CSSProperties = {
+  fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)",
+  textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: 5,
+};
+
+export default function SeoPage() {
+  const { fotografo } = useFotografo();
+  const [tituloSite, setTituloSite] = useState("");
+  const [seoTitle, setSeoTitle] = useState("");
+  const [seoDesc, setSeoDesc] = useState("");
+  const [analytics, setAnalytics] = useState("");
+  const [carregando, setCarregando] = useState(true);
+  const [salvando, setSalvando] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!fotografo) return;
+    const supabase = createClient();
+    supabase.from("site_config").select("*").eq("fotografo_id", fotografo.id).maybeSingle().then(({ data }) => {
+      if (data) {
+        setTituloSite(data.titulo_site ?? "");
+        setSeoTitle(data.seo_title ?? "");
+        setSeoDesc(data.seo_description ?? "");
+        setAnalytics(data.analytics_head ?? "");
+      }
+      setCarregando(false);
+    });
+  }, [fotografo]);
+
+  async function salvar() {
+    if (!fotografo) return;
+    setSalvando(true); setMsg(null);
+    const supabase = createClient();
+    const { error } = await supabase.from("site_config").upsert({
+      fotografo_id: fotografo.id,
+      titulo_site: tituloSite.trim() || null,
+      seo_title: seoTitle.trim() || null,
+      seo_description: seoDesc.trim() || null,
+      analytics_head: analytics.trim() || null,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: "fotografo_id" });
+    setSalvando(false);
+    setMsg(error ? "Erro: " + error.message : "SEO salvo!");
+  }
+
+  if (carregando) return <div style={{ padding: 60, textAlign: "center", fontSize: 13, color: "var(--color-text-secondary)" }}>Carregando…</div>;
+
+  return (
+    <div style={{ maxWidth: 720, margin: "0 auto", padding: "40px 24px" }}>
+      <h1 style={{ fontSize: 22, fontWeight: 800, color: "var(--color-text-primary)", margin: "0 0 6px", letterSpacing: "-0.02em" }}>SEO do site</h1>
+      <p style={{ fontSize: 13, color: "var(--color-text-secondary)", margin: "0 0 24px", lineHeight: 1.6 }}>
+        Metadados gerais (home). Cada trabalho, portfólio e post tem o próprio SEO na sua tela de edição.
+      </p>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        <div>
+          <label style={labelStyle}>Nome do site</label>
+          <input value={tituloSite} onChange={(e) => setTituloSite(e.target.value)} style={inputStyle} placeholder="Ex.: Fernando Agrela Fotografia" />
+        </div>
+        <div>
+          <label style={labelStyle}>SEO title (título da home no Google)</label>
+          <input value={seoTitle} onChange={(e) => setSeoTitle(e.target.value)} style={inputStyle} placeholder="Ex.: Fernando Agrela — Fotógrafo de Casamento em Ourinhos e região" />
+        </div>
+        <div>
+          <label style={labelStyle}>SEO description</label>
+          <textarea value={seoDesc} onChange={(e) => setSeoDesc(e.target.value)} rows={3} style={{ ...inputStyle, resize: "vertical" }} placeholder="Descrição de até ~160 caracteres exibida nos resultados de busca." />
+          <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 3 }}>{seoDesc.length} caracteres</div>
+        </div>
+        <div>
+          <label style={labelStyle}>Código de rastreamento (Google Analytics etc.)</label>
+          <textarea value={analytics} onChange={(e) => setAnalytics(e.target.value)} rows={4} style={{ ...inputStyle, resize: "vertical", fontFamily: "monospace", fontSize: 12 }} placeholder="<script>…</script> (injetado no <head> do site)" />
+        </div>
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, alignItems: "center" }}>
+          {msg && <span style={{ fontSize: 13, fontWeight: 600, color: msg.startsWith("Erro") ? "#DC2626" : "#059669" }}>{msg}</span>}
+          <button onClick={salvar} disabled={salvando}
+            style={{ padding: "10px 22px", borderRadius: 9, border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+            {salvando ? "Salvando…" : "Salvar"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
