@@ -189,7 +189,13 @@ export default function GaleriasPage() {
             </thead>
             <tbody>
               {portfolios.map((p) => (
-                <tr key={p.id} style={{ borderBottom: "1px solid var(--color-border-tertiary)" }}>
+                <tr
+                  key={p.id}
+                  onClick={() => router.push(`/site/galerias/portfolio/${p.id}`)}
+                  style={{ borderBottom: "1px solid var(--color-border-tertiary)", cursor: "pointer" }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = "var(--color-background-secondary)"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+                >
                   <td style={{ padding: "9px 10px", color: "var(--color-text-primary)", fontWeight: 500 }}>{p.titulo}</td>
                   <td style={{ padding: "9px 10px", color: "var(--color-text-secondary)" }}>{CATEGORIA_LABEL[p.categoria] ?? p.categoria}</td>
                   <td style={{ padding: "9px 10px", color: "var(--color-text-secondary)", fontFamily: "monospace", fontSize: 12 }}>
