@@ -441,9 +441,11 @@ export function Sidebar({ isMobile = false, mobileAberta = false, onFechar }: Si
           const inCRM = pathname.startsWith("/crm");
 
           // ── Renderiza sub-item ────────────────────────────────────────────────
-          const renderSub = (href: string, label: string) => {
+          const renderSub = (href: string, label: string, excludePrefixes?: string[]) => {
             const subPath = href.split("?")[0];
-            const active = pathname === subPath || pathname.startsWith(subPath + "/");
+            const matches = pathname === subPath || pathname.startsWith(subPath + "/");
+            const excluded = excludePrefixes?.some((p) => pathname === p || pathname.startsWith(p + "/")) ?? false;
+            const active = matches && !excluded;
             return (
               <Link
                 key={href}
@@ -537,7 +539,7 @@ export function Sidebar({ isMobile = false, mobileAberta = false, onFechar }: Si
             <>
               {usefokioItems.map((item) => (
                 <div key={item.href}>
-                  {renderSub(item.href, item.label)}
+                  {renderSub(item.href, item.label, item.href === "/entrega" ? ["/entrega/campanha"] : undefined)}
                   {item.href === "/entrega" && renderSub("/entrega/campanha", "Funil de Campanha")}
                   {item.href === "/tutoriais" && (
                     <Suspense><TutoriaisSubItems pathname={pathname} crmAtivo={fotografo?.recursos?.crm !== false} /></Suspense>
