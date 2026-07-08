@@ -105,10 +105,12 @@ CREATE TABLE IF NOT EXISTS public.site_posts (
   resumo          text,
   corpo           text,
   categoria       text,
+  tags            text,
   publicado       boolean NOT NULL DEFAULT false,
   publicado_em    timestamptz,
   seo_title       text,
   seo_description text,
+  seo_keywords    text,
   views           integer NOT NULL DEFAULT 0,
   created_at      timestamptz NOT NULL DEFAULT now(),
   updated_at      timestamptz NOT NULL DEFAULT now()

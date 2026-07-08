@@ -437,10 +437,12 @@ export type SitePost = {
   resumo: string | null;
   corpo: string | null;
   categoria: string | null;
+  tags: string | null;
   publicado: boolean;
   publicado_em: string | null;
   seo_title: string | null;
   seo_description: string | null;
+  seo_keywords: string | null;
   views: number;
   created_at: string;
   updated_at: string;
