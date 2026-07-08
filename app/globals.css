@@ -31,6 +31,20 @@ a {
   color: inherit;
 }
 
+/* Tipografia do site público (tema Editorial) — títulos serifados (Cormorant) */
+.site-root h1, .site-root h2, .site-root h3 {
+  font-family: var(--site-fonte-titulo), Georgia, serif;
+  font-weight: 500;
+  color: var(--site-titulo);
+}
+.site-root .site-secao-titulo {
+  font-family: var(--site-fonte-titulo), Georgia, serif;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--site-titulo);
+  font-weight: 500;
+}
+
 /* Conteúdo rico do Site (posts, trabalhos, páginas) — no editor e nas páginas públicas */
 .site-conteudo img,
 .site-conteudo .post-img {

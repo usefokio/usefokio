@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS public.site_config (
   fotografo_id       uuid PRIMARY KEY REFERENCES public.fotografos(id) ON DELETE CASCADE,
   subdominio         text UNIQUE,
   dominio_customizado text UNIQUE,
-  tema               text NOT NULL DEFAULT 'classico',
+  tema               text NOT NULL DEFAULT 'editorial',
   publicado          boolean NOT NULL DEFAULT false,
   titulo_site        text,
   seo_title          text,
