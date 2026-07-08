@@ -55,6 +55,7 @@ export default async function TrabalhoPage({ params }: { params: Promise<{ fid: 
 
       {t.descricao && (
         <div
+          className="site-conteudo"
           style={{ maxWidth: 760, margin: "0 auto 36px", fontSize: 15, lineHeight: 1.9, color: "#333" }}
           dangerouslySetInnerHTML={{ __html: t.descricao }}
         />

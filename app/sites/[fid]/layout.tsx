@@ -14,8 +14,29 @@ export async function generateMetadata({ params }: { params: Promise<{ fid: stri
   return {
     title: config?.seo_title ?? config?.titulo_site ?? fotografo?.nome_empresa ?? "Site do fotógrafo",
     description: config?.seo_description ?? undefined,
+    keywords: config?.seo_keywords ?? undefined,
+    verification: config?.google_site_verification ? { google: config.google_site_verification } : undefined,
     robots: noDominioProprio ? { index: true, follow: true } : { index: false, follow: false },
   };
+}
+
+// Google Analytics + Facebook Pixel — injetados só quando configurados.
+function ScriptsRastreamento({ analytics, pixel }: { analytics: string | null; pixel: string | null }) {
+  const gaId = analytics?.trim().match(/G-[A-Z0-9]+/i)?.[0] ?? null;
+  const pixelId = pixel?.trim().match(/\d{6,}/)?.[0] ?? null;
+  return (
+    <>
+      {gaId && (
+        <>
+          <script async src={`https://www.googletagmanager.com/gtag/js?id=${gaId}`} />
+          <script dangerouslySetInnerHTML={{ __html: `window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','${gaId}');` }} />
+        </>
+      )}
+      {pixelId && (
+        <script dangerouslySetInnerHTML={{ __html: `!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');fbq('init','${pixelId}');fbq('track','PageView');` }} />
+      )}
+    </>
+  );
 }
 
 export default async function SitePublicoLayout({ children, params }: { children: React.ReactNode; params: Promise<{ fid: string }> }) {
@@ -32,6 +53,7 @@ export default async function SitePublicoLayout({ children, params }: { children
 
   return (
     <div style={{ background: "#fff", color: "#222", fontFamily: "'Poppins', system-ui, sans-serif", minHeight: "100vh", display: "flex", flexDirection: "column" }}>
+      <ScriptsRastreamento analytics={config?.analytics_head ?? null} pixel={config?.facebook_pixel ?? null} />
       {/* Header */}
       <header style={{ borderBottom: "1px solid #eee", position: "sticky", top: "var(--dev-banner-h, 0px)", background: "rgba(255,255,255,0.97)", zIndex: 50 }}>
         <div style={{ maxWidth: 1200, margin: "0 auto", padding: "14px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 20, flexWrap: "wrap" }}>

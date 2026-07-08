@@ -1,10 +1,12 @@
 "use client";
 
 // Páginas do site (Sobre e personalizadas): editar título e conteúdo (rich text).
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
-import { RichTextEditor } from "@/app/(dashboard)/crm/_components/RichTextEditor";
+import { uploadFileClient } from "@/lib/storage/uploadClient";
+import { processarImagemEntrega } from "@/lib/imageResize";
+import { SiteRichEditor } from "@/app/(dashboard)/site/_components/SiteRichEditor";
 import type { SitePagina } from "@/lib/supabase/types";
 
 const inputStyle: React.CSSProperties = {
@@ -22,8 +24,11 @@ export default function PaginasPage() {
   const [editando, setEditando] = useState<SitePagina | null>(null);
   const [titulo, setTitulo] = useState("");
   const [html, setHtml] = useState("");
+  const [imagens, setImagens] = useState<string[]>([]);
+  const [enviandoFoto, setEnviandoFoto] = useState(false);
   const [salvando, setSalvando] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const inputFotoRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!fotografo) return;
@@ -35,8 +40,25 @@ export default function PaginasPage() {
   function abrir(p: SitePagina) {
     setEditando(p);
     setTitulo(p.titulo);
-    setHtml(((p.conteudo ?? {}) as Conteudo).html ?? "");
+    const c = (p.conteudo ?? {}) as Conteudo;
+    setHtml(c.html ?? "");
+    setImagens(Array.isArray(c.imagens) ? c.imagens : []);
     setMsg(null);
+  }
+
+  async function trocarFoto(files: FileList | null) {
+    if (!files || files.length === 0 || !fotografo || !editando) return;
+    setEnviandoFoto(true);
+    try {
+      const { blob } = await processarImagemEntrega(files[0], 1200, 0.85);
+      const path = `site/${fotografo.id}/paginas/${editando.slug}/foto-${crypto.randomUUID().slice(0, 6)}.jpg`;
+      const { url_publica } = await uploadFileClient(path, blob);
+      setImagens((prev) => [url_publica, ...prev.slice(1)]); // substitui a principal
+    } catch (e) {
+      setMsg("Erro no upload: " + (e instanceof Error ? e.message : ""));
+    }
+    setEnviandoFoto(false);
+    if (inputFotoRef.current) inputFotoRef.current.value = "";
   }
 
   async function salvar() {
@@ -44,14 +66,15 @@ export default function PaginasPage() {
     setSalvando(true);
     const supabase = createClient();
     const conteudoAtual = (editando.conteudo ?? {}) as Conteudo;
+    const novoConteudo = { ...conteudoAtual, html: html.replace(/<p>\s*<\/p>/g, "").trim() || null, imagens };
     const { error } = await supabase.from("site_paginas").update({
       titulo: titulo.trim() || editando.titulo,
-      conteudo: { ...conteudoAtual, html: html.replace(/<p>\s*<\/p>/g, "").trim() || null },
+      conteudo: novoConteudo,
       updated_at: new Date().toISOString(),
     }).eq("id", editando.id);
     setSalvando(false);
     if (error) { setMsg("Erro: " + error.message); return; }
-    setPaginas((prev) => prev.map((p) => p.id === editando.id ? { ...p, titulo, conteudo: { ...conteudoAtual, html } } : p));
+    setPaginas((prev) => prev.map((p) => p.id === editando.id ? { ...p, titulo, conteudo: novoConteudo } : p));
     setMsg("Página salva!");
   }
 
@@ -93,8 +116,29 @@ export default function PaginasPage() {
               <input value={titulo} onChange={(e) => setTitulo(e.target.value)} style={inputStyle} />
             </div>
             <div>
+              <label style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: 5 }}>Foto da página</label>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                {imagens[0]
+                  ? <img src={imagens[0]} alt="" style={{ width: 120, height: 120, objectFit: "cover", borderRadius: 10 }} />
+                  : <div style={{ width: 120, height: 120, borderRadius: 10, border: "1px dashed var(--color-border-secondary)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, color: "var(--color-text-secondary)", textAlign: "center" }}>Sem foto</div>}
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  <button onClick={() => inputFotoRef.current?.click()} disabled={enviandoFoto}
+                    style={{ padding: "8px 14px", borderRadius: 8, border: "1px solid var(--color-border-secondary)", background: "transparent", fontSize: 12, fontWeight: 600, color: "var(--color-text-primary)", cursor: "pointer" }}>
+                    {enviandoFoto ? "Enviando…" : (imagens[0] ? "Trocar foto" : "+ Adicionar foto")}
+                  </button>
+                  {imagens[0] && (
+                    <button onClick={() => setImagens((prev) => prev.slice(1))}
+                      style={{ padding: "6px 14px", borderRadius: 8, border: "none", background: "transparent", fontSize: 11, color: "#DC2626", cursor: "pointer", textAlign: "left" }}>
+                      Remover foto
+                    </button>
+                  )}
+                </div>
+                <input ref={inputFotoRef} type="file" accept="image/*" style={{ display: "none" }} onChange={(e) => trocarFoto(e.target.files)} />
+              </div>
+            </div>
+            <div>
               <label style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: 5 }}>Conteúdo</label>
-              <RichTextEditor value={html} onChange={setHtml} minHeight={280} />
+              <SiteRichEditor value={html} onChange={setHtml} minHeight={280} pasta={`paginas/${editando.slug}`} />
               {editando.slug === "contato" && (
                 <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 6 }}>
                   Obs.: a página Contato exibe o formulário de orçamento automaticamente; este texto aparece acima dele quando preenchido.

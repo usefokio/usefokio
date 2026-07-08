@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { uploadFileClient } from "@/lib/storage/uploadClient";
 import { processarImagemEntrega } from "@/lib/imageResize";
-import { RichTextEditor } from "@/app/(dashboard)/crm/_components/RichTextEditor";
+import { SiteRichEditor } from "@/app/(dashboard)/site/_components/SiteRichEditor";
 import type { SitePost } from "@/lib/supabase/types";
 
 function slugify(texto: string): string {
@@ -182,7 +182,7 @@ export function PostForm({ postId }: { postId?: string }) {
 
         <div>
           <label style={labelStyle}>Conteúdo</label>
-          <RichTextEditor value={corpo} onChange={setCorpo} minHeight={320} />
+          <SiteRichEditor value={corpo} onChange={setCorpo} minHeight={320} pasta={`posts/${postId ?? "novo"}`} />
         </div>
 
         <div style={{ display: "flex", gap: 22, alignItems: "center", flexWrap: "wrap" }}>

@@ -10,7 +10,7 @@ export default async function BlogPage({ params }: { params: Promise<{ fid: stri
   const admin = createAdminClient();
   const { data: posts } = await admin.from("site_posts").select("*")
     .eq("fotografo_id", fid).eq("publicado", true)
-    .order("publicado_em", { ascending: false });
+    .order("ordem", { ascending: true });
 
   return (
     <div style={{ maxWidth: 900, margin: "0 auto", padding: "40px 24px" }}>

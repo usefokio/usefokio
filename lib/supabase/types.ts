@@ -360,6 +360,9 @@ export type SiteConfig = {
   seo_description: string | null;
   og_image_url: string | null;
   analytics_head: string | null;
+  seo_keywords: string | null;
+  google_site_verification: string | null;
+  facebook_pixel: string | null;
   redes: Record<string, string> | null;
   created_at: string;
   updated_at: string;
@@ -446,6 +449,7 @@ export type SitePost = {
   corpo: string | null;
   categoria: string | null;
   tags: string | null;
+  ordem: number;
   publicado: boolean;
   publicado_em: string | null;
   seo_title: string | null;

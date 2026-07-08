@@ -347,6 +347,44 @@ async function importarPaginas() {
   }
 }
 
+// Re-hospeda as imagens embutidas no CORPO dos posts (as <img> que ainda apontam para o Alboom)
+// e reescreve o src para o nosso storage — para não perder as fotos dentro do texto.
+async function importarFotosCorpo() {
+  console.log("\n▶ Re-hospedando imagens dentro do corpo dos posts");
+  const { data: posts } = await sb.from("site_posts").select("id, titulo, corpo, legacy_id").eq("fotografo_id", FOTOGRAFO_ID);
+  for (const p of posts ?? []) {
+    if (!p.corpo || !/<img/i.test(p.corpo)) { console.log(`  · ${p.titulo.slice(0, 40)} — sem imagens no corpo`); continue; }
+    let corpo = p.corpo, ok = 0;
+    // 1) re-hospeda o src principal de cada <img> que ainda aponta ao Alboom
+    const srcs = [...new Set([...corpo.matchAll(/<img[^>]+src=["']([^"']+)["']/gi)].map((m) => m[1]))]
+      .filter((u) => /alboompro\.com|alboom\.ninja|cdn\.alboom/i.test(u));
+    for (let i = 0; i < srcs.length; i++) {
+      const origem = srcs[i];
+      try {
+        const ext = origem.match(/\.(png|webp)(?:\?|$)/i) ? RegExp.$1.toLowerCase() : "jpg";
+        const destino = `site/${FOTOGRAFO_ID}/posts/${p.id}/corpo-${i + 1}-${Math.abs(hashCode(origem)).toString(36)}.${ext}`;
+        const { url } = await transferir(origem, destino);
+        corpo = corpo.split(origem).join(url);
+        ok++;
+      } catch (e) { console.log(`    ✗ img ${i + 1}: ${e.message}`); }
+    }
+    // 2) remove atributos que ainda apontam ao Alboom (srcset/sizes responsivos + data-image-size-*
+    //    do lightbox do Alboom) — nosso src único basta e o JS do Alboom não existe aqui.
+    const antes = corpo;
+    corpo = corpo
+      .replace(/\s+srcset=["'][^"']*(?:alboompro|alboom\.ninja)[^"']*["']/gi, "")
+      .replace(/\s+sizes=["'][^"']*["']/gi, "")
+      .replace(/\s+data-[a-z0-9-]+=["'][^"']*(?:alboompro|alboom\.ninja)[^"']*["']/gi, "");
+    const limpou = corpo !== antes;
+    if (ok > 0 || limpou) {
+      await sb.from("site_posts").update({ corpo, updated_at: new Date().toISOString() }).eq("id", p.id);
+    }
+    console.log(`  ✓ ${p.titulo.slice(0, 40)} — ${ok} src re-hospedados${limpou ? ", srcset removido" : ""}`);
+  }
+}
+
+function hashCode(s) { let h = 0; for (let i = 0; i < s.length; i++) { h = (h << 5) - h + s.charCodeAt(i); h |= 0; } return h; }
+
 // ── main ─────────────────────────────────────────────────────────────────────
 const args = process.argv.slice(2);
 const flag = (n) => args.includes(`--${n}`);
@@ -359,6 +397,7 @@ const worksArg = args[args.indexOf("--works") + 1];
   if (flag("meta")) await importarMeta();
   if (flag("paginas")) await importarPaginas();
   if (flag("posts")) await importarPosts();
+  if (flag("fotos-corpo")) await importarFotosCorpo();
   if (flag("banners") || flag("depoimentos")) {
     const home = await baixarHtml(SITE + "/");
     if (flag("banners")) await importarBanners(home);

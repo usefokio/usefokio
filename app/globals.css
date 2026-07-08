@@ -30,3 +30,30 @@ body {
 a {
   color: inherit;
 }
+
+/* Conteúdo rico do Site (posts, trabalhos, páginas) — no editor e nas páginas públicas */
+.site-conteudo img,
+.site-conteudo .post-img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  display: block;
+  margin: 14px auto;
+}
+.site-conteudo .post-galeria {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin: 16px 0;
+}
+.site-conteudo .post-galeria img {
+  width: 100%;
+  height: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  margin: 0;
+  border-radius: 6px;
+}
+@media (max-width: 640px) {
+  .site-conteudo .post-galeria { grid-template-columns: repeat(2, 1fr); }
+}

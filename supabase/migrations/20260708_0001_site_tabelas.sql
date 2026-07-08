@@ -17,6 +17,9 @@ CREATE TABLE IF NOT EXISTS public.site_config (
   seo_description    text,
   og_image_url       text,
   analytics_head     text,
+  seo_keywords       text,
+  google_site_verification text,
+  facebook_pixel     text,
   redes              jsonb,
   created_at         timestamptz NOT NULL DEFAULT now(),
   updated_at         timestamptz NOT NULL DEFAULT now()
@@ -114,6 +117,7 @@ CREATE TABLE IF NOT EXISTS public.site_posts (
   corpo           text,
   categoria       text,
   tags            text,
+  ordem           integer NOT NULL DEFAULT 0,
   publicado       boolean NOT NULL DEFAULT false,
   publicado_em    timestamptz,
   seo_title       text,

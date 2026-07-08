@@ -43,7 +43,7 @@ export default async function PostPage({ params }: { params: Promise<{ fid: stri
       </header>
       {p.capa_url && <img src={p.capa_url} alt={p.titulo} style={{ width: "100%", height: "auto", borderRadius: 10, marginBottom: 26, display: "block" }} />}
       {p.corpo && (
-        <div className="post-corpo" style={{ fontSize: 15, lineHeight: 1.9, color: "#333" }} dangerouslySetInnerHTML={{ __html: p.corpo }} />
+        <div className="site-conteudo" style={{ fontSize: 15, lineHeight: 1.9, color: "#333" }} dangerouslySetInnerHTML={{ __html: p.corpo }} />
       )}
     </article>
   );

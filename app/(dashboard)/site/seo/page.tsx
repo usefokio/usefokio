@@ -20,7 +20,10 @@ export default function SeoPage() {
   const [tituloSite, setTituloSite] = useState("");
   const [seoTitle, setSeoTitle] = useState("");
   const [seoDesc, setSeoDesc] = useState("");
+  const [keywords, setKeywords] = useState("");
   const [analytics, setAnalytics] = useState("");
+  const [gsv, setGsv] = useState("");
+  const [pixel, setPixel] = useState("");
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -33,7 +36,10 @@ export default function SeoPage() {
         setTituloSite(data.titulo_site ?? "");
         setSeoTitle(data.seo_title ?? "");
         setSeoDesc(data.seo_description ?? "");
+        setKeywords(data.seo_keywords ?? "");
         setAnalytics(data.analytics_head ?? "");
+        setGsv(data.google_site_verification ?? "");
+        setPixel(data.facebook_pixel ?? "");
       }
       setCarregando(false);
     });
@@ -48,7 +54,10 @@ export default function SeoPage() {
       titulo_site: tituloSite.trim() || null,
       seo_title: seoTitle.trim() || null,
       seo_description: seoDesc.trim() || null,
+      seo_keywords: keywords.trim() || null,
       analytics_head: analytics.trim() || null,
+      google_site_verification: gsv.trim() || null,
+      facebook_pixel: pixel.trim() || null,
       updated_at: new Date().toISOString(),
     }, { onConflict: "fotografo_id" });
     setSalvando(false);
@@ -79,8 +88,24 @@ export default function SeoPage() {
           <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 3 }}>{seoDesc.length} caracteres</div>
         </div>
         <div>
-          <label style={labelStyle}>Código de rastreamento (Google Analytics etc.)</label>
-          <textarea value={analytics} onChange={(e) => setAnalytics(e.target.value)} rows={4} style={{ ...inputStyle, resize: "vertical", fontFamily: "monospace", fontSize: 12 }} placeholder="<script>…</script> (injetado no <head> do site)" />
+          <label style={labelStyle}>Palavras-chave (separadas por vírgula)</label>
+          <textarea value={keywords} onChange={(e) => setKeywords(e.target.value)} rows={3} style={{ ...inputStyle, resize: "vertical" }} placeholder="fotógrafo de casamento em Ourinhos, ensaio gestante interior SP…" />
+        </div>
+
+        <div style={{ padding: "14px 16px", borderRadius: 12, border: "1px solid var(--color-border-tertiary)", background: "var(--color-background-secondary)", display: "flex", flexDirection: "column", gap: 12 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "var(--color-text-primary)" }}>Integrações e verificação</div>
+          <div>
+            <label style={labelStyle}>ID do Google Analytics</label>
+            <input value={analytics} onChange={(e) => setAnalytics(e.target.value)} style={{ ...inputStyle, fontFamily: "monospace", fontSize: 12 }} placeholder="G-XXXXXXXXXX (ou o código &lt;script&gt; completo)" />
+          </div>
+          <div>
+            <label style={labelStyle}>Código de verificação do Google</label>
+            <input value={gsv} onChange={(e) => setGsv(e.target.value)} style={{ ...inputStyle, fontFamily: "monospace", fontSize: 12 }} placeholder="conteúdo da meta google-site-verification" />
+          </div>
+          <div>
+            <label style={labelStyle}>ID do Facebook Pixel</label>
+            <input value={pixel} onChange={(e) => setPixel(e.target.value)} style={{ ...inputStyle, fontFamily: "monospace", fontSize: 12 }} placeholder="ex.: 817018281705038" />
+          </div>
         </div>
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, alignItems: "center" }}>
           {msg && <span style={{ fontSize: 13, fontWeight: 600, color: msg.startsWith("Erro") ? "#DC2626" : "#059669" }}>{msg}</span>}

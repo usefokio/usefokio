@@ -27,7 +27,7 @@ export default async function SobrePage({ params }: { params: Promise<{ fid: str
         {conteudo.imagens?.[0] && (
           <img src={conteudo.imagens[0]} alt={p?.titulo ?? "Sobre"} style={{ width: 320, maxWidth: "100%", borderRadius: 12, display: "block" }} />
         )}
-        <div style={{ flex: 1, minWidth: 280, fontSize: 15, lineHeight: 1.9, color: "#333" }}
+        <div className="site-conteudo" style={{ flex: 1, minWidth: 280, fontSize: 15, lineHeight: 1.9, color: "#333" }}
           dangerouslySetInnerHTML={{ __html: conteudo.html ?? "<p>Em breve.</p>" }} />
       </div>
     </div>

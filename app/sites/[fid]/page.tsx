@@ -14,7 +14,7 @@ export default async function HomeSite({ params }: { params: Promise<{ fid: stri
     admin.from("site_banners").select("*").eq("fotografo_id", fid).eq("publicado", true).order("ordem"),
     admin.from("site_trabalhos").select("*").eq("fotografo_id", fid).eq("publicado", true).order("data_evento", { ascending: false }).limit(6),
     admin.from("site_depoimentos").select("*").eq("fotografo_id", fid).eq("publicado", true).order("ordem").limit(5),
-    admin.from("site_posts").select("*").eq("fotografo_id", fid).eq("publicado", true).order("publicado_em", { ascending: false }).limit(3),
+    admin.from("site_posts").select("*").eq("fotografo_id", fid).eq("publicado", true).order("ordem", { ascending: true }).limit(3),
   ]);
 
   const urlTrabalho = (t: SiteTrabalho) => `${b}/portfolio/${t.categoria}/${t.legacy_id ? `${t.legacy_id}-` : ""}${t.slug}`;

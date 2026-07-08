@@ -1,7 +1,7 @@
 "use client";
 
 // Blog do site: lista de posts com status, views e link para o editor.
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { fetchAllRows } from "@/lib/supabase/fetchAll";
@@ -13,13 +13,15 @@ export default function BlogListaPage() {
   const { fotografo } = useFotografo();
   const [posts, setPosts] = useState<SitePost[]>([]);
   const [loading, setLoading] = useState(true);
+  const dragIdx = useRef<number | null>(null);
+  const [sobreIdx, setSobreIdx] = useState<number | null>(null);
 
   useEffect(() => {
     if (!fotografo) return;
     const supabase = createClient();
     async function carregar() {
       const rows = await fetchAllRows<SitePost>(
-        (sb, from, to) => sb.from("site_posts").select("*").eq("fotografo_id", fotografo!.id).order("publicado_em", { ascending: false, nullsFirst: false }).range(from, to),
+        (sb, from, to) => sb.from("site_posts").select("*").eq("fotografo_id", fotografo!.id).order("ordem", { ascending: true }).range(from, to),
         supabase,
       );
       setPosts(rows ?? []);
@@ -27,6 +29,21 @@ export default function BlogListaPage() {
     }
     carregar();
   }, [fotografo]);
+
+  async function soltar(destino: number) {
+    const origem = dragIdx.current;
+    dragIdx.current = null;
+    setSobreIdx(null);
+    if (origem === null || origem === destino || !fotografo) return;
+    const novas = [...posts];
+    const [movido] = novas.splice(origem, 1);
+    novas.splice(destino, 0, movido);
+    const reordenados = novas.map((p, i) => ({ ...p, ordem: i }));
+    setPosts(reordenados);
+    const supabase = createClient();
+    await supabase.from("site_posts")
+      .upsert(reordenados.map((p) => ({ id: p.id, fotografo_id: fotografo.id, titulo: p.titulo, slug: p.slug, ordem: p.ordem })), { onConflict: "id" });
+  }
 
   return (
     <div style={{ maxWidth: 1000, margin: "0 auto", padding: "40px 24px" }}>
@@ -37,17 +54,24 @@ export default function BlogListaPage() {
           + Novo post
         </button>
       </div>
-      <p style={{ fontSize: 13, color: "var(--color-text-secondary)", margin: "0 0 24px" }}>URL pública: /post/{"{id}"}-{"{slug}"}.</p>
+      <p style={{ fontSize: 13, color: "var(--color-text-secondary)", margin: "0 0 24px" }}>Arraste para reordenar. URL pública: /post/{"{id}"}-{"{slug}"}.</p>
 
       {loading ? (
         <div style={{ padding: 40, textAlign: "center", fontSize: 13, color: "var(--color-text-secondary)" }}>Carregando…</div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {posts.map((p) => (
-            <div key={p.id} onClick={() => router.push(`/site/blog/${p.id}`)}
-              style={{ display: "flex", gap: 14, alignItems: "center", border: "1px solid var(--color-border-tertiary)", borderRadius: 10, padding: "10px 14px", cursor: "pointer" }}
-              onMouseEnter={(e) => { e.currentTarget.style.background = "var(--color-background-secondary)"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}>
+          {posts.map((p, idx) => (
+            <div
+              key={p.id}
+              draggable
+              onDragStart={() => { dragIdx.current = idx; }}
+              onDragOver={(e) => { e.preventDefault(); if (sobreIdx !== idx) setSobreIdx(idx); }}
+              onDragLeave={() => { if (sobreIdx === idx) setSobreIdx(null); }}
+              onDrop={(e) => { e.preventDefault(); soltar(idx); }}
+              onDragEnd={() => { dragIdx.current = null; setSobreIdx(null); }}
+              onClick={() => router.push(`/site/blog/${p.id}`)}
+              style={{ display: "flex", gap: 14, alignItems: "center", borderRadius: 10, padding: "10px 14px", cursor: "pointer", border: sobreIdx === idx ? "2px solid #2563EB" : "1px solid var(--color-border-tertiary)", background: "var(--color-background-primary)" }}>
+              <span style={{ color: "var(--color-text-secondary)", fontSize: 15, cursor: "grab" }} title="Arraste para reordenar" onClick={(e) => e.stopPropagation()}>⠿</span>
               <div style={{ width: 90, borderRadius: 8, overflow: "hidden", background: "var(--color-background-secondary)", aspectRatio: "16/10", flexShrink: 0 }}>
                 {p.capa_url && <img src={p.capa_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} loading="lazy" />}
               </div>
