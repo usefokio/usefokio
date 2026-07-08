@@ -3,11 +3,11 @@
 // Em produção estas rotas serão servidas pelo domínio do fotógrafo (rewrite por host);
 // fora dele ficam noindex para não indexar /sites/... no domínio do app.
 import type { Metadata } from "next";
-import Link from "next/link";
 import { headers } from "next/headers";
 import { carregarSite, base } from "@/lib/site/publico";
 import { getTema, temaCssVars } from "@/lib/site/temas";
 import { fonteTitulo, fonteCorpo } from "./_fontes";
+import { SiteHeader } from "./_components/SiteHeader";
 
 export async function generateMetadata({ params }: { params: Promise<{ fid: string }> }): Promise<Metadata> {
   const { fid } = await params;
@@ -71,27 +71,12 @@ export default async function SitePublicoLayout({ children, params }: { children
     >
       <ScriptsRastreamento analytics={config?.analytics_head ?? null} pixel={config?.facebook_pixel ?? null} />
 
-      {/* Header */}
-      <header style={{ borderBottom: "1px solid var(--site-borda)", position: "sticky", top: "var(--dev-banner-h, 0px)", background: "color-mix(in srgb, var(--site-fundo) 96%, transparent)", backdropFilter: "blur(6px)", zIndex: 50 }}>
-        <div style={{ maxWidth: 1180, margin: "0 auto", padding: "18px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 20, flexWrap: "wrap" }}>
-          <Link href={b} style={{ display: "flex", alignItems: "center", textDecoration: "none", color: "var(--site-titulo)" }}>
-            {fotografo?.logo_url
-              ? <img src={fotografo.logo_url} alt={fotografo?.nome_empresa ?? ""} style={{ height: 44, width: "auto" }} />
-              : <span style={{ fontFamily: "var(--site-fonte-titulo), Georgia, serif", fontSize: 24, fontWeight: 500, letterSpacing: "0.04em" }}>{fotografo?.nome_empresa ?? "Fotografia"}</span>}
-          </Link>
-          <nav style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-            {itensMenu.map((item) => (
-              <Link
-                key={item.id}
-                href={item.href === "/" ? b : `${b}${item.href}`}
-                style={{ padding: "8px 12px", fontSize: 13, letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--site-titulo)", textDecoration: "none" }}
-              >
-                {item.label}
-              </Link>
-            ))}
-          </nav>
-        </div>
-      </header>
+      <SiteHeader
+        base={b}
+        logoUrl={fotografo?.logo_url ?? null}
+        nome={fotografo?.nome_empresa ?? "Fotografia"}
+        itens={itensMenu.map((m) => ({ id: String(m.id), label: m.label, href: m.href }))}
+      />
 
       <main style={{ flex: 1 }}>{children}</main>
 
