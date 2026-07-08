@@ -569,20 +569,21 @@ function ConfigPagamentos() {
   async function salvarPix() {
     setPixSalvando(true);
     setPixMsg(null);
-    if (!pixAtivo) {
-      // Desativar PIX não requer confirmação
+    // Desativar não exige confirmação; em dev também salvamos direto (não há email real para o OTP —
+    // a confirmação por email protege contas reais apenas em produção).
+    if (!pixAtivo || process.env.NODE_ENV === "development") {
       const res = await fetch("/api/config/pix", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pix_chave: pixChave, pix_tipo: pixTipo, pix_ativo: false }),
+        body: JSON.stringify({ pix_chave: pixChave, pix_tipo: pixTipo, pix_ativo: pixAtivo }),
       });
       const json = await res.json();
       setPixSalvando(false);
-      if (json.ok) { setPixMsg({ tipo: "ok", texto: "PIX desativado." }); await reload(); }
+      if (json.ok) { setPixMsg({ tipo: "ok", texto: pixAtivo ? "Configuração PIX salva!" : "PIX desativado." }); await reload(); }
       else setPixMsg({ tipo: "erro", texto: json.erro ?? "Erro ao salvar." });
       return;
     }
-    // Ativar ou alterar chave PIX requer confirmação por email
+    // Ativar ou alterar chave PIX requer confirmação por email (produção)
     const result = await solicitarConfirmacao("pix_key", { pix_chave: pixChave, pix_tipo: pixTipo, pix_ativo: true });
     setPixSalvando(false);
     if ("erro" in result) { setPixMsg({ tipo: "erro", texto: result.erro ?? "Erro." }); return; }
@@ -607,6 +608,20 @@ function ConfigPagamentos() {
     if (!apiKey.trim()) { setErro("Cole sua API key do Asaas."); return; }
     setSalvando(true);
     setErro("");
+    // Em dev conecta direto (sem OTP por email); em produção passa pela confirmação.
+    if (process.env.NODE_ENV === "development") {
+      const res = await fetch("/api/asaas/config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ apiKey: apiKey.trim(), ambiente }),
+      });
+      const json = await res.json();
+      setSalvando(false);
+      if (!res.ok) { setErro(json.erro ?? "Erro ao validar chave."); return; }
+      setApiKey(""); setContaNome(null);
+      await reload();
+      return;
+    }
     const result = await solicitarConfirmacao("asaas_key", { apiKey: apiKey.trim(), ambiente });
     setSalvando(false);
     if ("erro" in result) { setErro(result.erro ?? "Erro ao validar chave."); return; }
