@@ -2,7 +2,6 @@
 
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
-import Underline from "@tiptap/extension-underline";
 import TextAlign from "@tiptap/extension-text-align";
 import { useEffect } from "react";
 
@@ -22,12 +21,12 @@ const btn = (active: boolean): React.CSSProperties => ({
 export function RichTextEditor({ value, onChange, readonly = false, minHeight = 400 }: Props) {
   const editor = useEditor({
     extensions: [
-      StarterKit,
-      Underline,
+      StarterKit, // já inclui Underline no tiptap 3
       TextAlign.configure({ types: ["heading", "paragraph"] }),
     ],
     content: value,
     editable: !readonly,
+    immediatelyRender: false, // evita hydration mismatch no Next (render só no client)
     onUpdate: ({ editor }: { editor: { getHTML: () => string } }) => {
       onChange?.(editor.getHTML());
     },

@@ -6,7 +6,6 @@
 import { useEditor, EditorContent } from "@tiptap/react";
 import { Node, mergeAttributes } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
-import Underline from "@tiptap/extension-underline";
 import TextAlign from "@tiptap/extension-text-align";
 import Image from "@tiptap/extension-image";
 import { useEffect, useRef, useState } from "react";
@@ -60,8 +59,7 @@ export function SiteRichEditor({ value, onChange, minHeight = 320, pasta }: Prop
 
   const editor = useEditor({
     extensions: [
-      StarterKit,
-      Underline,
+      StarterKit, // já inclui Underline no tiptap 3
       TextAlign.configure({ types: ["heading", "paragraph"] }),
       Image.configure({ inline: false, HTMLAttributes: { class: "post-img" } }),
       Galeria,
