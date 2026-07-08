@@ -347,6 +347,165 @@ export type AlbumComentario = {
   updated_at: string;
 };
 
+// ── Site profissional ────────────────────────────────────────────────────────
+
+export type SiteConfig = {
+  fotografo_id: string;
+  subdominio: string | null;
+  dominio_customizado: string | null;
+  tema: string;
+  publicado: boolean;
+  titulo_site: string | null;
+  seo_title: string | null;
+  seo_description: string | null;
+  og_image_url: string | null;
+  analytics_head: string | null;
+  redes: Record<string, string> | null;
+  created_at: string;
+  updated_at: string;
+};
+
+// Trabalho = post de um evento. URL pública: /portfolio/{categoria}/{legacy_id}-{slug}
+export type SiteTrabalho = {
+  id: string;
+  fotografo_id: string;
+  categoria: string;
+  titulo: string;
+  slug: string;
+  legacy_id: number | null;
+  capa_url: string | null;
+  descricao: string | null;
+  data_evento: string | null;
+  ordem: number;
+  publicado: boolean;
+  destaque_home: boolean;
+  seo_title: string | null;
+  seo_description: string | null;
+  views: number;
+  likes: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export type SiteTrabalhoFoto = {
+  id: string;
+  trabalho_id: string;
+  storage_path: string | null;
+  url_publica: string;
+  ordem: number;
+  destaque: boolean; // entra automaticamente no portfólio da categoria
+  largura: number | null;
+  altura: number | null;
+  likes: number;
+  created_at: string;
+};
+
+// Portfólio = best-of por categoria (1 por categoria). URL legada: /gallery.php?id={legacy_id}
+export type SitePortfolio = {
+  id: string;
+  fotografo_id: string;
+  categoria: string;
+  titulo: string;
+  legacy_id: number | null;
+  capa_url: string | null;
+  descricao: string | null;
+  ordem: number;
+  publicado: boolean;
+  seo_title: string | null;
+  seo_description: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type SitePortfolioFoto = {
+  id: string;
+  portfolio_id: string;
+  trabalho_foto_id: string | null; // referência à foto do trabalho, ou avulsa (url própria)
+  storage_path: string | null;
+  url_publica: string | null;
+  ordem: number;
+  created_at: string;
+};
+
+export type SitePost = {
+  id: string;
+  fotografo_id: string;
+  titulo: string;
+  slug: string;
+  legacy_id: number | null;
+  capa_url: string | null;
+  resumo: string | null;
+  corpo: string | null;
+  categoria: string | null;
+  publicado: boolean;
+  publicado_em: string | null;
+  seo_title: string | null;
+  seo_description: string | null;
+  views: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export type SitePagina = {
+  id: string;
+  fotografo_id: string;
+  tipo: string;
+  titulo: string;
+  slug: string;
+  conteudo: unknown | null;
+  publicado: boolean;
+  seo_title: string | null;
+  seo_description: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type SiteDepoimento = {
+  id: string;
+  fotografo_id: string;
+  nome: string;
+  texto: string;
+  origem: string | null;
+  foto_url: string | null;
+  ordem: number;
+  publicado: boolean;
+  created_at: string;
+};
+
+export type SiteBanner = {
+  id: string;
+  fotografo_id: string;
+  imagem_url: string;
+  storage_path: string | null;
+  titulo: string | null;
+  subtitulo: string | null;
+  link: string | null;
+  ordem: number;
+  publicado: boolean;
+  created_at: string;
+};
+
+export type SiteMenuItem = {
+  id: string;
+  fotografo_id: string;
+  label: string;
+  href: string;
+  ordem: number;
+  created_at: string;
+};
+
+export type SiteLead = {
+  id: string;
+  fotografo_id: string;
+  nome: string;
+  email: string | null;
+  telefone: string | null;
+  mensagem: string | null;
+  origem: string;
+  lido: boolean;
+  created_at: string;
+};
+
 // ── CRM ──────────────────────────────────────────────────────────────────────
 
 export type CrmProductCategory = {
