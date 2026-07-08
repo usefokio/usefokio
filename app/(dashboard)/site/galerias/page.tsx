@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { fetchAllRows } from "@/lib/supabase/fetchAll";
 import { useFotografo } from "@/lib/context/FotografoContext";
@@ -18,6 +19,7 @@ const CATEGORIA_LABEL: Record<string, string> = {
 type SortKey = "titulo" | "categoria" | "legacy_id";
 
 export default function GaleriasPage() {
+  const router = useRouter();
   const { fotografo } = useFotografo();
   const [aba, setAba] = useState<"trabalhos" | "portfolios">("trabalhos");
   const [trabalhos, setTrabalhos] = useState<SiteTrabalho[]>([]);
@@ -101,7 +103,15 @@ export default function GaleriasPage() {
 
   return (
     <div style={{ maxWidth: 1100, margin: "0 auto", padding: "40px 24px" }}>
-      <h1 style={{ fontSize: 22, fontWeight: 800, color: "var(--color-text-primary)", margin: "0 0 6px", letterSpacing: "-0.02em" }}>Galerias</h1>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 800, color: "var(--color-text-primary)", margin: 0, letterSpacing: "-0.02em" }}>Galerias</h1>
+        <button
+          onClick={() => router.push("/site/galerias/trabalho/novo")}
+          style={{ padding: "9px 18px", borderRadius: 9, border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", fontSize: 13, fontWeight: 700, cursor: "pointer" }}
+        >
+          + Novo trabalho
+        </button>
+      </div>
       <p style={{ fontSize: 13, color: "var(--color-text-secondary)", margin: "0 0 20px", lineHeight: 1.6 }}>
         <strong>Trabalhos</strong> são os posts de cada evento. <strong>Portfólios</strong> são as páginas best-of por categoria.
         Conteúdo importado do site atual — fotos e descrições entram na próxima etapa.
@@ -146,7 +156,13 @@ export default function GaleriasPage() {
               </thead>
               <tbody>
                 {trabalhosVisiveis.map((t) => (
-                  <tr key={t.id} style={{ borderBottom: "1px solid var(--color-border-tertiary)" }}>
+                  <tr
+                    key={t.id}
+                    onClick={() => router.push(`/site/galerias/trabalho/${t.id}`)}
+                    style={{ borderBottom: "1px solid var(--color-border-tertiary)", cursor: "pointer" }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = "var(--color-background-secondary)"; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+                  >
                     <td style={{ padding: "9px 10px", color: "var(--color-text-primary)", fontWeight: 500 }}>{t.titulo}</td>
                     <td style={{ padding: "9px 10px", color: "var(--color-text-secondary)", whiteSpace: "nowrap" }}>{CATEGORIA_LABEL[t.categoria] ?? t.categoria}</td>
                     <td style={{ padding: "9px 10px", color: "var(--color-text-secondary)", fontFamily: "monospace", fontSize: 12 }}>{t.legacy_id ?? "—"}</td>
