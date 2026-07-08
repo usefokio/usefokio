@@ -127,7 +127,10 @@ export function TrabalhoForm({ trabalhoId }: { trabalhoId?: string }) {
     for (const file of lista) {
       try {
         const { blob, largura, altura } = await processarImagemEntrega(file, 1800, 0.85);
-        const path = `site/${fotografo.id}/trabalhos/${trabalhoId}/${crypto.randomUUID()}.jpg`;
+        // Preserva o nome original do arquivo (descritivo = melhor pra SEO de imagem);
+        // sufixo curto evita colisão entre arquivos de mesmo nome.
+        const base = slugify(file.name.replace(/\.[a-z0-9]+$/i, "")) || "foto";
+        const path = `site/${fotografo.id}/trabalhos/${trabalhoId}/${base}-${crypto.randomUUID().slice(0, 6)}.jpg`;
         const { storage_path, url_publica } = await uploadFileClient(path, blob);
         const { data } = await supabase.from("site_trabalho_fotos")
           .insert({ trabalho_id: trabalhoId, storage_path, url_publica, ordem: ordem++, largura, altura })
