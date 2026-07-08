@@ -68,6 +68,7 @@ CREATE TABLE IF NOT EXISTS public.site_portfolios (
   fotografo_id    uuid NOT NULL REFERENCES public.fotografos(id) ON DELETE CASCADE,
   categoria       text NOT NULL,
   titulo          text NOT NULL,
+  slug            text,
   legacy_id       bigint,
   capa_url        text,
   descricao       text,
