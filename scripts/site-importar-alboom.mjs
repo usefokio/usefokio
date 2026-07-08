@@ -12,6 +12,9 @@
  *        --posts        capa + corpo dos posts do blog
  *        --banners      imagens de destaque da home (featured_images)
  *        --depoimentos  textos completos + fotos dos depoimentos da home
+ *        --meta         descrição + SEO (title/description/keywords) de TODOS os
+ *                       trabalhos e portfólios publicados, direto das páginas
+ *                       públicas — leve, sem baixar fotos
  *
  * Idempotente: cada fase apaga as linhas anteriores do alvo antes de inserir.
  * A service key é lida de .env.local (nunca hardcoded).
@@ -228,6 +231,63 @@ async function importarDepoimentos(htmlHome) {
   }
 }
 
+// Extrai descrição (div ac__content) e metas de SEO de uma página pública
+function extrairMeta(html) {
+  let descricao = null;
+  const idx = html.indexOf("ac__content");
+  if (idx >= 0) {
+    const abre = html.indexOf(">", idx) + 1;
+    const fecha = html.indexOf("</div>", abre);
+    if (fecha > abre) {
+      const bruto = html.slice(abre, fecha).trim();
+      if (bruto.length > 10) descricao = bruto;
+    }
+  }
+  const title = html.match(/<title>([^<]*)<\/title>/)?.[1]?.trim() || null;
+  const mdesc = (html.match(/name="description"[^>]*content="([^"]*)"/) || html.match(/content="([^"]*)"[^>]*name="description"/))?.[1] || null;
+  const mkw = html.match(/name="keywords"[^>]*content="([^"]*)"/)?.[1] || null;
+  return {
+    descricao,
+    seo_title: title ? decode(title) : null,
+    seo_description: mdesc ? decode(mdesc) : null,
+    seo_keywords: mkw ? decode(mkw) : null,
+  };
+}
+
+async function importarMeta() {
+  const { data: works } = await sb.from("site_trabalhos").select("id, legacy_id, categoria, slug, titulo, publicado")
+    .eq("fotografo_id", FOTOGRAFO_ID).not("legacy_id", "is", null);
+  console.log(`\n▶ META de ${works?.length ?? 0} trabalhos`);
+  let ok = 0, pulados = 0;
+  await pool(works ?? [], 5, async (t) => {
+    try {
+      const html = await baixarHtml(`${SITE}/portfolio/${t.categoria}/${t.legacy_id}-${t.slug}`);
+      const m = extrairMeta(html);
+      const { error } = await sb.from("site_trabalhos").update(m).eq("id", t.id);
+      if (error) throw new Error(error.message);
+      ok++;
+      if (m.descricao) console.log(`  ✓ ${t.legacy_id} desc ${m.descricao.length}ch`);
+    } catch (e) {
+      pulados++;
+      console.log(`  ✗ ${t.legacy_id} (${t.titulo.slice(0, 40)}): ${e.message}`);
+    }
+  });
+  console.log(`  → ${ok} atualizados, ${pulados} pulados (rascunhos/404 são esperados)`);
+
+  const { data: ports } = await sb.from("site_portfolios").select("id, legacy_id, titulo")
+    .eq("fotografo_id", FOTOGRAFO_ID).not("legacy_id", "is", null);
+  console.log(`\n▶ META de ${ports?.length ?? 0} portfólios`);
+  for (const p of ports ?? []) {
+    try {
+      const html = await baixarHtml(`${SITE}/gallery.php?id=${p.legacy_id}`);
+      const m = extrairMeta(html);
+      const { error } = await sb.from("site_portfolios").update(m).eq("id", p.id);
+      if (error) throw new Error(error.message);
+      console.log(`  ✓ ${p.titulo}: title="${m.seo_title ?? "—"}" desc=${m.seo_description ? m.seo_description.length + "ch" : "—"} kw=${m.seo_keywords ? "sim" : "—"}`);
+    } catch (e) { console.log(`  ✗ ${p.titulo}: ${e.message}`); }
+  }
+}
+
 // ── main ─────────────────────────────────────────────────────────────────────
 const args = process.argv.slice(2);
 const flag = (n) => args.includes(`--${n}`);
@@ -237,6 +297,7 @@ const worksArg = args[args.indexOf("--works") + 1];
   const inicio = Date.now();
   if (flag("works") && worksArg) await importarWorks(worksArg.split(",").map((s) => parseInt(s.trim(), 10)));
   if (flag("galleries")) await importarGalleries();
+  if (flag("meta")) await importarMeta();
   if (flag("posts")) await importarPosts();
   if (flag("banners") || flag("depoimentos")) {
     const home = await baixarHtml(SITE + "/");

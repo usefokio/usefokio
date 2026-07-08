@@ -381,6 +381,7 @@ export type SiteTrabalho = {
   destaque_home: boolean;
   seo_title: string | null;
   seo_description: string | null;
+  seo_keywords: string | null;
   views: number;
   likes: number;
   created_at: string;
@@ -394,6 +395,7 @@ export type SiteTrabalhoFoto = {
   url_publica: string;
   ordem: number;
   destaque: boolean; // entra automaticamente no portfólio da categoria
+  descricao: string | null; // legenda/alt da imagem (SEO)
   largura: number | null;
   altura: number | null;
   likes: number;
@@ -413,6 +415,7 @@ export type SitePortfolio = {
   publicado: boolean;
   seo_title: string | null;
   seo_description: string | null;
+  seo_keywords: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -423,6 +426,7 @@ export type SitePortfolioFoto = {
   trabalho_foto_id: string | null; // referência à foto do trabalho, ou avulsa (url própria)
   storage_path: string | null;
   url_publica: string | null;
+  descricao: string | null; // legenda/alt da imagem (SEO)
   ordem: number;
   created_at: string;
 };

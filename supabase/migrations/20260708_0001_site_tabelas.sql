@@ -38,6 +38,7 @@ CREATE TABLE IF NOT EXISTS public.site_trabalhos (
   destaque_home   boolean NOT NULL DEFAULT false,
   seo_title       text,
   seo_description text,
+  seo_keywords    text,
   views           integer NOT NULL DEFAULT 0,
   likes           integer NOT NULL DEFAULT 0,
   created_at      timestamptz NOT NULL DEFAULT now(),
@@ -55,6 +56,7 @@ CREATE TABLE IF NOT EXISTS public.site_trabalho_fotos (
   url_publica  text NOT NULL,
   ordem        integer NOT NULL DEFAULT 0,
   destaque     boolean NOT NULL DEFAULT false,
+  descricao    text,
   largura      integer,
   altura       integer,
   likes        integer NOT NULL DEFAULT 0,
@@ -76,6 +78,7 @@ CREATE TABLE IF NOT EXISTS public.site_portfolios (
   publicado       boolean NOT NULL DEFAULT true,
   seo_title       text,
   seo_description text,
+  seo_keywords    text,
   created_at      timestamptz NOT NULL DEFAULT now(),
   updated_at      timestamptz NOT NULL DEFAULT now()
 );
@@ -89,6 +92,7 @@ CREATE TABLE IF NOT EXISTS public.site_portfolio_fotos (
   trabalho_foto_id uuid REFERENCES public.site_trabalho_fotos(id) ON DELETE CASCADE,
   storage_path     text,
   url_publica      text,
+  descricao        text,
   ordem            integer NOT NULL DEFAULT 0,
   created_at       timestamptz NOT NULL DEFAULT now()
 );
