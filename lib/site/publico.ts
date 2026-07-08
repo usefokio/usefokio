@@ -1,6 +1,7 @@
 // Helpers do site público do fotógrafo (Fase 1).
-// As rotas vivem em /_site/[fid]/** — em produção serão servidas pelo domínio
+// As rotas vivem em /sites/[fid]/** — em produção serão servidas pelo domínio
 // do fotógrafo via rewrite por host no proxy; em dev acessa-se direto pela URL.
+// (Não usar prefixo "_" na pasta: no App Router, _pasta é privada e sai do roteamento.)
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export const CATEGORIA_LABEL: Record<string, string> = {
@@ -14,7 +15,7 @@ export const CATEGORIA_LABEL: Record<string, string> = {
 };
 
 export function base(fid: string) {
-  return `/_site/${fid}`;
+  return `/sites/${fid}`;
 }
 
 export async function carregarSite(fid: string) {

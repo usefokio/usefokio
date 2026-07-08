@@ -13,7 +13,7 @@ export default function SiteDashboardPage() {
       </p>
       {fotografo && (
         <a
-          href={`/_site/${fotografo.id}`}
+          href={`/sites/${fotografo.id}`}
           target="_blank"
           rel="noopener noreferrer"
           style={{ display: "inline-block", padding: "11px 22px", borderRadius: 9, background: "var(--color-text-primary)", color: "var(--color-background-primary)", fontSize: 13, fontWeight: 700, textDecoration: "none" }}

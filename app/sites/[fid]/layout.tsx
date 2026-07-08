@@ -1,6 +1,6 @@
 // Layout do site público do fotógrafo (Fase 1) — tema claro no espírito do site atual.
 // Em produção estas rotas serão servidas pelo domínio do fotógrafo (rewrite por host);
-// fora dele ficam noindex para não indexar /_site/... no domínio do app.
+// fora dele ficam noindex para não indexar /sites/... no domínio do app.
 import type { Metadata } from "next";
 import Link from "next/link";
 import { headers } from "next/headers";
