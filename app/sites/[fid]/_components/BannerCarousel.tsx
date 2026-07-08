@@ -19,7 +19,7 @@ export function BannerCarousel({ banners, basePath }: { banners: Banner[]; baseP
   const resolverLink = (link: string) => (link.startsWith("/") ? `${basePath}${link}` : link);
 
   return (
-    <section data-site-hero style={{ position: "relative", height: "56vh", maxHeight: 560, overflow: "hidden", background: "#111" }}>
+    <section style={{ position: "relative", height: "56vh", maxHeight: 560, overflow: "hidden", background: "#111" }}>
       {banners.map((b, i) => {
         const img = (
           <img

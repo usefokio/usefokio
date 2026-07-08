@@ -11,6 +11,8 @@ export function DevBanner() {
 
 function DevBannerInner() {
   const pathname = usePathname();
+  // As páginas do site público (/sites) não mostram o aviso — é a prévia do site do fotógrafo.
+  if (pathname?.startsWith("/sites")) return null;
   const noWebmaster = pathname?.startsWith("/webmaster") ?? false;
 
   const linkStyle = { color: "#fff", textDecoration: "underline", fontWeight: 800 } as const;
