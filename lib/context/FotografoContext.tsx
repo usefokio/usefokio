@@ -27,7 +27,7 @@ export function FotografoProvider({ children }: { children: ReactNode }) {
 
   const load = useCallback(async () => {
     if (process.env.NODE_ENV === "development") {
-      setFotografo({
+      const mockBase: Fotografo = {
         id: "00000000-0000-0000-0000-000000000001",
         nome_completo: "Dev Local",
         nome_empresa: "Estúdio Dev",
@@ -54,7 +54,17 @@ export function FotografoProvider({ children }: { children: ReactNode }) {
         logo_url: null, watermark_url: null, watermark_escala: null, watermark_opacidade: null, watermark_url_vertical: null, ical_url: null,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
-      });
+      };
+      // Reflete a linha real do fotógrafo dev no banco (config PIX/Asaas/SMTP/logo/etc.),
+      // mantendo plano e recursos forçados para o usuário de teste.
+      try {
+        const real = await fetch("/api/fotografo/atual").then((r) => (r.ok ? r.json() : null));
+        setFotografo(real
+          ? { ...mockBase, ...real, id: mockBase.id, plano: "estudio", recursos: mockBase.recursos }
+          : mockBase);
+      } catch {
+        setFotografo(mockBase);
+      }
       firstLoadDone.current = true;
       setLoading(false);
       return;

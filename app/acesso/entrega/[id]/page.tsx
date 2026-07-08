@@ -144,9 +144,9 @@ export default function AcessoEntregaPage() {
   const [renovNome,        setRenovNome]        = useState("");
   const [renovEmail,       setRenovEmail]       = useState("");
   const [renovCpf,         setRenovCpf]         = useState("");
-  const [modalCpf,         setModalCpf]         = useState(false);
-  const [cpfTemp,          setCpfTemp]          = useState("");
   const [pagamentoAtivo,   setPagamentoAtivo]   = useState<boolean | null>(null);
+  const [metodoPagamento,  setMetodoPagamento]  = useState<string | null>(null);
+  const [renewalFeePadrao, setRenewalFeePadrao] = useState<number | null>(null);
 
   const largura  = useWindowWidth();
   const isMobile = largura < MOBILE;
@@ -311,25 +311,25 @@ export default function AcessoEntregaPage() {
       verificarRenovacao(true);
       fetch(`/api/acesso/entrega/${id}/pagamento`)
         .then(r => r.json())
-        .then(d => setPagamentoAtivo(d.pagamento_ativo ?? false))
+        .then(d => {
+          setPagamentoAtivo(d.pagamento_ativo ?? false);
+          setMetodoPagamento(d.metodo ?? null);
+          setRenewalFeePadrao(d.renewal_fee_padrao ?? null);
+        })
         .catch(() => setPagamentoAtivo(false));
     }
   }, [tela]);
 
-  async function gerarCobrancaRenovacao(cpfFornecido?: string) {
-    const pagadorNome  = galeria?.clientes?.nome  || renovNome.trim();
-    const pagadorEmail = galeria?.clientes?.email || renovEmail.trim();
-    const pagadorCpf   = cpfFornecido ?? galeria?.clientes?.cpf ?? renovCpf.trim();
+  async function gerarCobrancaRenovacao() {
+    const pagadorNome  = renovNome.trim();
+    const pagadorEmail = renovEmail.trim();
+    const pagadorCpf   = renovCpf.trim();
 
     if (!pagadorNome) { setRenovMsg("Informe seu nome."); return; }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(pagadorEmail)) { setRenovMsg("Informe um e-mail válido."); return; }
+    // CPF só é necessário no Asaas; no PIX manual é dispensável.
+    if (metodoPagamento === "asaas" && !pagadorCpf) { setRenovMsg("Informe seu CPF."); return; }
 
-    // CPF ausente → abre modal para coletar (pré-preenchido com dados disponíveis)
-    if (!pagadorCpf) {
-      setCpfTemp("");
-      setModalCpf(true);
-      return;
-    }
     setRenovGerando(true);
     setRenovMsg("");
     try {
@@ -353,78 +353,10 @@ export default function AcessoEntregaPage() {
     }
   }
 
-  function renderModalCpf() {
-    if (!modalCpf) return null;
-    const nomeModal  = galeria?.clientes?.nome  || renovNome.trim();
-    const emailModal = galeria?.clientes?.email || renovEmail.trim();
-    return (
-      <div
-        style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.65)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 300, padding: 20 }}
-        onClick={() => setModalCpf(false)}
-      >
-        <div onClick={(e) => e.stopPropagation()} style={{ background: "#fff", borderRadius: 18, padding: "32px 28px", width: 400, maxWidth: "100%", boxShadow: "0 16px 60px rgba(0,0,0,0.35)" }}>
-          <h3 style={{ margin: "0 0 6px", fontSize: 16, fontWeight: 800, color: "#111", letterSpacing: "-0.01em" }}>
-            Complete seu cadastro
-          </h3>
-          <p style={{ margin: "0 0 24px", fontSize: 13, color: "#666", lineHeight: 1.6 }}>
-            Para gerar a cobrança precisamos do seu CPF.
-          </p>
-
-          <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 20 }}>
-            {/* Nome — pré-preenchido, somente leitura */}
-            <div>
-              <label style={{ fontSize: 11, fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: 4 }}>Nome</label>
-              <input
-                readOnly value={nomeModal}
-                style={{ width: "100%", padding: "11px 14px", borderRadius: 9, border: "1px solid #e5e5e5", fontSize: 14, color: "#444", background: "#f9f9f9", boxSizing: "border-box" }}
-              />
-            </div>
-            {/* E-mail — pré-preenchido, somente leitura */}
-            <div>
-              <label style={{ fontSize: 11, fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: 4 }}>E-mail</label>
-              <input
-                readOnly value={emailModal}
-                style={{ width: "100%", padding: "11px 14px", borderRadius: 9, border: "1px solid #e5e5e5", fontSize: 14, color: "#444", background: "#f9f9f9", boxSizing: "border-box" }}
-              />
-            </div>
-            {/* CPF — campo a preencher */}
-            <div>
-              <label style={{ fontSize: 11, fontWeight: 600, color: "#111", textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: 4 }}>CPF <span style={{ color: "#EF4444" }}>*</span></label>
-              <input
-                autoFocus
-                value={cpfTemp}
-                onChange={(e) => setCpfTemp(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && cpfTemp.trim()) {
-                    setModalCpf(false);
-                    gerarCobrancaRenovacao(cpfTemp.trim());
-                  }
-                }}
-                placeholder="000.000.000-00"
-                style={{ width: "100%", padding: "11px 14px", borderRadius: 9, border: "1.5px solid #111", fontSize: 14, color: "#111", background: "#fff", boxSizing: "border-box", outline: "none" }}
-              />
-            </div>
-          </div>
-
-          <div style={{ display: "flex", gap: 8 }}>
-            <button
-              onClick={() => setModalCpf(false)}
-              style={{ flex: 1, padding: "12px", borderRadius: 10, border: "1px solid #ddd", background: "transparent", fontSize: 13, color: "#666", cursor: "pointer" }}
-            >
-              Cancelar
-            </button>
-            <button
-              onClick={() => { setModalCpf(false); gerarCobrancaRenovacao(cpfTemp.trim()); }}
-              disabled={!cpfTemp.trim()}
-              style={{ flex: 1.5, padding: "12px", borderRadius: 10, border: "none", background: cpfTemp.trim() ? "#111" : "#ddd", color: cpfTemp.trim() ? "#fff" : "#999", fontSize: 13, fontWeight: 700, cursor: cpfTemp.trim() ? "pointer" : "default", transition: "all 0.15s" }}
-            >
-              Continuar para pagamento
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // Taxa efetiva: a da galeria; se não houver, a taxa padrão do fotógrafo (fallback).
+  const taxaEfetiva = (galeria?.renewal_fee && galeria.renewal_fee > 0)
+    ? galeria.renewal_fee
+    : (renewalFeePadrao ?? 0);
 
   // Bloco de pagamento de renovação — usado nas telas expirada e suspensa.
   // Chamado como função (não como <Componente/>) para não remontar os inputs a cada render.
@@ -509,11 +441,13 @@ export default function AcessoEntregaPage() {
                   placeholder="Seu e-mail"
                   style={{ padding: "10px 14px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.2)", background: "rgba(255,255,255,0.08)", color: "#fff", fontSize: 13, outline: "none" }}
                 />
-                <input
-                  value={renovCpf} onChange={(e) => setRenovCpf(e.target.value)}
-                  placeholder="CPF (opcional)"
-                  style={{ padding: "10px 14px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.2)", background: "rgba(255,255,255,0.08)", color: "#fff", fontSize: 13, outline: "none" }}
-                />
+                {metodoPagamento === "asaas" && (
+                  <input
+                    value={renovCpf} onChange={(e) => setRenovCpf(e.target.value)}
+                    placeholder="CPF"
+                    style={{ padding: "10px 14px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.2)", background: "rgba(255,255,255,0.08)", color: "#fff", fontSize: 13, outline: "none" }}
+                  />
+                )}
               </div>
             )}
             <button
@@ -521,7 +455,7 @@ export default function AcessoEntregaPage() {
               disabled={renovGerando}
               style={{ padding: "12px 24px", borderRadius: 9, border: "none", background: "#fff", color: "#000", fontSize: 14, fontWeight: 700, cursor: "pointer" }}
             >
-              {renovGerando ? "Gerando pagamento…" : `💳 Renovar acesso — R$ ${galeria.renewal_fee.toFixed(2).replace(".", ",")}`}
+              {renovGerando ? "Gerando pagamento…" : `💳 Renovar acesso — R$ ${taxaEfetiva.toFixed(2).replace(".", ",")}`}
             </button>
           </div>
         )}
@@ -565,7 +499,6 @@ export default function AcessoEntregaPage() {
   // ─── Tela: expirada ────────────────────────────────────────────────────────
   if (tela === "expirada") return (
     <>
-    {renderModalCpf()}
     <div style={{ height: "calc(100vh - var(--dev-banner-h, 0px))", position: "relative", overflow: "hidden", background: "#0a0a0a", display: "flex", alignItems: "center", justifyContent: "center" }}>
       {capaUrl && <img src={capaUrl} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 0.3, filter: "blur(4px)", transform: "scale(1.05)" }} />}
       <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.65)" }} />
@@ -576,19 +509,19 @@ export default function AcessoEntregaPage() {
         {nomeCliente && <div style={{ fontSize: 14, color: "rgba(255,255,255,0.5)", marginBottom: 24 }}>Para {nomeCliente}</div>}
         <div style={{ padding: "20px 24px", borderRadius: 14, background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.25)", textAlign: "left" }}>
           <div style={{ fontWeight: 700, fontSize: 14, color: "#f87171", marginBottom: 6 }}>Download indisponível</div>
-          <div style={{ fontSize: 13, color: "rgba(255,255,255,0.55)", lineHeight: 1.6, marginBottom: galeria?.renewal_fee && galeria.renewal_fee > 0 ? 16 : 0 }}>
+          <div style={{ fontSize: 13, color: "rgba(255,255,255,0.55)", lineHeight: 1.6, marginBottom: taxaEfetiva > 0 ? 16 : 0 }}>
             O prazo de acesso expirou em {galeria?.expires_at ? new Date(galeria.expires_at).toLocaleDateString("pt-BR") : "—"}.
           </div>
-          {galeria?.renewal_fee && galeria.renewal_fee > 0 && (
+          {taxaEfetiva > 0 && (
             <div style={{ borderTop: "1px solid rgba(239,68,68,0.2)", paddingTop: 14 }}>
               <div style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>Taxa de renovação</div>
               <div style={{ fontSize: 28, fontWeight: 800, color: "#fff", letterSpacing: "-0.02em" }}>
-                R$ {galeria.renewal_fee.toFixed(2).replace(".", ",")}
+                R$ {taxaEfetiva.toFixed(2).replace(".", ",")}
               </div>
               {renderBlocoRenovacao({ cor: "#f87171" })}
             </div>
           )}
-          {!(galeria?.renewal_fee && galeria.renewal_fee > 0) && (
+          {!(taxaEfetiva > 0) && (
             <div style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", marginTop: 10 }}>
               Entre em contato com o fotógrafo para renovar o acesso.
             </div>
@@ -602,7 +535,6 @@ export default function AcessoEntregaPage() {
   // ─── Tela: suspensa ───────────────────────────────────────────────────────
   if (tela === "suspensa") return (
     <>
-    {renderModalCpf()}
     <div style={{ height: "calc(100vh - var(--dev-banner-h, 0px))", position: "relative", overflow: "hidden", background: "#0a0a0a", display: "flex", alignItems: "center", justifyContent: "center" }}>
       {capaUrl && <img src={capaUrl} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 0.25, filter: "blur(4px)", transform: "scale(1.05)" }} />}
       <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.65)" }} />
@@ -613,19 +545,19 @@ export default function AcessoEntregaPage() {
         {nomeCliente && <div style={{ fontSize: 14, color: "rgba(255,255,255,0.5)", marginBottom: 24 }}>Para {nomeCliente}</div>}
         <div style={{ padding: "20px 24px", borderRadius: 14, background: "rgba(245,158,11,0.10)", border: "1px solid rgba(245,158,11,0.25)", textAlign: "left" }}>
           <div style={{ fontWeight: 700, fontSize: 14, color: "#fbbf24", marginBottom: 6 }}>Download indisponível</div>
-          <div style={{ fontSize: 13, color: "rgba(255,255,255,0.55)", lineHeight: 1.6, marginBottom: galeria?.renewal_fee && galeria.renewal_fee > 0 ? 16 : 0 }}>
+          <div style={{ fontSize: 13, color: "rgba(255,255,255,0.55)", lineHeight: 1.6, marginBottom: taxaEfetiva > 0 ? 16 : 0 }}>
             O acesso a esta galeria foi suspenso temporariamente.
           </div>
-          {galeria?.renewal_fee && galeria.renewal_fee > 0 && (
+          {taxaEfetiva > 0 && (
             <div style={{ borderTop: "1px solid rgba(245,158,11,0.2)", paddingTop: 14 }}>
               <div style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>Taxa de reativação</div>
               <div style={{ fontSize: 28, fontWeight: 800, color: "#fff", letterSpacing: "-0.02em" }}>
-                R$ {galeria.renewal_fee.toFixed(2).replace(".", ",")}
+                R$ {taxaEfetiva.toFixed(2).replace(".", ",")}
               </div>
               {renderBlocoRenovacao({ cor: "#fbbf24" })}
             </div>
           )}
-          {!(galeria?.renewal_fee && galeria.renewal_fee > 0) && (
+          {!(taxaEfetiva > 0) && (
             <div style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", marginTop: 10 }}>
               Entre em contato com o fotógrafo para reativar o acesso.
             </div>

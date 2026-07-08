@@ -33,15 +33,20 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     .maybeSingle();
 
   if (!galeria || galeria.rascunho) return NextResponse.json({ erro: "Galeria não encontrada." }, { status: 404 });
-  if (!galeria.renewal_fee || galeria.renewal_fee <= 0) {
-    return NextResponse.json({ erro: "Esta galeria não tem taxa de renovação configurada." }, { status: 400 });
-  }
 
   const { data: fotografo } = await admin
     .from("fotografos")
-    .select("id, nome_empresa, nome_completo, cidade, email, asaas_api_key_enc, asaas_ambiente, asaas_ativo, pix_ativo, pix_chave, pix_tipo, abacate_api_key_enc, abacate_ativo, mp_api_key_enc, mp_ativo, smtp_host, smtp_port, smtp_user, smtp_pass_enc, smtp_from")
+    .select("id, nome_empresa, nome_completo, cidade, email, renewal_fee_padrao, asaas_api_key_enc, asaas_ambiente, asaas_ativo, pix_ativo, pix_chave, pix_tipo, abacate_api_key_enc, abacate_ativo, mp_api_key_enc, mp_ativo, smtp_host, smtp_port, smtp_user, smtp_pass_enc, smtp_from")
     .eq("id", galeria.fotografo_id)
     .maybeSingle();
+
+  // Taxa efetiva: a da galeria; se não houver, a taxa padrão do fotógrafo (fallback).
+  const taxa = galeria.renewal_fee && galeria.renewal_fee > 0
+    ? galeria.renewal_fee
+    : (fotografo?.renewal_fee_padrao ?? 0);
+  if (!taxa || taxa <= 0) {
+    return NextResponse.json({ erro: "Esta galeria não tem taxa de renovação configurada." }, { status: 400 });
+  }
 
   // Determina gateway por prioridade
   const gateway =
@@ -62,7 +67,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       tipo:          "renovacao",
       galeria_id:    id,
       fotografo_id:  fotografo!.id,
-      valor:         galeria.renewal_fee,
+      valor:         taxa,
       status:        "pendente",
       gateway:       "pix_manual",
       dias_liberados: galeria.renovacao_dias ?? 30,
@@ -81,7 +86,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     // Notifica fotógrafo por email
     try {
       const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://www.usefokio.com.br";
-      const valorFmt = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(galeria.renewal_fee);
+      const valorFmt = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(taxa);
       const emailTo = fotografo!.email ?? "";
       const subject = `Renovação solicitada — ${galeria.titulo}`;
       const html = `<div style="font-family:sans-serif;font-size:15px;line-height:1.7;color:#222;max-width:600px">
@@ -125,7 +130,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         chave: fotografo!.pix_chave!,
         nome: fotografo!.nome_empresa || fotografo!.nome_completo || "UseFokio",
         cidade: fotografo!.cidade || "BRASIL",
-        valor: galeria.renewal_fee,
+        valor: taxa,
       });
       pixQrDataUrl = await QRCode.toDataURL(pixCopiaECola, { width: 240, margin: 1 });
     } catch (e) {
@@ -137,7 +142,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       gateway: "pix_manual",
       pixChave: fotografo!.pix_chave,
       pixTipo: fotografo!.pix_tipo,
-      valor: galeria.renewal_fee,
+      valor: taxa,
       pixCopiaECola,
       pixQrDataUrl,
       pagamentoId: pgto.id,
@@ -175,7 +180,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         apiKey,
         ambiente: fotografo!.asaas_ambiente as AsaasAmbiente,
         cliente: { nome: nome.trim(), email: emailNorm, cpf: cpf?.trim() || undefined },
-        valor: galeria.renewal_fee,
+        valor: taxa,
         descricao: `Renovação de acesso — ${galeria.titulo}`,
         externalReference: `renovacao:${id}`,
       });
@@ -190,7 +195,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       galeria_id:       id,
       fotografo_id:     fotografo!.id,
       asaas_payment_id: gateway === "asaas" ? paymentId : null,
-      valor:            galeria.renewal_fee,
+      valor:            taxa,
       status:           "pendente",
       invoice_url:      invoiceUrl,
       gateway,
