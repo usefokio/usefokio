@@ -32,7 +32,6 @@ export default function PortfolioEditorPage({ params }: { params: Promise<{ id: 
 
   const [portfolio, setPortfolio] = useState<SitePortfolio | null>(null);
   const [titulo, setTitulo] = useState("");
-  const [descricao, setDescricao] = useState("");
   const [publicado, setPublicado] = useState(true);
   const [seoTitle, setSeoTitle] = useState("");
   const [seoDesc, setSeoDesc] = useState("");
@@ -50,7 +49,7 @@ export default function PortfolioEditorPage({ params }: { params: Promise<{ id: 
       if (!p) { setMsg({ tipo: "erro", texto: "Portfólio não encontrado." }); setCarregando(false); return; }
       const port = p as SitePortfolio;
       setPortfolio(port);
-      setTitulo(port.titulo); setDescricao(port.descricao ?? "");
+      setTitulo(port.titulo);
       setPublicado(port.publicado);
       setSeoTitle(port.seo_title ?? ""); setSeoDesc(port.seo_description ?? "");
       const { data: fts } = await supabase.from("site_portfolio_fotos").select("*").eq("portfolio_id", id).order("ordem");
@@ -65,7 +64,7 @@ export default function PortfolioEditorPage({ params }: { params: Promise<{ id: 
     setSalvando(true); setMsg(null);
     const supabase = createClient();
     const { error } = await supabase.from("site_portfolios").update({
-      titulo: titulo.trim(), descricao: descricao.trim() || null, publicado,
+      titulo: titulo.trim(), publicado,
       seo_title: seoTitle.trim() || null, seo_description: seoDesc.trim() || null,
       updated_at: new Date().toISOString(),
     }).eq("id", id);
@@ -133,19 +132,24 @@ export default function PortfolioEditorPage({ params }: { params: Promise<{ id: 
     setFotos((prev) => prev.filter((f) => f.id !== foto.id));
   }
 
-  async function mover(foto: SitePortfolioFoto, dir: -1 | 1) {
-    const idx = fotos.findIndex((f) => f.id === foto.id);
-    const alvo = fotos[idx + dir];
-    if (!alvo) return;
-    const supabase = createClient();
+  // Reordenação por arrastar-e-soltar: solta na posição desejada e persiste tudo num único upsert.
+  const dragIdx = useRef<number | null>(null);
+  const [sobreIdx, setSobreIdx] = useState<number | null>(null);
+
+  async function soltar(destino: number) {
+    const origem = dragIdx.current;
+    dragIdx.current = null;
+    setSobreIdx(null);
+    if (origem === null || origem === destino) return;
     const novas = [...fotos];
-    novas[idx] = { ...alvo, ordem: foto.ordem };
-    novas[idx + dir] = { ...foto, ordem: alvo.ordem };
-    setFotos(novas);
-    await Promise.all([
-      supabase.from("site_portfolio_fotos").update({ ordem: alvo.ordem }).eq("id", foto.id),
-      supabase.from("site_portfolio_fotos").update({ ordem: foto.ordem }).eq("id", alvo.id),
-    ]);
+    const [movida] = novas.splice(origem, 1);
+    novas.splice(destino, 0, movida);
+    const reordenadas = novas.map((f, i) => ({ ...f, ordem: i }));
+    setFotos(reordenadas);
+    const supabase = createClient();
+    const { error } = await supabase.from("site_portfolio_fotos")
+      .upsert(reordenadas.map((f) => ({ id: f.id, portfolio_id: id, ordem: f.ordem })), { onConflict: "id" });
+    if (error) setMsg({ tipo: "erro", texto: "Falha ao salvar a ordem: " + error.message });
   }
 
   if (carregando) return <div style={{ padding: 60, textAlign: "center", fontSize: 13, color: "var(--color-text-secondary)" }}>Carregando…</div>;
@@ -171,10 +175,6 @@ export default function PortfolioEditorPage({ params }: { params: Promise<{ id: 
               URL preservada: /gallery.php?id={portfolio.legacy_id}
             </div>
           )}
-        </div>
-        <div>
-          <label style={labelStyle}>Descrição</label>
-          <textarea value={descricao} onChange={(e) => setDescricao(e.target.value)} rows={3} style={{ ...inputStyle, resize: "vertical" }} />
         </div>
         <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--color-text-primary)", cursor: "pointer" }}>
           <input type="checkbox" checked={publicado} onChange={(e) => setPublicado(e.target.checked)} style={{ width: 15, height: 15 }} />
@@ -205,15 +205,28 @@ export default function PortfolioEditorPage({ params }: { params: Promise<{ id: 
           <input ref={inputFileRef} type="file" accept="image/*" multiple style={{ display: "none" }} onChange={(e) => enviarFotos(e.target.files)} />
         </div>
 
+        <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginBottom: 8 }}>
+          Arraste as fotos para reordenar — a ordem aqui é a ordem no site.
+        </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 10 }}>
           {fotos.map((f, idx) => (
-            <div key={f.id} style={{ borderRadius: 10, overflow: "hidden", border: "1px solid var(--color-border-tertiary)", background: "var(--color-background-secondary)" }}>
-              {f.url_publica && <img src={f.url_publica} alt="" style={{ width: "100%", aspectRatio: "3/2", objectFit: "cover", display: "block" }} loading="lazy" />}
+            <div
+              key={f.id}
+              draggable
+              onDragStart={() => { dragIdx.current = idx; }}
+              onDragOver={(e) => { e.preventDefault(); if (sobreIdx !== idx) setSobreIdx(idx); }}
+              onDragLeave={() => { if (sobreIdx === idx) setSobreIdx(null); }}
+              onDrop={(e) => { e.preventDefault(); soltar(idx); }}
+              onDragEnd={() => { dragIdx.current = null; setSobreIdx(null); }}
+              style={{
+                borderRadius: 10, overflow: "hidden", cursor: "grab",
+                border: sobreIdx === idx ? "2px solid #2563EB" : "1px solid var(--color-border-tertiary)",
+                background: "var(--color-background-secondary)",
+              }}
+            >
+              {f.url_publica && <img src={f.url_publica} alt="" style={{ width: "100%", aspectRatio: "3/2", objectFit: "cover", display: "block", pointerEvents: "none" }} loading="lazy" />}
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 8px" }}>
-                <div style={{ display: "flex", gap: 2 }}>
-                  <button title="Mover para cima" onClick={() => mover(f, -1)} disabled={idx === 0} style={{ border: "none", background: "transparent", cursor: "pointer", fontSize: 13, color: "var(--color-text-secondary)", opacity: idx === 0 ? 0.3 : 1 }}>↑</button>
-                  <button title="Mover para baixo" onClick={() => mover(f, 1)} disabled={idx === fotos.length - 1} style={{ border: "none", background: "transparent", cursor: "pointer", fontSize: 13, color: "var(--color-text-secondary)", opacity: idx === fotos.length - 1 ? 0.3 : 1 }}>↓</button>
-                </div>
+                <span style={{ fontSize: 11, color: "var(--color-text-secondary)" }}>#{idx + 1}</span>
                 {f.trabalho_foto_id && <span title="Veio de um trabalho (destaque)" style={{ fontSize: 11 }}>⭐</span>}
                 <button title="Remover" onClick={() => removerFoto(f)} style={{ border: "none", background: "transparent", cursor: "pointer", fontSize: 13, color: "#DC2626" }}>🗑</button>
               </div>

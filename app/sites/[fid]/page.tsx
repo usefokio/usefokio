@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { base, CATEGORIA_LABEL } from "@/lib/site/publico";
+import { BannerCarousel } from "./_components/BannerCarousel";
 import type { SiteBanner, SiteDepoimento, SitePost, SiteTrabalho } from "@/lib/supabase/types";
 
 export default async function HomeSite({ params }: { params: Promise<{ fid: string }> }) {
@@ -16,17 +17,15 @@ export default async function HomeSite({ params }: { params: Promise<{ fid: stri
     admin.from("site_posts").select("*").eq("fotografo_id", fid).eq("publicado", true).order("publicado_em", { ascending: false }).limit(3),
   ]);
 
-  const hero = (banners as SiteBanner[] | null)?.[0] ?? null;
   const urlTrabalho = (t: SiteTrabalho) => `${b}/portfolio/${t.categoria}/${t.legacy_id ? `${t.legacy_id}-` : ""}${t.slug}`;
 
   return (
     <div>
-      {/* Hero */}
-      {hero && (
-        <section style={{ position: "relative", maxHeight: 560, overflow: "hidden" }}>
-          <img src={hero.imagem_url} alt={hero.titulo ?? ""} style={{ width: "100%", height: "56vh", maxHeight: 560, objectFit: "cover", display: "block" }} />
-        </section>
-      )}
+      {/* Hero — carrossel rotativo (clicável quando o banner tem link) */}
+      <BannerCarousel
+        basePath={b}
+        banners={((banners ?? []) as SiteBanner[]).map((bn) => ({ id: bn.id, imagem_url: bn.imagem_url, titulo: bn.titulo, link: bn.link }))}
+      />
 
       {/* Trabalhos recentes */}
       <section style={{ maxWidth: 1200, margin: "0 auto", padding: "56px 24px" }}>

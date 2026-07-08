@@ -9,11 +9,16 @@ import { deleteFilesClient } from "@/lib/storage/deleteClient";
 import { processarImagemEntrega } from "@/lib/imageResize";
 import type { SiteBanner } from "@/lib/supabase/types";
 
+type TrabalhoOpcao = { id: string; titulo: string; categoria: string; slug: string; legacy_id: number | null };
+
 export default function BannersPage() {
   const { fotografo } = useFotografo();
   const [banners, setBanners] = useState<SiteBanner[]>([]);
   const [loading, setLoading] = useState(true);
   const [fila, setFila] = useState<{ total: number; feitas: number } | null>(null);
+  const [trabalhos, setTrabalhos] = useState<TrabalhoOpcao[]>([]);
+  const [editando, setEditando] = useState<string | null>(null);
+  const [formLink, setFormLink] = useState("");
   const inputFileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -21,7 +26,20 @@ export default function BannersPage() {
     const supabase = createClient();
     supabase.from("site_banners").select("*").eq("fotografo_id", fotografo.id).order("ordem")
       .then(({ data }) => { setBanners((data as SiteBanner[]) ?? []); setLoading(false); });
+    supabase.from("site_trabalhos").select("id, titulo, categoria, slug, legacy_id")
+      .eq("fotografo_id", fotografo.id).eq("publicado", true).order("titulo")
+      .then(({ data }) => setTrabalhos((data as TrabalhoOpcao[]) ?? []));
   }, [fotografo]);
+
+  const urlDoTrabalho = (t: TrabalhoOpcao) => `/portfolio/${t.categoria}/${t.legacy_id ? `${t.legacy_id}-` : ""}${t.slug}`;
+
+  async function salvarLink(banner: SiteBanner) {
+    const supabase = createClient();
+    const link = formLink.trim() || null;
+    setBanners((prev) => prev.map((b) => b.id === banner.id ? { ...b, link } : b));
+    setEditando(null);
+    await supabase.from("site_banners").update({ link }).eq("id", banner.id);
+  }
 
   async function enviar(files: FileList | null) {
     if (!files || files.length === 0 || !fotografo) return;
@@ -107,10 +125,35 @@ export default function BannersPage() {
                   {b.publicado ? (idx === 0 ? "Principal" : "Publicado") : "Oculto"}
                 </span>
                 <div style={{ display: "flex", gap: 4 }}>
+                  <button onClick={() => { setEditando(editando === b.id ? null : b.id); setFormLink(b.link ?? ""); }} title="Editar link" style={{ border: "none", background: "transparent", cursor: "pointer", fontSize: 13, color: "var(--color-text-secondary)" }}>✏️</button>
                   <button onClick={() => alternarPublicado(b)} title={b.publicado ? "Ocultar" : "Publicar"} style={{ border: "none", background: "transparent", cursor: "pointer", fontSize: 13, color: "var(--color-text-secondary)" }}>{b.publicado ? "🙈" : "👁"}</button>
                   <button onClick={() => excluir(b)} title="Excluir" style={{ border: "none", background: "transparent", cursor: "pointer", fontSize: 13, color: "#DC2626" }}>🗑</button>
                 </div>
               </div>
+              {b.link && editando !== b.id && (
+                <div style={{ padding: "0 10px 8px", fontSize: 11, color: "#2563EB", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>🔗 {b.link}</div>
+              )}
+              {editando === b.id && (
+                <div style={{ padding: "0 10px 10px", display: "flex", flexDirection: "column", gap: 6 }}>
+                  <input
+                    value={formLink} onChange={(e) => setFormLink(e.target.value)}
+                    placeholder="Link (vazio = banner só imagem)"
+                    style={{ padding: "7px 10px", borderRadius: 7, border: "1px solid var(--color-border-secondary)", fontSize: 12, background: "var(--color-background-primary)", color: "var(--color-text-primary)" }}
+                  />
+                  <select
+                    value=""
+                    onChange={(e) => { const t = trabalhos.find((x) => x.id === e.target.value); if (t) setFormLink(urlDoTrabalho(t)); }}
+                    style={{ padding: "7px 10px", borderRadius: 7, border: "1px solid var(--color-border-secondary)", fontSize: 12, background: "var(--color-background-primary)", color: "var(--color-text-secondary)" }}
+                  >
+                    <option value="">…ou escolher um trabalho</option>
+                    {trabalhos.map((t) => <option key={t.id} value={t.id}>{t.titulo}</option>)}
+                  </select>
+                  <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+                    <button onClick={() => setEditando(null)} style={{ padding: "6px 12px", borderRadius: 7, border: "1px solid var(--color-border-secondary)", background: "transparent", fontSize: 11, color: "var(--color-text-secondary)", cursor: "pointer" }}>Cancelar</button>
+                    <button onClick={() => salvarLink(b)} style={{ padding: "6px 14px", borderRadius: 7, border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>Salvar</button>
+                  </div>
+                </div>
+              )}
             </div>
           ))}
           {banners.length === 0 && !fila && (
