@@ -231,7 +231,10 @@ async function importarDepoimentos(htmlHome) {
   }
 }
 
-// Extrai descrição (div ac__content) e metas de SEO de uma página pública
+const MESES = { janeiro: "01", fevereiro: "02", "março": "03", marco: "03", abril: "04", maio: "05", junho: "06",
+  julho: "07", agosto: "08", setembro: "09", outubro: "10", novembro: "11", dezembro: "12" };
+
+// Extrai descrição (div ac__content), local/data (ai__item) e metas de SEO de uma página pública
 function extrairMeta(html) {
   let descricao = null;
   const idx = html.indexOf("ac__content");
@@ -246,8 +249,20 @@ function extrairMeta(html) {
   const title = html.match(/<title>([^<]*)<\/title>/)?.[1]?.trim() || null;
   const mdesc = (html.match(/name="description"[^>]*content="([^"]*)"/) || html.match(/content="([^"]*)"[^>]*name="description"/))?.[1] || null;
   const mkw = html.match(/name="keywords"[^>]*content="([^"]*)"/)?.[1] || null;
+
+  // Local e data exibidos na página do trabalho (ex.: "Espaço 22 em Ourinhos", "01/Junho/2026")
+  const local = html.match(/class="ai__item ai--local"[^>]*>([^<]+)</)?.[1]?.trim() || null;
+  let data_evento = null;
+  const d = html.match(/class="ai__item ai--date"[^>]*>([^<]+)</)?.[1]?.trim();
+  if (d) {
+    const m = d.match(/(\d{1,2})\/([A-Za-zçÇ]+)\/(\d{4})/);
+    if (m && MESES[m[2].toLowerCase()]) data_evento = `${m[3]}-${MESES[m[2].toLowerCase()]}-${m[1].padStart(2, "0")}`;
+  }
+
   return {
     descricao,
+    local: local ? decode(local) : null,
+    data_evento,
     seo_title: title ? decode(title) : null,
     seo_description: mdesc ? decode(mdesc) : null,
     seo_keywords: mkw ? decode(mkw) : null,
@@ -266,7 +281,7 @@ async function importarMeta() {
       const { error } = await sb.from("site_trabalhos").update(m).eq("id", t.id);
       if (error) throw new Error(error.message);
       ok++;
-      if (m.descricao) console.log(`  ✓ ${t.legacy_id} desc ${m.descricao.length}ch`);
+      console.log(`  ✓ ${t.legacy_id} desc=${m.descricao ? m.descricao.length + "ch" : "—"} local=${m.local ?? "—"} data=${m.data_evento ?? "—"}`);
     } catch (e) {
       pulados++;
       console.log(`  ✗ ${t.legacy_id} (${t.titulo.slice(0, 40)}): ${e.message}`);
@@ -280,7 +295,7 @@ async function importarMeta() {
   for (const p of ports ?? []) {
     try {
       const html = await baixarHtml(`${SITE}/gallery.php?id=${p.legacy_id}`);
-      const m = extrairMeta(html);
+      const { local: _l, data_evento: _d, ...m } = extrairMeta(html); // portfólios não têm local/data
       const { error } = await sb.from("site_portfolios").update(m).eq("id", p.id);
       if (error) throw new Error(error.message);
       console.log(`  ✓ ${p.titulo}: title="${m.seo_title ?? "—"}" desc=${m.seo_description ? m.seo_description.length + "ch" : "—"} kw=${m.seo_keywords ? "sim" : "—"}`);

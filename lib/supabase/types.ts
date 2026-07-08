@@ -375,6 +375,7 @@ export type SiteTrabalho = {
   legacy_id: number | null;
   capa_url: string | null;
   descricao: string | null;
+  local: string | null;
   data_evento: string | null;
   ordem: number;
   publicado: boolean;

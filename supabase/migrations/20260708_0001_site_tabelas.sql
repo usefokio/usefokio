@@ -32,6 +32,7 @@ CREATE TABLE IF NOT EXISTS public.site_trabalhos (
   legacy_id       bigint,
   capa_url        text,
   descricao       text,
+  local           text,
   data_evento     date,
   ordem           integer NOT NULL DEFAULT 0,
   publicado       boolean NOT NULL DEFAULT true,

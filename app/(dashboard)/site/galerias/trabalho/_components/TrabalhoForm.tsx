@@ -9,6 +9,7 @@ import { useFotografo } from "@/lib/context/FotografoContext";
 import { uploadFileClient } from "@/lib/storage/uploadClient";
 import { deleteFilesClient } from "@/lib/storage/deleteClient";
 import { processarImagemEntrega } from "@/lib/imageResize";
+import { RichTextEditor } from "@/app/(dashboard)/crm/_components/RichTextEditor";
 import type { SiteTrabalho, SiteTrabalhoFoto } from "@/lib/supabase/types";
 
 const CATEGORIAS_BASE = [
@@ -53,6 +54,7 @@ export function TrabalhoForm({ trabalhoId }: { trabalhoId?: string }) {
   const [slug, setSlug]             = useState("");
   const [slugTocado, setSlugTocado] = useState(false);
   const [descricao, setDescricao]   = useState("");
+  const [localEvento, setLocalEvento] = useState("");
   const [dataEvento, setDataEvento] = useState("");
   const [publicado, setPublicado]   = useState(true);
   const [destaqueHome, setDestaqueHome] = useState(false);
@@ -73,7 +75,7 @@ export function TrabalhoForm({ trabalhoId }: { trabalhoId?: string }) {
       if (!t) { setMsg({ tipo: "erro", texto: "Trabalho não encontrado." }); setCarregando(false); return; }
       const trab = t as SiteTrabalho;
       setTitulo(trab.titulo); setCategoria(trab.categoria); setSlug(trab.slug); setSlugTocado(true);
-      setDescricao(trab.descricao ?? ""); setDataEvento(trab.data_evento ?? "");
+      setDescricao(trab.descricao ?? ""); setLocalEvento(trab.local ?? ""); setDataEvento(trab.data_evento ?? "");
       setPublicado(trab.publicado); setDestaqueHome(trab.destaque_home);
       setSeoTitle(trab.seo_title ?? ""); setSeoDesc(trab.seo_description ?? "");
       setCapaUrl(trab.capa_url); setLegacyId(trab.legacy_id);
@@ -96,9 +98,10 @@ export function TrabalhoForm({ trabalhoId }: { trabalhoId?: string }) {
     if (!slugFinal) { setMsg({ tipo: "erro", texto: "Slug inválido." }); return; }
     setSalvando(true); setMsg(null);
     const supabase = createClient();
+    const descLimpa = descricao.replace(/<p>\s*<\/p>/g, "").trim();
     const campos = {
       titulo: titulo.trim(), categoria, slug: slugFinal,
-      descricao: descricao.trim() || null, data_evento: dataEvento || null,
+      descricao: descLimpa || null, local: localEvento.trim() || null, data_evento: dataEvento || null,
       publicado, destaque_home: destaqueHome,
       seo_title: seoTitle.trim() || null, seo_description: seoDesc.trim() || null,
       updated_at: new Date().toISOString(),
@@ -205,12 +208,16 @@ export function TrabalhoForm({ trabalhoId }: { trabalhoId?: string }) {
           <input value={titulo} onChange={(e) => { setTitulo(e.target.value); if (!slugTocado) setSlug(slugify(e.target.value)); }} style={inputStyle} placeholder="Ex.: Casamento, Ana e João no Espaço X" />
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
           <div>
             <label style={labelStyle}>Categoria</label>
             <select value={categoria} onChange={(e) => setCategoria(e.target.value)} style={inputStyle}>
               {CATEGORIAS_BASE.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
             </select>
+          </div>
+          <div>
+            <label style={labelStyle}>Local</label>
+            <input value={localEvento} onChange={(e) => setLocalEvento(e.target.value)} style={inputStyle} placeholder="Ex.: Espaço 22 em Ourinhos" />
           </div>
           <div>
             <label style={labelStyle}>Data do evento</label>
@@ -226,7 +233,8 @@ export function TrabalhoForm({ trabalhoId }: { trabalhoId?: string }) {
 
         <div>
           <label style={labelStyle}>Descrição</label>
-          <textarea value={descricao} onChange={(e) => setDescricao(e.target.value)} rows={4} style={{ ...inputStyle, resize: "vertical" }} placeholder="Texto exibido na página do trabalho (bom para SEO)." />
+          <RichTextEditor value={descricao} onChange={setDescricao} minHeight={160} />
+          <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 4 }}>Texto exibido na página do trabalho (bom para SEO).</div>
         </div>
 
         <div style={{ display: "flex", gap: 22, flexWrap: "wrap" }}>
