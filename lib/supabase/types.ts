@@ -5,6 +5,7 @@ export type RecursosFotografo = {
   contatos: boolean;
   pagamentos: boolean;
   crm: boolean;
+  site: boolean;
 };
 
 export type Fotografo = {

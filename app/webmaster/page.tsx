@@ -44,6 +44,7 @@ const RECURSOS_LABELS: { chave: string; label: string }[] = [
   { chave: "pagamentos", label: "Pagamentos" },
   { chave: "selecao",    label: "Seleção" },
   { chave: "crm",        label: "CRM" },
+  { chave: "site",       label: "Site" },
 ];
 
 async function authHeaders(): Promise<Record<string, string>> {

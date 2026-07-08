@@ -191,6 +191,21 @@ const CRM_ITEMS = [
   },
 ];
 
+const SITE_ITEMS = [
+  { href: "/site",             label: "Dashboard" },
+  { href: "/site/galerias",    label: "Galerias" },
+  { href: "/site/blog",        label: "Blog" },
+  { href: "/site/paginas",     label: "Páginas" },
+  { href: "/site/banners",     label: "Banners" },
+  { href: "/site/menu",        label: "Menu" },
+  { href: "/site/depoimentos", label: "Depoimentos" },
+  { href: "/site/inbox",       label: "Inbox" },
+  { href: "/site/seo",         label: "SEO" },
+  { href: "/site/dominio",     label: "Domínio" },
+  { href: "/site/temas",       label: "Temas" },
+  { href: "/site/config",      label: "Configurações" },
+];
+
 function FinanceiroSubItems({ pathname }: { pathname: string }) {
   const searchParams = useSearchParams();
   const tipoAtual    = searchParams.get("tipo");
@@ -309,6 +324,7 @@ export function Sidebar({ isMobile = false, mobileAberta = false, onFechar }: Si
   const [collapsed, setCollapsed] = useState(false);
   const [usefokioOpen, setUsefokioOpen] = useState(true);
   const [crmOpen,      setCrmOpen]      = useState(true);
+  const [siteOpen,     setSiteOpen]     = useState(true);
   const [resetando, setResetando]       = useState(false);
 
   useEffect(() => {
@@ -438,7 +454,8 @@ export function Sidebar({ isMobile = false, mobileAberta = false, onFechar }: Si
             "/selecao": "selecao", "/entrega": "entrega", "/album": "album", "/contatos": "contatos",
           };
 
-          const inCRM = pathname.startsWith("/crm");
+          const inCRM  = pathname.startsWith("/crm");
+          const inSite = pathname.startsWith("/site");
 
           // ── Renderiza sub-item ────────────────────────────────────────────────
           const renderSub = (href: string, label: string, excludePrefixes?: string[]) => {
@@ -528,6 +545,14 @@ export function Sidebar({ isMobile = false, mobileAberta = false, onFechar }: Si
             </svg>
           );
 
+          // ── Ícone Site ───────────────────────────────────────────────────────
+          const icoSite = (
+            <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+              <circle cx="8" cy="8" r="7" stroke="currentColor" strokeWidth="1.3" fill="none" opacity=".8" />
+              <path d="M1.5 8h13M8 1c2.2 2 2.2 12 0 14M8 1c-2.2 2-2.2 12 0 14" stroke="currentColor" strokeWidth="1.1" fill="none" opacity=".7" />
+            </svg>
+          );
+
           // ── Sub-itens UseFokio ───────────────────────────────────────────────
           const usefokioItems = USEFOKIO_ITEMS.filter((item) => {
             const chave = recursosPorRota[item.href];
@@ -563,16 +588,34 @@ export function Sidebar({ isMobile = false, mobileAberta = false, onFechar }: Si
             </>
           );
 
-          // Dev e prod: UseFokio + CRM (se habilitado). Em dev o mock tem todos os recursos.
-          const crmHabilitado = fotografo?.recursos?.crm !== false;
+          // ── Sub-itens Site ───────────────────────────────────────────────────
+          const siteChildren = (
+            <>
+              {SITE_ITEMS.map((item) => (
+                <div key={item.href}>
+                  {renderSub(item.href, item.label, item.href === "/site" ? SITE_ITEMS.filter((i) => i.href !== "/site").map((i) => i.href) : undefined)}
+                </div>
+              ))}
+            </>
+          );
+
+          // Dev e prod: UseFokio + CRM + Site (se habilitados). Em dev o mock tem todos os recursos.
+          const crmHabilitado  = fotografo?.recursos?.crm !== false;
+          const siteHabilitado = fotografo?.recursos?.site === true; // opt-in: recurso novo, oculto até habilitar
 
           return (
             <>
-              {renderModule("/dashboard", "UseFokio", icoUseFokio, usefokioChildren, !inCRM, usefokioOpen, () => setUsefokioOpen(v => !v))}
+              {renderModule("/dashboard", "UseFokio", icoUseFokio, usefokioChildren, !inCRM && !inSite, usefokioOpen, () => setUsefokioOpen(v => !v))}
               {crmHabilitado && (
                 <>
                   <div style={{ margin: "4px 0", borderTop: "0.5px solid var(--color-border-tertiary)" }} />
                   {renderModule("/crm/agenda", "CRM", icoCRM, crmChildren, inCRM, crmOpen, () => setCrmOpen(v => !v))}
+                </>
+              )}
+              {siteHabilitado && (
+                <>
+                  <div style={{ margin: "4px 0", borderTop: "0.5px solid var(--color-border-tertiary)" }} />
+                  {renderModule("/site", "Site", icoSite, siteChildren, inSite, siteOpen, () => setSiteOpen(v => !v))}
                 </>
               )}
             </>
