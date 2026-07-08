@@ -259,10 +259,16 @@ function extrairMeta(html) {
     if (m && MESES[m[2].toLowerCase()]) data_evento = `${m[3]}-${MESES[m[2].toLowerCase()]}-${m[1].padStart(2, "0")}`;
   }
 
+  // Contadores públicos (visualizações e curtidas do trabalho)
+  const views = parseInt(html.match(/album_views_update[^>]*>([^<]*)</)?.[1]?.trim() ?? "", 10);
+  const likes = parseInt(html.match(/album_likes_update[^>]*>([^<]*)</)?.[1]?.trim() ?? "", 10);
+
   return {
     descricao,
     local: local ? decode(local) : null,
     data_evento,
+    views: Number.isFinite(views) ? views : undefined,
+    likes: Number.isFinite(likes) ? likes : undefined,
     seo_title: title ? decode(title) : null,
     seo_description: mdesc ? decode(mdesc) : null,
     seo_keywords: mkw ? decode(mkw) : null,
@@ -295,11 +301,49 @@ async function importarMeta() {
   for (const p of ports ?? []) {
     try {
       const html = await baixarHtml(`${SITE}/gallery.php?id=${p.legacy_id}`);
-      const { local: _l, data_evento: _d, ...m } = extrairMeta(html); // portfólios não têm local/data
+      const { local: _l, data_evento: _d, views: _v, likes: _k, ...m } = extrairMeta(html); // portfólios não têm local/data/contadores
       const { error } = await sb.from("site_portfolios").update(m).eq("id", p.id);
       if (error) throw new Error(error.message);
       console.log(`  ✓ ${p.titulo}: title="${m.seo_title ?? "—"}" desc=${m.seo_description ? m.seo_description.length + "ch" : "—"} kw=${m.seo_keywords ? "sim" : "—"}`);
     } catch (e) { console.log(`  ✗ ${p.titulo}: ${e.message}`); }
+  }
+}
+
+// Importa o conteúdo das páginas institucionais (Sobre, Contato)
+async function importarPaginas() {
+  const paginas = [
+    { tipo: "sobre", slug: "sobre", url: `${SITE}/sobre` },
+    { tipo: "contato", slug: "contato", url: `${SITE}/contato` },
+  ];
+  for (const p of paginas) {
+    console.log(`\n▶ Página /${p.slug}`);
+    try {
+      const html = await baixarHtml(p.url);
+      const titulo = html.match(/class="as__title"[^>]*>([^<]+)</)?.[1]?.trim() || p.slug;
+      let corpo = null;
+      const idx = html.indexOf("as__description");
+      if (idx >= 0) {
+        const abre = html.indexOf(">", idx) + 1;
+        const fecha = html.indexOf("</div>", abre);
+        if (fecha > abre) corpo = html.slice(abre, fecha).trim();
+      }
+      // Imagens próprias da página (ex.: autorretrato do Sobre) → re-hospedar
+      const imgs = [...new Set([...html.matchAll(/sites\/3592\/(img\/[a-z]+\/[^"'\s?&)]+?\.(?:jpe?g|png|webp))/gi)].map((m) => m[1]))]
+        .filter((f) => !/favicon|logo/i.test(f));
+      const imagens = [];
+      for (const file of imgs) {
+        try {
+          const nome = file.split("/").pop();
+          const r = await transferir(`https://storage.alboom.ninja/sites/3592/${file}`, `site/${FOTOGRAFO_ID}/paginas/${p.slug}/${nome}`);
+          imagens.push(r.url);
+        } catch { /* opcional */ }
+      }
+      const conteudo = { html: corpo, imagens };
+      const { data: existente } = await sb.from("site_paginas").select("id").eq("fotografo_id", FOTOGRAFO_ID).eq("slug", p.slug).maybeSingle();
+      if (existente) await sb.from("site_paginas").update({ tipo: p.tipo, titulo: decode(titulo), conteudo }).eq("id", existente.id);
+      else await sb.from("site_paginas").insert({ fotografo_id: FOTOGRAFO_ID, tipo: p.tipo, titulo: decode(titulo), slug: p.slug, conteudo });
+      console.log(`  ✓ "${decode(titulo)}" corpo=${corpo ? corpo.length + "ch" : "—"} imagens=${imagens.length}`);
+    } catch (e) { console.log(`  ✗ ${p.slug}: ${e.message}`); }
   }
 }
 
@@ -313,6 +357,7 @@ const worksArg = args[args.indexOf("--works") + 1];
   if (flag("works") && worksArg) await importarWorks(worksArg.split(",").map((s) => parseInt(s.trim(), 10)));
   if (flag("galleries")) await importarGalleries();
   if (flag("meta")) await importarMeta();
+  if (flag("paginas")) await importarPaginas();
   if (flag("posts")) await importarPosts();
   if (flag("banners") || flag("depoimentos")) {
     const home = await baixarHtml(SITE + "/");

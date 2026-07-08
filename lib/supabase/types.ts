@@ -377,6 +377,9 @@ export type SiteTrabalho = {
   descricao: string | null;
   local: string | null;
   data_evento: string | null;
+  tags: string | null;
+  mostrar_data: boolean;
+  modo_exibicao: string; // lista | slideshow | grid-vertical | grid-horizontal
   ordem: number;
   publicado: boolean;
   destaque_home: boolean;
