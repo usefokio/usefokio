@@ -5,6 +5,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { baseLinks, CATEGORIA_LABEL, legacyDoSlug } from "@/lib/site/publico";
+import { FotosTrabalho } from "../../../_components/FotosTrabalho";
 import type { SiteTrabalho, SiteTrabalhoFoto } from "@/lib/supabase/types";
 
 async function buscarTrabalho(fid: string, idslug: string): Promise<SiteTrabalho | null> {
@@ -51,6 +52,11 @@ export default async function TrabalhoPage({ params }: { params: Promise<{ fid: 
           {t.local && <span>{t.local}</span>}
           {dataFmt && <span>{dataFmt}</span>}
         </div>
+        {/* Contadores como no site antigo: visualizações e curtidas do trabalho */}
+        <div style={{ display: "flex", gap: 18, justifyContent: "center", marginTop: 10, fontSize: 13, color: "var(--site-suave)" }}>
+          <span>👁 {t.views ?? 0} visualizações</span>
+          <span>♥ {t.likes ?? 0} curtidas</span>
+        </div>
       </header>
 
       {t.descricao && (
@@ -61,17 +67,11 @@ export default async function TrabalhoPage({ params }: { params: Promise<{ fid: 
         />
       )}
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-        {((fotos ?? []) as SiteTrabalhoFoto[]).map((f) => (
-          <img
-            key={f.id}
-            src={f.url_publica}
-            alt={f.descricao || t.titulo}
-            style={{ width: "100%", height: "auto", borderRadius: 8, display: "block" }}
-            loading="lazy"
-          />
-        ))}
-      </div>
+      <FotosTrabalho
+        trabalhoId={t.id}
+        titulo={t.titulo}
+        fotos={((fotos ?? []) as SiteTrabalhoFoto[]).map((f) => ({ id: f.id, url_publica: f.url_publica, descricao: f.descricao, likes: f.likes ?? 0 }))}
+      />
 
       {(!fotos || fotos.length === 0) && (
         <div style={{ textAlign: "center", padding: 40, color: "#999", fontSize: 14 }}>As fotos deste trabalho ainda não foram importadas.</div>
