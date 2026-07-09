@@ -39,6 +39,8 @@ export async function generateMetadata({ params }: { params: Promise<{ fid: stri
     keywords: config?.seo_keywords ?? undefined,
     verification: config?.google_site_verification ? { google: config.google_site_verification } : undefined,
     alternates: canonical ? { canonical } : undefined,
+    // Favicon do site = logo do fotógrafo (senão o navegador cai no favicon do app)
+    icons: fotografo?.logo_url ? { icon: fotografo.logo_url, shortcut: fotografo.logo_url } : undefined,
     robots: ehHostDoSite && config?.publicado ? { index: true, follow: true } : { index: false, follow: false },
   };
 }

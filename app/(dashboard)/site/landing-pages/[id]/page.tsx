@@ -355,6 +355,20 @@ export default function EditorLandingPage({ params }: { params: Promise<{ id: st
                 <span style={{ fontSize: 13, fontWeight: 700, color: "var(--color-text-primary)", flexShrink: 0 }}>{rot.label}</span>
                 <span style={{ fontSize: 12, color: "var(--color-text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>{resumoBloco(b)}</span>
                 <button
+                  title="Duplicar bloco"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setBlocos((prev) => {
+                      const i = prev.findIndex((x) => x.id === b.id);
+                      const copia = { ...structuredClone(prev[i]), id: crypto.randomUUID() };
+                      const novas = [...prev];
+                      novas.splice(i + 1, 0, copia);
+                      return novas;
+                    });
+                  }}
+                  style={{ border: "none", background: "transparent", cursor: "pointer", fontSize: 13, color: "var(--color-text-secondary)" }}
+                >⧉</button>
+                <button
                   title="Remover bloco"
                   onClick={(e) => { e.stopPropagation(); if (confirm("Remover este bloco?")) setBlocos((prev) => prev.filter((x) => x.id !== b.id)); }}
                   style={{ border: "none", background: "transparent", cursor: "pointer", fontSize: 13, color: "#DC2626" }}
