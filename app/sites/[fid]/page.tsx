@@ -4,6 +4,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { baseLinks } from "@/lib/site/publico";
 import { BannerCarousel } from "./_components/BannerCarousel";
 import { CardTrabalho } from "./_components/CardTrabalho";
+import { GoogleReviews } from "./_components/GoogleReviews";
+import { avaliacoesParaExibir } from "@/lib/google/places";
 import type { SiteBanner, SiteDepoimento, SitePost, SiteTrabalho } from "@/lib/supabase/types";
 
 export default async function HomeSite({ params }: { params: Promise<{ fid: string }> }) {
@@ -11,13 +13,17 @@ export default async function HomeSite({ params }: { params: Promise<{ fid: stri
   const b = await baseLinks(fid);
   const admin = createAdminClient();
 
-  const [{ data: banners }, { data: destaques }, { data: recentes }, { data: depoimentos }, { data: posts }] = await Promise.all([
+  const [{ data: banners }, { data: destaques }, { data: recentes }, { data: depoimentos }, { data: posts }, { data: config }] = await Promise.all([
     admin.from("site_banners").select("*").eq("fotografo_id", fid).eq("publicado", true).order("ordem"),
     admin.from("site_trabalhos").select("*").eq("fotografo_id", fid).eq("publicado", true).eq("destaque_home", true).order("data_evento", { ascending: false }).limit(3),
     admin.from("site_trabalhos").select("*").eq("fotografo_id", fid).eq("publicado", true).order("data_evento", { ascending: false }).limit(6),
     admin.from("site_depoimentos").select("*").eq("fotografo_id", fid).eq("publicado", true).order("ordem").limit(3),
     admin.from("site_posts").select("*").eq("fotografo_id", fid).eq("publicado", true).order("ordem", { ascending: true }).limit(3),
+    admin.from("site_config").select("google_place_id, google_rating, google_total, google_reviews").eq("fotografo_id", fid).maybeSingle(),
   ]);
+
+  // Avaliações do Google (se configuradas) substituem os depoimentos manuais na home.
+  const avaliacoesGoogle = await avaliacoesParaExibir(config);
 
   const urlTrabalho = (t: SiteTrabalho) => `${b}/portfolio/${t.categoria}/${t.legacy_id ? `${t.legacy_id}-` : ""}${t.slug}`;
   const listaDestaque = (destaques as SiteTrabalho[] | null) ?? [];
@@ -54,8 +60,15 @@ export default async function HomeSite({ params }: { params: Promise<{ fid: stri
         </div>
       </section>
 
-      {/* Depoimentos */}
-      {depoimentos && depoimentos.length > 0 && (
+      {/* Avaliações do Google (se configuradas) — senão, depoimentos manuais */}
+      {avaliacoesGoogle && (avaliacoesGoogle.reviews.length > 0 || avaliacoesGoogle.rating != null) ? (
+        <section style={{ background: "var(--site-superficie)", padding: "64px 24px", marginTop: 40 }}>
+          <div style={{ maxWidth: 1120, margin: "0 auto" }}>
+            <h2 className="site-secao-titulo" style={{ fontSize: 30, textAlign: "center", margin: "0 0 32px" }}>O que meus clientes dizem</h2>
+            <GoogleReviews dados={avaliacoesGoogle} />
+          </div>
+        </section>
+      ) : depoimentos && depoimentos.length > 0 ? (
         <section style={{ background: "var(--site-superficie)", padding: "64px 24px", marginTop: 40 }}>
           <div style={{ maxWidth: 1000, margin: "0 auto" }}>
             <h2 className="site-secao-titulo" style={{ fontSize: 30, textAlign: "center", margin: "0 0 44px" }}>Depoimentos</h2>
@@ -72,7 +85,7 @@ export default async function HomeSite({ params }: { params: Promise<{ fid: stri
             </div>
           </div>
         </section>
-      )}
+      ) : null}
 
       {/* Blog */}
       {posts && posts.length > 0 && (

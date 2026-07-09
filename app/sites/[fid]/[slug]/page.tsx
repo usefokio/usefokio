@@ -5,6 +5,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { baseLinks } from "@/lib/site/publico";
+import { avaliacoesParaExibir } from "@/lib/google/places";
+import { GoogleReviews } from "../_components/GoogleReviews";
 import type { SiteLandingPage, SiteLandingDados } from "@/lib/supabase/types";
 
 async function buscarLanding(fid: string, slug: string): Promise<SiteLandingPage | null> {
@@ -27,30 +29,23 @@ export default async function LandingPage({ params }: { params: Promise<{ fid: s
   if (!lp) notFound();
 
   const admin = createAdminClient();
-  const { data: fotografo } = await admin.from("fotografos").select("whatsapp").eq("id", fid).maybeSingle();
+  const [{ data: fotografo }, { data: config }] = await Promise.all([
+    admin.from("fotografos").select("whatsapp").eq("id", fid).maybeSingle(),
+    admin.from("site_config").select("google_place_id, google_rating, google_total, google_reviews").eq("fotografo_id", fid).maybeSingle(),
+  ]);
   const b = await baseLinks(fid);
   const d = (lp.dados ?? {}) as SiteLandingDados;
 
   const numeroWhats = (d.cta_whatsapp?.numero || (fotografo?.whatsapp ?? "")).replace(/\D/g, "") || null;
   const linkWhats = numeroWhats ? `https://wa.me/${numeroWhats.startsWith("55") ? numeroWhats : "55" + numeroWhats}` : null;
-  const av = d.avaliacoes;
   const linkInterno = (href: string) => (href.startsWith("/") ? `${b}${href}` : href);
 
-  const BlocoAvaliacoes = av && (av.reviews?.length || av.escrever_url) ? (
-    <section className="lp-secao" style={{ textAlign: "center" }}>
-      <h2 className="lp-titulo">{av.titulo ?? "Avaliações no Google"}</h2>
-      {av.escrever_url && <a className="lp-botao-verde" href={av.escrever_url} target="_blank" rel="noopener noreferrer">Escrever avaliação</a>}
-      {av.reviews && av.reviews.length > 0 && (
-        <div className="lp-reviews">
-          {av.reviews.map((r, i) => (
-            <div key={i} className="lp-review">
-              {typeof r.nota === "number" && <div className="lp-review-nota">{"★".repeat(Math.round(r.nota))}</div>}
-              <div className="lp-review-texto">“{r.texto}”</div>
-              <div className="lp-review-nome">{r.nome}</div>
-            </div>
-          ))}
-        </div>
-      )}
+  // Avaliações reais do Google (dinâmico). Se não houver place_id/chave, esconde a seção.
+  const avaliacoes = await avaliacoesParaExibir(config);
+  const BlocoAvaliacoes = avaliacoes && (avaliacoes.reviews.length > 0 || avaliacoes.rating != null) ? (
+    <section className="lp-secao">
+      <h2 className="lp-titulo">{d.avaliacoes?.titulo ?? "O que meus clientes dizem"}</h2>
+      <GoogleReviews dados={avaliacoes} />
     </section>
   ) : null;
 

@@ -77,8 +77,11 @@ a {
 .lp-video { max-width: 900px; margin: 0 auto; aspect-ratio: 16/9; }
 .lp-video iframe { width: 100%; height: 100%; border: 0; border-radius: 4px; }
 
-/* Avaliações Google */
-.lp-reviews { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-top: 24px; }
+/* Avaliações Google — faixa de resumo + botão */
+.gr-faixa { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; background: var(--site-superficie); border: 1px solid var(--site-borda); border-radius: 12px; padding: 18px 22px; text-align: left; }
+.gr-botao { display: inline-block; padding: 11px 22px; background: #4285F4; color: #fff; font-size: 14px; font-weight: 700; text-decoration: none; border-radius: 8px; }
+/* Avaliações Google — cards */
+.lp-reviews { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-top: 24px; }
 .lp-review { background: #fff; border: 1px solid var(--site-borda); border-radius: 10px; padding: 22px; font-family: system-ui, sans-serif; }
 .lp-review-nota { color: #f5b400; font-size: 15px; margin-bottom: 8px; }
 .lp-review-texto { font-size: 14px; line-height: 1.7; color: var(--site-texto); }
@@ -94,7 +97,8 @@ a {
   .lp-duas.invertido .lp-duas-txt { order: 0; } /* texto sempre acima da imagem no mobile */
   .lp-duas-img { max-height: 80vh; width: auto; max-width: 100%; margin: 0 auto; } /* retrato não domina a tela */
   .lp-casais { grid-template-columns: repeat(2, 1fr); gap: 18px; }
-  .lp-reviews { grid-template-columns: 1fr; }
+  .lp-reviews { grid-template-columns: repeat(2, 1fr); }
+  .gr-faixa { justify-content: center; text-align: center; }
   .lp-secao { padding: 44px 20px; }
   .lp-hero { min-height: 62vh; }
   .lp-hero-inner img.lp-logo { height: 84px; }
@@ -105,6 +109,7 @@ a {
 }
 @media (max-width: 560px) {
   .lp-casais { grid-template-columns: 1fr; }
+  .lp-reviews { grid-template-columns: 1fr; }
   .lp-hero-inner h1 { font-size: 26px; }
 }
 
