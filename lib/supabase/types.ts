@@ -460,13 +460,20 @@ export type SitePost = {
   updated_at: string;
 };
 
-// Landing page (template estruturado "orcamento"; editor de blocos livre é fase futura)
+// Landing page — template "orcamento" fiel ao Alboom (editor de blocos livre é fase futura).
+export type SiteLandingReview = { nome: string; nota?: number | null; texto: string };
+export type SiteLandingPacote = { nome: string; itens: string[]; valor: string; imagem_url?: string | null };
+export type SiteLandingCasal = { nome: string; foto_url?: string | null; href?: string | null };
+
 export type SiteLandingDados = {
   hero?: { imagem_url?: string | null; logo_url?: string | null; titulo?: string | null };
-  pacotes?: { nome: string; itens: string[]; valor: string; observacao?: string | null }[];
-  secoes?: { titulo: string; corpo_html: string }[];
-  casais?: { titulo: string; fotos: string[]; link?: string | null }[];
-  avaliacoes_titulo?: string | null;
+  avaliacoes?: { titulo?: string | null; place_id?: string | null; escrever_url?: string | null; reviews?: SiteLandingReview[] };
+  video_url?: string | null; // URL de embed do YouTube
+  pacotes?: SiteLandingPacote[];
+  ensaio?: { titulo?: string | null; imagem_url?: string | null };
+  albuns?: { titulo?: string | null; corpo_html?: string | null; imagem_url?: string | null };
+  casais_titulo?: string | null;
+  casais?: SiteLandingCasal[];
   cta_whatsapp?: { texto?: string | null; numero?: string | null };
 };
 

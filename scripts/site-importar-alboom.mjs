@@ -385,103 +385,106 @@ async function importarFotosCorpo() {
 
 function hashCode(s) { let h = 0; for (let i = 0; i < s.length; i++) { h = (h << 5) - h + s.charCodeAt(i); h |= 0; } return h; }
 
-// Importa a landing page de orçamento como base do template "orcamento".
-// Extração best-effort da estrutura do page-builder do Alboom (h1 + ul + VALOR + blocos de fotos);
-// o que não mapear com confiança o Fernando ajusta depois no editor do painel.
+// Réplica FIEL da landing de orçamento (template "orcamento"). Estrutura/textos/valores/links mapeados
+// da página real; imagens localizadas no HTML pelo nome do arquivo e re-hospedadas no nosso storage.
 async function importarLanding(slug = "orcamentooo-casamento-2026") {
-  console.log(`\n▶ Landing /${slug}`);
+  console.log(`\n▶ Landing /${slug} (réplica fiel)`);
   const html = await baixarHtml(`${SITE}/${slug}`);
-  const stripTags = (s) => decode(s.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim());
 
-  // Blocos delimitados por <h1>
-  const h1s = [...html.matchAll(/<h1[^>]*>([\s\S]*?)<\/h1>/g)]
-    .map((m) => ({ titulo: stripTags(m[1]), inicio: m.index, fim: m.index + m[0].length }))
-    .filter((h) => h.titulo); // ignora h1 vazios do builder
-  const segmento = (i) => html.slice(h1s[i].fim, i + 1 < h1s.length ? h1s[i + 1].inicio : html.length);
+  // Acha no HTML a URL cdn.alboompro cujo arquivo contém `nomeParcial`, normalizada para xlarge.
+  const acharUrl = (nomeParcial) => {
+    const re = new RegExp(`https://cdn\\.alboompro\\.com/[^"'\\s]*${nomeParcial.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}[^"'\\s]*\\.(?:jpe?g|png|webp)`, "i");
+    const m = html.match(re);
+    return m ? m[0].replace(/\/(large|standard|medium|small|thumb|original_size)\//, "/xlarge/") : null;
+  };
 
-  const dados = { hero: {}, pacotes: [], secoes: [], casais: [], avaliacoes_titulo: null, cta_whatsapp: {} };
-
-  // Hero: primeiro h1 + primeira imagem grande + logo vazada
-  dados.hero.titulo = h1s[0]?.titulo ?? "Orçamento";
-  const antesDoPrimeiroH1 = html.slice(0, h1s[0]?.inicio ?? 0);
-  const heroImg = antesDoPrimeiroH1.match(/https:\/\/cdn\.alboompro\.com\/[^"'\s]+\/(?:original_size|xlarge)\/[^"'\s]+\.(?:jpe?g|png|webp)/i)?.[0] ?? null;
-  const logoImg = html.match(/https:\/\/cdn\.alboompro\.com\/[^"'\s]+\/(?:xlarge|large|standard)\/[^"'\s]*(?:logo|vazad)[^"'\s]*\.(?:png|webp)/i)?.[0] ?? null;
-
-  // Percorre os blocos
-  const normalizarVariante = (u) => u.replace(/\/(large|standard|medium|small|thumb)\//, "/xlarge/");
-  for (let i = 0; i < h1s.length; i++) {
-    const t = h1s[i].titulo;
-    const seg = segmento(i);
-    if (/^valor$/i.test(t)) continue; // tratado junto do pacote anterior
-    const lis = [...seg.matchAll(/<li[^>]*>([\s\S]*?)<\/li>/g)].map((m) => stripTags(m[1])).filter(Boolean);
-    const imgs = [...new Set(
-      [...seg.matchAll(/https:\/\/cdn\.alboompro\.com\/[^"'\s]+\.(?:jpe?g|png|webp)/gi)]
-        .map((m) => normalizarVariante(m[0]))
-    )].filter((u) => !/logo|vazad/i.test(u));
-    // Parágrafos: split por </p> (o builder aninha <p> e quebra regex par-a-par)
-    const textos = seg.split(/<\/p>/).map(stripTags).filter((x) => x.length > 3);
-
-    if (/clientes dizem/i.test(t)) {
-      dados.avaliacoes_titulo = t;
-    } else if (lis.length >= 2) {
-      // Pacote: itens em lista; o valor vem do bloco "VALOR" seguinte
-      let valor = "";
-      if (h1s[i + 1] && /^valor$/i.test(h1s[i + 1].titulo)) {
-        valor = stripTags(segmento(i + 1).split(/<\/p>/).map(stripTags).find((x) => /R\$/.test(x)) ?? "");
-      } else {
-        valor = textos.find((x) => /R\$/.test(x)) ?? "";
-      }
-      dados.pacotes.push({ nome: t, itens: lis, valor, observacao: null });
-    } else if (i > 0 && textos.filter((x) => x.length > 30).length >= 3) {
-      // Seção de texto (ex.: Álbuns) — vários parágrafos longos
-      dados.secoes.push({ titulo: t, corpo_html: textos.filter((x) => x.length > 3).map((p) => `<p>${p}</p>`).join("") });
-    } else if (imgs.length >= 1 && i > 0) {
-      // Bloco de casal (título + foto(s))
-      dados.casais.push({ titulo: t, fotos: imgs.slice(0, 6), link: null });
-    }
-  }
-
-  // CTA WhatsApp
-  const wa = html.match(/https:\/\/(?:api\.whatsapp\.com|wa\.me)[^"'\s]*/)?.[0] ?? null;
-  dados.cta_whatsapp = { texto: "Conversar no WhatsApp", numero: wa ? (wa.match(/(?:phone=|wa\.me\/)(\d+)/)?.[1] ?? null) : null };
-
-  // Re-hospeda as imagens no nosso storage
-  async function rehospedar(url, nomePasta, idx) {
+  // Re-hospeda uma imagem (com fallback de variantes se xlarge não existir).
+  const rehospedar = async (url, nome) => {
     if (!url) return null;
-    const nome = url.split("/").pop().split("?")[0];
-    // nem toda imagem tem todas as variantes — tenta da maior pra menor
-    const variantes = ["xlarge", "original_size", "large", "standard"];
-    for (const v of variantes) {
-      const tentativa = url.replace(/\/(xlarge|original_size|large|standard|medium|small|thumb)\//, `/${v}/`);
+    const arq = url.split("/").pop().split("?")[0];
+    for (const v of ["xlarge", "original_size", "large", "standard"]) {
       try {
-        const { url: nova } = await transferir(tentativa, `site/${FOTOGRAFO_ID}/landing/${slug}/${nomePasta}-${idx}-${nome}`);
+        const tent = url.replace(/\/(xlarge|original_size|large|standard|medium|small|thumb)\//, `/${v}/`);
+        const { url: nova } = await transferir(tent, `site/${FOTOGRAFO_ID}/landing/${slug}/${nome}-${arq}`);
         return nova;
-      } catch { /* tenta a próxima variante */ }
+      } catch { /* próxima variante */ }
     }
-    console.log(`    ✗ img ${nomePasta}-${idx}: nenhuma variante disponível`);
-    return url;
+    console.log(`    ✗ img ${nome}: indisponível`);
+    return null;
+  };
+
+  // Dados fiéis (mapeados da página real).
+  const pacotesDef = [
+    { nome: "Mini Wedding", arq: "fas03046", valor: "R$ 10x 345", itens: [
+      "Cobertura por Fernando Agrela;", "5 horas de cobertura;",
+      "Incluindo making-of noiva, cerimônia, início da recepção;", "Média de 400 fotos em alta resolução;" ] },
+    { nome: "Wedding Day", arq: "fas08976", valor: "R$ 10x 510,00", itens: [
+      "Dois fotógrafos (Fernando Agrela + fotógrafo assistente);", "8 horas de cobertura;",
+      "Incluindo making-of noiva, cerimônia, mini ensaio e festa;", "Média de 800 fotos em alta resolução;" ] },
+    { nome: "Wedding Story", arq: "fas07863", valor: "R$ 10x 850", itens: [
+      "Dois fotógrafos (Fernando Agrela + fotógrafo assistente);", "12 horas de cobertura;",
+      "Incluindo making-of noiva e noivo, cerimônia, mini ensaio e festa;", "Média de 1700 fotos em alta resolução;",
+      "Cobertura Civil no cartório;" ] },
+  ];
+  const casaisDef = [
+    { nome: "Jullia e Rafael",   arq: "casasmento-julia-rafael-maringa", href: "/portfolio/casamentos/1309776-casamento-julia-e-rafael" },
+    { nome: "Larissa e Valdir",  arq: "casamento-larissa-waldir-piraju", href: "/portfolio/casamentos/651353-casamento-larissa-valdir-taquarituba-sp-fotos" },
+    { nome: "Samanta e Lucas",   arq: "casamento-samanta-lucas-olaria",  href: "/portfolio/casamentos/1239314-casamento-samanta-e-lucas" },
+    { nome: "Ana e Gabriel",     arq: "fotos-casamento-ana-gabriel-ribeirao-claro", href: "/portfolio/casamentos/1655189-casamento-ana-e-gabriel-rancho-arco-iris-ribeirao-claro" },
+    { nome: "Amanda e Rodrigo",  arq: "casamento-amanda-e-rodrigo-1192", href: "/portfolio/casamentos/179291-casamento-amanda-rodrigo-rancho-ribeirao-claro" },
+    { nome: "Tatiana e Casio",   arq: "tatiana-e-casio-2",               href: "/portfolio/casamentos/521405-casamento-tatiane-cassio-ourinhos-chacara-primavera-igreja-matriz-catedral" },
+  ];
+
+  const dados = {
+    hero: {
+      titulo: "Cobertura Fotográfica de Casamento",
+      imagem_url: await rehospedar(acharUrl("casasmento-julia-rafael-maringa"), "hero"), // fundo parallax do hero
+      logo_url: await rehospedar(acharUrl("lgoobranca") || acharUrl("vazad"), "logo"),
+    },
+    avaliacoes: {
+      titulo: "O que meus clientes dizem",
+      place_id: "ChIJXyisv64ZwJQRUMTOwCQIhGU",
+      escrever_url: "https://search.google.com/local/writereview?placeid=ChIJXyisv64ZwJQRUMTOwCQIhGU",
+      reviews: [], // preenchidas no editor / integração Google (fase futura)
+    },
+    video_url: "https://www.youtube.com/embed/gMgUGpI9hhM",
+    pacotes: [],
+    ensaio: { titulo: "Ensaio Pré-Wedding", imagem_url: await rehospedar(acharUrl("pre-wedding-fernando-agrela"), "ensaio") },
+    albuns: {
+      titulo: "Álbuns",
+      corpo_html:
+        "<p>Os álbuns de casamento são a forma mais preciosa e duradoura de preservar a história do seu dia. " +
+        "Cada página é pensada para conduzir vocês pela emoção daquele dia. Todos os meus álbuns são produzidos " +
+        "com capa em linho, garantindo elegância, durabilidade e um acabamento atemporal.</p>" +
+        "<p>• Álbum 25 x 25 cm — R$ 2.100,00<br>• Álbum 30 x 30 cm — R$ 3.200,00</p>" +
+        "<p>Ambos acompanham 70 fotos (equivalente a 40 páginas), cuidadosamente diagramadas para construir uma " +
+        "narrativa. Fotos e páginas adicionais podem ser contratadas posteriormente.</p>",
+      imagem_url: await rehospedar(acharUrl("fas5053"), "albuns"),
+    },
+    casais_titulo: "Veja fotos de outros casamentos que já fotografei",
+    casais: [],
+    cta_whatsapp: { texto: "Conversar no WhatsApp", numero: null }, // usa o WhatsApp do cadastro se vazio
+  };
+
+  for (const p of pacotesDef) {
+    dados.pacotes.push({ nome: p.nome, itens: p.itens, valor: p.valor, imagem_url: await rehospedar(acharUrl(p.arq), `pacote-${p.arq}`) });
   }
-  dados.hero.imagem_url = await rehospedar(heroImg, "hero", 0);
-  dados.hero.logo_url = await rehospedar(logoImg, "logo", 0);
-  for (const c of dados.casais) {
-    c.fotos = (await Promise.all(c.fotos.map((f, j) => rehospedar(f, "casal", `${dados.casais.indexOf(c)}-${j}`)))).filter(Boolean);
+  for (const c of casaisDef) {
+    dados.casais.push({ nome: c.nome, href: c.href, foto_url: await rehospedar(acharUrl(c.arq), `casal-${c.arq}`) });
   }
 
-  // Grava (upsert por slug)
   const linha = {
-    fotografo_id: FOTOGRAFO_ID,
-    titulo: dados.hero.titulo,
-    slug,
-    publicado: true,
-    dados,
-    seo_title: "Fernando Agrela - Fotografo de Casamento Interior de SP",
+    fotografo_id: FOTOGRAFO_ID, titulo: dados.hero.titulo, slug, publicado: true, dados,
+    seo_title: "Fernando Agrela - Fotógrafo de Casamento Interior de SP",
   };
   const { data: existente } = await sb.from("site_landing_pages").select("id").eq("fotografo_id", FOTOGRAFO_ID).eq("slug", slug).maybeSingle();
   if (existente) await sb.from("site_landing_pages").update({ ...linha, updated_at: new Date().toISOString() }).eq("id", existente.id);
   else await sb.from("site_landing_pages").insert(linha);
 
-  console.log(`  ✓ "${dados.hero.titulo}" — ${dados.pacotes.length} pacotes, ${dados.secoes.length} seções, ${dados.casais.length} casais, whatsapp=${dados.cta_whatsapp.numero ?? "—"}`);
-  for (const p of dados.pacotes) console.log(`    · pacote "${p.nome}" (${p.itens.length} itens) valor="${p.valor}"`);
+  const semImg = [!dados.hero.imagem_url && "hero", !dados.hero.logo_url && "logo", !dados.ensaio.imagem_url && "ensaio", !dados.albuns.imagem_url && "albuns",
+    ...dados.pacotes.filter((p) => !p.imagem_url).map((p) => p.nome), ...dados.casais.filter((c) => !c.foto_url).map((c) => c.nome)].filter(Boolean);
+  console.log(`  ✓ landing fiel: ${dados.pacotes.length} pacotes, ${dados.casais.length} casais, vídeo+álbuns+ensaio+avaliações.`);
+  if (semImg.length) console.log(`  ⚠ sem imagem: ${semImg.join(", ")}`);
 }
 
 // ── main ─────────────────────────────────────────────────────────────────────
