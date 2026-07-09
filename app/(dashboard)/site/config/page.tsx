@@ -4,6 +4,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
+import { REGEX_SUBDOMINIO, SUBDOMINIOS_RESERVADOS } from "@/lib/site/publico";
 
 const inputStyle: React.CSSProperties = {
   width: "100%", padding: "10px 12px", borderRadius: 8, boxSizing: "border-box",
@@ -50,6 +51,18 @@ export default function SiteConfigPage() {
 
   async function salvar() {
     if (!fotografo) return;
+    // Valida o subdomínio antes de salvar (formato + reservados)
+    const sub = subdominio.trim();
+    if (sub) {
+      if (!REGEX_SUBDOMINIO.test(sub)) {
+        setMsg("Erro: subdomínio inválido — use só letras minúsculas, números e hífen (sem começar/terminar com hífen).");
+        return;
+      }
+      if (SUBDOMINIOS_RESERVADOS.has(sub)) {
+        setMsg(`Erro: o subdomínio "${sub}" é reservado pelo sistema — escolha outro.`);
+        return;
+      }
+    }
     setSalvando(true); setMsg(null);
     const supabase = createClient();
     const redes: Record<string, string> = {};
@@ -59,7 +72,7 @@ export default function SiteConfigPage() {
     const { error } = await supabase.from("site_config").upsert({
       fotografo_id: fotografo.id,
       publicado,
-      subdominio: subdominio.trim() || null,
+      subdominio: sub || null,
       dominio_customizado: dominio.trim().replace(/^https?:\/\//, "").replace(/\/.*$/, "") || null,
       redes: Object.keys(redes).length > 0 ? redes : null,
       updated_at: new Date().toISOString(),
