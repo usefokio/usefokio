@@ -59,17 +59,18 @@ a {
 /* Pacotes / álbuns — 2 colunas (texto + imagem) que empilham no mobile */
 .lp-duas { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: center; max-width: 1120px; margin: 0 auto; padding: 48px 24px; }
 .lp-duas.invertido .lp-duas-txt { order: 2; }
-.lp-duas-img { width: 100%; aspect-ratio: 3/2; object-fit: cover; border-radius: 4px; }
+/* Imagem em proporção natural (como no Alboom, cada imagem tem a sua) — nunca corta */
+.lp-duas-img { width: 100%; height: auto; display: block; border-radius: 4px; }
 .lp-pacote-nome { font-family: var(--site-fonte-titulo), Georgia, serif; font-size: 44px; color: var(--site-titulo); margin: 0 0 18px; }
 .lp-pacote-itens { list-style: none; padding: 0; margin: 0 0 22px; display: flex; flex-direction: column; gap: 10px; }
 .lp-pacote-itens li { font-size: 17px; line-height: 1.5; color: var(--site-texto); }
 .lp-valor-label { font-size: 22px; letter-spacing: 0.18em; text-transform: uppercase; color: #8c8c8c; margin: 0 0 4px; font-family: var(--site-fonte-titulo), Georgia, serif; }
 .lp-valor { font-family: var(--site-fonte-titulo), Georgia, serif; font-size: 26px; color: var(--site-titulo); }
 
-/* Casais — grid 3 → 2 (tablet) → 1 (mobile) */
-.lp-casais { display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; }
+/* Casais — grid 3 → 2 (tablet) → 1 (mobile); imagens em proporção natural, alinhadas pelo topo */
+.lp-casais { display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; align-items: start; }
 .lp-casal { text-decoration: none; color: var(--site-texto); text-align: center; }
-.lp-casal img { width: 100%; aspect-ratio: 3/2; object-fit: cover; display: block; border-radius: 4px; }
+.lp-casal img { width: 100%; height: auto; display: block; border-radius: 4px; }
 .lp-casal-nome { font-family: var(--site-fonte-titulo), Georgia, serif; font-size: 20px; color: var(--site-titulo); margin-top: 12px; }
 
 /* Vídeo responsivo 16/9 */
@@ -85,19 +86,26 @@ a {
 .lp-botao-verde { display: inline-block; padding: 13px 32px; border: 1px solid #5E6E5F; color: #5E6E5F; font-size: 14px; letter-spacing: 0.06em; text-transform: uppercase; text-decoration: none; border-radius: 4px; background: transparent; }
 
 .lp-divisor { max-width: 1120px; margin: 20px auto; border: none; border-top: 1px solid var(--site-borda); }
-.lp-full-img { width: 100%; max-height: 620px; object-fit: cover; display: block; }
+/* Imagem full-width (ensaio) — proporção natural para não cortar a arte com texto embutido */
+.lp-full-img { width: 100%; height: auto; display: block; }
 
 @media (max-width: 900px) {
-  .lp-duas { grid-template-columns: 1fr; gap: 24px; }
-  .lp-duas.invertido .lp-duas-txt { order: 0; }
-  .lp-casais { grid-template-columns: repeat(2, 1fr); }
+  .lp-duas { grid-template-columns: 1fr; gap: 22px; padding: 36px 20px; }
+  .lp-duas.invertido .lp-duas-txt { order: 0; } /* texto sempre acima da imagem no mobile */
+  .lp-duas-img { max-height: 80vh; width: auto; max-width: 100%; margin: 0 auto; } /* retrato não domina a tela */
+  .lp-casais { grid-template-columns: repeat(2, 1fr); gap: 18px; }
   .lp-reviews { grid-template-columns: 1fr; }
-  .lp-hero-inner h1 { font-size: 34px; }
-  .lp-pacote-nome { font-size: 34px; }
-  .lp-titulo { font-size: 30px; }
+  .lp-secao { padding: 44px 20px; }
+  .lp-hero { min-height: 62vh; }
+  .lp-hero-inner img.lp-logo { height: 84px; }
+  .lp-hero-inner h1 { font-size: 30px; }
+  .lp-pacote-nome { font-size: 30px; }
+  .lp-titulo { font-size: 28px; }
+  .lp-pacote-itens li { font-size: 15px; }
 }
 @media (max-width: 560px) {
   .lp-casais { grid-template-columns: 1fr; }
+  .lp-hero-inner h1 { font-size: 26px; }
 }
 
 /* Curtir foto no trabalho — coração central que aparece no hover (desktop) e sempre no toque (mobile) */
