@@ -488,6 +488,9 @@ export type SiteLandingPacote = { nome: string; itens: string[]; valor: string; 
 export type SiteLandingCasal = { nome: string; foto_url?: string | null; href?: string | null };
 
 export type SiteLandingDados = {
+  // MOTOR DE BLOCOS: quando presente, a página é renderizada por esta lista (fonte da verdade).
+  // Os campos abaixo são o formato antigo (template fixo), convertido para blocos na primeira edição.
+  blocos?: import("@/lib/site/blocos").SiteBloco[];
   hero?: { imagem_url?: string | null; logo_url?: string | null; titulo?: string | null };
   avaliacoes?: { titulo?: string | null; place_id?: string | null; escrever_url?: string | null; reviews?: SiteLandingReview[] };
   video_url?: string | null; // URL de embed do YouTube
