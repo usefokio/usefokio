@@ -1,24 +1,10 @@
 // Home do site público (tema Editorial): hero, trabalhos em destaque + recentes, depoimentos, blog, CTA.
 import Link from "next/link";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { baseLinks, CATEGORIA_LABEL } from "@/lib/site/publico";
+import { baseLinks } from "@/lib/site/publico";
 import { BannerCarousel } from "./_components/BannerCarousel";
+import { CardTrabalho } from "./_components/CardTrabalho";
 import type { SiteBanner, SiteDepoimento, SitePost, SiteTrabalho } from "@/lib/supabase/types";
-
-function CardTrabalho({ t, href }: { t: SiteTrabalho; href: string }) {
-  return (
-    <Link href={href} style={{ textDecoration: "none", color: "var(--site-texto)" }}>
-      <div style={{ overflow: "hidden", background: "var(--site-superficie)", aspectRatio: "4/3" }}>
-        {t.capa_url && <img src={t.capa_url} alt={t.titulo} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} loading="lazy" />}
-      </div>
-      <div style={{ padding: "16px 8px 0", textAlign: "center" }}>
-        <div style={{ fontFamily: "var(--site-fonte-titulo), Georgia, serif", fontSize: 20, color: "var(--site-titulo)", lineHeight: 1.25, textTransform: "uppercase", letterSpacing: "0.03em" }}>{t.titulo}</div>
-        <div style={{ fontSize: 12, textTransform: "uppercase", letterSpacing: "0.12em", color: "var(--site-suave)", marginTop: 8 }}>{CATEGORIA_LABEL[t.categoria] ?? t.categoria}</div>
-        {t.local && <div style={{ fontSize: 12, textTransform: "uppercase", letterSpacing: "0.1em", color: "var(--site-suave)", marginTop: 3 }}>{t.local}</div>}
-      </div>
-    </Link>
-  );
-}
 
 export default async function HomeSite({ params }: { params: Promise<{ fid: string }> }) {
   const { fid } = await params;
