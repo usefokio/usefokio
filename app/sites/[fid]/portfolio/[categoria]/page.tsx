@@ -1,12 +1,12 @@
 // Lista de trabalhos de uma categoria.
 import Link from "next/link";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { base, CATEGORIA_LABEL } from "@/lib/site/publico";
+import { baseLinks, CATEGORIA_LABEL } from "@/lib/site/publico";
 import type { SiteTrabalho } from "@/lib/supabase/types";
 
 export default async function CategoriaPage({ params }: { params: Promise<{ fid: string; categoria: string }> }) {
   const { fid, categoria } = await params;
-  const b = base(fid);
+  const b = await baseLinks(fid);
   const admin = createAdminClient();
   const { data: trabalhos } = await admin.from("site_trabalhos").select("*")
     .eq("fotografo_id", fid).eq("categoria", categoria).eq("publicado", true)

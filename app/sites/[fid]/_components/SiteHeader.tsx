@@ -17,7 +17,7 @@ export function SiteHeader({ base, logoUrl, nome, itens }: { base: string; logoU
       }}
     >
       <div style={{ maxWidth: 1180, margin: "0 auto", padding: "18px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 20, flexWrap: "wrap" }}>
-        <Link href={base} style={{ display: "flex", alignItems: "center", textDecoration: "none", color: "var(--site-titulo)" }}>
+        <Link href={base || "/"} style={{ display: "flex", alignItems: "center", textDecoration: "none", color: "var(--site-titulo)" }}>
           {logoUrl
             ? <img src={logoUrl} alt={nome} style={{ height: 46, width: "auto" }} />
             : <span style={{ fontFamily: "var(--site-fonte-titulo), Georgia, serif", fontSize: 24, fontWeight: 500, letterSpacing: "0.04em" }}>{nome}</span>}
@@ -26,7 +26,7 @@ export function SiteHeader({ base, logoUrl, nome, itens }: { base: string; logoU
           {itens.map((item) => (
             <Link
               key={item.id}
-              href={item.href === "/" ? base : `${base}${item.href}`}
+              href={item.href === "/" ? (base || "/") : `${base}${item.href}`}
               style={{ padding: "8px 12px", fontSize: 13, letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--site-titulo)", textDecoration: "none" }}
             >
               {item.label}

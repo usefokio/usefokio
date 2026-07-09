@@ -1,7 +1,7 @@
 // Home do site público (tema Editorial): hero, trabalhos em destaque + recentes, depoimentos, blog, CTA.
 import Link from "next/link";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { base, CATEGORIA_LABEL } from "@/lib/site/publico";
+import { baseLinks, CATEGORIA_LABEL } from "@/lib/site/publico";
 import { BannerCarousel } from "./_components/BannerCarousel";
 import type { SiteBanner, SiteDepoimento, SitePost, SiteTrabalho } from "@/lib/supabase/types";
 
@@ -22,7 +22,7 @@ function CardTrabalho({ t, href }: { t: SiteTrabalho; href: string }) {
 
 export default async function HomeSite({ params }: { params: Promise<{ fid: string }> }) {
   const { fid } = await params;
-  const b = base(fid);
+  const b = await baseLinks(fid);
   const admin = createAdminClient();
 
   const [{ data: banners }, { data: destaques }, { data: recentes }, { data: depoimentos }, { data: posts }] = await Promise.all([

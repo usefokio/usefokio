@@ -18,6 +18,15 @@ export function base(fid: string) {
   return `/sites/${fid}`;
 }
 
+// Base dos links internos conforme o host: em host de fotógrafo (rewrite do proxy,
+// header x-site-tenant) os links são relativos à raiz (""); na prévia dentro do app,
+// mantêm o prefixo /sites/{fid}. Usar `baseLinks(fid) || "/"` quando o href puder ficar vazio.
+export async function baseLinks(fid: string): Promise<string> {
+  const { headers } = await import("next/headers");
+  const h = await headers();
+  return h.get("x-site-tenant") === fid ? "" : `/sites/${fid}`;
+}
+
 // ── Multi-tenant por host ────────────────────────────────────────────────────
 
 // Subdomínios que nunca podem ser de fotógrafo (rotas/serviços do próprio UseFokio).

@@ -1,12 +1,12 @@
 // Lista de posts do blog.
 import Link from "next/link";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { base } from "@/lib/site/publico";
+import { baseLinks } from "@/lib/site/publico";
 import type { SitePost } from "@/lib/supabase/types";
 
 export default async function BlogPage({ params }: { params: Promise<{ fid: string }> }) {
   const { fid } = await params;
-  const b = base(fid);
+  const b = await baseLinks(fid);
   const admin = createAdminClient();
   const { data: posts } = await admin.from("site_posts").select("*")
     .eq("fotografo_id", fid).eq("publicado", true)

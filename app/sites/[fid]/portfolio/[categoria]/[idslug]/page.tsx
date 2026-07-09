@@ -4,7 +4,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { base, CATEGORIA_LABEL, legacyDoSlug } from "@/lib/site/publico";
+import { baseLinks, CATEGORIA_LABEL, legacyDoSlug } from "@/lib/site/publico";
 import type { SiteTrabalho, SiteTrabalhoFoto } from "@/lib/supabase/types";
 
 async function buscarTrabalho(fid: string, idslug: string): Promise<SiteTrabalho | null> {
@@ -37,7 +37,7 @@ export default async function TrabalhoPage({ params }: { params: Promise<{ fid: 
 
   const admin = createAdminClient();
   const { data: fotos } = await admin.from("site_trabalho_fotos").select("*").eq("trabalho_id", t.id).order("ordem");
-  const b = base(fid);
+  const b = await baseLinks(fid);
   const dataFmt = t.data_evento && t.mostrar_data
     ? new Date(t.data_evento + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" })
     : null;

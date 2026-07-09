@@ -4,7 +4,7 @@
 // fora dele ficam noindex para não indexar /sites/... no domínio do app.
 import type { Metadata } from "next";
 import { headers } from "next/headers";
-import { carregarSite, base } from "@/lib/site/publico";
+import { carregarSite, baseLinks, normalizarHost, rotuloSubdominio } from "@/lib/site/publico";
 import { getTema, temaCssVars } from "@/lib/site/temas";
 import { fonteTitulo, fonteCorpo } from "./_fontes";
 import { SiteHeader } from "./_components/SiteHeader";
@@ -12,14 +12,34 @@ import { SiteHeader } from "./_components/SiteHeader";
 export async function generateMetadata({ params }: { params: Promise<{ fid: string }> }): Promise<Metadata> {
   const { fid } = await params;
   const { fotografo, config } = await carregarSite(fid);
-  const host = (await headers()).get("host") ?? "";
-  const noDominioProprio = !!config?.dominio_customizado && host.replace(/^www\./, "") === config.dominio_customizado.replace(/^www\./, "");
+  const h = await headers();
+  const host = normalizarHost(h.get("host") ?? "");
+
+  // Host principal do site: domínio próprio tem precedência sobre o subdomínio.
+  const hostPrincipal = config?.dominio_customizado
+    ? normalizarHost(config.dominio_customizado)
+    : (config?.subdominio ? `${config.subdominio}.usefokio.com.br` : null);
+
+  // O host atual é do site? Domínio próprio (tolerante a www) ou o subdomínio do
+  // fotógrafo — via rótulo, que também casa fernando.localhost em dev.
+  const semWww = (x: string) => x.replace(/^www\./, "");
+  const ehHostDoSite = !!hostPrincipal && (
+    (!!config?.dominio_customizado && semWww(host) === semWww(normalizarHost(config.dominio_customizado))) ||
+    (!!config?.subdominio && rotuloSubdominio(host) === config.subdominio)
+  );
+
+  // Canonical: só quando servido via host do fotógrafo (o proxy injeta x-site-path com a query,
+  // essencial para /gallery.php?id=). Na prévia /sites/{fid} não há canonical (noindex cobre).
+  const xSitePath = h.get("x-site-path");
+  const canonical = hostPrincipal && xSitePath ? `https://${hostPrincipal}${xSitePath === "/" ? "" : xSitePath}` : undefined;
+
   return {
     title: config?.seo_title ?? config?.titulo_site ?? fotografo?.nome_empresa ?? "Site do fotógrafo",
     description: config?.seo_description ?? undefined,
     keywords: config?.seo_keywords ?? undefined,
     verification: config?.google_site_verification ? { google: config.google_site_verification } : undefined,
-    robots: noDominioProprio ? { index: true, follow: true } : { index: false, follow: false },
+    alternates: canonical ? { canonical } : undefined,
+    robots: ehHostDoSite && config?.publicado ? { index: true, follow: true } : { index: false, follow: false },
   };
 }
 
@@ -45,7 +65,7 @@ function ScriptsRastreamento({ analytics, pixel }: { analytics: string | null; p
 export default async function SitePublicoLayout({ children, params }: { children: React.ReactNode; params: Promise<{ fid: string }> }) {
   const { fid } = await params;
   const { fotografo, config, menu } = await carregarSite(fid);
-  const b = base(fid);
+  const b = await baseLinks(fid);
   const redes = (config?.redes ?? {}) as Record<string, string>;
   const tema = getTema(config?.tema);
 
