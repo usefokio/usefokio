@@ -35,16 +35,23 @@ export default async function PostPage({ params }: { params: Promise<{ fid: stri
   const dataFmt = p.publicado_em ? new Date(p.publicado_em).toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" }) : null;
 
   return (
-    <article style={{ maxWidth: 760, margin: "0 auto", padding: "40px 24px" }}>
-      <header style={{ textAlign: "center", marginBottom: 26 }}>
-        {p.categoria && <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", color: "#999", marginBottom: 8 }}>{p.categoria}</div>}
-        <h1 style={{ fontSize: 28, fontWeight: 700, margin: "0 0 10px", lineHeight: 1.35 }}>{p.titulo}</h1>
-        {dataFmt && <div style={{ fontSize: 12, color: "#999" }}>{dataFmt}</div>}
-      </header>
-      {p.capa_url && <img src={p.capa_url} alt={p.titulo} style={{ width: "100%", height: "auto", borderRadius: 10, marginBottom: 26, display: "block" }} />}
-      {p.corpo && (
-        <div className="site-conteudo" style={{ fontSize: 15, lineHeight: 1.9, color: "#333" }} dangerouslySetInnerHTML={{ __html: p.corpo }} />
+    <article>
+      {/* Capa em página inteira, como um banner, acima do texto */}
+      {p.capa_url && (
+        <div style={{ height: "56vh", maxHeight: 560, overflow: "hidden", background: "#111" }}>
+          <img src={p.capa_url} alt={p.titulo} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+        </div>
       )}
+      <div style={{ maxWidth: 760, margin: "0 auto", padding: "48px 24px 40px" }}>
+        <header style={{ textAlign: "center", marginBottom: 30 }}>
+          {p.categoria && <div style={{ fontSize: 12, textTransform: "uppercase", letterSpacing: "0.12em", color: "var(--site-suave)", marginBottom: 10 }}>{p.categoria}</div>}
+          <h1 style={{ fontSize: 32, margin: "0 0 10px", lineHeight: 1.3 }}>{p.titulo}</h1>
+          {dataFmt && <div style={{ fontSize: 12, textTransform: "uppercase", letterSpacing: "0.1em", color: "var(--site-suave)" }}>{dataFmt}</div>}
+        </header>
+        {p.corpo && (
+          <div className="site-conteudo" style={{ fontSize: 16, lineHeight: 1.9 }} dangerouslySetInnerHTML={{ __html: p.corpo }} />
+        )}
+      </div>
     </article>
   );
 }
