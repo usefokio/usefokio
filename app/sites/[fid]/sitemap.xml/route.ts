@@ -1,0 +1,53 @@
+// Sitemap dinâmico por fotógrafo, com as URLs preservadas do Alboom.
+// Prévia: /sites/{fid}/sitemap.xml — Produção (domínio próprio): dominio.com/sitemap.xml (via rewrite).
+import { createAdminClient } from "@/lib/supabase/admin";
+import { siteBaseUrl } from "@/lib/site/publico";
+import type { SitePortfolio, SitePost, SiteTrabalho } from "@/lib/supabase/types";
+
+export const dynamic = "force-dynamic";
+
+function xmlEscape(s: string) {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+export async function GET(request: Request, { params }: { params: Promise<{ fid: string }> }) {
+  const { fid } = await params;
+  const host = request.headers.get("host") ?? "localhost:3001";
+  const b = siteBaseUrl(host, fid);
+  const admin = createAdminClient();
+
+  const [{ data: trabalhos }, { data: portfolios }, { data: posts }] = await Promise.all([
+    admin.from("site_trabalhos").select("categoria, slug, legacy_id, updated_at").eq("fotografo_id", fid).eq("publicado", true),
+    admin.from("site_portfolios").select("legacy_id, updated_at").eq("fotografo_id", fid).eq("publicado", true),
+    admin.from("site_posts").select("slug, legacy_id, updated_at, publicado_em").eq("fotografo_id", fid).eq("publicado", true),
+  ]);
+
+  type Url = { loc: string; lastmod?: string | null };
+  const urls: Url[] = [
+    { loc: `${b}/` },
+    { loc: `${b}/portfolio` },
+    { loc: `${b}/blog` },
+    { loc: `${b}/sobre` },
+    { loc: `${b}/contato` },
+  ];
+
+  for (const t of (trabalhos ?? []) as Pick<SiteTrabalho, "categoria" | "slug" | "legacy_id" | "updated_at">[]) {
+    urls.push({ loc: `${b}/portfolio/${t.categoria}/${t.legacy_id ? `${t.legacy_id}-` : ""}${t.slug}`, lastmod: t.updated_at });
+  }
+  for (const p of (portfolios ?? []) as Pick<SitePortfolio, "legacy_id" | "updated_at">[]) {
+    if (p.legacy_id) urls.push({ loc: `${b}/gallery.php?id=${p.legacy_id}`, lastmod: p.updated_at });
+  }
+  for (const p of (posts ?? []) as Pick<SitePost, "slug" | "legacy_id" | "updated_at" | "publicado_em">[]) {
+    urls.push({ loc: `${b}/post/${p.legacy_id ? `${p.legacy_id}-` : ""}${p.slug}`, lastmod: p.updated_at ?? p.publicado_em });
+  }
+
+  const body =
+    `<?xml version="1.0" encoding="UTF-8"?>\n` +
+    `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
+    urls
+      .map((u) => `  <url><loc>${xmlEscape(u.loc)}</loc>${u.lastmod ? `<lastmod>${new Date(u.lastmod).toISOString().slice(0, 10)}</lastmod>` : ""}</url>`)
+      .join("\n") +
+    `\n</urlset>\n`;
+
+  return new Response(body, { headers: { "Content-Type": "application/xml; charset=utf-8", "Cache-Control": "public, max-age=3600" } });
+}

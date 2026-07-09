@@ -18,6 +18,26 @@ export function base(fid: string) {
   return `/sites/${fid}`;
 }
 
+// Hosts do próprio app UseFokio (não são domínios de fotógrafo).
+export function ehAppHost(host: string): boolean {
+  const h = host.split(":")[0].toLowerCase();
+  return (
+    h === "localhost" ||
+    h === "127.0.0.1" ||
+    h.endsWith(".vercel.app") ||
+    h === "usefokio.com.br" ||
+    h === "www.usefokio.com.br"
+  );
+}
+
+// URL base pública do site do fotógrafo, conforme o host da requisição:
+// - domínio próprio (prod): https://dominio (sem prefixo)
+// - dentro do app (prévia): http(s)://host/sites/{fid}
+export function siteBaseUrl(host: string, fid: string): string {
+  const proto = host.startsWith("localhost") || host.startsWith("127.0.0.1") ? "http" : "https";
+  return ehAppHost(host) ? `${proto}://${host}/sites/${fid}` : `${proto}://${host}`;
+}
+
 export async function carregarSite(fid: string) {
   const admin = createAdminClient();
   const [{ data: fotografo }, { data: config }, { data: menu }] = await Promise.all([
