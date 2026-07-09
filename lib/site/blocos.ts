@@ -11,6 +11,7 @@ export type TipoBloco =
   | "duas_colunas"  // texto rico + imagem lado a lado (empilha no mobile)
   | "pacote"        // nome + itens + VALOR + imagem (particularidade dos orçamentos)
   | "cards"         // grade de cards com foto + nome + link (ex.: casais/trabalhos)
+  | "galeria"       // grade de fotos (sem texto), colunas configuráveis
   | "video"         // vídeo embed (YouTube)
   | "depoimentos"   // depoimentos manuais do site + botão "Escrever avaliação"
   | "divisor"       // linha horizontal
@@ -38,6 +39,9 @@ export type SiteBloco = {
     valor?: string | null;
     // cards
     cards?: { nome: string; foto_url?: string | null; href?: string | null }[];
+    // galeria
+    fotos?: string[];
+    colunas?: number; // 2, 3 ou 4
     // depoimentos
     escrever_url?: string | null;
     // espaco
@@ -56,6 +60,7 @@ export const CATALOGO_BLOCOS: { tipo: TipoBloco; label: string; icone: string }[
   { tipo: "duas_colunas", label: "Texto + Imagem",     icone: "◫" },
   { tipo: "pacote",       label: "Pacote (orçamento)", icone: "💍" },
   { tipo: "cards",        label: "Cards com foto",     icone: "▦" },
+  { tipo: "galeria",      label: "Galeria de fotos",   icone: "🖽" },
   { tipo: "video",        label: "Vídeo",              icone: "▶" },
   { tipo: "depoimentos",  label: "Depoimentos",        icone: "⭐" },
   { tipo: "divisor",      label: "Divisor",            icone: "―" },
@@ -69,6 +74,7 @@ export function novoBloco(tipo: TipoBloco): SiteBloco {
   if (tipo === "texto") base.dados.html = "<p>Escreva aqui…</p>";
   if (tipo === "pacote") base.dados = { nome: "Novo pacote", itens: ["Item 1;", "Item 2;"], valor: "R$ " };
   if (tipo === "cards") base.dados.cards = [];
+  if (tipo === "galeria") { base.dados.fotos = []; base.dados.colunas = 3; }
   if (tipo === "espaco") base.dados.altura = 40;
   if (tipo === "depoimentos") base.dados.titulo = "O que meus clientes dizem";
   if (tipo === "whatsapp") base.dados.texto = "Conversar no WhatsApp";

@@ -92,6 +92,18 @@ function Bloco({ bloco, ctx }: { bloco: SiteBloco; ctx: ContextoBlocos }) {
         </section>
       ) : null;
 
+    case "galeria":
+      return (d.fotos?.length ?? 0) > 0 ? (
+        <section className="lp-secao">
+          {d.titulo && <h2 className="lp-titulo">{d.titulo}</h2>}
+          <div className="lp-galeria" style={{ gridTemplateColumns: `repeat(${Math.min(4, Math.max(2, d.colunas ?? 3))}, 1fr)` }}>
+            {d.fotos!.map((f, i) => (
+              <img key={i} src={f} alt="" loading="lazy" />
+            ))}
+          </div>
+        </section>
+      ) : null;
+
     case "video":
       return d.url ? (
         <section className="lp-secao">

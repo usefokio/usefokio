@@ -68,7 +68,10 @@ export default function EditorLandingPage({ params }: { params: Promise<{ id: st
   const dragIdx = useRef<number | null>(null);
   const [sobreIdx, setSobreIdx] = useState<number | null>(null);
   const inputImgRef = useRef<HTMLInputElement>(null);
+  const inputGaleriaRef = useRef<HTMLInputElement>(null);
   const alvoUpload = useRef<{ blocoId: string; campo: "imagem_url" | "logo_url" | "url"; cardIdx?: number } | null>(null);
+  const alvoGaleria = useRef<string | null>(null);
+  const [filaGaleria, setFilaGaleria] = useState<{ total: number; feitas: number } | null>(null);
 
   useEffect(() => {
     if (!fotografo) return;
@@ -183,6 +186,29 @@ export default function EditorLandingPage({ params }: { params: Promise<{ id: st
     if (inputImgRef.current) inputImgRef.current.value = "";
   }
 
+  // Upload múltiplo do bloco galeria (em fila, uma a uma)
+  async function subirGaleria(files: FileList | null) {
+    const blocoId = alvoGaleria.current;
+    if (!files || files.length === 0 || !fotografo || !blocoId) return;
+    const lista = Array.from(files).filter((f) => f.type.startsWith("image/"));
+    setFilaGaleria({ total: lista.length, feitas: 0 });
+    for (const file of lista) {
+      try {
+        const { blob } = await processarImagemEntrega(file, 2000, 0.85);
+        const nome = file.name.replace(/\.[a-z0-9]+$/i, "").normalize("NFD").replace(/[^\x20-\x7E]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-") || "img";
+        const path = `site/${fotografo.id}/landing/${id}/galeria-${nome}-${crypto.randomUUID().slice(0, 6)}.jpg`;
+        const { url_publica } = await uploadFileClient(path, blob);
+        setBlocos((prev) => prev.map((b) => b.id === blocoId ? { ...b, dados: { ...b.dados, fotos: [...(b.dados.fotos ?? []), url_publica] } } : b));
+      } catch (e) {
+        setMsg("Erro no upload: " + (e instanceof Error ? e.message : ""));
+      }
+      setFilaGaleria((prev) => prev ? { ...prev, feitas: prev.feitas + 1 } : prev);
+    }
+    setFilaGaleria(null);
+    alvoGaleria.current = null;
+    if (inputGaleriaRef.current) inputGaleriaRef.current.value = "";
+  }
+
   // Funções que retornam JSX (NÃO componentes): definidas dentro do componente-pai, se fossem
   // componentes o React as remontaria a cada render e os inputs perderiam o foco a cada tecla.
   function btnImagem({ blocoId, campo, urlAtual, rotulo, cardIdx }: { blocoId: string; campo: "imagem_url" | "logo_url" | "url"; urlAtual?: string | null; rotulo: string; cardIdx?: number }) {
@@ -271,6 +297,34 @@ export default function EditorLandingPage({ params }: { params: Promise<{ id: st
             <button style={btnPeq} onClick={() => mudar(b.id, { cards: [...(d.cards ?? []), { nome: "Novo card" }] })}>+ Card</button>
           </div>
         );
+      case "galeria":
+        return (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 10 }}>
+              <div><label style={labelStyle}>Título da seção (opcional)</label><input value={d.titulo ?? ""} onChange={(e) => mudar(b.id, { titulo: e.target.value })} style={inputStyle} /></div>
+              <div>
+                <label style={labelStyle}>Colunas</label>
+                <select value={d.colunas ?? 3} onChange={(e) => mudar(b.id, { colunas: parseInt(e.target.value, 10) })} style={inputStyle}>
+                  <option value={2}>2</option><option value={3}>3</option><option value={4}>4</option>
+                </select>
+              </div>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(110px, 1fr))", gap: 8 }}>
+              {(d.fotos ?? []).map((f, i) => (
+                <div key={i} style={{ position: "relative" }}>
+                  <img src={f} alt="" style={{ width: "100%", aspectRatio: "1/1", objectFit: "cover", borderRadius: 6, display: "block" }} />
+                  <button title="Remover foto"
+                    onClick={() => mudar(b.id, { fotos: (d.fotos ?? []).filter((_, j) => j !== i) })}
+                    style={{ position: "absolute", top: 4, right: 4, border: "none", borderRadius: 999, width: 22, height: 22, background: "rgba(0,0,0,0.55)", color: "#fff", fontSize: 11, cursor: "pointer" }}>✕</button>
+                </div>
+              ))}
+            </div>
+            <button style={btnPeq} disabled={!!filaGaleria}
+              onClick={() => { alvoGaleria.current = b.id; inputGaleriaRef.current?.click(); }}>
+              {filaGaleria ? `Enviando ${filaGaleria.feitas}/${filaGaleria.total}…` : "+ Adicionar fotos"}
+            </button>
+          </div>
+        );
       case "video":
         return (
           <div>
@@ -352,6 +406,7 @@ export default function EditorLandingPage({ params }: { params: Promise<{ id: st
       </button>
 
       <input ref={inputImgRef} type="file" accept="image/*" style={{ display: "none" }} onChange={(e) => subirImagem(e.target.files)} />
+      <input ref={inputGaleriaRef} type="file" accept="image/*" multiple style={{ display: "none" }} onChange={(e) => subirGaleria(e.target.files)} />
 
       {/* Identificação */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 12, alignItems: "end", marginBottom: 16 }}>
