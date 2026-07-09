@@ -190,6 +190,13 @@ sessão após sessão — tratar como checklist obrigatório, não como preferê
 - **Visualizar ≠ Editar**: telas de visualização são **read-only**. Alterações só em **modo de edição** com
   botão **Salvar** explícito. Nunca auto-save ao selecionar/clicar (ex.: produtos no pedido). Ver memória
   [[feedback_view_vs_edit]].
+- **Estado de salvamento CLARO em todo editor** (ver [[feedback_editor_salvar]]): (a) **selo de estado**
+  visível — âmbar "● Alterações não salvas" vs verde "✓ Tudo salvo", derivado de baseline capturado no load
+  (`JSON.stringify`) + flag `saiu`; (b) botão **Salvar reflete o estado** (destacado quando há mudanças,
+  "Salvo ✓"/desabilitado quando limpo); em editores por blocos/seções, ter também Salvar **dentro** do bloco
+  (grava o registro inteiro); (c) **aviso ao sair sem salvar** via `lib/hooks/useUnsavedGuard.ts` (cliques em
+  links + `beforeunload`; botões de Voltar chamam `pedirSaida`; modal de 3 botões Salvar e sair / Sair sem
+  salvar / Continuar editando). Nunca auto-save. Referência: `site/landing-pages/[id]` e `entrega/[id]/editar`.
 - **Listagens**: título da coluna é **clicável** e alterna a ordenação; filtros e busca **persistentes**;
   paginação universal.
 - **Selects/dropdowns**: opções em **ordem alfabética** (ou por `ordem` explícita quando houver).

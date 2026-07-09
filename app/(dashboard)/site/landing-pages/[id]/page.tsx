@@ -9,6 +9,7 @@ import { useFotografo } from "@/lib/context/FotografoContext";
 import { uploadFileClient } from "@/lib/storage/uploadClient";
 import { processarImagemEntrega } from "@/lib/imageResize";
 import { SiteRichEditor } from "@/app/(dashboard)/site/_components/SiteRichEditor";
+import { useUnsavedGuard } from "@/lib/hooks/useUnsavedGuard";
 import { CATALOGO_BLOCOS, dadosParaBlocos, novoBloco, type SiteBloco, type TipoBloco } from "@/lib/site/blocos";
 import type { SiteLandingPage, SiteLandingDados } from "@/lib/supabase/types";
 
@@ -51,6 +52,8 @@ export default function EditorLandingPage({ params }: { params: Promise<{ id: st
   const [salvando, setSalvando] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [dadosOriginais, setDadosOriginais] = useState<SiteLandingDados>({});
+  const [baseline, setBaseline] = useState("");   // snapshot do estado salvo (detecção de "não salvo")
+  const [saiu, setSaiu] = useState(false);         // desliga o guard após salvar+sair/excluir
 
   const [titulo, setTitulo] = useState("");
   const [slug, setSlug] = useState("");
@@ -77,18 +80,29 @@ export default function EditorLandingPage({ params }: { params: Promise<{ id: st
       setSeoTitle(lp.seo_title ?? ""); setSeoDesc(lp.seo_description ?? "");
       const d = (lp.dados ?? {}) as SiteLandingDados;
       setDadosOriginais(d);
-      setBlocos(d.blocos && d.blocos.length > 0 ? d.blocos : dadosParaBlocos(d));
+      const bl = d.blocos && d.blocos.length > 0 ? d.blocos : dadosParaBlocos(d);
+      setBlocos(bl);
+      setBaseline(snapshot(lp.titulo, lp.slug, lp.publicado, lp.seo_title ?? "", lp.seo_description ?? "", bl));
       setCarregando(false);
     });
   }, [id, fotografo]);
+
+  // Snapshot do estado editável → string, para comparar e detectar alterações não salvas.
+  function snapshot(t: string, s: string, pub: boolean, st: string, sd: string, bl: SiteBloco[]) {
+    return JSON.stringify({ t, s, pub, st, sd, bl });
+  }
+  const estadoAtual = snapshot(titulo, slug, publicado, seoTitle, seoDesc, blocos);
+  const temAlteracoes = !saiu && !carregando && estadoAtual !== baseline;
+  const { modalAberto, setModalAberto, pedirSaida, irParaDestino } = useUnsavedGuard(temAlteracoes);
 
   function mudar(blocoId: string, patch: Partial<SiteBloco["dados"]>) {
     setBlocos((prev) => prev.map((b) => b.id === blocoId ? { ...b, dados: { ...b.dados, ...patch } } : b));
   }
 
-  async function salvar() {
+  // Persiste no banco. Retorna true em sucesso (para o fluxo "salvar e sair").
+  async function salvar(): Promise<boolean> {
     const s = slugifyUrl(slug);
-    if (!s) { setMsg("Erro: informe um slug válido."); return; }
+    if (!s) { setMsg("Erro: informe um slug válido."); return false; }
     setSalvando(true); setMsg(null);
     const supabase = createClient();
     const { error } = await supabase.from("site_landing_pages").update({
@@ -101,14 +115,27 @@ export default function EditorLandingPage({ params }: { params: Promise<{ id: st
       updated_at: new Date().toISOString(),
     }).eq("id", id);
     setSalvando(false);
+    if (error) { setMsg("Erro: " + error.message); return false; }
     setSlug(s);
-    setMsg(error ? "Erro: " + error.message : "Página salva!");
+    setBaseline(snapshot(titulo.trim() || "Landing page", s, publicado, seoTitle, seoDesc, blocos)); // zera o "não salvo"
+    setMsg("Página salva!");
+    return true;
+  }
+
+  async function salvarESair() {
+    if (await salvar()) { setSaiu(true); irParaDestino("/site/landing-pages"); }
+  }
+
+  function handleSair() {
+    if (temAlteracoes) pedirSaida("/site/landing-pages");
+    else router.push("/site/landing-pages");
   }
 
   async function excluir() {
     if (!confirm("Excluir esta landing page? A URL dela deixará de existir.")) return;
     const supabase = createClient();
     await supabase.from("site_landing_pages").delete().eq("id", id);
+    setSaiu(true);
     router.push("/site/landing-pages");
   }
 
@@ -282,18 +309,36 @@ export default function EditorLandingPage({ params }: { params: Promise<{ id: st
 
   if (carregando) return <div style={{ padding: 60, textAlign: "center", fontSize: 13, color: "var(--color-text-secondary)" }}>Carregando…</div>;
 
+  // Botão Salvar reflete o estado: destacado quando há alterações; "Salvo ✓" (esmaecido) quando limpo.
   const btnSalvar = (
-    <button onClick={salvar} disabled={salvando}
-      style={{ padding: "10px 22px", borderRadius: 9, border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
-      {salvando ? "Salvando…" : "Salvar"}
+    <button onClick={() => salvar()} disabled={salvando || !temAlteracoes}
+      style={{
+        padding: "10px 22px", borderRadius: 9, border: "none", fontSize: 13, fontWeight: 700,
+        cursor: salvando || !temAlteracoes ? "default" : "pointer",
+        background: temAlteracoes ? "#2563EB" : "var(--color-background-tertiary)",
+        color: temAlteracoes ? "#fff" : "var(--color-text-secondary)",
+      }}>
+      {salvando ? "Salvando…" : temAlteracoes ? "Salvar alterações" : "Salvo ✓"}
     </button>
+  );
+
+  // Selo de estado (não salvo / tudo salvo)
+  const seloEstado = (
+    <span style={{
+      fontSize: 12, fontWeight: 700, padding: "4px 10px", borderRadius: 999,
+      background: temAlteracoes ? "rgba(245,158,11,0.15)" : "rgba(16,185,129,0.12)",
+      color: temAlteracoes ? "#B45309" : "#059669",
+    }}>
+      {temAlteracoes ? "● Alterações não salvas" : "✓ Tudo salvo"}
+    </span>
   );
 
   return (
     <div style={{ maxWidth: 860, margin: "0 auto", padding: "40px 24px" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4, gap: 10 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4, gap: 10, flexWrap: "wrap" }}>
         <h1 style={{ fontSize: 22, fontWeight: 800, color: "var(--color-text-primary)", margin: 0, letterSpacing: "-0.02em" }}>Editor da landing page</h1>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          {seloEstado}
           {fotografo && (
             <a href={`/sites/${fotografo.id}/${slugifyUrl(slug)}`} target="_blank" rel="noopener noreferrer" style={{ ...btnPeq, textDecoration: "none" }}>
               👁 Ver página
@@ -302,7 +347,7 @@ export default function EditorLandingPage({ params }: { params: Promise<{ id: st
           {btnSalvar}
         </div>
       </div>
-      <button onClick={() => router.push("/site/landing-pages")} style={{ border: "none", background: "transparent", color: "var(--color-text-secondary)", fontSize: 12, cursor: "pointer", padding: 0, marginBottom: 18 }}>
+      <button onClick={handleSair} style={{ border: "none", background: "transparent", color: "var(--color-text-secondary)", fontSize: 12, cursor: "pointer", padding: 0, marginBottom: 18 }}>
         ← Voltar para a lista
       </button>
 
@@ -380,6 +425,17 @@ export default function EditorLandingPage({ params }: { params: Promise<{ id: st
                   <div style={{ paddingTop: 10 }}>
                     {camposDoBloco(b)}
                   </div>
+                  {/* Salvar/Fechar do bloco — Salvar grava a página inteira na hora */}
+                  <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 14 }}>
+                    <button style={btnPeq} onClick={() => setAberto(null)}>Fechar</button>
+                    <button onClick={() => salvar()} disabled={salvando || !temAlteracoes}
+                      style={{ padding: "6px 16px", borderRadius: 8, border: "none", fontSize: 12, fontWeight: 700,
+                        cursor: salvando || !temAlteracoes ? "default" : "pointer",
+                        background: temAlteracoes ? "#2563EB" : "var(--color-background-tertiary)",
+                        color: temAlteracoes ? "#fff" : "var(--color-text-secondary)" }}>
+                      {salvando ? "Salvando…" : temAlteracoes ? "Salvar" : "Salvo ✓"}
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
@@ -422,6 +478,33 @@ export default function EditorLandingPage({ params }: { params: Promise<{ id: st
           {btnSalvar}
         </div>
       </div>
+
+      {/* Modal de alterações não salvas (ao tentar sair) */}
+      {modalAberto && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 20 }}
+          onClick={() => setModalAberto(false)}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: "var(--color-background-primary)", borderRadius: 14, padding: 24, maxWidth: 420, width: "100%", boxShadow: "0 10px 40px rgba(0,0,0,0.2)" }}>
+            <div style={{ fontSize: 16, fontWeight: 800, color: "var(--color-text-primary)", marginBottom: 8 }}>⚠️ Alterações não salvas</div>
+            <p style={{ fontSize: 13, color: "var(--color-text-secondary)", margin: "0 0 20px", lineHeight: 1.6 }}>
+              Você fez alterações nesta landing page que ainda não foram salvas. O que deseja fazer?
+            </p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <button onClick={salvarESair} disabled={salvando}
+                style={{ padding: "11px", borderRadius: 9, border: "none", background: "#2563EB", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+                {salvando ? "Salvando…" : "Salvar e sair"}
+              </button>
+              <button onClick={() => { setSaiu(true); irParaDestino("/site/landing-pages"); }}
+                style={{ padding: "11px", borderRadius: 9, border: "1px solid var(--color-border-secondary)", background: "transparent", color: "#DC2626", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+                Sair sem salvar
+              </button>
+              <button onClick={() => setModalAberto(false)}
+                style={{ padding: "11px", borderRadius: 9, border: "none", background: "transparent", color: "var(--color-text-secondary)", fontSize: 13, cursor: "pointer" }}>
+                Continuar editando
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
