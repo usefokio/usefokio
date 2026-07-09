@@ -16,10 +16,11 @@ export async function GET(request: Request, { params }: { params: Promise<{ fid:
   const b = siteBaseUrl(host, fid);
   const admin = createAdminClient();
 
-  const [{ data: trabalhos }, { data: portfolios }, { data: posts }] = await Promise.all([
+  const [{ data: trabalhos }, { data: portfolios }, { data: posts }, { data: landings }] = await Promise.all([
     admin.from("site_trabalhos").select("categoria, slug, legacy_id, updated_at").eq("fotografo_id", fid).eq("publicado", true),
     admin.from("site_portfolios").select("legacy_id, updated_at").eq("fotografo_id", fid).eq("publicado", true),
     admin.from("site_posts").select("slug, legacy_id, updated_at, publicado_em").eq("fotografo_id", fid).eq("publicado", true),
+    admin.from("site_landing_pages").select("slug, updated_at").eq("fotografo_id", fid).eq("publicado", true),
   ]);
 
   type Url = { loc: string; lastmod?: string | null };
@@ -39,6 +40,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ fid:
   }
   for (const p of (posts ?? []) as Pick<SitePost, "slug" | "legacy_id" | "updated_at" | "publicado_em">[]) {
     urls.push({ loc: `${b}/post/${p.legacy_id ? `${p.legacy_id}-` : ""}${p.slug}`, lastmod: p.updated_at ?? p.publicado_em });
+  }
+  for (const l of (landings ?? []) as { slug: string; updated_at: string | null }[]) {
+    urls.push({ loc: `${b}/${l.slug}`, lastmod: l.updated_at });
   }
 
   const body =

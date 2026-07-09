@@ -460,6 +460,29 @@ export type SitePost = {
   updated_at: string;
 };
 
+// Landing page (template estruturado "orcamento"; editor de blocos livre é fase futura)
+export type SiteLandingDados = {
+  hero?: { imagem_url?: string | null; logo_url?: string | null; titulo?: string | null };
+  pacotes?: { nome: string; itens: string[]; valor: string; observacao?: string | null }[];
+  secoes?: { titulo: string; corpo_html: string }[];
+  casais?: { titulo: string; fotos: string[]; link?: string | null }[];
+  avaliacoes_titulo?: string | null;
+  cta_whatsapp?: { texto?: string | null; numero?: string | null };
+};
+
+export type SiteLandingPage = {
+  id: string;
+  fotografo_id: string;
+  titulo: string;
+  slug: string;
+  publicado: boolean;
+  dados: SiteLandingDados;
+  seo_title: string | null;
+  seo_description: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type SitePagina = {
   id: string;
   fotografo_id: string;

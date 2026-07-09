@@ -385,6 +385,105 @@ async function importarFotosCorpo() {
 
 function hashCode(s) { let h = 0; for (let i = 0; i < s.length; i++) { h = (h << 5) - h + s.charCodeAt(i); h |= 0; } return h; }
 
+// Importa a landing page de orçamento como base do template "orcamento".
+// Extração best-effort da estrutura do page-builder do Alboom (h1 + ul + VALOR + blocos de fotos);
+// o que não mapear com confiança o Fernando ajusta depois no editor do painel.
+async function importarLanding(slug = "orcamentooo-casamento-2026") {
+  console.log(`\n▶ Landing /${slug}`);
+  const html = await baixarHtml(`${SITE}/${slug}`);
+  const stripTags = (s) => decode(s.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim());
+
+  // Blocos delimitados por <h1>
+  const h1s = [...html.matchAll(/<h1[^>]*>([\s\S]*?)<\/h1>/g)]
+    .map((m) => ({ titulo: stripTags(m[1]), inicio: m.index, fim: m.index + m[0].length }))
+    .filter((h) => h.titulo); // ignora h1 vazios do builder
+  const segmento = (i) => html.slice(h1s[i].fim, i + 1 < h1s.length ? h1s[i + 1].inicio : html.length);
+
+  const dados = { hero: {}, pacotes: [], secoes: [], casais: [], avaliacoes_titulo: null, cta_whatsapp: {} };
+
+  // Hero: primeiro h1 + primeira imagem grande + logo vazada
+  dados.hero.titulo = h1s[0]?.titulo ?? "Orçamento";
+  const antesDoPrimeiroH1 = html.slice(0, h1s[0]?.inicio ?? 0);
+  const heroImg = antesDoPrimeiroH1.match(/https:\/\/cdn\.alboompro\.com\/[^"'\s]+\/(?:original_size|xlarge)\/[^"'\s]+\.(?:jpe?g|png|webp)/i)?.[0] ?? null;
+  const logoImg = html.match(/https:\/\/cdn\.alboompro\.com\/[^"'\s]+\/(?:xlarge|large|standard)\/[^"'\s]*(?:logo|vazad)[^"'\s]*\.(?:png|webp)/i)?.[0] ?? null;
+
+  // Percorre os blocos
+  const normalizarVariante = (u) => u.replace(/\/(large|standard|medium|small|thumb)\//, "/xlarge/");
+  for (let i = 0; i < h1s.length; i++) {
+    const t = h1s[i].titulo;
+    const seg = segmento(i);
+    if (/^valor$/i.test(t)) continue; // tratado junto do pacote anterior
+    const lis = [...seg.matchAll(/<li[^>]*>([\s\S]*?)<\/li>/g)].map((m) => stripTags(m[1])).filter(Boolean);
+    const imgs = [...new Set(
+      [...seg.matchAll(/https:\/\/cdn\.alboompro\.com\/[^"'\s]+\.(?:jpe?g|png|webp)/gi)]
+        .map((m) => normalizarVariante(m[0]))
+    )].filter((u) => !/logo|vazad/i.test(u));
+    // Parágrafos: split por </p> (o builder aninha <p> e quebra regex par-a-par)
+    const textos = seg.split(/<\/p>/).map(stripTags).filter((x) => x.length > 3);
+
+    if (/clientes dizem/i.test(t)) {
+      dados.avaliacoes_titulo = t;
+    } else if (lis.length >= 2) {
+      // Pacote: itens em lista; o valor vem do bloco "VALOR" seguinte
+      let valor = "";
+      if (h1s[i + 1] && /^valor$/i.test(h1s[i + 1].titulo)) {
+        valor = stripTags(segmento(i + 1).split(/<\/p>/).map(stripTags).find((x) => /R\$/.test(x)) ?? "");
+      } else {
+        valor = textos.find((x) => /R\$/.test(x)) ?? "";
+      }
+      dados.pacotes.push({ nome: t, itens: lis, valor, observacao: null });
+    } else if (i > 0 && textos.filter((x) => x.length > 30).length >= 3) {
+      // Seção de texto (ex.: Álbuns) — vários parágrafos longos
+      dados.secoes.push({ titulo: t, corpo_html: textos.filter((x) => x.length > 3).map((p) => `<p>${p}</p>`).join("") });
+    } else if (imgs.length >= 1 && i > 0) {
+      // Bloco de casal (título + foto(s))
+      dados.casais.push({ titulo: t, fotos: imgs.slice(0, 6), link: null });
+    }
+  }
+
+  // CTA WhatsApp
+  const wa = html.match(/https:\/\/(?:api\.whatsapp\.com|wa\.me)[^"'\s]*/)?.[0] ?? null;
+  dados.cta_whatsapp = { texto: "Conversar no WhatsApp", numero: wa ? (wa.match(/(?:phone=|wa\.me\/)(\d+)/)?.[1] ?? null) : null };
+
+  // Re-hospeda as imagens no nosso storage
+  async function rehospedar(url, nomePasta, idx) {
+    if (!url) return null;
+    const nome = url.split("/").pop().split("?")[0];
+    // nem toda imagem tem todas as variantes — tenta da maior pra menor
+    const variantes = ["xlarge", "original_size", "large", "standard"];
+    for (const v of variantes) {
+      const tentativa = url.replace(/\/(xlarge|original_size|large|standard|medium|small|thumb)\//, `/${v}/`);
+      try {
+        const { url: nova } = await transferir(tentativa, `site/${FOTOGRAFO_ID}/landing/${slug}/${nomePasta}-${idx}-${nome}`);
+        return nova;
+      } catch { /* tenta a próxima variante */ }
+    }
+    console.log(`    ✗ img ${nomePasta}-${idx}: nenhuma variante disponível`);
+    return url;
+  }
+  dados.hero.imagem_url = await rehospedar(heroImg, "hero", 0);
+  dados.hero.logo_url = await rehospedar(logoImg, "logo", 0);
+  for (const c of dados.casais) {
+    c.fotos = (await Promise.all(c.fotos.map((f, j) => rehospedar(f, "casal", `${dados.casais.indexOf(c)}-${j}`)))).filter(Boolean);
+  }
+
+  // Grava (upsert por slug)
+  const linha = {
+    fotografo_id: FOTOGRAFO_ID,
+    titulo: dados.hero.titulo,
+    slug,
+    publicado: true,
+    dados,
+    seo_title: "Fernando Agrela - Fotografo de Casamento Interior de SP",
+  };
+  const { data: existente } = await sb.from("site_landing_pages").select("id").eq("fotografo_id", FOTOGRAFO_ID).eq("slug", slug).maybeSingle();
+  if (existente) await sb.from("site_landing_pages").update({ ...linha, updated_at: new Date().toISOString() }).eq("id", existente.id);
+  else await sb.from("site_landing_pages").insert(linha);
+
+  console.log(`  ✓ "${dados.hero.titulo}" — ${dados.pacotes.length} pacotes, ${dados.secoes.length} seções, ${dados.casais.length} casais, whatsapp=${dados.cta_whatsapp.numero ?? "—"}`);
+  for (const p of dados.pacotes) console.log(`    · pacote "${p.nome}" (${p.itens.length} itens) valor="${p.valor}"`);
+}
+
 // ── main ─────────────────────────────────────────────────────────────────────
 const args = process.argv.slice(2);
 const flag = (n) => args.includes(`--${n}`);
@@ -398,6 +497,7 @@ const worksArg = args[args.indexOf("--works") + 1];
   if (flag("paginas")) await importarPaginas();
   if (flag("posts")) await importarPosts();
   if (flag("fotos-corpo")) await importarFotosCorpo();
+  if (flag("landing")) await importarLanding();
   if (flag("banners") || flag("depoimentos")) {
     const home = await baixarHtml(SITE + "/");
     if (flag("banners")) await importarBanners(home);

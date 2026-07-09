@@ -48,3 +48,8 @@ CREATE POLICY site_menu_public_read            ON public.site_menu            FO
 
 -- Formulário de contato público
 CREATE POLICY site_leads_public_insert ON public.site_leads FOR INSERT TO anon WITH CHECK (true);
+
+-- Landing pages (20260709_0001)
+ALTER TABLE public.site_landing_pages ENABLE ROW LEVEL SECURITY;
+CREATE POLICY site_landing_fotografo   ON public.site_landing_pages FOR ALL USING (fotografo_id = auth.uid()) WITH CHECK (fotografo_id = auth.uid());
+CREATE POLICY site_landing_public_read ON public.site_landing_pages FOR SELECT TO anon USING (publicado = true);

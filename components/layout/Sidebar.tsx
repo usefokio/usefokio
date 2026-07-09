@@ -196,6 +196,7 @@ const SITE_ITEMS = [
   { href: "/site/galerias",    label: "Galerias" },
   { href: "/site/blog",        label: "Blog" },
   { href: "/site/paginas",     label: "Páginas" },
+  { href: "/site/landing-pages", label: "Landing Pages" },
   { href: "/site/banners",     label: "Banners" },
   { href: "/site/menu",        label: "Menu" },
   { href: "/site/depoimentos", label: "Depoimentos" },
