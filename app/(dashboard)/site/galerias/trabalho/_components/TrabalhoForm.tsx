@@ -10,6 +10,7 @@ import { uploadFileClient } from "@/lib/storage/uploadClient";
 import { deleteFilesClient } from "@/lib/storage/deleteClient";
 import { processarImagemEntrega } from "@/lib/imageResize";
 import { RichTextEditor } from "@/app/(dashboard)/crm/_components/RichTextEditor";
+import { useEditorEstado, SeloEstado, BotaoSalvarEstado, ModalNaoSalvo } from "@/app/(dashboard)/site/_components/EditorEstado";
 import type { SiteTrabalho, SiteTrabalhoFoto } from "@/lib/supabase/types";
 
 const CATEGORIAS_BASE = [
@@ -67,8 +68,17 @@ export function TrabalhoForm({ trabalhoId }: { trabalhoId?: string }) {
   const [fila, setFila]             = useState<{ total: number; feitas: number } | null>(null);
   const inputFileRef                = useRef<HTMLInputElement>(null);
 
+  // Estado de salvamento claro (regra de sistema) — fotos ficam de fora (persistem na hora)
+  const snapshotAtual = JSON.stringify([titulo, categoria, slug, descricao, localEvento, dataEvento, publicado, destaqueHome, seoTitle, seoDesc]);
+  const estado = useEditorEstado(snapshotAtual, "/site/galerias");
+
   useEffect(() => {
-    if (!editando || !fotografo) return;
+    if (!editando) {
+      // Novo trabalho: baseline = formulário vazio (dirty quando algo for preenchido)
+      estado.inicializar(JSON.stringify(["", "casamentos", "", "", "", "", true, false, "", ""]));
+      return;
+    }
+    if (!fotografo) return;
     const supabase = createClient();
     async function carregar() {
       const { data: t } = await supabase.from("site_trabalhos").select("*").eq("id", trabalhoId!).maybeSingle();
@@ -81,9 +91,14 @@ export function TrabalhoForm({ trabalhoId }: { trabalhoId?: string }) {
       setCapaUrl(trab.capa_url); setLegacyId(trab.legacy_id);
       const { data: fts } = await supabase.from("site_trabalho_fotos").select("*").eq("trabalho_id", trabalhoId!).order("ordem");
       setFotos((fts as SiteTrabalhoFoto[]) ?? []);
+      estado.inicializar(JSON.stringify([
+        trab.titulo, trab.categoria, trab.slug, trab.descricao ?? "", trab.local ?? "", trab.data_evento ?? "",
+        trab.publicado, trab.destaque_home, trab.seo_title ?? "", trab.seo_description ?? "",
+      ]));
       setCarregando(false);
     }
     carregar();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editando, trabalhoId, fotografo]);
 
   const urlPublica = useMemo(() => {
@@ -91,11 +106,11 @@ export function TrabalhoForm({ trabalhoId }: { trabalhoId?: string }) {
     return `/portfolio/${categoria}/${idPart}${slug || slugify(titulo)}`;
   }, [categoria, legacyId, slug, titulo]);
 
-  async function salvar() {
-    if (!fotografo) return;
-    if (!titulo.trim()) { setMsg({ tipo: "erro", texto: "Informe o título." }); return; }
+  async function salvar(): Promise<boolean> {
+    if (!fotografo) return false;
+    if (!titulo.trim()) { setMsg({ tipo: "erro", texto: "Informe o título." }); return false; }
     const slugFinal = (slug || slugify(titulo)).trim();
-    if (!slugFinal) { setMsg({ tipo: "erro", texto: "Slug inválido." }); return; }
+    if (!slugFinal) { setMsg({ tipo: "erro", texto: "Slug inválido." }); return false; }
     setSalvando(true); setMsg(null);
     const supabase = createClient();
     const descLimpa = descricao.replace(/<p>\s*<\/p>/g, "").trim();
@@ -109,15 +124,19 @@ export function TrabalhoForm({ trabalhoId }: { trabalhoId?: string }) {
     if (editando) {
       const { error } = await supabase.from("site_trabalhos").update(campos).eq("id", trabalhoId!);
       setSalvando(false);
-      if (error) { setMsg({ tipo: "erro", texto: error.message }); return; }
+      if (error) { setMsg({ tipo: "erro", texto: error.message }); return false; }
+      estado.marcarSalvo(snapshotAtual);
       setMsg({ tipo: "ok", texto: "Trabalho salvo!" });
+      return true;
     } else {
       const { data, error } = await supabase.from("site_trabalhos")
         .insert({ ...campos, fotografo_id: fotografo.id })
         .select("id").single();
       setSalvando(false);
-      if (error || !data) { setMsg({ tipo: "erro", texto: error?.message ?? "Erro ao criar." }); return; }
+      if (error || !data) { setMsg({ tipo: "erro", texto: error?.message ?? "Erro ao criar." }); return false; }
+      estado.marcarSaiu();
       router.replace(`/site/galerias/trabalho/${data.id}`);
+      return true;
     }
   }
 
@@ -181,24 +200,29 @@ export function TrabalhoForm({ trabalhoId }: { trabalhoId?: string }) {
     <div style={{ padding: 60, textAlign: "center", fontSize: 13, color: "var(--color-text-secondary)" }}>Carregando…</div>
   );
 
-  const btnSalvar = (
-    <button
-      onClick={salvar} disabled={salvando}
-      style={{ padding: "10px 22px", borderRadius: 9, border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", fontSize: 13, fontWeight: 700, cursor: "pointer" }}
-    >
-      {salvando ? "Salvando…" : (editando ? "Salvar" : "Criar trabalho")}
-    </button>
-  );
+  const btnSalvar = editando
+    ? <BotaoSalvarEstado temAlteracoes={estado.temAlteracoes} salvando={salvando} onClick={() => salvar()} />
+    : (
+      <button
+        onClick={() => salvar()} disabled={salvando}
+        style={{ padding: "10px 22px", borderRadius: 9, border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", fontSize: 13, fontWeight: 700, cursor: "pointer" }}
+      >
+        {salvando ? "Salvando…" : "Criar trabalho"}
+      </button>
+    );
 
   return (
     <div style={{ maxWidth: 900, margin: "0 auto", padding: "40px 24px" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4, gap: 10, flexWrap: "wrap" }}>
         <h1 style={{ fontSize: 22, fontWeight: 800, color: "var(--color-text-primary)", margin: 0, letterSpacing: "-0.02em" }}>
           {editando ? "Editar trabalho" : "Novo trabalho"}
         </h1>
-        {btnSalvar}
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          {editando && <SeloEstado temAlteracoes={estado.temAlteracoes} />}
+          {btnSalvar}
+        </div>
       </div>
-      <button onClick={() => router.push("/site/galerias")} style={{ border: "none", background: "transparent", color: "var(--color-text-secondary)", fontSize: 12, cursor: "pointer", padding: 0, marginBottom: 20 }}>
+      <button onClick={estado.sair} style={{ border: "none", background: "transparent", color: "var(--color-text-secondary)", fontSize: 12, cursor: "pointer", padding: 0, marginBottom: 20 }}>
         ← Voltar para Galerias
       </button>
 
@@ -304,6 +328,14 @@ export function TrabalhoForm({ trabalhoId }: { trabalhoId?: string }) {
         <div style={{ marginTop: 16, fontSize: 13, fontWeight: 600, color: msg.tipo === "ok" ? "#059669" : "#DC2626" }}>{msg.texto}</div>
       )}
       <div style={{ marginTop: 20, display: "flex", justifyContent: "flex-end" }}>{btnSalvar}</div>
+
+      <ModalNaoSalvo
+        aberto={estado.modalAberto}
+        salvando={salvando}
+        onSalvarESair={async () => { if (await salvar() && editando) estado.sairAgora(); }}
+        onSairSemSalvar={estado.sairAgora}
+        onContinuar={estado.fecharModal}
+      />
     </div>
   );
 }

@@ -9,6 +9,7 @@ import { useFotografo } from "@/lib/context/FotografoContext";
 import { uploadFileClient } from "@/lib/storage/uploadClient";
 import { deleteFilesClient } from "@/lib/storage/deleteClient";
 import { processarImagemEntrega } from "@/lib/imageResize";
+import { useEditorEstado, SeloEstado, BotaoSalvarEstado, ModalNaoSalvo } from "../../../_components/EditorEstado";
 import type { SitePortfolio, SitePortfolioFoto } from "@/lib/supabase/types";
 
 const inputStyle: React.CSSProperties = {
@@ -41,6 +42,10 @@ export default function PortfolioEditorPage({ params }: { params: Promise<{ id: 
   const [puxando, setPuxando] = useState(false);
   const inputFileRef = useRef<HTMLInputElement>(null);
 
+  // Estado de salvamento claro (regra de sistema) — fotos ficam de fora (persistem na hora, por design)
+  const snapshotAtual = JSON.stringify([titulo, publicado, seoTitle, seoDesc]);
+  const estado = useEditorEstado(snapshotAtual, "/site/galerias");
+
   useEffect(() => {
     if (!fotografo) return;
     const supabase = createClient();
@@ -54,13 +59,15 @@ export default function PortfolioEditorPage({ params }: { params: Promise<{ id: 
       setSeoTitle(port.seo_title ?? ""); setSeoDesc(port.seo_description ?? "");
       const { data: fts } = await supabase.from("site_portfolio_fotos").select("*").eq("portfolio_id", id).order("ordem");
       setFotos((fts as SitePortfolioFoto[]) ?? []);
+      estado.inicializar(JSON.stringify([port.titulo, port.publicado, port.seo_title ?? "", port.seo_description ?? ""]));
       setCarregando(false);
     }
     carregar();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, fotografo]);
 
-  async function salvar() {
-    if (!titulo.trim()) { setMsg({ tipo: "erro", texto: "Informe o título." }); return; }
+  async function salvar(): Promise<boolean> {
+    if (!titulo.trim()) { setMsg({ tipo: "erro", texto: "Informe o título." }); return false; }
     setSalvando(true); setMsg(null);
     const supabase = createClient();
     const { error } = await supabase.from("site_portfolios").update({
@@ -69,8 +76,10 @@ export default function PortfolioEditorPage({ params }: { params: Promise<{ id: 
       updated_at: new Date().toISOString(),
     }).eq("id", id);
     setSalvando(false);
-    if (error) { setMsg({ tipo: "erro", texto: error.message }); return; }
+    if (error) { setMsg({ tipo: "erro", texto: error.message }); return false; }
+    estado.marcarSalvo(snapshotAtual);
     setMsg({ tipo: "ok", texto: "Portfólio salvo!" });
+    return true;
   }
 
   // Puxa as fotos marcadas ⭐ destaque nos trabalhos da mesma categoria (sem duplicar)
@@ -156,13 +165,14 @@ export default function PortfolioEditorPage({ params }: { params: Promise<{ id: 
 
   return (
     <div style={{ maxWidth: 900, margin: "0 auto", padding: "40px 24px" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4, gap: 10, flexWrap: "wrap" }}>
         <h1 style={{ fontSize: 22, fontWeight: 800, color: "var(--color-text-primary)", margin: 0, letterSpacing: "-0.02em" }}>Editar portfólio</h1>
-        <button onClick={salvar} disabled={salvando} style={{ padding: "10px 22px", borderRadius: 9, border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
-          {salvando ? "Salvando…" : "Salvar"}
-        </button>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <SeloEstado temAlteracoes={estado.temAlteracoes} />
+          <BotaoSalvarEstado temAlteracoes={estado.temAlteracoes} salvando={salvando} onClick={() => salvar()} />
+        </div>
       </div>
-      <button onClick={() => router.push("/site/galerias")} style={{ border: "none", background: "transparent", color: "var(--color-text-secondary)", fontSize: 12, cursor: "pointer", padding: 0, marginBottom: 20 }}>
+      <button onClick={estado.sair} style={{ border: "none", background: "transparent", color: "var(--color-text-secondary)", fontSize: 12, cursor: "pointer", padding: 0, marginBottom: 20 }}>
         ← Voltar para Galerias
       </button>
 
@@ -241,6 +251,14 @@ export default function PortfolioEditorPage({ params }: { params: Promise<{ id: 
       </div>
 
       {msg && <div style={{ marginTop: 16, fontSize: 13, fontWeight: 600, color: msg.tipo === "ok" ? "#059669" : "#DC2626" }}>{msg.texto}</div>}
+
+      <ModalNaoSalvo
+        aberto={estado.modalAberto}
+        salvando={salvando}
+        onSalvarESair={async () => { if (await salvar()) estado.sairAgora(); }}
+        onSairSemSalvar={estado.sairAgora}
+        onContinuar={estado.fecharModal}
+      />
     </div>
   );
 }

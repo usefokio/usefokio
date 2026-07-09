@@ -8,6 +8,7 @@ import { useFotografo } from "@/lib/context/FotografoContext";
 import { uploadFileClient } from "@/lib/storage/uploadClient";
 import { processarImagemEntrega } from "@/lib/imageResize";
 import { SiteRichEditor } from "@/app/(dashboard)/site/_components/SiteRichEditor";
+import { useEditorEstado, SeloEstado, BotaoSalvarEstado, ModalNaoSalvo } from "@/app/(dashboard)/site/_components/EditorEstado";
 import type { SitePost } from "@/lib/supabase/types";
 
 function slugify(texto: string): string {
@@ -53,8 +54,16 @@ export function PostForm({ postId }: { postId?: string }) {
   const [enviandoCapa, setEnviandoCapa] = useState(false);
   const inputCapaRef = useRef<HTMLInputElement>(null);
 
+  // Estado de salvamento claro (regra de sistema) — capa fica de fora (upload persiste na hora)
+  const snapshotAtual = JSON.stringify([titulo, slug, categoria, tags, resumo, corpo, publicado, publicadoEm, seoTitle, seoDesc, seoKw]);
+  const estado = useEditorEstado(snapshotAtual, "/site/blog");
+
   useEffect(() => {
-    if (!editando || !fotografo) return;
+    if (!editando) {
+      estado.inicializar(JSON.stringify(["", "", "", "", "", "", false, new Date().toISOString().slice(0, 10), "", "", ""]));
+      return;
+    }
+    if (!fotografo) return;
     const supabase = createClient();
     async function carregar() {
       const { data } = await supabase.from("site_posts").select("*").eq("id", postId!).maybeSingle();
@@ -67,16 +76,22 @@ export function PostForm({ postId }: { postId?: string }) {
       setPublicadoEm(p.publicado_em ? p.publicado_em.slice(0, 10) : new Date().toISOString().slice(0, 10));
       setCapaUrl(p.capa_url); setLegacyId(p.legacy_id);
       setSeoTitle(p.seo_title ?? ""); setSeoDesc(p.seo_description ?? ""); setSeoKw(p.seo_keywords ?? "");
+      estado.inicializar(JSON.stringify([
+        p.titulo, p.slug, p.categoria ?? "", p.tags ?? "", p.resumo ?? "", p.corpo ?? "", p.publicado,
+        p.publicado_em ? p.publicado_em.slice(0, 10) : new Date().toISOString().slice(0, 10),
+        p.seo_title ?? "", p.seo_description ?? "", p.seo_keywords ?? "",
+      ]));
       setCarregando(false);
     }
     carregar();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editando, postId, fotografo]);
 
   const urlPublica = useMemo(() => `/post/${legacyId ? `${legacyId}-` : ""}${slug || slugify(titulo)}`, [legacyId, slug, titulo]);
 
-  async function salvar() {
-    if (!fotografo) return;
-    if (!titulo.trim()) { setMsg({ tipo: "erro", texto: "Informe o título." }); return; }
+  async function salvar(): Promise<boolean> {
+    if (!fotografo) return false;
+    if (!titulo.trim()) { setMsg({ tipo: "erro", texto: "Informe o título." }); return false; }
     const slugFinal = (slug || slugify(titulo)).trim();
     setSalvando(true); setMsg(null);
     const supabase = createClient();
@@ -93,13 +108,17 @@ export function PostForm({ postId }: { postId?: string }) {
     if (editando) {
       const { error } = await supabase.from("site_posts").update(campos).eq("id", postId!);
       setSalvando(false);
-      if (error) { setMsg({ tipo: "erro", texto: error.message }); return; }
+      if (error) { setMsg({ tipo: "erro", texto: error.message }); return false; }
+      estado.marcarSalvo(snapshotAtual);
       setMsg({ tipo: "ok", texto: "Post salvo!" });
+      return true;
     } else {
       const { data, error } = await supabase.from("site_posts").insert({ ...campos, fotografo_id: fotografo.id }).select("id").single();
       setSalvando(false);
-      if (error || !data) { setMsg({ tipo: "erro", texto: error?.message ?? "Erro ao criar." }); return; }
+      if (error || !data) { setMsg({ tipo: "erro", texto: error?.message ?? "Erro ao criar." }); return false; }
+      estado.marcarSaiu();
       router.replace(`/site/blog/${data.id}`);
+      return true;
     }
   }
 
@@ -121,22 +140,27 @@ export function PostForm({ postId }: { postId?: string }) {
 
   if (carregando) return <div style={{ padding: 60, textAlign: "center", fontSize: 13, color: "var(--color-text-secondary)" }}>Carregando…</div>;
 
-  const btnSalvar = (
-    <button onClick={salvar} disabled={salvando}
-      style={{ padding: "10px 22px", borderRadius: 9, border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
-      {salvando ? "Salvando…" : (editando ? "Salvar" : "Criar post")}
-    </button>
-  );
+  const btnSalvar = editando
+    ? <BotaoSalvarEstado temAlteracoes={estado.temAlteracoes} salvando={salvando} onClick={() => salvar()} />
+    : (
+      <button onClick={() => salvar()} disabled={salvando}
+        style={{ padding: "10px 22px", borderRadius: 9, border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+        {salvando ? "Salvando…" : "Criar post"}
+      </button>
+    );
 
   return (
     <div style={{ maxWidth: 900, margin: "0 auto", padding: "40px 24px" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4, gap: 10, flexWrap: "wrap" }}>
         <h1 style={{ fontSize: 22, fontWeight: 800, color: "var(--color-text-primary)", margin: 0, letterSpacing: "-0.02em" }}>
           {editando ? "Editar post" : "Novo post"}
         </h1>
-        {btnSalvar}
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          {editando && <SeloEstado temAlteracoes={estado.temAlteracoes} />}
+          {btnSalvar}
+        </div>
       </div>
-      <button onClick={() => router.push("/site/blog")} style={{ border: "none", background: "transparent", color: "var(--color-text-secondary)", fontSize: 12, cursor: "pointer", padding: 0, marginBottom: 20 }}>
+      <button onClick={estado.sair} style={{ border: "none", background: "transparent", color: "var(--color-text-secondary)", fontSize: 12, cursor: "pointer", padding: 0, marginBottom: 20 }}>
         ← Voltar para o Blog
       </button>
 
@@ -210,6 +234,14 @@ export function PostForm({ postId }: { postId?: string }) {
 
       {msg && <div style={{ marginTop: 16, fontSize: 13, fontWeight: 600, color: msg.tipo === "ok" ? "#059669" : "#DC2626" }}>{msg.texto}</div>}
       <div style={{ marginTop: 20, display: "flex", justifyContent: "flex-end" }}>{btnSalvar}</div>
+
+      <ModalNaoSalvo
+        aberto={estado.modalAberto}
+        salvando={salvando}
+        onSalvarESair={async () => { if (await salvar() && editando) estado.sairAgora(); }}
+        onSairSemSalvar={estado.sairAgora}
+        onContinuar={estado.fecharModal}
+      />
     </div>
   );
 }

@@ -7,6 +7,7 @@ import { useFotografo } from "@/lib/context/FotografoContext";
 import { uploadFileClient } from "@/lib/storage/uploadClient";
 import { processarImagemEntrega } from "@/lib/imageResize";
 import { SiteRichEditor } from "@/app/(dashboard)/site/_components/SiteRichEditor";
+import { useEditorEstado, SeloEstado, BotaoSalvarEstado, ModalNaoSalvo } from "../_components/EditorEstado";
 import type { SitePagina } from "@/lib/supabase/types";
 
 const inputStyle: React.CSSProperties = {
@@ -30,11 +31,16 @@ export default function PaginasPage() {
   const [msg, setMsg] = useState<string | null>(null);
   const inputFotoRef = useRef<HTMLInputElement>(null);
 
+  // Estado de salvamento claro (regra de sistema) — dirty só enquanto uma página está em edição
+  const snapshotAtual = editando ? JSON.stringify([editando.id, titulo, html, imagens]) : "idle";
+  const estado = useEditorEstado(snapshotAtual, "/site");
+
   useEffect(() => {
     if (!fotografo) return;
     const supabase = createClient();
     supabase.from("site_paginas").select("*").eq("fotografo_id", fotografo.id).order("slug")
-      .then(({ data }) => { setPaginas((data as SitePagina[]) ?? []); setLoading(false); });
+      .then(({ data }) => { setPaginas((data as SitePagina[]) ?? []); estado.inicializar("idle"); setLoading(false); });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fotografo]);
 
   function abrir(p: SitePagina) {
@@ -42,8 +48,16 @@ export default function PaginasPage() {
     setTitulo(p.titulo);
     const c = (p.conteudo ?? {}) as Conteudo;
     setHtml(c.html ?? "");
-    setImagens(Array.isArray(c.imagens) ? c.imagens : []);
+    const imgs = Array.isArray(c.imagens) ? c.imagens : [];
+    setImagens(imgs);
+    estado.inicializar(JSON.stringify([p.id, p.titulo, c.html ?? "", imgs]));
     setMsg(null);
+  }
+
+  function voltarParaLista() {
+    if (estado.temAlteracoes && !confirm("Há alterações não salvas nesta página. Sair sem salvar?")) return;
+    setEditando(null);
+    estado.inicializar("idle");
   }
 
   async function trocarFoto(files: FileList | null) {
@@ -61,8 +75,8 @@ export default function PaginasPage() {
     if (inputFotoRef.current) inputFotoRef.current.value = "";
   }
 
-  async function salvar() {
-    if (!editando) return;
+  async function salvar(): Promise<boolean> {
+    if (!editando) return false;
     setSalvando(true);
     const supabase = createClient();
     const conteudoAtual = (editando.conteudo ?? {}) as Conteudo;
@@ -73,9 +87,11 @@ export default function PaginasPage() {
       updated_at: new Date().toISOString(),
     }).eq("id", editando.id);
     setSalvando(false);
-    if (error) { setMsg("Erro: " + error.message); return; }
+    if (error) { setMsg("Erro: " + error.message); return false; }
     setPaginas((prev) => prev.map((p) => p.id === editando.id ? { ...p, titulo, conteudo: novoConteudo } : p));
+    estado.marcarSalvo(snapshotAtual);
     setMsg("Página salva!");
+    return true;
   }
 
   return (
@@ -107,9 +123,12 @@ export default function PaginasPage() {
         </div>
       ) : (
         <div>
-          <button onClick={() => setEditando(null)} style={{ border: "none", background: "transparent", color: "var(--color-text-secondary)", fontSize: 12, cursor: "pointer", padding: 0, marginBottom: 14 }}>
-            ← Voltar para a lista
-          </button>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 14 }}>
+            <button onClick={voltarParaLista} style={{ border: "none", background: "transparent", color: "var(--color-text-secondary)", fontSize: 12, cursor: "pointer", padding: 0 }}>
+              ← Voltar para a lista
+            </button>
+            <SeloEstado temAlteracoes={estado.temAlteracoes} />
+          </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             <div>
               <label style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: 5 }}>Título</label>
@@ -147,14 +166,19 @@ export default function PaginasPage() {
             </div>
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, alignItems: "center" }}>
               {msg && <span style={{ fontSize: 13, fontWeight: 600, color: msg.startsWith("Erro") ? "#DC2626" : "#059669" }}>{msg}</span>}
-              <button onClick={salvar} disabled={salvando}
-                style={{ padding: "10px 22px", borderRadius: 9, border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
-                {salvando ? "Salvando…" : "Salvar"}
-              </button>
+              <BotaoSalvarEstado temAlteracoes={estado.temAlteracoes} salvando={salvando} onClick={() => salvar()} />
             </div>
           </div>
         </div>
       )}
+
+      <ModalNaoSalvo
+        aberto={estado.modalAberto}
+        salvando={salvando}
+        onSalvarESair={async () => { if (await salvar()) estado.sairAgora(); }}
+        onSairSemSalvar={estado.sairAgora}
+        onContinuar={estado.fecharModal}
+      />
     </div>
   );
 }
