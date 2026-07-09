@@ -363,9 +363,31 @@ export type SiteConfig = {
   seo_keywords: string | null;
   google_site_verification: string | null;
   facebook_pixel: string | null;
+  // Avaliações do Google (Places API): place_id escolhido + snapshot de cache/fallback
+  google_place_id: string | null;
+  google_rating: number | null;
+  google_total: number | null;
+  google_reviews: GoogleReview[] | null;
+  google_sync_at: string | null;
   redes: Record<string, string> | null;
   created_at: string;
   updated_at: string;
+};
+
+// Avaliação do Google normalizada (o que exibimos no widget)
+export type GoogleReview = {
+  autor: string;
+  foto: string | null;
+  nota: number;
+  texto: string;
+  quando: string | null; // texto relativo, ex.: "há 2 meses"
+};
+export type GoogleReviewsResumo = {
+  rating: number | null;
+  total: number | null;
+  url: string | null; // link do perfil no Google
+  place_id: string | null;
+  reviews: GoogleReview[];
 };
 
 // Trabalho = post de um evento. URL pública: /portfolio/{categoria}/{legacy_id}-{slug}
