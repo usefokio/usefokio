@@ -45,6 +45,27 @@ a {
   font-weight: 500;
 }
 
+/* Curtir foto no trabalho — coração central que aparece no hover (desktop) e sempre no toque (mobile) */
+.site-foto { position: relative; overflow: hidden; }
+.site-foto-acoes {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  background: rgba(0, 0, 0, 0.18);
+  opacity: 0; transition: opacity 0.35s ease; cursor: pointer;
+}
+.site-foto:hover .site-foto-acoes { opacity: 1; }
+.site-foto-coracao {
+  font-size: 54px; line-height: 1; color: #fff;
+  text-shadow: 0 2px 16px rgba(0, 0, 0, 0.5);
+  transition: transform 0.15s ease, color 0.15s ease;
+}
+.site-foto-coracao.curtido { color: #f43f5e; }
+.site-foto-acoes:active .site-foto-coracao { transform: scale(0.88); }
+/* Sem hover (touch): a ação fica sempre discretamente visível */
+@media (hover: none) {
+  .site-foto-acoes { opacity: 1; background: transparent; align-items: flex-end; justify-content: center; padding-bottom: 14px; }
+  .site-foto-coracao { font-size: 40px; }
+}
+
 /* Conteúdo rico do Site (posts, trabalhos, páginas) — no editor e nas páginas públicas */
 .site-conteudo img,
 .site-conteudo .post-img {

@@ -37,14 +37,24 @@ export default async function TrabalhoPage({ params }: { params: Promise<{ fid: 
   if (!t) notFound();
 
   const admin = createAdminClient();
-  const { data: fotos } = await admin.from("site_trabalho_fotos").select("*").eq("trabalho_id", t.id).order("ordem");
+  const { data: fotosRaw } = await admin.from("site_trabalho_fotos").select("*").eq("trabalho_id", t.id).order("ordem");
   const b = await baseLinks(fid);
   const dataFmt = t.data_evento && t.mostrar_data
     ? new Date(t.data_evento + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" })
     : null;
 
+  // A capa aparece como banner no topo; então é removida da galeria para não duplicar.
+  const todasFotos = (fotosRaw ?? []) as SiteTrabalhoFoto[];
+  const fotos = t.capa_url ? todasFotos.filter((f) => f.url_publica !== t.capa_url) : todasFotos;
+
   return (
-    <article style={{ maxWidth: 1100, margin: "0 auto", padding: "40px 24px" }}>
+    <article>
+      {t.capa_url && (
+        <div style={{ height: "56vh", maxHeight: 560, overflow: "hidden", background: "#111" }}>
+          <img src={t.capa_url} alt={t.titulo} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+        </div>
+      )}
+      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "48px 24px 40px" }}>
       <header style={{ textAlign: "center", marginBottom: 28 }}>
         <h1 style={{ fontSize: 30, fontWeight: 700, margin: "0 0 12px", lineHeight: 1.3 }}>{t.titulo}</h1>
         <div style={{ display: "flex", gap: 18, justifyContent: "center", flexWrap: "wrap", fontSize: 12, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em" }}>
@@ -70,10 +80,10 @@ export default async function TrabalhoPage({ params }: { params: Promise<{ fid: 
       <FotosTrabalho
         trabalhoId={t.id}
         titulo={t.titulo}
-        fotos={((fotos ?? []) as SiteTrabalhoFoto[]).map((f) => ({ id: f.id, url_publica: f.url_publica, descricao: f.descricao, likes: f.likes ?? 0 }))}
+        fotos={fotos.map((f) => ({ id: f.id, url_publica: f.url_publica, descricao: f.descricao }))}
       />
 
-      {(!fotos || fotos.length === 0) && (
+      {todasFotos.length === 0 && (
         <div style={{ textAlign: "center", padding: 40, color: "#999", fontSize: 14 }}>As fotos deste trabalho ainda não foram importadas.</div>
       )}
 
@@ -82,6 +92,7 @@ export default async function TrabalhoPage({ params }: { params: Promise<{ fid: 
           Ver mais {CATEGORIA_LABEL[t.categoria] ?? t.categoria}
         </Link>
       </footer>
+      </div>
     </article>
   );
 }
