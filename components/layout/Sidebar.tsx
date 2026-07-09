@@ -327,6 +327,31 @@ export function Sidebar({ isMobile = false, mobileAberta = false, onFechar }: Si
   const [siteOpen,     setSiteOpen]     = useState(true);
   const [resetando, setResetando]       = useState(false);
 
+  // Persistência do aberto/minimizado dos módulos-mãe entre refreshes.
+  // Lido em efeito (não no initializer) para não causar hydration mismatch.
+  useEffect(() => {
+    try {
+      const salvo = localStorage.getItem("usefokio_menu_modulos");
+      if (!salvo) return;
+      const estado = JSON.parse(salvo) as { usefokio?: boolean; crm?: boolean; site?: boolean };
+      if (typeof estado.usefokio === "boolean") setUsefokioOpen(estado.usefokio);
+      if (typeof estado.crm === "boolean") setCrmOpen(estado.crm);
+      if (typeof estado.site === "boolean") setSiteOpen(estado.site);
+    } catch { /* estado corrompido → ignora e usa o padrão */ }
+  }, []);
+
+  function alternarModulo(modulo: "usefokio" | "crm" | "site") {
+    const setters = { usefokio: setUsefokioOpen, crm: setCrmOpen, site: setSiteOpen } as const;
+    setters[modulo]((v) => {
+      const novo = !v;
+      try {
+        const atual = { usefokio: usefokioOpen, crm: crmOpen, site: siteOpen, [modulo]: novo };
+        localStorage.setItem("usefokio_menu_modulos", JSON.stringify(atual));
+      } catch { /* storage indisponível → segue sem persistir */ }
+      return novo;
+    });
+  }
+
   useEffect(() => {
     if (isMobile) onFechar?.();
   }, [pathname]);
@@ -605,17 +630,17 @@ export function Sidebar({ isMobile = false, mobileAberta = false, onFechar }: Si
 
           return (
             <>
-              {renderModule("/dashboard", "UseFokio", icoUseFokio, usefokioChildren, !inCRM && !inSite, usefokioOpen, () => setUsefokioOpen(v => !v))}
+              {renderModule("/dashboard", "UseFokio", icoUseFokio, usefokioChildren, !inCRM && !inSite, usefokioOpen, () => alternarModulo("usefokio"))}
               {crmHabilitado && (
                 <>
                   <div style={{ margin: "4px 0", borderTop: "0.5px solid var(--color-border-tertiary)" }} />
-                  {renderModule("/crm/agenda", "CRM", icoCRM, crmChildren, inCRM, crmOpen, () => setCrmOpen(v => !v))}
+                  {renderModule("/crm/agenda", "CRM", icoCRM, crmChildren, inCRM, crmOpen, () => alternarModulo("crm"))}
                 </>
               )}
               {siteHabilitado && (
                 <>
                   <div style={{ margin: "4px 0", borderTop: "0.5px solid var(--color-border-tertiary)" }} />
-                  {renderModule("/site", "Site", icoSite, siteChildren, inSite, siteOpen, () => setSiteOpen(v => !v))}
+                  {renderModule("/site", "Site", icoSite, siteChildren, inSite, siteOpen, () => alternarModulo("site"))}
                 </>
               )}
             </>
