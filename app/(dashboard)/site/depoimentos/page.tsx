@@ -6,7 +6,6 @@ import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { uploadFileClient } from "@/lib/storage/uploadClient";
 import { processarImagemEntrega } from "@/lib/imageResize";
-import { GoogleConfig } from "./_GoogleConfig";
 import type { SiteDepoimento } from "@/lib/supabase/types";
 
 const inputStyle: React.CSSProperties = {
@@ -78,19 +77,14 @@ export default function DepoimentosPage() {
 
   return (
     <div style={{ maxWidth: 900, margin: "0 auto", padding: "40px 24px" }}>
-      <h1 style={{ fontSize: 22, fontWeight: 800, color: "var(--color-text-primary)", margin: "0 0 18px", letterSpacing: "-0.02em" }}>Depoimentos e Avaliações</h1>
-
-      {/* Integração com as avaliações do Google (quando conectada, substitui os depoimentos manuais na home) */}
-      <GoogleConfig />
-
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-        <h2 style={{ fontSize: 16, fontWeight: 700, color: "var(--color-text-primary)", margin: 0 }}>Depoimentos manuais</h2>
+        <h1 style={{ fontSize: 22, fontWeight: 800, color: "var(--color-text-primary)", margin: 0, letterSpacing: "-0.02em" }}>Depoimentos</h1>
         <button onClick={() => setForm(FORM_VAZIO)}
           style={{ padding: "9px 18px", borderRadius: 9, border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
           + Novo depoimento
         </button>
       </div>
-      <p style={{ fontSize: 13, color: "var(--color-text-secondary)", margin: "0 0 24px" }}>Usados na home quando as avaliações do Google não estão conectadas.</p>
+      <p style={{ fontSize: 13, color: "var(--color-text-secondary)", margin: "0 0 24px" }}>Exibidos na home do seu site e nas landing pages, na ordem abaixo.</p>
 
       {form && (
         <div style={{ border: "1px solid var(--color-border-secondary)", borderRadius: 12, padding: 18, marginBottom: 20, background: "var(--color-background-secondary)" }}>

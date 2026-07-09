@@ -5,9 +5,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { baseLinks } from "@/lib/site/publico";
-import { avaliacoesParaExibir } from "@/lib/google/places";
-import { GoogleReviews } from "../_components/GoogleReviews";
-import type { SiteLandingPage, SiteLandingDados } from "@/lib/supabase/types";
+import type { SiteLandingPage, SiteLandingDados, SiteDepoimento } from "@/lib/supabase/types";
 
 async function buscarLanding(fid: string, slug: string): Promise<SiteLandingPage | null> {
   const admin = createAdminClient();
@@ -29,9 +27,9 @@ export default async function LandingPage({ params }: { params: Promise<{ fid: s
   if (!lp) notFound();
 
   const admin = createAdminClient();
-  const [{ data: fotografo }, { data: config }] = await Promise.all([
+  const [{ data: fotografo }, { data: depoimentos }] = await Promise.all([
     admin.from("fotografos").select("whatsapp").eq("id", fid).maybeSingle(),
-    admin.from("site_config").select("google_place_id, google_rating, google_total, google_reviews").eq("fotografo_id", fid).maybeSingle(),
+    admin.from("site_depoimentos").select("*").eq("fotografo_id", fid).eq("publicado", true).order("ordem").limit(4),
   ]);
   const b = await baseLinks(fid);
   const d = (lp.dados ?? {}) as SiteLandingDados;
@@ -40,12 +38,30 @@ export default async function LandingPage({ params }: { params: Promise<{ fid: s
   const linkWhats = numeroWhats ? `https://wa.me/${numeroWhats.startsWith("55") ? numeroWhats : "55" + numeroWhats}` : null;
   const linkInterno = (href: string) => (href.startsWith("/") ? `${b}${href}` : href);
 
-  // Avaliações reais do Google (dinâmico). Se não houver place_id/chave, esconde a seção.
-  const avaliacoes = await avaliacoesParaExibir(config);
-  const BlocoAvaliacoes = avaliacoes && (avaliacoes.reviews.length > 0 || avaliacoes.rating != null) ? (
-    <section className="lp-secao">
+  // Depoimentos manuais do site (mesmos da home) + botão de avaliar no Google (link simples)
+  const listaDep = (depoimentos ?? []) as SiteDepoimento[];
+  const BlocoAvaliacoes = listaDep.length > 0 || d.avaliacoes?.escrever_url ? (
+    <section className="lp-secao" style={{ textAlign: "center" }}>
       <h2 className="lp-titulo">{d.avaliacoes?.titulo ?? "O que meus clientes dizem"}</h2>
-      <GoogleReviews dados={avaliacoes} />
+      {listaDep.length > 0 && (
+        <div className="lp-reviews">
+          {listaDep.map((dep) => (
+            <div key={dep.id} className="lp-review" style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+              {dep.foto_url && <img src={dep.foto_url} alt={dep.nome} style={{ width: 54, height: 54, borderRadius: "50%", objectFit: "cover", marginBottom: 10 }} />}
+              <div style={{ fontWeight: 700, fontSize: 15, color: "var(--site-titulo)", marginBottom: 6 }}>{dep.nome}</div>
+              <div className="lp-review-nota">★★★★★</div>
+              <div className="lp-review-texto" style={{ marginTop: 6 }}>
+                “{dep.texto.length > 200 ? dep.texto.slice(0, 200) + "…" : dep.texto}”
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      {d.avaliacoes?.escrever_url && (
+        <a className="lp-botao-verde" style={{ marginTop: 24 }} href={d.avaliacoes.escrever_url} target="_blank" rel="noopener noreferrer">
+          Escrever avaliação
+        </a>
+      )}
     </section>
   ) : null;
 
