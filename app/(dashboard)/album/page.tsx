@@ -35,24 +35,9 @@ const IcoEdit = () => (
     <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
   </svg>
 );
-const IcoReview = () => (
-  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-  </svg>
-);
-const IcoCopy = () => (
-  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
-  </svg>
-);
 const IcoTrash = () => (
   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
-  </svg>
-);
-const IcoWpp = () => (
-  <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
-    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z"/>
   </svg>
 );
 
@@ -60,19 +45,20 @@ export default function AlbumPage() {
   const router        = useRouter();
   const { fotografo } = useFotografo();
 
-  const [selecoes,   setSelecoes]   = useState<AlbumSelecao[]>([]);
-  const [carregando, setCarregando] = useState(true);
-  const [copiando,   setCopiando]   = useState<string | null>(null);
-  const [filtro,     setFiltro]     = usePersistedState<Filtro>("album:filtro", "todos");
-  const [excluindo,  setExcluindo]  = useState<AlbumSelecao | null>(null);
-  const [deletando,  setDeletando]  = useState(false);
+  const [selecoes,    setSelecoes]    = useState<AlbumSelecao[]>([]);
+  const [carregando,  setCarregando]  = useState(true);
+  const [copiando,    setCopiando]    = useState<string | null>(null);
+  const [filtro,      setFiltro]      = usePersistedState<Filtro>("album:filtro", "todos");
+  const [excluindo,   setExcluindo]   = useState<AlbumSelecao | null>(null);
+  const [deletando,   setDeletando]   = useState(false);
+  const [menuContato, setMenuContato] = useState<string | null>(null);
 
   useEffect(() => {
     if (!fotografo) return;
     const supabase = createClient();
     supabase
       .from("album_selecoes")
-      .select("*, clientes(nome, telefone, whatsapp)")
+      .select("*, clientes(nome, telefone, whatsapp, email)")
       .eq("fotografo_id", fotografo.id)
       .order("created_at", { ascending: false })
       .then(({ data }) => {
@@ -120,6 +106,24 @@ export default function AlbumPage() {
     const numero = tel.replace(/\D/g, "");
     window.open(`https://wa.me/${numero ? numero : ""}?text=${msg}`, "_blank");
   }
+
+  function enviarEmail(s: AlbumSelecao) {
+    const cliente = (s as any).clientes;
+    const email   = cliente?.email ?? "";
+    const link    = `${appUrl}/acesso/album/${s.id}`;
+    const nome    = cliente?.nome ?? "";
+    const assunto = encodeURIComponent(`Álbum "${s.titulo}" para revisão`);
+    const corpo   = encodeURIComponent(
+      `Olá${nome ? " " + nome : ""}!\n\nSuas lâminas de álbum "${s.titulo}" estão prontas para revisão. Acesse o link abaixo, visualize cada página e adicione seus comentários:\n${link}`
+    );
+    window.open(`mailto:${email}?subject=${assunto}&body=${corpo}`, "_blank");
+  }
+
+  const menuItemStyle: React.CSSProperties = {
+    display: "flex", alignItems: "center", gap: 8, width: "100%", textAlign: "left",
+    padding: "9px 10px", borderRadius: 7, border: "none", background: "transparent",
+    color: "var(--color-text-primary)", fontSize: 13, cursor: "pointer",
+  };
 
   // Contadores por status
   const contadores: Record<Filtro, number> = {
@@ -299,26 +303,27 @@ export default function AlbumPage() {
                 </div>
 
                 {/* Ações */}
-                <div style={{ flexShrink: 0, display: "flex", gap: 4 }} onClick={(e) => e.stopPropagation()}>
+                <div style={{ flexShrink: 0, display: "flex", gap: 4, position: "relative" }} onClick={(e) => e.stopPropagation()}>
+                  {/* Contato com o cliente — menu com as formas de enviar o acesso */}
                   <button
-                    onClick={() => enviarWhatsapp(s)}
-                    title="Enviar por WhatsApp"
-                    style={{ ...iconBtnStyle("#16A34A"), border: "0.5px solid rgba(34,197,94,0.3)", background: "rgba(34,197,94,0.05)" }}
-                    onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(34,197,94,0.12)")}
-                    onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(34,197,94,0.05)")}
-                  ><IcoWpp /></button>
-
-                  <button
-                    onClick={() => copiarLink(s.id)}
-                    title="Copiar link"
-                    style={{ ...iconBtnStyle(), background: copiando === s.id ? "rgba(16,185,129,0.08)" : "transparent", color: copiando === s.id ? "#059669" : "var(--color-text-secondary)" }}
-                  ><IcoCopy /></button>
-
-                  <button
-                    onClick={() => router.push(`/album/${s.id}/revisao`)}
-                    title="Revisão"
-                    style={{ ...iconBtnStyle(), border: aguardando ? "0.5px solid rgba(245,158,11,0.5)" : "0.5px solid var(--color-border-secondary)", color: aguardando ? "#B45309" : "var(--color-text-secondary)", background: aguardando ? "rgba(245,158,11,0.08)" : "transparent" }}
-                  ><IcoReview /></button>
+                    onClick={() => setMenuContato(menuContato === s.id ? null : s.id)}
+                    title="Entrar em contato com o cliente"
+                    style={{ display: "flex", alignItems: "center", gap: 5, padding: "6px 12px", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer",
+                      border: aguardando ? "0.5px solid rgba(245,158,11,0.5)" : "0.5px solid var(--color-border-secondary)",
+                      background: aguardando ? "rgba(245,158,11,0.08)" : "transparent",
+                      color: aguardando ? "#B45309" : "var(--color-text-secondary)" }}
+                  >💬 Contato</button>
+                  {menuContato === s.id && (
+                    <>
+                      <div style={{ position: "fixed", inset: 0, zIndex: 10 }} onClick={() => setMenuContato(null)} />
+                      <div style={{ position: "absolute", top: "100%", right: 0, marginTop: 4, minWidth: 190, zIndex: 20, padding: 4, background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 10, boxShadow: "0 10px 30px rgba(0,0,0,0.16)" }}>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", padding: "6px 10px 4px" }}>Enviar acesso</div>
+                        <button onClick={() => { enviarWhatsapp(s); setMenuContato(null); }} style={menuItemStyle}>📱 WhatsApp</button>
+                        <button onClick={() => { enviarEmail(s); setMenuContato(null); }} style={menuItemStyle}>✉️ Email</button>
+                        <button onClick={() => { copiarLink(s.id); setMenuContato(null); }} style={menuItemStyle}>🔗 Copiar link</button>
+                      </div>
+                    </>
+                  )}
 
                   <button
                     onClick={() => router.push(`/album/${s.id}/editar`)}
