@@ -1,9 +1,18 @@
 // Lista de trabalhos de uma categoria.
+import type { Metadata } from "next";
 import Link from "next/link";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { baseLinks, CATEGORIA_LABEL } from "@/lib/site/publico";
+import { baseLinks, CATEGORIA_LABEL, carregarSite } from "@/lib/site/publico";
 import { CardTrabalho } from "../../_components/CardTrabalho";
 import type { SiteTrabalho } from "@/lib/supabase/types";
+
+export async function generateMetadata({ params }: { params: Promise<{ fid: string; categoria: string }> }): Promise<Metadata> {
+  const { fid, categoria } = await params;
+  const { fotografo, config } = await carregarSite(fid);
+  const nome = config?.titulo_site ?? fotografo?.nome_empresa ?? "";
+  const cat = CATEGORIA_LABEL[categoria] ?? categoria;
+  return { title: `${cat}${nome ? " — " + nome : ""}`, description: `Trabalhos de ${cat}${nome ? " por " + nome : ""}.` };
+}
 
 export default async function CategoriaPage({ params }: { params: Promise<{ fid: string; categoria: string }> }) {
   const { fid, categoria } = await params;

@@ -32,8 +32,13 @@ export async function GET(request: Request, { params }: { params: Promise<{ fid:
     { loc: `${b}/contato` },
   ];
 
-  for (const t of (trabalhos ?? []) as Pick<SiteTrabalho, "categoria" | "slug" | "legacy_id" | "updated_at">[]) {
+  const listaTrab = (trabalhos ?? []) as Pick<SiteTrabalho, "categoria" | "slug" | "legacy_id" | "updated_at">[];
+  for (const t of listaTrab) {
     urls.push({ loc: `${b}/portfolio/${t.categoria}/${t.legacy_id ? `${t.legacy_id}-` : ""}${t.slug}`, lastmod: t.updated_at });
+  }
+  // Páginas de categoria (indexáveis) — uma por categoria distinta
+  for (const cat of [...new Set(listaTrab.map((t) => t.categoria))]) {
+    urls.push({ loc: `${b}/portfolio/${cat}` });
   }
   for (const p of (portfolios ?? []) as Pick<SitePortfolio, "legacy_id" | "updated_at">[]) {
     if (p.legacy_id) urls.push({ loc: `${b}/gallery.php?id=${p.legacy_id}`, lastmod: p.updated_at });

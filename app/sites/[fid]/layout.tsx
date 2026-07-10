@@ -33,8 +33,12 @@ export async function generateMetadata({ params }: { params: Promise<{ fid: stri
   const xSitePath = h.get("x-site-path");
   const canonical = hostPrincipal && xSitePath ? `https://${hostPrincipal}${xSitePath === "/" ? "" : xSitePath}` : undefined;
 
+  const nomeSite = config?.seo_title ?? config?.titulo_site ?? fotografo?.nome_empresa ?? "Site do fotógrafo";
+  const ogImage = config?.og_image_url ?? fotografo?.logo_url ?? undefined;
+
   return {
-    title: config?.seo_title ?? config?.titulo_site ?? fotografo?.nome_empresa ?? "Site do fotógrafo",
+    metadataBase: hostPrincipal ? new URL(`https://${hostPrincipal}`) : undefined,
+    title: nomeSite,
     description: config?.seo_description ?? undefined,
     keywords: config?.seo_keywords ?? undefined,
     verification: config?.google_site_verification ? { google: config.google_site_verification } : undefined,
@@ -42,6 +46,21 @@ export async function generateMetadata({ params }: { params: Promise<{ fid: stri
     // Favicon do site = logo do fotógrafo (senão o navegador cai no favicon do app)
     icons: fotografo?.logo_url ? { icon: fotografo.logo_url, shortcut: fotografo.logo_url } : undefined,
     robots: ehHostDoSite && config?.publicado ? { index: true, follow: true } : { index: false, follow: false },
+    openGraph: {
+      type: "website",
+      locale: "pt_BR",
+      siteName: fotografo?.nome_empresa ?? config?.titulo_site ?? undefined,
+      title: nomeSite,
+      description: config?.seo_description ?? undefined,
+      url: canonical,
+      images: ogImage ? [ogImage] : undefined,
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: nomeSite,
+      description: config?.seo_description ?? undefined,
+      images: ogImage ? [ogImage] : undefined,
+    },
   };
 }
 
@@ -71,6 +90,22 @@ export default async function SitePublicoLayout({ children, params }: { children
   const redes = (config?.redes ?? {}) as Record<string, string>;
   const tema = getTema(config?.tema);
 
+  // JSON-LD do negócio (dados estruturados — ajuda o Google a entender o fotógrafo)
+  const hostPrincipal = config?.dominio_customizado
+    ? normalizarHost(config.dominio_customizado)
+    : (config?.subdominio ? `${config.subdominio}.usefokio.com.br` : null);
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "ProfessionalService",
+    name: fotografo?.nome_empresa ?? undefined,
+    image: fotografo?.logo_url ?? undefined,
+    logo: fotografo?.logo_url ?? undefined,
+    url: hostPrincipal ? `https://${hostPrincipal}` : undefined,
+    telephone: fotografo?.telefone ?? undefined,
+    email: fotografo?.email ?? undefined,
+    sameAs: [redes.instagram, redes.facebook, redes.youtube].filter(Boolean),
+  };
+
   const itensMenu = menu.length > 0 ? menu : [
     { id: "1", label: "Histórias", href: "/portfolio", ordem: 0 },
     { id: "2", label: "Solicite seu orçamento", href: "/contato", ordem: 1 },
@@ -92,6 +127,7 @@ export default async function SitePublicoLayout({ children, params }: { children
       }}
     >
       <ScriptsRastreamento analytics={config?.analytics_head ?? null} pixel={config?.facebook_pixel ?? null} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <SiteHeader
         base={b}

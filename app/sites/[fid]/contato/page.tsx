@@ -4,7 +4,16 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { ContatoForm } from "../_components/ContatoForm";
 import type { SitePagina } from "@/lib/supabase/types";
 
-export const metadata: Metadata = { title: "Solicite seu orçamento" };
+export async function generateMetadata({ params }: { params: Promise<{ fid: string }> }): Promise<Metadata> {
+  const { fid } = await params;
+  const admin = createAdminClient();
+  const { data } = await admin.from("site_paginas").select("seo_title, seo_description").eq("fotografo_id", fid).eq("slug", "contato").maybeSingle();
+  const p = data as { seo_title: string | null; seo_description: string | null } | null;
+  return {
+    title: p?.seo_title ?? "Solicite seu orçamento",
+    description: p?.seo_description ?? "Conte sobre o seu evento — data, cidade e o que planeja — e solicite um orçamento.",
+  };
+}
 
 export default async function ContatoPage({ params }: { params: Promise<{ fid: string }> }) {
   const { fid } = await params;

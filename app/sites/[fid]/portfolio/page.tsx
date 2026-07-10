@@ -1,9 +1,17 @@
 // Lista geral do portfólio (todas as categorias).
+import type { Metadata } from "next";
 import Link from "next/link";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { baseLinks, CATEGORIA_LABEL } from "@/lib/site/publico";
+import { baseLinks, CATEGORIA_LABEL, carregarSite } from "@/lib/site/publico";
 import { CardTrabalho } from "../_components/CardTrabalho";
 import type { SiteTrabalho } from "@/lib/supabase/types";
+
+export async function generateMetadata({ params }: { params: Promise<{ fid: string }> }): Promise<Metadata> {
+  const { fid } = await params;
+  const { fotografo, config } = await carregarSite(fid);
+  const nome = config?.titulo_site ?? fotografo?.nome_empresa ?? "Portfólio";
+  return { title: `Portfólio — ${nome}`, description: `Conheça os trabalhos de ${nome}.` };
+}
 
 export default async function PortfolioPage({ params }: { params: Promise<{ fid: string }> }) {
   const { fid } = await params;

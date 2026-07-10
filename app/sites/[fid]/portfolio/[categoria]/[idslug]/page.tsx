@@ -6,6 +6,7 @@ import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { baseLinks, CATEGORIA_LABEL, legacyDoSlug } from "@/lib/site/publico";
 import { FotosTrabalho } from "../../../_components/FotosTrabalho";
+import { JsonLd } from "../../../_components/JsonLd";
 import type { SiteTrabalho, SiteTrabalhoFoto } from "@/lib/supabase/types";
 
 async function buscarTrabalho(fid: string, idslug: string): Promise<SiteTrabalho | null> {
@@ -49,6 +50,13 @@ export default async function TrabalhoPage({ params }: { params: Promise<{ fid: 
 
   return (
     <article>
+      <JsonLd data={{
+        "@context": "https://schema.org",
+        "@type": "ImageGallery",
+        name: t.titulo,
+        description: t.seo_description ?? undefined,
+        image: [t.capa_url, ...todasFotos.map((f) => f.url_publica)].filter(Boolean).slice(0, 30),
+      }} />
       {t.capa_url && (
         <div style={{ height: "56vh", maxHeight: 560, overflow: "hidden", background: "#111" }}>
           <img src={t.capa_url} alt={t.titulo} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />

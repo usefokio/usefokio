@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { legacyDoSlug } from "@/lib/site/publico";
+import { JsonLd } from "../../_components/JsonLd";
 import type { SitePost } from "@/lib/supabase/types";
 
 async function buscarPost(fid: string, idslug: string): Promise<SitePost | null> {
@@ -36,6 +37,15 @@ export default async function PostPage({ params }: { params: Promise<{ fid: stri
 
   return (
     <article>
+      <JsonLd data={{
+        "@context": "https://schema.org",
+        "@type": "Article",
+        headline: p.titulo,
+        image: p.capa_url ? [p.capa_url] : undefined,
+        datePublished: p.publicado_em ?? undefined,
+        articleSection: p.categoria ?? undefined,
+        description: p.resumo ?? undefined,
+      }} />
       {/* Capa em página inteira, como um banner, acima do texto */}
       {p.capa_url && (
         <div style={{ height: "56vh", maxHeight: 560, overflow: "hidden", background: "#111" }}>
