@@ -7,7 +7,7 @@ import { useFotografo } from "@/lib/context/FotografoContext";
 import { uploadFileClient } from "@/lib/storage/uploadClient";
 import { processarImagemEntrega } from "@/lib/imageResize";
 import { SiteRichEditor } from "@/app/(dashboard)/site/_components/SiteRichEditor";
-import { useEditorEstado, SeloEstado, BotaoSalvarEstado, ModalNaoSalvo } from "../_components/EditorEstado";
+import { useEditorEstado, SeloEstado, BotaoSalvarEstado, ModalNaoSalvo } from "@/app/(dashboard)/_components/EditorEstado";
 import type { SitePagina } from "@/lib/supabase/types";
 
 const inputStyle: React.CSSProperties = {

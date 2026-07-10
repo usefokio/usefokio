@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { isValidDate, mascaraTelefone } from "@/lib/utils/format";
 import { gerarSenhaAcesso } from "@/lib/utils";
+import { useEditorEstado, SeloEstado, ModalNaoSalvo } from "@/app/(dashboard)/_components/EditorEstado";
 
 const TIPO_MAP: Record<string, string> = {
   cliente:      "Cliente",
@@ -52,6 +53,11 @@ export default function NovoClientePage() {
   const [estado,      setEstado]      = useState("");
   const [salvando,    setSalvando]    = useState(false);
   const [erro,        setErro]        = useState("");
+
+  // Estado de salvamento claro (regra de sistema) — baseline = formulário vazio; dirty ao preencher.
+  const snapshotAtual = JSON.stringify([nome, email, telefone, whatsapp, empresa, cargo, instagram, cpf, dataNasc, observacoes, tipoContato, cep, logradouro, numero, complemento, bairro, cidade, estado]);
+  const guarda = useEditorEstado(snapshotAtual, "/crm/clientes");
+  useEffect(() => { guarda.inicializar(snapshotAtual); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
 
   async function buscarCep(cepVal: string) {
     const c = cepVal.replace(/\D/g, "");
@@ -108,7 +114,9 @@ export default function NovoClientePage() {
       crm_ativo:       true,
     }).select("id").single();
     if (error || !data) { setErro("Erro ao salvar. Tente novamente."); setSalvando(false); return; }
+    guarda.marcarSaiu();
     router.push(`/crm/clientes/${(data as { id: string }).id}`);
+    return true;
   };
 
   const btnBase: React.CSSProperties = {
@@ -119,13 +127,14 @@ export default function NovoClientePage() {
   return (
     <div style={{ padding: "28px 32px", maxWidth: 860, fontFamily: "var(--font-sans)" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 28 }}>
-        <button onClick={() => router.push("/crm/clientes")}
+        <button onClick={guarda.sair}
           style={{ ...btnBase, background: "none", border: "0.5px solid var(--color-border-secondary)", color: "var(--color-text-secondary)", padding: "7px 12px" }}>
           ← Voltar
         </button>
         <h1 style={{ fontSize: 20, fontWeight: 800, letterSpacing: "-0.03em", color: "var(--color-text-primary)", margin: 0 }}>
           Novo contato
         </h1>
+        <div style={{ marginLeft: "auto" }}><SeloEstado temAlteracoes={guarda.temAlteracoes} /></div>
       </div>
 
       <div style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 12, padding: 28 }}>
@@ -236,7 +245,7 @@ export default function NovoClientePage() {
         )}
 
         <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-          <button onClick={() => router.push("/crm/clientes")}
+          <button onClick={guarda.sair}
             style={{ ...btnBase, background: "none", border: "0.5px solid var(--color-border-secondary)", color: "var(--color-text-secondary)" }}>
             Cancelar
           </button>
@@ -246,6 +255,14 @@ export default function NovoClientePage() {
           </button>
         </div>
       </div>
+
+      <ModalNaoSalvo
+        aberto={guarda.modalAberto}
+        salvando={salvando}
+        onSalvarESair={async () => { await salvar(); }}
+        onSairSemSalvar={guarda.sairAgora}
+        onContinuar={guarda.fecharModal}
+      />
     </div>
   );
 }

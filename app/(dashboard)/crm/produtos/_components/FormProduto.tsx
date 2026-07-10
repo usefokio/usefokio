@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { ComboSelect } from "@/components/ui/ComboSelect";
 import type { CrmProduct, CrmChartOfAccount, CrmProductCategory, CrmProductCusto } from "@/lib/supabase/types";
 import { formatNum, mascaraValor, parsearValor } from "@/lib/utils/format";
+import { useEditorEstado, SeloEstado, ModalNaoSalvo } from "@/app/(dashboard)/_components/EditorEstado";
 
 type Tab = "info" | "custos";
 
@@ -56,6 +57,19 @@ export function FormProduto({ produto }: Props) {
   const [custosRemover, setCustosRemover] = useState<string[]>([]); // IDs a deletar
   const [custoForm,     setCustoForm]     = useState<typeof EMPTY_CUSTO & { _tmpId?: string; id?: string } | null>(null);
 
+  // Estado de salvamento claro (regra de sistema). Baseline capturado após os custos carregarem (no editar).
+  const snapCustos = custos.map((c) => ({ id: (c as CrmProductCusto).id ?? null, descricao: c.descricao, valor: c.valor, percentual: c.percentual, conta_id: c.conta_id, referencia: c.referencia, dias_offset: c.dias_offset, dias_direcao: c.dias_direcao }));
+  const snapshotAtual = JSON.stringify([categoria, nome, codigo, descricao, tagsInput, pacote, preco, contaVendas, ativo, snapCustos, custosRemover]);
+  const estado = useEditorEstado(snapshotAtual, "/crm/produtos");
+  const [custosCarregados, setCustosCarregados] = useState(!produto); // no "novo" já está pronto
+  const baselineInit = useRef(false);
+  useEffect(() => {
+    if (baselineInit.current || !custosCarregados) return;
+    baselineInit.current = true;
+    estado.inicializar(snapshotAtual);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [custosCarregados, snapshotAtual]);
+
   useEffect(() => {
     if (!fotografo) return;
     const sb = createClient();
@@ -91,18 +105,18 @@ export function FormProduto({ produto }: Props) {
         .select("*")
         .eq("produto_id", produto.id)
         .order("ordem")
-        .then(({ data }) => setCustos((data ?? []) as CrmProductCusto[]));
+        .then(({ data }) => { setCustos((data ?? []) as CrmProductCusto[]); setCustosCarregados(true); });
     }
   }, [fotografo, editando, produto]);
 
   const precoNum = () => parseFloat(preco.replace(/\./g, "").replace(",", ".")) || 0;
 
-  const salvar = async () => {
-    if (!fotografo) return;
-    if (!nome.trim())      { setErro("Nome é obrigatório."); setAba("info"); return; }
-    if (!categoria.trim()) { setErro("Categoria é obrigatória."); setAba("info"); return; }
-    if (!contaVendas)      { setErro("Conta de vendas é obrigatória."); setAba("info"); return; }
-    if (precoNum() < 0)    { setErro("Preço inválido."); return; }
+  const salvar = async (): Promise<boolean> => {
+    if (!fotografo) return false;
+    if (!nome.trim())      { setErro("Nome é obrigatório."); setAba("info"); return false; }
+    if (!categoria.trim()) { setErro("Categoria é obrigatória."); setAba("info"); return false; }
+    if (!contaVendas)      { setErro("Conta de vendas é obrigatória."); setAba("info"); return false; }
+    if (precoNum() < 0)    { setErro("Preço inválido."); return false; }
 
     setSaving(true);
     setErro("");
@@ -127,10 +141,10 @@ export function FormProduto({ produto }: Props) {
 
     if (editando) {
       const { error } = await sb.from("crm_products").update(payload).eq("id", produto!.id);
-      if (error) { setSaving(false); setErro(error.message); return; }
+      if (error) { setSaving(false); setErro(error.message); return false; }
     } else {
       const { data, error } = await sb.from("crm_products").insert(payload).select("id").single();
-      if (error || !data) { setSaving(false); setErro(error?.message ?? "Erro ao criar produto."); return; }
+      if (error || !data) { setSaving(false); setErro(error?.message ?? "Erro ao criar produto."); return false; }
       produtoId = data.id;
     }
 
@@ -167,7 +181,9 @@ export function FormProduto({ produto }: Props) {
     }
 
     setSaving(false);
+    estado.marcarSaiu();
     router.push("/crm/produtos");
+    return true;
   };
 
   const inputStyle: React.CSSProperties = {
@@ -205,15 +221,16 @@ export function FormProduto({ produto }: Props) {
     <div style={{ padding: "28px 32px", maxWidth: 680, fontFamily: "var(--font-sans)" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <button onClick={() => router.push("/crm/produtos")} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--color-text-secondary)", fontSize: 13, padding: 0 }}>
+          <button onClick={estado.sair} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--color-text-secondary)", fontSize: 13, padding: 0 }}>
             ← Produtos
           </button>
           <h1 style={{ fontSize: 18, fontWeight: 800, letterSpacing: "-0.03em", color: "var(--color-text-primary)", margin: 0 }}>
             {editando ? "Editar produto" : "Novo produto"}
           </h1>
         </div>
-        <div style={{ display: "flex", gap: 8 }}>
-          <button onClick={() => router.push("/crm/produtos")}
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <SeloEstado temAlteracoes={estado.temAlteracoes} />
+          <button onClick={estado.sair}
             style={{ padding: "8px 16px", borderRadius: 8, background: "transparent", color: "var(--color-text-secondary)", border: "0.5px solid var(--color-border-secondary)", fontSize: 13, cursor: "pointer" }}>
             Cancelar
           </button>
@@ -533,10 +550,18 @@ export function FormProduto({ produto }: Props) {
         >
           {saving ? "Salvando…" : editando ? "Salvar alterações" : "Criar produto"}
         </button>
-        <button onClick={() => router.push("/crm/produtos")} style={{ padding: "10px 16px", borderRadius: 8, background: "none", border: "0.5px solid var(--color-border-secondary)", fontSize: 13, color: "var(--color-text-secondary)", cursor: "pointer" }}>
+        <button onClick={estado.sair} style={{ padding: "10px 16px", borderRadius: 8, background: "none", border: "0.5px solid var(--color-border-secondary)", fontSize: 13, color: "var(--color-text-secondary)", cursor: "pointer" }}>
           Cancelar
         </button>
       </div>
+
+      <ModalNaoSalvo
+        aberto={estado.modalAberto}
+        salvando={saving}
+        onSalvarESair={async () => { await salvar(); }}
+        onSairSemSalvar={estado.sairAgora}
+        onContinuar={estado.fecharModal}
+      />
     </div>
   );
 }
