@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
+import { garantirSenhaCliente } from "@/lib/clientes/garantirSenha";
 import type { AlbumSelecao, AlbumLamina, AlbumComentario } from "@/lib/supabase/types";
 
 type StatusAlbum = "rascunho" | "ativa" | "aguardando_revisao" | "aprovado" | "encerrada";
@@ -50,6 +51,8 @@ export default function VisualizarAlbumPage() {
       supabase.from("album_comentarios").select("*").eq("selecao_id", id).order("created_at"),
     ]).then(([{ data: s }, { data: l }, { data: c }]) => {
       setSelecao(s as AlbumSelecao & { clientes?: { nome: string | null } | null });
+      // Garante que o cliente tenha senha (clientes migrados vieram sem) → acesso passa a exigir senha
+      garantirSenhaCliente((s as AlbumSelecao | null)?.cliente_id);
       // Guarda TODAS as versões (o histórico é navegado pelo seletor de versões).
       setLaminas((l as AlbumLamina[]) ?? []);
       setComentarios((c as AlbumComentario[]) ?? []);

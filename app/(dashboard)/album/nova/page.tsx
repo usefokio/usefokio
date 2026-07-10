@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
+import { garantirSenhaCliente } from "@/lib/clientes/garantirSenha";
 import { ClienteSelect } from "@/app/(dashboard)/entrega/_components/ClienteSelect";
 import { Field } from "@/components/ui/Field";
 import { inputStyle } from "@/lib/styles";
@@ -117,6 +118,7 @@ export default function NovoAlbumPage() {
 
     setSaving(false);
     if (err) { setError(err.message); return; }
+    garantirSenhaCliente(clienteId || null);   // álbum com cliente já nasce com senha exigível
     setConcluido(true);
     router.push(`/album/${idAlbum}/editar`);
   }

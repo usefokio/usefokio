@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { deleteFilesClient } from "@/lib/storage/deleteClient";
 import { useFotografo } from "@/lib/context/FotografoContext";
+import { garantirSenhaCliente } from "@/lib/clientes/garantirSenha";
 import { ClienteSelect } from "@/app/(dashboard)/entrega/_components/ClienteSelect";
 import { LaminasUpload } from "@/app/(dashboard)/album/_components/LaminasUpload";
 import { Field } from "@/components/ui/Field";
@@ -94,6 +95,7 @@ export default function EditarAlbumPage() {
         setDescricao(s.descricao ?? "");
         setStatus(s.status as StatusAlbum);
         setExpiraEm(s.expira_em ? s.expira_em.slice(0, 10) : "");
+        garantirSenhaCliente(s.cliente_id);   // cliente sem senha (migrado) → gera aqui
       }
       setModelos((m as FotografoAlbumModelo[]) ?? []);
       // Só os comentários da versão corrente (versões anteriores são histórico)
