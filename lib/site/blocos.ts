@@ -16,7 +16,8 @@ export type TipoBloco =
   | "depoimentos"   // depoimentos manuais do site + botão "Escrever avaliação"
   | "divisor"       // linha horizontal
   | "espaco"        // respiro vertical
-  | "whatsapp";     // CTA de WhatsApp
+  | "whatsapp"      // CTA de WhatsApp
+  | "formulario";   // formulário de contato/lead (grava em site_leads)
 
 export type SiteBloco = {
   id: string;
@@ -66,6 +67,7 @@ export const CATALOGO_BLOCOS: { tipo: TipoBloco; label: string; icone: string }[
   { tipo: "divisor",      label: "Divisor",            icone: "―" },
   { tipo: "espaco",       label: "Espaço",             icone: "↕" },
   { tipo: "whatsapp",     label: "Botão WhatsApp",     icone: "💬" },
+  { tipo: "formulario",   label: "Formulário de contato", icone: "✉" },
 ];
 
 export function novoBloco(tipo: TipoBloco): SiteBloco {
@@ -78,6 +80,7 @@ export function novoBloco(tipo: TipoBloco): SiteBloco {
   if (tipo === "espaco") base.dados.altura = 40;
   if (tipo === "depoimentos") base.dados.titulo = "O que meus clientes dizem";
   if (tipo === "whatsapp") base.dados.texto = "Conversar no WhatsApp";
+  if (tipo === "formulario") base.dados.titulo = "Fale comigo";
   return base;
 }
 

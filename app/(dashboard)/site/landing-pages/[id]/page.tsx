@@ -354,6 +354,13 @@ export default function EditorLandingPage({ params }: { params: Promise<{ id: st
             <div><label style={labelStyle}>Número (vazio = o do cadastro)</label><input value={d.numero ?? ""} onChange={(e) => mudar(b.id, { numero: e.target.value.replace(/\D/g, "") })} style={inputStyle} placeholder="5514999990000" /></div>
           </div>
         );
+      case "formulario":
+        return (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <div><label style={labelStyle}>Título da seção</label><input value={d.titulo ?? ""} onChange={(e) => mudar(b.id, { titulo: e.target.value })} style={inputStyle} placeholder="Fale comigo" /></div>
+            <div style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>Campos fixos: nome, email, telefone e mensagem. Os envios aparecem em <strong>Site → Inbox</strong>.</div>
+          </div>
+        );
       case "divisor":
         return <div style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>Linha divisória — sem opções.</div>;
       default:

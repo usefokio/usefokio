@@ -44,6 +44,7 @@ export default async function LandingPage({ params }: { params: Promise<{ fid: s
       blocos={blocos}
       ctx={{
         base: b,
+        fid,
         depoimentos: (depoimentos ?? []) as SiteDepoimento[],
         whatsappFallback: fotografo?.whatsapp ?? null,
       }}

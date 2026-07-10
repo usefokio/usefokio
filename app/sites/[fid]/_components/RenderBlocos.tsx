@@ -4,9 +4,11 @@ import Link from "next/link";
 import type { CSSProperties } from "react";
 import type { SiteBloco } from "@/lib/site/blocos";
 import type { SiteDepoimento } from "@/lib/supabase/types";
+import { ContatoForm } from "./ContatoForm";
 
 export type ContextoBlocos = {
   base: string;                      // prefixo dos links internos ("" no host do fotógrafo)
+  fid: string;                       // id do fotógrafo (usado pelo bloco "formulario")
   depoimentos: SiteDepoimento[];     // usados pelo bloco "depoimentos"
   whatsappFallback: string | null;   // número do cadastro (fallback do bloco whatsapp)
 };
@@ -155,6 +157,14 @@ function Bloco({ bloco, ctx }: { bloco: SiteBloco; ctx: ContextoBlocos }) {
         </section>
       );
     }
+
+    case "formulario":
+      return (
+        <section className="lp-secao" style={{ maxWidth: 680 }}>
+          {d.titulo && <h2 className="lp-titulo">{d.titulo}</h2>}
+          <ContatoForm fid={ctx.fid} />
+        </section>
+      );
 
     default:
       return null;
