@@ -170,14 +170,14 @@ export default function AlbumPage() {
         <div>
           <h1 style={{ fontSize: 19, fontWeight: 600, color: "var(--color-text-primary)", margin: "0 0 3px", letterSpacing: "-0.02em" }}>Álbuns</h1>
           <p style={{ fontSize: 13, color: "var(--color-text-secondary)", margin: 0 }}>
-            {carregando ? "Carregando…" : `${selecoes.length} seleção${selecoes.length !== 1 ? "ões" : ""}`}
+            {carregando ? "Carregando…" : `${selecoes.length} álbum${selecoes.length !== 1 ? "ns" : ""}`}
           </p>
         </div>
         <button
           onClick={() => router.push("/album/nova")}
           style={{ padding: "9px 18px", borderRadius: 8, background: "var(--color-text-primary)", color: "var(--color-background-primary)", fontSize: 13, fontWeight: 600, border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}
         >
-          + Nova seleção
+          + Novo álbum
         </button>
       </div>
 
@@ -240,10 +240,10 @@ export default function AlbumPage() {
           {selecoes.length === 0 ? (
             <>
               <div style={{ fontSize: 40, marginBottom: 12 }}>📖</div>
-              <div style={{ fontSize: 15, fontWeight: 600, color: "var(--color-text-primary)", marginBottom: 6 }}>Nenhuma seleção de álbum ainda</div>
-              <div style={{ fontSize: 13, color: "var(--color-text-secondary)", marginBottom: 22 }}>Crie uma seleção, envie as lâminas e compartilhe o link com o cliente.</div>
+              <div style={{ fontSize: 15, fontWeight: 600, color: "var(--color-text-primary)", marginBottom: 6 }}>Nenhum álbum ainda</div>
+              <div style={{ fontSize: 13, color: "var(--color-text-secondary)", marginBottom: 22 }}>Crie um álbum, envie as lâminas e compartilhe o link com o cliente.</div>
               <button onClick={() => router.push("/album/nova")} style={{ padding: "10px 22px", borderRadius: 8, background: "var(--color-text-primary)", color: "var(--color-background-primary)", fontSize: 13, fontWeight: 600, border: "none", cursor: "pointer" }}>
-                + Criar primeira seleção
+                + Criar primeiro álbum
               </button>
             </>
           ) : (

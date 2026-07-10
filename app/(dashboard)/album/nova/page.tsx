@@ -169,7 +169,7 @@ export default function NovoAlbumPage() {
             ← Voltar
           </button>
           <span style={{ color: "var(--color-border-secondary)" }}>/</span>
-          <span style={{ fontSize: 14, fontWeight: 600, color: "var(--color-text-primary)" }}>Nova seleção de álbum</span>
+          <span style={{ fontSize: 14, fontWeight: 600, color: "var(--color-text-primary)" }}>Novo álbum</span>
         </div>
         <button
           onClick={handleSave}

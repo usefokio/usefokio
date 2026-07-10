@@ -264,21 +264,16 @@ function BookViewer({
           {temComentarios ? (
             <>
               <div style={{ background: "rgba(37,99,235,0.06)", border: "0.5px solid rgba(37,99,235,0.2)", borderRadius: 10, padding: "10px 16px", marginBottom: 16, fontSize: 12, color: "#1E40AF" }}>
-                Você adicionou <strong>{totalComentarios} observaç{totalComentarios === 1 ? "ão" : "ões"}</strong>. Clique em <strong>Enviar ao fotógrafo</strong> quando terminar de revisar todas as lâminas.
+                Você adicionou <strong>{totalComentarios} observaç{totalComentarios === 1 ? "ão" : "ões"}</strong>. Como pediu alterações, o álbum será <strong>enviado ao fotógrafo para revisão</strong> — não é uma aprovação. Para aprovar, remova as observações.
               </div>
-              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                <button onClick={onSend} style={{ flex: 1, minWidth: 160, padding: "12px 20px", borderRadius: 9, border: "none", background: "#2563EB", color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>
-                  📨 Enviar ao fotógrafo
-                </button>
-                <button onClick={onApprove} style={{ padding: "12px 20px", borderRadius: 9, border: "0.5px solid var(--color-border-secondary)", background: "transparent", color: "var(--color-text-secondary)", fontSize: 13, cursor: "pointer" }}>
-                  Aprovar assim mesmo
-                </button>
-              </div>
+              <button onClick={onSend} style={{ width: "100%", padding: "12px 20px", borderRadius: 9, border: "none", background: "#2563EB", color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>
+                📨 Enviar comentários ao fotógrafo
+              </button>
             </>
           ) : (
             <>
               <div style={{ background: "rgba(16,185,129,0.06)", border: "0.5px solid rgba(16,185,129,0.2)", borderRadius: 10, padding: "10px 16px", marginBottom: 16, fontSize: 12, color: "#065F46" }}>
-                Revise todas as lâminas. Quando estiver satisfeito, clique em <strong>Aprovar álbum</strong>.
+                Revise todas as lâminas. Sem observações, você pode <strong>aprovar o álbum</strong> para produção.
               </div>
               <button onClick={onApprove} style={{ width: "100%", padding: "12px 20px", borderRadius: 9, border: "none", background: "#059669", color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>
                 ✅ Aprovar álbum

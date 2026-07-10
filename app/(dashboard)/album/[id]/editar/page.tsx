@@ -258,7 +258,7 @@ export default function EditarAlbumPage() {
         {/* Dados gerais */}
         <div style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 14, padding: "24px 28px" }}>
           <div style={{ fontSize: 12, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 16 }}>
-            Dados da seleção
+            Dados do álbum
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -408,7 +408,7 @@ export default function EditarAlbumPage() {
           {!confirmarExcluir ? (
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
               <span style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>
-                Excluir permanentemente esta seleção de álbum, todas as lâminas e comentários.
+                Excluir permanentemente este álbum, todas as lâminas e comentários.
               </span>
               <button
                 onClick={() => setConfirmarExcluir(true)}
