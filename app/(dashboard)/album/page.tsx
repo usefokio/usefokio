@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { deleteFilesClient } from "@/lib/storage/deleteClient";
 import { useFotografo } from "@/lib/context/FotografoContext";
+import { ModalEnviarAcesso } from "./_components/ModalEnviarAcesso";
 import type { AlbumSelecao } from "@/lib/supabase/types";
 
 type StatusAlbum = "rascunho" | "ativa" | "aguardando_revisao" | "aprovado" | "encerrada";
@@ -19,16 +20,16 @@ const STATUS_BADGE: Record<StatusAlbum, { bg: string; color: string; label: stri
   encerrada:          { bg: "rgba(100,116,139,0.10)", color: "#94A3B8",  label: "Encerrada" },
 };
 
-const appUrl =
-  typeof window !== "undefined"
-    ? window.location.origin
-    : (process.env.NEXT_PUBLIC_APP_URL ?? "https://www.usefokio.com.br");
-
 function formatarData(iso: string): string {
   return new Date(iso).toLocaleDateString("pt-BR");
 }
 
 // ─── Ícones ───────────────────────────────────────────────────────────────────
+const IcoSend = () => (
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+  </svg>
+);
 const IcoEdit = () => (
   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
@@ -45,20 +46,19 @@ export default function AlbumPage() {
   const router        = useRouter();
   const { fotografo } = useFotografo();
 
-  const [selecoes,    setSelecoes]    = useState<AlbumSelecao[]>([]);
-  const [carregando,  setCarregando]  = useState(true);
-  const [copiando,    setCopiando]    = useState<string | null>(null);
-  const [filtro,      setFiltro]      = usePersistedState<Filtro>("album:filtro", "todos");
-  const [excluindo,   setExcluindo]   = useState<AlbumSelecao | null>(null);
-  const [deletando,   setDeletando]   = useState(false);
-  const [menuContato, setMenuContato] = useState<string | null>(null);
+  const [selecoes,      setSelecoes]      = useState<AlbumSelecao[]>([]);
+  const [carregando,    setCarregando]    = useState(true);
+  const [filtro,        setFiltro]        = usePersistedState<Filtro>("album:filtro", "todos");
+  const [excluindo,     setExcluindo]     = useState<AlbumSelecao | null>(null);
+  const [deletando,     setDeletando]     = useState(false);
+  const [enviarAcessoId, setEnviarAcessoId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!fotografo) return;
     const supabase = createClient();
     supabase
       .from("album_selecoes")
-      .select("*, clientes(nome, telefone, whatsapp, email)")
+      .select("*, clientes(id, nome, telefone, whatsapp, email, senha_acesso)")
       .eq("fotografo_id", fotografo.id)
       .order("created_at", { ascending: false })
       .then(({ data }) => {
@@ -87,43 +87,6 @@ export default function AlbumPage() {
     setExcluindo(null);
     setDeletando(false);
   }
-
-  async function copiarLink(selecaoId: string) {
-    const link = `${appUrl}/acesso/album/${selecaoId}`;
-    await navigator.clipboard.writeText(link);
-    setCopiando(selecaoId);
-    setTimeout(() => setCopiando(null), 2000);
-  }
-
-  function enviarWhatsapp(s: AlbumSelecao) {
-    const cliente = (s as any).clientes;
-    const tel     = cliente?.whatsapp ?? cliente?.telefone ?? "";
-    const link    = `${appUrl}/acesso/album/${s.id}`;
-    const nome    = cliente?.nome ?? "";
-    const msg     = encodeURIComponent(
-      `Olá${nome ? " " + nome : ""}! Suas lâminas de álbum "${s.titulo}" estão prontas para revisão.\n\nAcesse o link abaixo, visualize cada página e clique para adicionar seus comentários:\n${link}`
-    );
-    const numero = tel.replace(/\D/g, "");
-    window.open(`https://wa.me/${numero ? numero : ""}?text=${msg}`, "_blank");
-  }
-
-  function enviarEmail(s: AlbumSelecao) {
-    const cliente = (s as any).clientes;
-    const email   = cliente?.email ?? "";
-    const link    = `${appUrl}/acesso/album/${s.id}`;
-    const nome    = cliente?.nome ?? "";
-    const assunto = encodeURIComponent(`Álbum "${s.titulo}" para revisão`);
-    const corpo   = encodeURIComponent(
-      `Olá${nome ? " " + nome : ""}!\n\nSuas lâminas de álbum "${s.titulo}" estão prontas para revisão. Acesse o link abaixo, visualize cada página e adicione seus comentários:\n${link}`
-    );
-    window.open(`mailto:${email}?subject=${assunto}&body=${corpo}`, "_blank");
-  }
-
-  const menuItemStyle: React.CSSProperties = {
-    display: "flex", alignItems: "center", gap: 8, width: "100%", textAlign: "left",
-    padding: "9px 10px", borderRadius: 7, border: "none", background: "transparent",
-    color: "var(--color-text-primary)", fontSize: 13, cursor: "pointer",
-  };
 
   // Contadores por status
   const contadores: Record<Filtro, number> = {
@@ -303,27 +266,13 @@ export default function AlbumPage() {
                 </div>
 
                 {/* Ações */}
-                <div style={{ flexShrink: 0, display: "flex", gap: 4, position: "relative" }} onClick={(e) => e.stopPropagation()}>
-                  {/* Contato com o cliente — menu com as formas de enviar o acesso */}
+                <div style={{ flexShrink: 0, display: "flex", gap: 4 }} onClick={(e) => e.stopPropagation()}>
+                  {/* Enviar acesso ao cliente — abre o modal padrão (link + senha do cliente + WhatsApp + email) */}
                   <button
-                    onClick={() => setMenuContato(menuContato === s.id ? null : s.id)}
-                    title="Entrar em contato com o cliente"
-                    style={{ display: "flex", alignItems: "center", gap: 5, padding: "6px 12px", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer",
-                      border: aguardando ? "0.5px solid rgba(245,158,11,0.5)" : "0.5px solid var(--color-border-secondary)",
-                      background: aguardando ? "rgba(245,158,11,0.08)" : "transparent",
-                      color: aguardando ? "#B45309" : "var(--color-text-secondary)" }}
-                  >💬 Contato</button>
-                  {menuContato === s.id && (
-                    <>
-                      <div style={{ position: "fixed", inset: 0, zIndex: 10 }} onClick={() => setMenuContato(null)} />
-                      <div style={{ position: "absolute", top: "100%", right: 0, marginTop: 4, minWidth: 190, zIndex: 20, padding: 4, background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 10, boxShadow: "0 10px 30px rgba(0,0,0,0.16)" }}>
-                        <div style={{ fontSize: 10, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", padding: "6px 10px 4px" }}>Enviar acesso</div>
-                        <button onClick={() => { enviarWhatsapp(s); setMenuContato(null); }} style={menuItemStyle}>📱 WhatsApp</button>
-                        <button onClick={() => { enviarEmail(s); setMenuContato(null); }} style={menuItemStyle}>✉️ Email</button>
-                        <button onClick={() => { copiarLink(s.id); setMenuContato(null); }} style={menuItemStyle}>🔗 Copiar link</button>
-                      </div>
-                    </>
-                  )}
+                    onClick={() => setEnviarAcessoId(s.id)}
+                    title="Enviar acesso ao cliente"
+                    style={{ ...iconBtnStyle("#2563EB"), border: aguardando ? "0.5px solid rgba(245,158,11,0.5)" : "0.5px solid rgba(37,99,235,0.4)", background: aguardando ? "rgba(245,158,11,0.08)" : "rgba(37,99,235,0.05)", color: aguardando ? "#B45309" : "#2563EB" }}
+                  ><IcoSend /></button>
 
                   <button
                     onClick={() => router.push(`/album/${s.id}/editar`)}
@@ -344,6 +293,13 @@ export default function AlbumPage() {
           })}
         </div>
       )}
+
+      {/* Modal padrão de enviar acesso ao cliente */}
+      {enviarAcessoId && (() => {
+        const alvo = selecoes.find((s) => s.id === enviarAcessoId);
+        if (!alvo) return null;
+        return <ModalEnviarAcesso album={alvo} cliente={(alvo as any).clientes ?? null} onFechar={() => setEnviarAcessoId(null)} />;
+      })()}
     </div>
   );
 }

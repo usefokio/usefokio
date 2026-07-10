@@ -19,7 +19,7 @@ export async function POST(request: Request) {
     const admin = createAdminClient();
     const { data: album } = await admin
       .from("album_selecoes")
-      .select("id, titulo, descricao, status, versao, expira_em, senha_acesso, modelo_nome, modelo_largura_cm, modelo_altura_cm, fotografo_id, fotografos(logo_url)")
+      .select("id, titulo, descricao, status, versao, expira_em, cliente_id, modelo_nome, modelo_largura_cm, modelo_altura_cm, fotografo_id, fotografos(logo_url), clientes(senha_acesso)")
       .eq("id", albumId)
       .maybeSingle();
 
@@ -32,11 +32,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ estado: "expirado" });
     }
 
-    // Senha
-    const senhaDefinida = !!(album.senha_acesso && String(album.senha_acesso).trim());
+    // Senha DO CLIENTE (padrão do sistema — a mesma das galerias de seleção). Sem cliente/sem senha → livre.
+    const senhaCliente = (album.clientes as { senha_acesso?: string | null } | null)?.senha_acesso;
+    const senhaDefinida = !!(senhaCliente && String(senhaCliente).trim());
     if (senhaDefinida) {
       if (senha == null) return NextResponse.json({ estado: "senha" });               // pedir senha
-      if (senha.trim() !== String(album.senha_acesso).trim()) {
+      if (senha.trim() !== String(senhaCliente).trim()) {
         return NextResponse.json({ estado: "senha_incorreta" });                       // errada
       }
     }
@@ -48,9 +49,9 @@ export async function POST(request: Request) {
       admin.from("album_comentarios").select("*").eq("selecao_id", albumId).eq("versao", versao).order("created_at"),
     ]);
 
-    // Nunca devolve senha_acesso ao cliente
-    const { senha_acesso: _omit, ...albumSemSenha } = album as Record<string, unknown>;
-    return NextResponse.json({ estado: "ok", album: albumSemSenha, laminas: laminas ?? [], comentarios: comentarios ?? [] });
+    // Nunca devolve dados de senha ao cliente (remove o join clientes que carrega a senha)
+    const { clientes: _omit, ...albumLimpo } = album as Record<string, unknown>;
+    return NextResponse.json({ estado: "ok", album: albumLimpo, laminas: laminas ?? [], comentarios: comentarios ?? [] });
   } catch (err: any) {
     console.error("[album/acesso]", err);
     return NextResponse.json({ estado: "erro", msg: err.message }, { status: 500 });
