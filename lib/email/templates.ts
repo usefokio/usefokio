@@ -210,6 +210,56 @@ export function templateSelecaoEnviada(p: SelecaoEnviadaParams): { subject: stri
   };
 }
 
+// ─── 3b. Álbum revisado/aprovado pelo cliente → fotógrafo ────────────────────
+export type AlbumRevisaoParams = {
+  fotografoNome:  string;
+  clienteNome:    string;
+  albumTitulo:    string;
+  aprovado:       boolean;        // true = aprovado; false = pediu alterações
+  totalComentarios: number;
+  albumAdminUrl:  string;
+};
+
+export function templateAlbumRevisao(p: AlbumRevisaoParams): { subject: string; html: string } {
+  if (p.aprovado) {
+    return {
+      subject: `${p.clienteNome} aprovou o álbum — ${p.albumTitulo}`,
+      html: base(`
+        <h2 style="margin:0 0 8px; font-size:20px; color:#111; letter-spacing:-0.02em;">Álbum aprovado! ✅</h2>
+        <p style="color:#555; font-size:14px; line-height:1.6; margin:0 0 20px;">
+          Olá, <strong>${esc(p.fotografoNome)}</strong>! Seu cliente aprovou o álbum — pode seguir para a produção.
+        </p>
+        <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; padding:16px 20px; margin-bottom:20px;">
+          <p style="margin:0 0 6px; font-size:14px; color:#333;">📔 Álbum: <strong>${esc(p.albumTitulo)}</strong></p>
+          <p style="margin:0; font-size:14px; color:#333;">👤 Cliente: <strong>${esc(p.clienteNome)}</strong></p>
+        </div>
+        <a href="${p.albumAdminUrl}" style="${BTN_STYLE("#059669")}">Ver álbum →</a>
+        <p style="font-size:12px; color:#aaa; margin:12px 0 0;">
+          Se o botão não funcionar: <a href="${p.albumAdminUrl}" style="color:#2563EB;">${esc(p.albumAdminUrl)}</a>
+        </p>
+      `),
+    };
+  }
+  return {
+    subject: `${p.clienteNome} pediu alterações no álbum — ${p.albumTitulo}`,
+    html: base(`
+      <h2 style="margin:0 0 8px; font-size:20px; color:#111; letter-spacing:-0.02em;">Pedido de alterações 📝</h2>
+      <p style="color:#555; font-size:14px; line-height:1.6; margin:0 0 20px;">
+        Olá, <strong>${esc(p.fotografoNome)}</strong>! Seu cliente revisou o álbum e enviou observações.
+      </p>
+      <div style="background:#eff6ff; border:1px solid #bfdbfe; border-radius:8px; padding:16px 20px; margin-bottom:20px;">
+        <p style="margin:0 0 6px; font-size:14px; color:#333;">📔 Álbum: <strong>${esc(p.albumTitulo)}</strong></p>
+        <p style="margin:0 0 6px; font-size:14px; color:#333;">👤 Cliente: <strong>${esc(p.clienteNome)}</strong></p>
+        <p style="margin:0; font-size:14px; color:#2563EB; font-weight:700;">💬 ${p.totalComentarios} observação${p.totalComentarios !== 1 ? "ões" : ""}</p>
+      </div>
+      <a href="${p.albumAdminUrl}" style="${BTN_STYLE("#2563EB")}">Ver observações →</a>
+      <p style="font-size:12px; color:#aaa; margin:12px 0 0;">
+        Se o botão não funcionar: <a href="${p.albumAdminUrl}" style="color:#2563EB;">${esc(p.albumAdminUrl)}</a>
+      </p>
+    `),
+  };
+}
+
 // ─── 4. Campanha de reativação → cliente ─────────────────────────────────────
 export type CampanhaReativacaoParams = {
   clienteNome:      string;

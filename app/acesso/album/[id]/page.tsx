@@ -362,11 +362,21 @@ export default function AcessoAlbumPage() {
     setComentarios((prev) => prev.filter((c) => c.id !== comentarioId));
   }
 
+  // Notifica o fotógrafo por email (best-effort — não trava a navegação se falhar)
+  function notificarFotografo(aprovado: boolean) {
+    fetch("/api/email/album-revisao", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ albumId: id, aprovado }),
+    }).catch(() => { /* silencioso */ });
+  }
+
   async function handleApprove() {
     const supabase = createClient();
     await supabase.from("album_selecoes").update({ status: "aprovado" }).eq("id", id);
     setSelecao((s) => s ? { ...s, status: "aprovado" } : s);
     setEnviado(true);
+    notificarFotografo(true);
   }
 
   async function handleSend() {
@@ -374,6 +384,7 @@ export default function AcessoAlbumPage() {
     await supabase.from("album_selecoes").update({ status: "aguardando_revisao" }).eq("id", id);
     setSelecao((s) => s ? { ...s, status: "aguardando_revisao" } : s);
     setEnviado(true);
+    notificarFotografo(false);
   }
 
   if (carregando) {
