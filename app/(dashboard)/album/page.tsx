@@ -279,8 +279,8 @@ export default function AlbumPage() {
                   📖
                 </div>
 
-                {/* Info (clicável → abre o álbum, como nas outras galerias) */}
-                <div style={{ flex: 1, minWidth: 0, cursor: "pointer" }} onClick={() => router.push(`/album/${s.id}/editar`)}>
+                {/* Info (clicável → abre a VISUALIZAÇÃO do álbum, como nas outras galerias) */}
+                <div style={{ flex: 1, minWidth: 0, cursor: "pointer" }} onClick={() => router.push(`/album/${s.id}`)}>
                   <div style={{ fontSize: 14, fontWeight: 600, color: "var(--color-text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {s.titulo}
                   </div>
