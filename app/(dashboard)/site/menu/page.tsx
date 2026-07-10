@@ -38,7 +38,7 @@ export default function MenuPage() {
     const supabase = createClient();
     const ordem = itens.length > 0 ? Math.max(...itens.map((i) => i.ordem)) + 1 : 0;
     const { data } = await supabase.from("site_menu")
-      .insert({ fotografo_id: fotografo.id, label: novoLabel.trim(), href: novoHref.trim(), ordem })
+      .insert({ fotografo_id: fotografo.id, label: novoLabel.trim(), href: novoHref.trim(), ordem, visivel: true })
       .select("*").single();
     if (data) setItens((prev) => [...prev, data as SiteMenuItem]);
     setNovoLabel(""); setNovoHref("/");
@@ -49,6 +49,13 @@ export default function MenuPage() {
     const supabase = createClient();
     await supabase.from("site_menu").delete().eq("id", item.id);
     setItens((prev) => prev.filter((i) => i.id !== item.id));
+  }
+
+  // Ocultar/mostrar um item no topo do site sem excluí-lo.
+  async function alternarVisivel(item: SiteMenuItem) {
+    const novo = !item.visivel;
+    setItens((prev) => prev.map((i) => i.id === item.id ? { ...i, visivel: novo } : i));
+    await createClient().from("site_menu").update({ visivel: novo }).eq("id", item.id);
   }
 
   async function soltar(destino: number) {
@@ -63,7 +70,7 @@ export default function MenuPage() {
     setItens(reordenadas);
     const supabase = createClient();
     await supabase.from("site_menu")
-      .upsert(reordenadas.map((i) => ({ id: i.id, fotografo_id: fotografo.id, label: i.label, href: i.href, ordem: i.ordem })), { onConflict: "id" });
+      .upsert(reordenadas.map((i) => ({ id: i.id, fotografo_id: fotografo.id, label: i.label, href: i.href, ordem: i.ordem, visivel: i.visivel })), { onConflict: "id" });
   }
 
   return (
@@ -99,11 +106,16 @@ export default function MenuPage() {
                 display: "flex", alignItems: "center", gap: 12, padding: "11px 14px", borderRadius: 10, cursor: "grab",
                 border: sobreIdx === idx ? "2px solid #2563EB" : "1px solid var(--color-border-tertiary)",
                 background: "var(--color-background-primary)",
+                opacity: item.visivel ? 1 : 0.5,
               }}
             >
               <span style={{ color: "var(--color-text-secondary)", fontSize: 14 }}>⠿</span>
-              <span style={{ flex: 1, fontSize: 14, fontWeight: 600, color: "var(--color-text-primary)" }}>{item.label}</span>
+              <span style={{ flex: 1, fontSize: 14, fontWeight: 600, color: "var(--color-text-primary)" }}>
+                {item.label}
+                {!item.visivel && <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)" }}>(oculto)</span>}
+              </span>
               <span style={{ fontSize: 12, color: "var(--color-text-secondary)", fontFamily: "monospace" }}>{item.href}</span>
+              <button onClick={() => alternarVisivel(item)} title={item.visivel ? "Ocultar do menu do site" : "Mostrar no menu do site"} style={{ border: "none", background: "transparent", cursor: "pointer", fontSize: 14 }}>{item.visivel ? "👁" : "🚫"}</button>
               <button onClick={() => remover(item)} title="Remover" style={{ border: "none", background: "transparent", cursor: "pointer", fontSize: 13, color: "#DC2626" }}>🗑</button>
             </div>
           ))}

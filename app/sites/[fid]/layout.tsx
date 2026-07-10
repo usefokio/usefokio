@@ -106,7 +106,9 @@ export default async function SitePublicoLayout({ children, params }: { children
     sameAs: [redes.instagram, redes.facebook, redes.youtube].filter(Boolean),
   };
 
-  const itensMenu = menu.length > 0 ? menu : [
+  // Filtra os ocultos DEPOIS de checar length>0: se o fotógrafo ocultou todos, a nav fica vazia
+  // (intencional) — o menu padrão só reaparece quando NENHUM item foi cadastrado.
+  const itensMenu = menu.length > 0 ? menu.filter((m) => m.visivel !== false) : [
     { id: "1", label: "Histórias", href: "/portfolio", ordem: 0 },
     { id: "2", label: "Solicite seu orçamento", href: "/contato", ordem: 1 },
     { id: "3", label: "Sobre", href: "/sobre", ordem: 2 },
