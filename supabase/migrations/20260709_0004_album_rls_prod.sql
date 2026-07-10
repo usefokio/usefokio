@@ -59,3 +59,14 @@ CREATE POLICY album_comentarios_publico_editar ON public.album_comentarios FOR U
 
 CREATE POLICY album_comentarios_publico_apagar ON public.album_comentarios FOR DELETE TO anon
   USING (EXISTS (SELECT 1 FROM public.album_selecoes s WHERE s.id = selecao_id AND s.status = 'ativa'));
+
+-- ─── Senha e expiração ────────────────────────────────────────────────────────
+-- A leitura pública real do álbum (título/lâminas) passa pela rota server-side
+-- /api/album/acesso (service role), que valida STATUS + EXPIRAÇÃO + SENHA antes de
+-- entregar as lâminas. As policies de SELECT anon acima existem só como defesa/compat;
+-- por segurança, NÃO expor a coluna senha_acesso ao cliente anônimo:
+REVOKE SELECT ON public.album_selecoes FROM anon;
+GRANT  SELECT (id, fotografo_id, cliente_id, modelo_id, titulo, descricao, status, versao,
+               expira_em, modelo_nome, modelo_largura_cm, modelo_altura_cm, created_at, updated_at)
+  ON public.album_selecoes TO anon;
+-- (senha_acesso fica de fora do GRANT → anon nunca lê a senha, mesmo com SELECT direto.)

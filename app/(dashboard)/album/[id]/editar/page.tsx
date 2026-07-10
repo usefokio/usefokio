@@ -65,6 +65,8 @@ export default function EditarAlbumPage() {
   const [modeloId,    setModeloId]    = useState("");
   const [descricao,   setDescricao]   = useState("");
   const [status,      setStatus]      = useState<StatusAlbum>("ativa");
+  const [senhaAcesso, setSenhaAcesso] = useState("");   // opcional — protege a abertura do link
+  const [expiraEm,    setExpiraEm]    = useState("");    // opcional — data de validade do link (YYYY-MM-DD)
   const [modelos,     setModelos]     = useState<FotografoAlbumModelo[]>([]);
   const [comentarios, setComentarios] = useState<(AlbumComentario & { album_laminas?: { nome_arquivo: string | null; ordem: number } | null })[]>([]);
   const [saving,      setSaving]      = useState(false);
@@ -92,6 +94,8 @@ export default function EditarAlbumPage() {
         setModeloId(s.modelo_id ?? "");
         setDescricao(s.descricao ?? "");
         setStatus(s.status as StatusAlbum);
+        setSenhaAcesso(s.senha_acesso ?? "");
+        setExpiraEm(s.expira_em ? s.expira_em.slice(0, 10) : "");
       }
       setModelos((m as FotografoAlbumModelo[]) ?? []);
       // Só os comentários da versão corrente (versões anteriores são histórico)
@@ -115,6 +119,8 @@ export default function EditarAlbumPage() {
         modelo_id:         modeloId  || null,
         descricao:         descricao.trim() || null,
         status,
+        senha_acesso:      senhaAcesso.trim() || null,
+        expira_em:         expiraEm ? new Date(expiraEm + "T23:59:59").toISOString() : null,
         modelo_nome:       modelo?.nome ?? selecao?.modelo_nome ?? null,
         modelo_largura_cm: modelo?.largura_cm ?? selecao?.modelo_largura_cm ?? null,
         modelo_altura_cm:  modelo?.altura_cm ?? selecao?.modelo_altura_cm ?? null,
@@ -330,6 +336,18 @@ export default function EditarAlbumPage() {
                 ))}
               </select>
             </Field>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+              <Field label="Senha de acesso (opcional)">
+                <input value={senhaAcesso} onChange={(e) => setSenhaAcesso(e.target.value)} style={inputStyle} placeholder="Deixe vazio para não exigir" autoComplete="off" />
+              </Field>
+              <Field label="Validade do link (opcional)">
+                <input type="date" value={expiraEm} onChange={(e) => setExpiraEm(e.target.value)} style={inputStyle} />
+              </Field>
+            </div>
+            <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: -4 }}>
+              Com senha, o cliente precisa digitá-la para abrir o álbum. Com validade, o link para de funcionar após a data.
+            </div>
           </div>
 
           <div style={{ marginTop: 20 }}>

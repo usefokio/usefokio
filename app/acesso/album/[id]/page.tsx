@@ -311,27 +311,44 @@ export default function AcessoAlbumPage() {
   const [comentarios,   setComentarios]   = useState<AlbumComentario[]>([]);
   const [carregando,    setCarregando]    = useState(true);
   const [naoEncontrado, setNaoEncontrado] = useState(false);
+  const [expirado,      setExpirado]      = useState(false);
+  const [precisaSenha,  setPrecisaSenha]  = useState(false);
+  const [senhaInput,    setSenhaInput]    = useState("");
+  const [erroSenha,     setErroSenha]     = useState("");
+  const [verificando,   setVerificando]   = useState(false);
   const [enviado,       setEnviado]       = useState(false);
 
-  useEffect(() => {
-    const supabase = createClient();
-    Promise.all([
-      supabase.from("album_selecoes").select("*, fotografos(logo_url)").eq("id", id).in("status", ["ativa", "aprovado", "aguardando_revisao"]).maybeSingle(),
-      supabase.from("album_laminas").select("*").eq("selecao_id", id).order("ordem").order("created_at"),
-      supabase.from("album_comentarios").select("*").eq("selecao_id", id).order("created_at"),
-    ]).then(([{ data: s }, { data: l }, { data: c }]) => {
-      if (!s) { setNaoEncontrado(true); setCarregando(false); return; }
-      // O cliente vê APENAS a versão corrente do álbum (versões anteriores são histórico do fotógrafo)
-      const versaoAtual = (s as { versao?: number }).versao ?? 1;
-      const laminasVersao = ((l as AlbumLamina[]) ?? []).filter((x) => (x.versao ?? 1) === versaoAtual);
-      // Versão sem lâminas = álbum em preparação; não expor ao cliente (evita aprovar álbum vazio)
-      if (laminasVersao.length === 0) { setNaoEncontrado(true); setCarregando(false); return; }
-      setSelecao(s as any);
-      setLaminas(laminasVersao);
-      setComentarios(((c as AlbumComentario[]) ?? []).filter((x) => (x.versao ?? 1) === versaoAtual));
-      setCarregando(false);
-    });
-  }, [id]);
+  // Acesso validado no servidor (status + expiração + senha). As lâminas só vêm quando liberado.
+  async function carregar(senha?: string) {
+    setVerificando(true);
+    setErroSenha("");
+    try {
+      const res = await fetch("/api/album/acesso", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ albumId: id, senha }),
+      });
+      const data = await res.json();
+      if (data.estado === "ok") {
+        if ((data.laminas ?? []).length === 0) { setNaoEncontrado(true); }  // versão em preparação
+        else { setSelecao(data.album); setLaminas(data.laminas); setComentarios(data.comentarios ?? []); setPrecisaSenha(false); }
+      } else if (data.estado === "senha") {
+        setPrecisaSenha(true);
+      } else if (data.estado === "senha_incorreta") {
+        setPrecisaSenha(true); setErroSenha("Senha incorreta. Tente novamente.");
+      } else if (data.estado === "expirado") {
+        setExpirado(true);
+      } else {
+        setNaoEncontrado(true);
+      }
+    } catch {
+      setNaoEncontrado(true);
+    }
+    setVerificando(false);
+    setCarregando(false);
+  }
+
+  useEffect(() => { carregar(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [id]);
 
   // Upsert: cria novo ou atualiza existente pelo ID
   async function handleUpsertComentario(laminaId: string, texto: string, comentarioId?: string): Promise<AlbumComentario | null> {
@@ -399,6 +416,39 @@ export default function AcessoAlbumPage() {
     return (
       <div style={{ minHeight: "calc(100vh - var(--dev-banner-h, 0px))", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--color-background-tertiary)" }}>
         <div style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>Carregando álbum…</div>
+      </div>
+    );
+  }
+
+  if (expirado) {
+    return (
+      <div style={{ minHeight: "calc(100vh - var(--dev-banner-h, 0px))", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--color-background-tertiary)", padding: 20 }}>
+        <div style={{ textAlign: "center" }}>
+          <div style={{ fontSize: 36, marginBottom: 12 }}>⏰</div>
+          <div style={{ fontSize: 16, fontWeight: 600, color: "var(--color-text-primary)", marginBottom: 8 }}>Link expirado</div>
+          <div style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>O prazo para acessar este álbum terminou. Fale com o fotógrafo.</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (precisaSenha) {
+    return (
+      <div style={{ minHeight: "calc(100vh - var(--dev-banner-h, 0px))", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--color-background-tertiary)", padding: 20 }}>
+        <div style={{ textAlign: "center", maxWidth: 340, width: "100%" }}>
+          <div style={{ fontSize: 36, marginBottom: 12 }}>🔒</div>
+          <div style={{ fontSize: 16, fontWeight: 600, color: "var(--color-text-primary)", marginBottom: 6 }}>Álbum protegido</div>
+          <div style={{ fontSize: 13, color: "var(--color-text-secondary)", marginBottom: 18 }}>Digite a senha para visualizar o álbum.</div>
+          <form onSubmit={(e) => { e.preventDefault(); if (senhaInput.trim()) carregar(senhaInput.trim()); }}>
+            <input type="password" value={senhaInput} onChange={(e) => setSenhaInput(e.target.value)} autoFocus placeholder="Senha"
+              style={{ width: "100%", boxSizing: "border-box", padding: "11px 14px", borderRadius: 9, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", color: "var(--color-text-primary)", fontSize: 14, outline: "none", textAlign: "center" }} />
+            {erroSenha && <div style={{ color: "#DC2626", fontSize: 12, marginTop: 8 }}>{erroSenha}</div>}
+            <button type="submit" disabled={verificando || !senhaInput.trim()}
+              style={{ width: "100%", marginTop: 12, padding: "11px", borderRadius: 9, border: "none", background: "#2563EB", color: "#fff", fontSize: 14, fontWeight: 700, cursor: verificando || !senhaInput.trim() ? "default" : "pointer", opacity: verificando || !senhaInput.trim() ? 0.6 : 1 }}>
+              {verificando ? "Verificando…" : "Entrar"}
+            </button>
+          </form>
+        </div>
       </div>
     );
   }
