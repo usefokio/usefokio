@@ -2,6 +2,7 @@
 // Uma página é uma lista ordenada de blocos; cada bloco tem um tipo e os próprios dados.
 // O conteúdo fica em jsonb (site_landing_pages.dados.blocos) — sem migração de schema.
 import type { SiteLandingDados } from "@/lib/supabase/types";
+import type { ConfigFormulario } from "@/lib/site/formulario";
 
 export type TipoBloco =
   | "hero"          // imagem de fundo + logo + título sobrepostos
@@ -49,6 +50,8 @@ export type SiteBloco = {
     altura?: number;
     // whatsapp
     numero?: string | null;
+    // formulario
+    formulario?: ConfigFormulario;
   };
 };
 

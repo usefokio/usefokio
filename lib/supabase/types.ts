@@ -174,6 +174,8 @@ export type GaleriaEntrega = {
   ordenacao_fotos: "envio" | "nome" | "nome_desc" | "data";
   foto_capa_url: string | null;
   categoria_id: string | null;
+  drive_processado: boolean;
+  drive_processado_em: string | null;
   created_at: string;
   updated_at: string;
   // joined
@@ -565,6 +567,7 @@ export type SiteMenuItem = {
   label: string;
   href: string;
   ordem: number;
+  visivel: boolean;
   created_at: string;
 };
 
@@ -575,8 +578,23 @@ export type SiteLead = {
   email: string | null;
   telefone: string | null;
   mensagem: string | null;
+  data_evento: string | null;
+  tipo_evento: string | null;
+  dados: Record<string, string> | null;
   origem: string;
   lido: boolean;
+  created_at: string;
+};
+
+export type Notificacao = {
+  id: string;
+  fotografo_id: string;
+  tipo: string;
+  titulo: string;
+  corpo: string | null;
+  href: string | null;
+  lida: boolean;
+  lida_em: string | null;
   created_at: string;
 };
 
