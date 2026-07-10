@@ -368,9 +368,6 @@ export default function EditarAlbumPage() {
                         {lam
                           ? `Lâmina ${(lam.ordem ?? 0) + 1}${lam.nome_arquivo ? ` · ${lam.nome_arquivo}` : ""}`
                           : "Lâmina removida"}
-                        <span style={{ marginLeft: 8, opacity: 0.7 }}>
-                          pos. {c.pos_x.toFixed(1)}%, {c.pos_y.toFixed(1)}%
-                        </span>
                       </div>
                       <div style={{ fontSize: 13, color: "var(--color-text-primary)", lineHeight: 1.5 }}>
                         {c.texto}
