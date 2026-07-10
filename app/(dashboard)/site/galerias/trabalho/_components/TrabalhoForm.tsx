@@ -184,6 +184,12 @@ export function TrabalhoForm({ trabalhoId }: { trabalhoId?: string }) {
     await supabase.from("site_trabalho_fotos").update({ destaque: novo }).eq("id", foto.id);
   }
 
+  // Legenda (alt/SEO) e tags por foto — salvam na hora (as fotos persistem fora do "não salvo").
+  async function atualizarFoto(fotoId: string, patch: Partial<Pick<SiteTrabalhoFoto, "descricao" | "tags">>) {
+    setFotos((prev) => prev.map((f) => f.id === fotoId ? { ...f, ...patch } : f));
+    await createClient().from("site_trabalho_fotos").update(patch).eq("id", fotoId);
+  }
+
   async function removerFoto(foto: SiteTrabalhoFoto) {
     if (!confirm("Remover esta foto?")) return;
     const supabase = createClient();
@@ -316,6 +322,14 @@ export function TrabalhoForm({ trabalhoId }: { trabalhoId?: string }) {
                     <button title={f.destaque ? "Remover destaque" : "Marcar destaque"} onClick={() => alternarDestaque(f)} style={{ border: "none", background: "transparent", cursor: "pointer", fontSize: 14, opacity: f.destaque ? 1 : 0.35 }}>⭐</button>
                     <button title="Definir como capa" onClick={() => definirCapa(f)} style={{ border: "none", background: "transparent", cursor: "pointer", fontSize: 12, color: "var(--color-text-secondary)" }}>capa</button>
                     <button title="Remover" onClick={() => removerFoto(f)} style={{ border: "none", background: "transparent", cursor: "pointer", fontSize: 13, color: "#DC2626" }}>🗑</button>
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4, padding: "0 8px 8px" }}>
+                    <input defaultValue={f.descricao ?? ""} onBlur={(e) => { const v = e.target.value.trim(); if (v !== (f.descricao ?? "")) atualizarFoto(f.id, { descricao: v || null }); }}
+                      placeholder="Legenda (alt/SEO)" title="Legenda usada no alt da imagem (SEO)"
+                      style={{ width: "100%", boxSizing: "border-box", padding: "5px 8px", borderRadius: 6, border: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-primary)", fontSize: 11, color: "var(--color-text-primary)", outline: "none" }} />
+                    <input defaultValue={f.tags ?? ""} onBlur={(e) => { const v = e.target.value.trim(); if (v !== (f.tags ?? "")) atualizarFoto(f.id, { tags: v || null }); }}
+                      placeholder="Tags (vírgula)" title="Palavras-chave da foto, separadas por vírgula"
+                      style={{ width: "100%", boxSizing: "border-box", padding: "5px 8px", borderRadius: 6, border: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-primary)", fontSize: 11, color: "var(--color-text-primary)", outline: "none" }} />
                   </div>
                 </div>
               );

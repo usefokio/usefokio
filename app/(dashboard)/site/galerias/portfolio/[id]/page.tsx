@@ -141,6 +141,12 @@ export default function PortfolioEditorPage({ params }: { params: Promise<{ id: 
     setFotos((prev) => prev.filter((f) => f.id !== foto.id));
   }
 
+  // Legenda (alt/SEO) e tags por foto — salvam na hora.
+  async function atualizarFoto(fotoId: string, patch: Partial<Pick<SitePortfolioFoto, "descricao" | "tags">>) {
+    setFotos((prev) => prev.map((f) => f.id === fotoId ? { ...f, ...patch } : f));
+    await createClient().from("site_portfolio_fotos").update(patch).eq("id", fotoId);
+  }
+
   // Reordenação por arrastar-e-soltar: solta na posição desejada e persiste tudo num único upsert.
   const dragIdx = useRef<number | null>(null);
   const [sobreIdx, setSobreIdx] = useState<number | null>(null);
@@ -223,7 +229,7 @@ export default function PortfolioEditorPage({ params }: { params: Promise<{ id: 
             <div
               key={f.id}
               draggable
-              onDragStart={() => { dragIdx.current = idx; }}
+              onDragStart={(e) => { if ((e.target as HTMLElement).tagName === "INPUT") { e.preventDefault(); return; } dragIdx.current = idx; }}
               onDragOver={(e) => { e.preventDefault(); if (sobreIdx !== idx) setSobreIdx(idx); }}
               onDragLeave={() => { if (sobreIdx === idx) setSobreIdx(null); }}
               onDrop={(e) => { e.preventDefault(); soltar(idx); }}
@@ -239,6 +245,14 @@ export default function PortfolioEditorPage({ params }: { params: Promise<{ id: 
                 <span style={{ fontSize: 11, color: "var(--color-text-secondary)" }}>#{idx + 1}</span>
                 {f.trabalho_foto_id && <span title="Veio de um trabalho (destaque)" style={{ fontSize: 11 }}>⭐</span>}
                 <button title="Remover" onClick={() => removerFoto(f)} style={{ border: "none", background: "transparent", cursor: "pointer", fontSize: 13, color: "#DC2626" }}>🗑</button>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 4, padding: "0 8px 8px" }} onDragStart={(e) => e.preventDefault()}>
+                <input defaultValue={f.descricao ?? ""} onBlur={(e) => { const v = e.target.value.trim(); if (v !== (f.descricao ?? "")) atualizarFoto(f.id, { descricao: v || null }); }}
+                  placeholder="Legenda (alt/SEO)" title="Legenda usada no alt da imagem (SEO)" draggable={false}
+                  style={{ width: "100%", boxSizing: "border-box", padding: "5px 8px", borderRadius: 6, border: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-primary)", fontSize: 11, color: "var(--color-text-primary)", outline: "none", cursor: "text" }} />
+                <input defaultValue={f.tags ?? ""} onBlur={(e) => { const v = e.target.value.trim(); if (v !== (f.tags ?? "")) atualizarFoto(f.id, { tags: v || null }); }}
+                  placeholder="Tags (vírgula)" title="Palavras-chave da foto, separadas por vírgula" draggable={false}
+                  style={{ width: "100%", boxSizing: "border-box", padding: "5px 8px", borderRadius: 6, border: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-primary)", fontSize: 11, color: "var(--color-text-primary)", outline: "none", cursor: "text" }} />
               </div>
             </div>
           ))}

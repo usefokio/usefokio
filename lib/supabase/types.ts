@@ -428,6 +428,7 @@ export type SiteTrabalhoFoto = {
   ordem: number;
   destaque: boolean; // entra automaticamente no portfólio da categoria
   descricao: string | null; // legenda/alt da imagem (SEO)
+  tags: string | null; // palavras-chave da foto (SEO/organização), separadas por vírgula
   largura: number | null;
   altura: number | null;
   likes: number;
@@ -459,6 +460,7 @@ export type SitePortfolioFoto = {
   storage_path: string | null;
   url_publica: string | null;
   descricao: string | null; // legenda/alt da imagem (SEO)
+  tags: string | null; // palavras-chave da foto (SEO/organização), separadas por vírgula
   ordem: number;
   created_at: string;
 };
