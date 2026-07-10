@@ -581,6 +581,8 @@ export function Sidebar({ isMobile = false, mobileAberta = false, onFechar }: Si
 
           // ── Sub-itens UseFokio ───────────────────────────────────────────────
           const usefokioItems = USEFOKIO_ITEMS.filter((item) => {
+            // Álbum é opt-in (beta): oculto até habilitar no webmaster — igual ao Site.
+            if (item.href === "/album") return fotografo?.recursos?.album === true;
             const chave = recursosPorRota[item.href];
             if (!chave || !fotografo?.recursos) return true;
             return fotografo.recursos[chave] !== false;

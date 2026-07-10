@@ -47,6 +47,10 @@ const RECURSOS_LABELS: { chave: string; label: string }[] = [
   { chave: "site",       label: "Site" },
 ];
 
+// Recursos opt-in (beta): só ficam disponíveis quando explicitamente = true (ocultos por padrão).
+// Os demais são opt-out (disponíveis a menos que = false).
+const RECURSOS_OPT_IN = new Set(["album", "site"]);
+
 async function authHeaders(): Promise<Record<string, string>> {
   const { data: { session } } = await createClient().auth.getSession();
   return { Authorization: `Bearer ${session?.access_token ?? ""}` };
@@ -63,7 +67,7 @@ function RecursosCell({ fotografoId }: { fotografoId: string }) {
         headers: await authHeaders(),
       });
       const data = await res.json();
-      setRecursos((data?.recursos as Record<string, boolean>) ?? { selecao: true, entrega: true, album: true, contatos: true, pagamentos: true });
+      setRecursos((data?.recursos as Record<string, boolean>) ?? { selecao: true, entrega: true, contatos: true, pagamentos: true });
     }
     setAberto(!aberto);
   }
@@ -97,7 +101,7 @@ function RecursosCell({ fotografoId }: { fotografoId: string }) {
             <label key={r.chave} style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 0", cursor: "pointer", fontSize: 12, color: "var(--color-text-primary)" }}>
               <input
                 type="checkbox"
-                checked={recursos[r.chave] !== false}
+                checked={RECURSOS_OPT_IN.has(r.chave) ? recursos[r.chave] === true : recursos[r.chave] !== false}
                 onChange={() => alternar(r.chave)}
                 style={{ width: 14, height: 14, accentColor: "#2563EB", cursor: "pointer" }}
               />
