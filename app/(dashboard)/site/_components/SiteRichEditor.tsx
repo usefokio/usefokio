@@ -66,6 +66,11 @@ export function SiteRichEditor({ value, onChange, minHeight = 320, pasta }: Prop
     ],
     content: value,
     immediatelyRender: false,
+    // A área editável (ProseMirror) preenche todo o quadro — clicar em qualquer ponto foca e digita
+    // (sem isso, só a 1ª linha é clicável). `padding` no próprio editável; `outline:none` remove a moldura.
+    editorProps: {
+      attributes: { style: `min-height:${minHeight}px;padding:14px 16px;outline:none;` },
+    },
     onUpdate: ({ editor }) => onChange(editor.getHTML()),
   });
 
@@ -131,7 +136,7 @@ export function SiteRichEditor({ value, onChange, minHeight = 320, pasta }: Prop
       <EditorContent
         editor={editor}
         className="site-conteudo"
-        style={{ padding: "14px 16px", minHeight, fontSize: 14, lineHeight: 1.7, color: "var(--color-text-primary)", background: "var(--color-background-primary)", outline: "none" }}
+        style={{ fontSize: 14, lineHeight: 1.7, color: "var(--color-text-primary)", background: "var(--color-background-primary)", cursor: "text" }}
       />
     </div>
   );
