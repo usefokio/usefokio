@@ -7,7 +7,9 @@ import { useFotografo } from "@/lib/context/FotografoContext";
 import { uploadFileClient } from "@/lib/storage/uploadClient";
 import { processarImagemEntrega } from "@/lib/imageResize";
 import { SiteRichEditor } from "@/app/(dashboard)/site/_components/SiteRichEditor";
+import { FormularioConfigEditor } from "@/app/(dashboard)/site/_components/FormularioConfigEditor";
 import { useEditorEstado, SeloEstado, BotaoSalvarEstado, ModalNaoSalvo } from "@/app/(dashboard)/_components/EditorEstado";
+import { normalizarConfig, type ConfigFormulario } from "@/lib/site/formulario";
 import type { SitePagina } from "@/lib/supabase/types";
 
 const inputStyle: React.CSSProperties = {
@@ -16,7 +18,7 @@ const inputStyle: React.CSSProperties = {
   background: "var(--color-background-primary)", color: "var(--color-text-primary)",
 };
 
-type Conteudo = { html?: string | null; imagens?: string[] };
+type Conteudo = { html?: string | null; imagens?: string[]; formulario?: ConfigFormulario };
 
 export default function PaginasPage() {
   const { fotografo } = useFotografo();
@@ -26,13 +28,14 @@ export default function PaginasPage() {
   const [titulo, setTitulo] = useState("");
   const [html, setHtml] = useState("");
   const [imagens, setImagens] = useState<string[]>([]);
+  const [formConfig, setFormConfig] = useState<ConfigFormulario>(() => normalizarConfig(null));
   const [enviandoFoto, setEnviandoFoto] = useState(false);
   const [salvando, setSalvando] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const inputFotoRef = useRef<HTMLInputElement>(null);
 
   // Estado de salvamento claro (regra de sistema) — dirty só enquanto uma página está em edição
-  const snapshotAtual = editando ? JSON.stringify([editando.id, titulo, html, imagens]) : "idle";
+  const snapshotAtual = editando ? JSON.stringify([editando.id, titulo, html, imagens, formConfig]) : "idle";
   const estado = useEditorEstado(snapshotAtual, "/site");
 
   useEffect(() => {
@@ -50,7 +53,9 @@ export default function PaginasPage() {
     setHtml(c.html ?? "");
     const imgs = Array.isArray(c.imagens) ? c.imagens : [];
     setImagens(imgs);
-    estado.inicializar(JSON.stringify([p.id, p.titulo, c.html ?? "", imgs]));
+    const cfg = normalizarConfig(c.formulario);
+    setFormConfig(cfg);
+    estado.inicializar(JSON.stringify([p.id, p.titulo, c.html ?? "", imgs, cfg]));
     setMsg(null);
   }
 
@@ -80,7 +85,8 @@ export default function PaginasPage() {
     setSalvando(true);
     const supabase = createClient();
     const conteudoAtual = (editando.conteudo ?? {}) as Conteudo;
-    const novoConteudo = { ...conteudoAtual, html: html.replace(/<p>\s*<\/p>/g, "").trim() || null, imagens };
+    const novoConteudo: Conteudo = { ...conteudoAtual, html: html.replace(/<p>\s*<\/p>/g, "").trim() || null, imagens };
+    if (editando.slug === "contato") novoConteudo.formulario = formConfig;
     const { error } = await supabase.from("site_paginas").update({
       titulo: titulo.trim() || editando.titulo,
       conteudo: novoConteudo,
@@ -160,10 +166,16 @@ export default function PaginasPage() {
               <SiteRichEditor value={html} onChange={setHtml} minHeight={280} pasta={`paginas/${editando.slug}`} />
               {editando.slug === "contato" && (
                 <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 6 }}>
-                  Obs.: a página Contato exibe o formulário de orçamento automaticamente; este texto aparece acima dele quando preenchido.
+                  Obs.: este texto aparece acima do formulário de orçamento na página Contato.
                 </div>
               )}
             </div>
+            {editando.slug === "contato" && (
+              <div>
+                <label style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: 5 }}>Formulário de orçamento</label>
+                <FormularioConfigEditor value={formConfig} onChange={setFormConfig} />
+              </div>
+            )}
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, alignItems: "center" }}>
               {msg && <span style={{ fontSize: 13, fontWeight: 600, color: msg.startsWith("Erro") ? "#DC2626" : "#059669" }}>{msg}</span>}
               <BotaoSalvarEstado temAlteracoes={estado.temAlteracoes} salvando={salvando} onClick={() => salvar()} />

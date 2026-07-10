@@ -11,6 +11,7 @@ export type ContextoBlocos = {
   fid: string;                       // id do fotógrafo (usado pelo bloco "formulario")
   depoimentos: SiteDepoimento[];     // usados pelo bloco "depoimentos"
   whatsappFallback: string | null;   // número do cadastro (fallback do bloco whatsapp)
+  categorias?: { valor: string; label: string }[]; // "tipo do evento" do bloco "formulario"
 };
 
 function linkInterno(base: string, href: string) {
@@ -162,7 +163,7 @@ function Bloco({ bloco, ctx }: { bloco: SiteBloco; ctx: ContextoBlocos }) {
       return (
         <section className="lp-secao" style={{ maxWidth: 680 }}>
           {d.titulo && <h2 className="lp-titulo">{d.titulo}</h2>}
-          <ContatoForm fid={ctx.fid} />
+          <ContatoForm fid={ctx.fid} config={d.formulario} categorias={ctx.categorias ?? []} />
         </section>
       );
 

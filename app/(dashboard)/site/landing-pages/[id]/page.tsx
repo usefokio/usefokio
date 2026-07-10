@@ -9,6 +9,8 @@ import { useFotografo } from "@/lib/context/FotografoContext";
 import { uploadFileClient } from "@/lib/storage/uploadClient";
 import { processarImagemEntrega } from "@/lib/imageResize";
 import { SiteRichEditor } from "@/app/(dashboard)/site/_components/SiteRichEditor";
+import { FormularioConfigEditor } from "@/app/(dashboard)/site/_components/FormularioConfigEditor";
+import { normalizarConfig } from "@/lib/site/formulario";
 import { useUnsavedGuard } from "@/lib/hooks/useUnsavedGuard";
 import { CATALOGO_BLOCOS, dadosParaBlocos, novoBloco, type SiteBloco, type TipoBloco } from "@/lib/site/blocos";
 import type { SiteLandingPage, SiteLandingDados } from "@/lib/supabase/types";
@@ -356,9 +358,10 @@ export default function EditorLandingPage({ params }: { params: Promise<{ id: st
         );
       case "formulario":
         return (
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             <div><label style={labelStyle}>Título da seção</label><input value={d.titulo ?? ""} onChange={(e) => mudar(b.id, { titulo: e.target.value })} style={inputStyle} placeholder="Fale comigo" /></div>
-            <div style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>Campos fixos: nome, email, telefone e mensagem. Os envios aparecem em <strong>Site → Inbox</strong>.</div>
+            <FormularioConfigEditor value={normalizarConfig(d.formulario)} onChange={(f) => mudar(b.id, { formulario: f })} />
+            <div style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>Os envios aparecem em <strong>Site → Inbox</strong>.</div>
           </div>
         );
       case "divisor":

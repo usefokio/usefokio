@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { fetchAllRows } from "@/lib/supabase/fetchAll";
 import { useFotografo } from "@/lib/context/FotografoContext";
+import { CATEGORIA_LABEL } from "@/lib/site/publico";
 import type { SiteLead } from "@/lib/supabase/types";
 
 export default function InboxPage() {
@@ -68,8 +69,15 @@ export default function InboxPage() {
               </div>
               {aberto === l.id ? (
                 <div style={{ marginTop: 10, fontSize: 13, color: "var(--color-text-primary)", lineHeight: 1.7, whiteSpace: "pre-wrap" }}>
-                  {l.telefone && <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginBottom: 6 }}>📞 {l.telefone}</div>}
-                  {l.mensagem}
+                  {(l.telefone || l.data_evento || l.tipo_evento || (l.dados && Object.keys(l.dados).length > 0)) && (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12, color: "var(--color-text-secondary)", marginBottom: 10, paddingBottom: 10, borderBottom: "0.5px solid var(--color-border-tertiary)" }}>
+                      {l.telefone && <div>📞 {l.telefone}</div>}
+                      {l.data_evento && <div>📅 Data do evento: {new Date(l.data_evento + "T12:00:00").toLocaleDateString("pt-BR")}</div>}
+                      {l.tipo_evento && <div>🏷️ Tipo do evento: {CATEGORIA_LABEL[l.tipo_evento] ?? l.tipo_evento}</div>}
+                      {l.dados && Object.entries(l.dados).map(([k, v]) => <div key={k}><strong style={{ fontWeight: 600 }}>{k}:</strong> {v}</div>)}
+                    </div>
+                  )}
+                  {l.mensagem || <span style={{ color: "var(--color-text-secondary)", fontStyle: "italic" }}>(sem mensagem)</span>}
                   {l.email && (
                     <div style={{ marginTop: 12 }}>
                       <a href={`mailto:${l.email}`} onClick={(e) => e.stopPropagation()}
@@ -79,7 +87,7 @@ export default function InboxPage() {
                 </div>
               ) : (
                 <div style={{ marginTop: 4, fontSize: 12, color: "var(--color-text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {l.mensagem}
+                  {l.mensagem || [l.tipo_evento && (CATEGORIA_LABEL[l.tipo_evento] ?? l.tipo_evento), l.data_evento && new Date(l.data_evento + "T12:00:00").toLocaleDateString("pt-BR")].filter(Boolean).join(" · ") || "(sem mensagem)"}
                 </div>
               )}
             </div>
