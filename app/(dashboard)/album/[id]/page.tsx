@@ -38,6 +38,7 @@ export default function VisualizarAlbumPage() {
   const [comentarios, setComentarios] = useState<AlbumComentario[]>([]);
   const [carregando,  setCarregando]  = useState(true);
   const [copiado,     setCopiado]     = useState(false);
+  const [reativando,  setReativando]  = useState(false);
 
   useEffect(() => {
     if (!fotografo) return;
@@ -61,6 +62,17 @@ export default function VisualizarAlbumPage() {
       setCopiado(true);
       setTimeout(() => setCopiado(false), 1800);
     });
+  }
+
+  // Reativar = reabrir o acesso do cliente (status → ativa), como na galeria de seleção.
+  // Não tem relação com versão do álbum.
+  async function reativar() {
+    if (!selecao) return;
+    if (!confirm("Reabrir o acesso do cliente? O álbum volta a ficar Ativo para o cliente visualizar, pedir alterações ou aprovar.")) return;
+    setReativando(true);
+    await createClient().from("album_selecoes").update({ status: "ativa", updated_at: new Date().toISOString() }).eq("id", id);
+    setSelecao((s) => s ? { ...s, status: "ativa" } : s);
+    setReativando(false);
   }
 
   if (carregando) {
@@ -99,7 +111,12 @@ export default function VisualizarAlbumPage() {
               Criado em {fmtData(selecao.created_at)} · Atualizado em {fmtData(selecao.updated_at)}
             </div>
           </div>
-          <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+          <div style={{ display: "flex", gap: 8, flexShrink: 0, flexWrap: "wrap" }}>
+            {selecao.status !== "ativa" && selecao.status !== "rascunho" && (
+              <button onClick={reativar} disabled={reativando} style={{ ...btnStyle, background: "#B45309", color: "#fff", border: "none" }}>
+                {reativando ? "Reabrindo…" : "↩ Reativar"}
+              </button>
+            )}
             <button onClick={() => router.push(`/album/${id}/revisao`)} style={btnStyle}>💬 Revisão{pendentes > 0 ? ` (${pendentes})` : ""}</button>
             <button onClick={() => router.push(`/album/${id}/editar`)} style={{ ...btnStyle, background: "var(--color-text-primary)", color: "var(--color-background-primary)", border: "none" }}>✏️ Editar</button>
           </div>
