@@ -87,6 +87,11 @@ export default function VisualizarAlbumPage() {
   const comentariosPorLamina = new Map(comentarios.map((c) => [c.lamina_id, c]));
   const clienteNome = selecao.clientes?.nome ?? "Sem cliente";
 
+  // Só as lâminas que receberam observação (o fotógrafo não precisa rever as páginas sem pedido).
+  const laminasComComentario = laminas
+    .map((l, i) => ({ lamina: l, numero: i + 1, comentario: comentariosPorLamina.get(l.id) }))
+    .filter((x): x is { lamina: AlbumLamina; numero: number; comentario: AlbumComentario } => !!x.comentario);
+
   return (
     <div style={{ padding: "26px 30px", maxWidth: 900, margin: "0 auto" }}>
       {/* Breadcrumb */}
@@ -154,59 +159,39 @@ export default function VisualizarAlbumPage() {
         ))}
       </div>
 
-      {/* Lâminas */}
+      {/* Observações do cliente — cada lâmina COMENTADA com a imagem e o texto lado a lado.
+          Páginas sem observação não são exibidas (o fotógrafo só precisa ver o que foi pedido). */}
       <div style={{ fontSize: 13, fontWeight: 700, color: "var(--color-text-primary)", marginBottom: 12 }}>
-        Lâminas ({laminas.length})
+        Observações do cliente ({laminasComComentario.length})
       </div>
-      {laminas.length === 0 ? (
-        <div style={{ padding: "40px 0", textAlign: "center", background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 12, fontSize: 13, color: "var(--color-text-secondary)" }}>
-          Nenhuma lâmina enviada ainda.
+      {laminasComComentario.length === 0 ? (
+        <div style={{ padding: "36px 24px", textAlign: "center", background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 12, fontSize: 13, color: "var(--color-text-secondary)" }}>
+          {selecao.status === "rascunho"
+            ? "Álbum ainda não enviado ao cliente."
+            : selecao.status === "ativa"
+            ? "O cliente ainda está revisando. As observações aparecem aqui quando ele enviar."
+            : selecao.status === "aprovado"
+            ? "Álbum aprovado sem observações."
+            : "Nenhuma observação — o cliente não pediu alterações."}
         </div>
       ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 12, marginBottom: 28 }}>
-          {laminas.map((l, i) => {
-            const com = comentariosPorLamina.get(l.id);
-            return (
-              <div key={l.id} style={{ border: "0.5px solid var(--color-border-tertiary)", borderRadius: 10, overflow: "hidden", background: "var(--color-background-primary)" }}>
-                <div style={{ position: "relative" }}>
-                  <img src={l.url_publica} alt={`Lâmina ${i + 1}`} style={{ width: "100%", height: "auto", display: "block" }} loading="lazy" draggable={false} />
-                  <div style={{ position: "absolute", top: 8, left: 8, background: "rgba(0,0,0,0.55)", color: "#fff", fontSize: 11, fontWeight: 700, padding: "2px 9px", borderRadius: 20 }}>{i + 1}</div>
-                  {com && (
-                    <div title={com.resolvido ? "Observação resolvida" : "Observação pendente"} style={{ position: "absolute", top: 8, right: 8, background: com.resolvido ? "rgba(5,150,105,0.85)" : "rgba(239,68,68,0.85)", color: "#fff", fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 20 }}>💬</div>
-                  )}
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          {laminasComComentario.map(({ lamina, numero, comentario }) => (
+            <div key={lamina.id} style={{ display: "flex", gap: 0, background: "var(--color-background-primary)", border: `0.5px solid ${comentario.resolvido ? "var(--color-border-tertiary)" : "rgba(239,68,68,0.25)"}`, borderRadius: 12, overflow: "hidden", flexWrap: "wrap", opacity: comentario.resolvido ? 0.7 : 1 }}>
+              <img src={lamina.url_publica} alt={`Lâmina ${numero}`} style={{ width: 300, maxWidth: "100%", height: "auto", display: "block", flexShrink: 0 }} loading="lazy" draggable={false} />
+              <div style={{ flex: 1, minWidth: 220, padding: "16px 18px", display: "flex", flexDirection: "column", gap: 8 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: "var(--color-text-secondary)" }}>Lâmina {numero}</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: comentario.resolvido ? "#059669" : "#B45309" }}>{comentario.resolvido ? "✓ Resolvido" : "Pendente"}</span>
                 </div>
+                <div style={{ fontSize: 14, color: "var(--color-text-primary)", lineHeight: 1.6 }}>{comentario.texto}</div>
               </div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Observações do cliente (read-only) */}
-      {comentarios.length > 0 && (
-        <>
-          <div style={{ fontSize: 13, fontWeight: 700, color: "var(--color-text-primary)", marginBottom: 12 }}>
-            Observações do cliente ({comentarios.length})
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 8 }}>
-            {comentarios.map((c) => {
-              const idx = laminas.findIndex((l) => l.id === c.lamina_id);
-              return (
-                <div key={c.id} style={{ display: "flex", gap: 12, alignItems: "flex-start", background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 10, padding: "12px 16px" }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: "var(--color-text-secondary)", flexShrink: 0, minWidth: 64 }}>
-                    {idx >= 0 ? `Lâmina ${idx + 1}` : "Lâmina —"}
-                  </div>
-                  <div style={{ flex: 1, fontSize: 13, color: "var(--color-text-primary)", lineHeight: 1.5 }}>{c.texto}</div>
-                  <span style={{ flexShrink: 0, fontSize: 11, fontWeight: 700, color: c.resolvido ? "#059669" : "#B45309" }}>
-                    {c.resolvido ? "✓ Resolvido" : "Pendente"}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
+            </div>
+          ))}
           <div style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>
             Para marcar como resolvido, use a tela de <button onClick={() => router.push(`/album/${id}/revisao`)} style={{ background: "none", border: "none", padding: 0, color: "#2563EB", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>Revisão</button>.
           </div>
-        </>
+        </div>
       )}
     </div>
   );

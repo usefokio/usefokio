@@ -43,7 +43,7 @@ function SystemPage({
 function BookViewer({
   pages, selecao, logoUrl, comentarios,
   onUpsertComentario, onDeleteComentario, onApprove, onSend,
-  podeEditar, aprovado,
+  podeEditar, aprovado, enviado,
 }: {
   pages: Page[];
   selecao: AlbumSelecao;
@@ -54,8 +54,10 @@ function BookViewer({
   onApprove: () => void;
   onSend: () => void;
   podeEditar: boolean;
-  aprovado: boolean;
+  aprovado: boolean;   // aprovado de verdade (status = aprovado)
+  enviado: boolean;    // enviou observações nesta sessão (pediu alterações)
 }) {
+  const somenteLeitura = aprovado || enviado;
   const [idx, setIdx] = useState(0);
   const [anim, setAnim] = useState<"none" | "out-left" | "out-right" | "in-left" | "in-right">("none");
   // Textos por lamina_id — não resetam ao navegar
@@ -205,7 +207,7 @@ function BookViewer({
       </div>
 
       {/* ── Área de comentário (apenas spreads) ── */}
-      {page.type === "spread" && !aprovado && (
+      {page.type === "spread" && !somenteLeitura && (
         <div style={{ marginTop: 24, borderTop: "0.5px solid var(--color-border-tertiary)", paddingTop: 20 }}>
           {podeEditar ? (
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -259,7 +261,7 @@ function BookViewer({
       )}
 
       {/* ── Ações do cliente ── */}
-      {!aprovado && podeEditar && (
+      {podeEditar && (
         <div style={{ marginTop: 28, borderTop: "0.5px solid var(--color-border-tertiary)", paddingTop: 24 }}>
           {temComentarios ? (
             <>
@@ -283,13 +285,19 @@ function BookViewer({
         </div>
       )}
 
-      {aprovado && (
+      {aprovado ? (
         <div style={{ marginTop: 28, borderTop: "0.5px solid var(--color-border-tertiary)", paddingTop: 24, textAlign: "center" }}>
           <div style={{ fontSize: 28, marginBottom: 8 }}>🎉</div>
           <div style={{ fontSize: 16, fontWeight: 700, color: "#059669", marginBottom: 4 }}>Álbum aprovado!</div>
           <div style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>O fotógrafo recebeu sua aprovação e vai encaminhar para produção.</div>
         </div>
-      )}
+      ) : enviado ? (
+        <div style={{ marginTop: 28, borderTop: "0.5px solid var(--color-border-tertiary)", paddingTop: 24, textAlign: "center" }}>
+          <div style={{ fontSize: 28, marginBottom: 8 }}>📨</div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: "#2563EB", marginBottom: 4 }}>Alterações enviadas ao fotógrafo!</div>
+          <div style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>Ele vai analisar suas observações e entrar em contato. O álbum ainda não foi aprovado.</div>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -447,7 +455,8 @@ export default function AcessoAlbumPage() {
           onApprove={handleApprove}
           onSend={handleSend}
           podeEditar={podeEditar}
-          aprovado={aprovado || enviado}
+          aprovado={aprovado}
+          enviado={enviado}
         />
       </div>
     </div>
