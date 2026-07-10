@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { RichTextEditor } from "@/app/(dashboard)/crm/_components/RichTextEditor";
+import { useEditorEstado, SeloEstado, ModalNaoSalvo } from "@/app/(dashboard)/_components/EditorEstado";
 import type { CrmContractTemplate } from "@/lib/supabase/types";
 
 type Props = { fotografoId: string };
@@ -61,6 +62,13 @@ export function AbaContratos({ fotografoId }: Props) {
   const [salvando, setSalvando] = useState(false);
   const [excluindo, setExcluindo] = useState<CrmContractTemplate | null>(null);
   const [copiado, setCopiado] = useState("");
+  const [confirmarCancelar, setConfirmarCancelar] = useState(false);
+
+  // Estado de salvamento claro (regra de sistema) — guard ativo só no subeditor (nome+corpo).
+  const snapshotAtual = editando !== null ? JSON.stringify([nome, corpo]) : "lista";
+  const guarda = useEditorEstado(snapshotAtual, "/crm/config");
+  const voltarLista   = () => { setEditando(null); setConfirmarCancelar(false); guarda.marcarSalvo("lista"); };
+  const cancelarEdicao = () => { if (guarda.temAlteracoes) setConfirmarCancelar(true); else voltarLista(); };
 
   const carregar = useCallback(async () => {
     setLoading(true);
@@ -75,16 +83,18 @@ export function AbaContratos({ fotografoId }: Props) {
     setEditando("novo");
     setNome("");
     setCorpo("<p></p>");
+    guarda.inicializar(JSON.stringify(["", "<p></p>"]));
   };
 
   const abrirEditar = (t: CrmContractTemplate) => {
     setEditando(t);
     setNome(t.nome);
     setCorpo(t.corpo);
+    guarda.inicializar(JSON.stringify([t.nome, t.corpo]));
   };
 
-  const salvar = async () => {
-    if (!nome.trim() || !corpo.trim()) return;
+  const salvar = async (): Promise<boolean> => {
+    if (!nome.trim() || !corpo.trim()) return false;
     setSalvando(true);
     if (editando === "novo") {
       await sb.from("crm_contract_templates").insert({ fotografo_id: fotografoId, nome: nome.trim(), corpo });
@@ -92,8 +102,10 @@ export function AbaContratos({ fotografoId }: Props) {
       await sb.from("crm_contract_templates").update({ nome: nome.trim(), corpo, updated_at: new Date().toISOString() }).eq("id", editando.id);
     }
     setSalvando(false);
+    guarda.marcarSalvo("lista");
     setEditando(null);
     carregar();
+    return true;
   };
 
   const excluir = async () => {
@@ -124,13 +136,14 @@ export function AbaContratos({ fotografoId }: Props) {
             <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>Corpo do contrato *</div>
             <RichTextEditor value={corpo} onChange={setCorpo} minHeight={500} />
           </div>
-          <div style={{ display: "flex", gap: 10 }}>
-            <button onClick={salvar} disabled={salvando || !nome.trim()} style={{ padding: "9px 22px", borderRadius: 8, background: "#111", color: "#fff", border: "none", fontSize: 13, fontWeight: 700, cursor: "pointer", opacity: salvando || !nome.trim() ? 0.6 : 1 }}>
-              {salvando ? "Salvando…" : "Salvar modelo"}
+          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+            <button onClick={salvar} disabled={salvando || !nome.trim() || !guarda.temAlteracoes} style={{ padding: "9px 22px", borderRadius: 8, background: guarda.temAlteracoes ? "#111" : "var(--color-background-tertiary)", color: guarda.temAlteracoes ? "#fff" : "var(--color-text-secondary)", border: "none", fontSize: 13, fontWeight: 700, cursor: salvando || !guarda.temAlteracoes ? "default" : "pointer", opacity: salvando ? 0.6 : 1 }}>
+              {salvando ? "Salvando…" : guarda.temAlteracoes ? "Salvar modelo" : "Salvo ✓"}
             </button>
-            <button onClick={() => setEditando(null)} style={{ padding: "9px 16px", borderRadius: 8, background: "transparent", color: "var(--color-text-secondary)", border: "0.5px solid var(--color-border-secondary)", fontSize: 13, cursor: "pointer" }}>
+            <button onClick={cancelarEdicao} style={{ padding: "9px 16px", borderRadius: 8, background: "transparent", color: "var(--color-text-secondary)", border: "0.5px solid var(--color-border-secondary)", fontSize: 13, cursor: "pointer" }}>
               Cancelar
             </button>
+            <div style={{ marginLeft: "auto" }}><SeloEstado temAlteracoes={guarda.temAlteracoes} /></div>
           </div>
         </div>
 
@@ -159,6 +172,23 @@ export function AbaContratos({ fotografoId }: Props) {
             Clique para copiar e cole no contrato onde desejar.
           </div>
         </div>
+
+        {/* Aviso ao sair da página com o modelo em edição (link do menu / fechar aba) */}
+        <ModalNaoSalvo
+          aberto={guarda.modalAberto}
+          salvando={salvando}
+          onSalvarESair={async () => { const ok = await salvar(); if (ok) guarda.sairAgora(); }}
+          onSairSemSalvar={guarda.sairAgora}
+          onContinuar={guarda.fecharModal}
+        />
+        {/* Aviso ao clicar em Cancelar com alterações pendentes (volta à lista) */}
+        <ModalNaoSalvo
+          aberto={confirmarCancelar}
+          salvando={salvando}
+          onSalvarESair={async () => { await salvar(); }}
+          onSairSemSalvar={voltarLista}
+          onContinuar={() => setConfirmarCancelar(false)}
+        />
       </div>
     );
   }

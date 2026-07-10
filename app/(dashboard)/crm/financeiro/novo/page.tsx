@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { isValidDate, mascaraValor, parsearValor } from "@/lib/utils/format";
+import { useEditorEstado, SeloEstado, ModalNaoSalvo } from "@/app/(dashboard)/_components/EditorEstado";
 
 type ChartOfAccounts = { id: string; codigo: string; nome: string; tipo: string };
 
@@ -67,6 +68,11 @@ export default function NovoLancamentoPage() {
   const [saving,        setSaving]        = useState(false);
   const [error,         setError]         = useState("");
 
+  // Estado de salvamento claro (regra de sistema) — baseline = form vazio (defaults); dirty ao editar.
+  const snapshotAtual = JSON.stringify([tipo, vencimento, categoriaId, valor, formaPag, numDoc, recorrente, numParcelas, periodicidade, descricao]);
+  const guarda = useEditorEstado(snapshotAtual, "/crm/financeiro");
+  useEffect(() => { guarda.inicializar(snapshotAtual); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
+
   useEffect(() => {
     if (!fotografo) return;
     const sb = createClient();
@@ -105,6 +111,7 @@ export default function NovoLancamentoPage() {
 
     const { error: err } = await sb.from("crm_financial_entries").insert(registros);
     if (err) { setError(err.message); setSaving(false); return; }
+    guarda.marcarSaiu();
     router.push("/crm/financeiro");
   };
 
@@ -115,14 +122,15 @@ export default function NovoLancamentoPage() {
       {/* Breadcrumb */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <button onClick={() => router.back()} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--color-text-secondary)", fontSize: 13, padding: 0 }}>
+          <button onClick={guarda.sair} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--color-text-secondary)", fontSize: 13, padding: 0 }}>
             ← Financeiro
           </button>
           <span style={{ color: "var(--color-border-secondary)" }}>/</span>
           <span style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)" }}>Novo lançamento</span>
         </div>
-        <div style={{ display: "flex", gap: 8 }}>
-          <button onClick={() => router.back()}
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <SeloEstado temAlteracoes={guarda.temAlteracoes} />
+          <button onClick={guarda.sair}
             style={{ padding: "8px 16px", borderRadius: 8, background: "transparent", color: "var(--color-text-secondary)", border: "0.5px solid var(--color-border-secondary)", fontSize: 13, cursor: "pointer" }}>
             Cancelar
           </button>
@@ -262,12 +270,20 @@ export default function NovoLancamentoPage() {
             style={{ padding: "10px 28px", borderRadius: 8, background: saving || !descricao.trim() ? "var(--color-border-secondary)" : "#111", color: "#fff", border: "none", fontSize: 13, fontWeight: 700, cursor: saving || !descricao.trim() ? "not-allowed" : "pointer" }}>
             {saving ? "Salvando…" : recorrente ? `Criar ${numParcelas || 1} lançamentos` : "Criar lançamento"}
           </button>
-          <button onClick={() => router.back()}
+          <button onClick={guarda.sair}
             style={{ padding: "10px 18px", borderRadius: 8, background: "transparent", color: "var(--color-text-secondary)", border: "0.5px solid var(--color-border-secondary)", fontSize: 13, cursor: "pointer" }}>
             Cancelar
           </button>
         </div>
       </div>
+
+      <ModalNaoSalvo
+        aberto={guarda.modalAberto}
+        salvando={saving}
+        onSalvarESair={async () => { await handleSave(); }}
+        onSairSemSalvar={guarda.sairAgora}
+        onContinuar={guarda.fecharModal}
+      />
     </div>
   );
 }

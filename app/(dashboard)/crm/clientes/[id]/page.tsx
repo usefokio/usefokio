@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { isValidDate, mascaraTelefone } from "@/lib/utils/format";
+import { useEditorEstado, SeloEstado, ModalNaoSalvo } from "@/app/(dashboard)/_components/EditorEstado";
 import type { Cliente, CrmOrder, GaleriaEntrega, GaleriaSelecao } from "@/lib/supabase/types";
 
 const TIPO_MAP: Record<string, { label: string; color: string; bg: string }> = {
@@ -75,6 +76,14 @@ export default function ClienteDetailPage() {
   const [cidade,        setCidade]        = useState("");
   const [estado,        setEstado]        = useState("");
 
+  // Estado de salvamento claro (regra de sistema) — guard ativo só em edição: baseline capturado ao
+  // entrar em edição; ao sair (salvar/cancelar) o snapshot vira "salvo" e o guard fica inerte na visualização.
+  const editSnapshot = JSON.stringify([nome, email, telefone, whatsapp, empresa, cargo, instagram, cpf, dataNasc, observacoes, tipoContato, cep, logradouro, numero, complemento, bairro, cidade, estado]);
+  const snapshotAtual = editing ? editSnapshot : "salvo";
+  const guarda = useEditorEstado(snapshotAtual, "/crm/clientes");
+  const abrirEdicao = () => { guarda.inicializar(editSnapshot); setEditing(true); };
+  const sairEdicao  = () => { setEditing(false); carregar(); guarda.marcarSalvo("salvo"); };
+
   async function carregarRelacionados(clienteId: string) {
     setCarregandoRel(true);
     const sb = createClient();
@@ -144,22 +153,22 @@ export default function ClienteDetailPage() {
 
   useEffect(() => { if (!editing) carregar(); }, [carregar, editing]);
 
-  const salvar = async () => {
-    if (!nome.trim()) return;
-    if (dataNasc && !isValidDate(dataNasc)) { setErroSalvar("Data de nascimento inválida."); return; }
+  const salvar = async (): Promise<boolean> => {
+    if (!nome.trim()) return false;
+    if (dataNasc && !isValidDate(dataNasc)) { setErroSalvar("Data de nascimento inválida."); return false; }
     setErroSalvar("");
     const sb = createClient();
     const fid = fotografo?.id;
-    if (!fid) return;
+    if (!fid) return false;
     if (email.trim()) {
       const { data: dup } = await sb.from("clientes").select("id, nome")
         .eq("fotografo_id", fid).eq("email", email.trim()).neq("id", id).maybeSingle();
-      if (dup) { setErroSalvar(`Email já cadastrado para "${(dup as { nome: string }).nome}"`); return; }
+      if (dup) { setErroSalvar(`Email já cadastrado para "${(dup as { nome: string }).nome}"`); return false; }
     }
     if (whatsapp.replace(/\D/g, "")) {
       const { data: dup } = await sb.from("clientes").select("id, nome")
         .eq("fotografo_id", fid).eq("whatsapp", whatsapp).neq("id", id).maybeSingle();
-      if (dup) { setErroSalvar(`WhatsApp já cadastrado para "${(dup as { nome: string }).nome}"`); return; }
+      if (dup) { setErroSalvar(`WhatsApp já cadastrado para "${(dup as { nome: string }).nome}"`); return false; }
     }
     setSalvando(true);
     await sb.from("clientes").update({
@@ -174,7 +183,9 @@ export default function ClienteDetailPage() {
     }).eq("id", id);
     await carregar();
     setEditing(false);
+    guarda.marcarSalvo("salvo");
     setSalvando(false);
+    return true;
   };
 
   const excluir = async () => {
@@ -200,7 +211,7 @@ export default function ClienteDetailPage() {
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 28 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-          <button onClick={() => router.push("/crm/clientes")}
+          <button onClick={guarda.sair}
             style={{ ...btnBase, background: "none", border: "0.5px solid var(--color-border-secondary)", color: "var(--color-text-secondary)", padding: "7px 12px" }}>
             ← Voltar
           </button>
@@ -213,21 +224,22 @@ export default function ClienteDetailPage() {
             </span>
           </div>
         </div>
-        <div style={{ display: "flex", gap: 8 }}>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           {editing ? (
             <>
-              <button onClick={() => { setEditing(false); carregar(); }}
+              <SeloEstado temAlteracoes={guarda.temAlteracoes} />
+              <button onClick={sairEdicao}
                 style={{ ...btnBase, background: "none", border: "0.5px solid var(--color-border-secondary)", color: "var(--color-text-secondary)" }}>
                 Cancelar
               </button>
-              <button onClick={salvar} disabled={salvando || !nome.trim()}
-                style={{ ...btnBase, background: "#111", color: "#fff", opacity: salvando ? 0.6 : 1 }}>
-                {salvando ? "Salvando…" : "Salvar alterações"}
+              <button onClick={salvar} disabled={salvando || !nome.trim() || !guarda.temAlteracoes}
+                style={{ ...btnBase, background: guarda.temAlteracoes ? "#111" : "var(--color-background-tertiary)", color: guarda.temAlteracoes ? "#fff" : "var(--color-text-secondary)", opacity: salvando ? 0.6 : 1 }}>
+                {salvando ? "Salvando…" : guarda.temAlteracoes ? "Salvar alterações" : "Salvo ✓"}
               </button>
             </>
           ) : (
             <>
-              <button onClick={() => setEditing(true)}
+              <button onClick={abrirEdicao}
                 style={{ ...btnBase, background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-secondary)", color: "var(--color-text-primary)" }}>
                 Editar
               </button>
@@ -343,14 +355,15 @@ export default function ClienteDetailPage() {
               style={{ ...inputStyle, resize: "vertical", fontFamily: "var(--font-sans)" }} />
           </div>
 
-          <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-            <button onClick={() => { setEditing(false); carregar(); }}
+          <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", alignItems: "center" }}>
+            <div style={{ marginRight: "auto" }}><SeloEstado temAlteracoes={guarda.temAlteracoes} /></div>
+            <button onClick={sairEdicao}
               style={{ ...btnBase, background: "none", border: "0.5px solid var(--color-border-secondary)", color: "var(--color-text-secondary)" }}>
               Cancelar
             </button>
-            <button onClick={salvar} disabled={salvando || !nome.trim()}
-              style={{ ...btnBase, background: "#111", color: "#fff", opacity: salvando ? 0.6 : 1 }}>
-              {salvando ? "Salvando…" : "Salvar alterações"}
+            <button onClick={salvar} disabled={salvando || !nome.trim() || !guarda.temAlteracoes}
+              style={{ ...btnBase, background: guarda.temAlteracoes ? "#111" : "var(--color-background-tertiary)", color: guarda.temAlteracoes ? "#fff" : "var(--color-text-secondary)", opacity: salvando ? 0.6 : 1 }}>
+              {salvando ? "Salvando…" : guarda.temAlteracoes ? "Salvar alterações" : "Salvo ✓"}
             </button>
           </div>
           {erroSalvar && (
@@ -557,6 +570,14 @@ export default function ClienteDetailPage() {
           </div>
         </div>
       )}
+
+      <ModalNaoSalvo
+        aberto={guarda.modalAberto}
+        salvando={salvando}
+        onSalvarESair={async () => { const ok = await salvar(); if (ok) guarda.sairAgora(); }}
+        onSairSemSalvar={guarda.sairAgora}
+        onContinuar={guarda.fecharModal}
+      />
     </div>
   );
 }

@@ -9,6 +9,7 @@ import { Field } from "@/components/ui/Field";
 import { inputStyle } from "@/lib/styles";
 import { ClienteSelect } from "@/components/ui/ClienteSelect";
 import { ComboSelect } from "@/components/ui/ComboSelect";
+import { useEditorEstado, SeloEstado, ModalNaoSalvo } from "@/app/(dashboard)/_components/EditorEstado";
 import type { CrmOpportunity, Cliente } from "@/lib/supabase/types";
 
 type FormData = {
@@ -149,6 +150,11 @@ export default function FormOportunidade({ inicial, onSalvo }: Props) {
 
   const upd = (k: keyof FormData, v: string) => setForm(f => ({ ...f, [k]: v }));
 
+  // Estado de salvamento claro (regra de sistema) — baseline = form inicial; dirty ao editar.
+  const snapshotAtual = JSON.stringify(form);
+  const guarda = useEditorEstado(snapshotAtual, "/crm/oportunidades");
+  useEffect(() => { guarda.inicializar(snapshotAtual); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
+
   const handleSave = async () => {
     if (!form.titulo.trim()) { setError("Título é obrigatório."); return; }
     if (form.data_evento && !isValidDate(form.data_evento)) { setError("Data do evento inválida."); return; }
@@ -192,6 +198,7 @@ export default function FormOportunidade({ inicial, onSalvo }: Props) {
     }
 
     setSaving(false);
+    guarda.marcarSaiu();
     onSalvo ? onSalvo(id!) : router.push(`/crm/oportunidades/${id}`);
   };
 
@@ -215,7 +222,7 @@ export default function FormOportunidade({ inicial, onSalvo }: Props) {
       )}
 
       {/* Botões topo */}
-      <div style={{ display: "flex", gap: 10, marginBottom: 28 }}>
+      <div style={{ display: "flex", gap: 10, marginBottom: 28, alignItems: "center" }}>
         <button
           onClick={handleSave}
           disabled={saving || !form.titulo.trim()}
@@ -224,11 +231,12 @@ export default function FormOportunidade({ inicial, onSalvo }: Props) {
           {saving ? "Salvando…" : isEditing ? "Salvar alterações" : "Criar oportunidade"}
         </button>
         <button
-          onClick={() => router.back()}
+          onClick={guarda.sair}
           style={{ padding: "10px 18px", borderRadius: 8, background: "transparent", color: "var(--color-text-secondary)", border: "0.5px solid var(--color-border-secondary)", fontSize: 13, cursor: "pointer" }}
         >
           Cancelar
         </button>
+        <div style={{ marginLeft: "auto" }}><SeloEstado temAlteracoes={guarda.temAlteracoes} /></div>
       </div>
 
       {/* Dados principais */}
@@ -407,12 +415,20 @@ export default function FormOportunidade({ inicial, onSalvo }: Props) {
           {saving ? "Salvando…" : isEditing ? "Salvar alterações" : "Criar oportunidade"}
         </button>
         <button
-          onClick={() => router.back()}
+          onClick={guarda.sair}
           style={{ padding: "10px 18px", borderRadius: 8, background: "transparent", color: "var(--color-text-secondary)", border: "0.5px solid var(--color-border-secondary)", fontSize: 13, cursor: "pointer" }}
         >
           Cancelar
         </button>
       </div>
+
+      <ModalNaoSalvo
+        aberto={guarda.modalAberto}
+        salvando={saving}
+        onSalvarESair={async () => { await handleSave(); }}
+        onSairSemSalvar={guarda.sairAgora}
+        onContinuar={guarda.fecharModal}
+      />
     </div>
   );
 }
