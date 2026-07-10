@@ -107,8 +107,10 @@ export default function RevisaoAlbumPage() {
       supabase.from("album_comentarios").select("*").eq("selecao_id", id).order("created_at"),
     ]).then(([{ data: s }, { data: l }, { data: c }]) => {
       setSelecao(s as AlbumSelecao);
-      setLaminas((l as AlbumLamina[]) ?? []);
-      setComentarios((c as AlbumComentario[]) ?? []);
+      // Só a versão corrente (versões anteriores ficam no histórico)
+      const versaoAtual = (s as AlbumSelecao | null)?.versao ?? 1;
+      setLaminas(((l as AlbumLamina[]) ?? []).filter((x) => (x.versao ?? 1) === versaoAtual));
+      setComentarios(((c as AlbumComentario[]) ?? []).filter((x) => (x.versao ?? 1) === versaoAtual));
       setCarregando(false);
     });
   }, [fotografo, id]);

@@ -94,7 +94,9 @@ export default function EditarAlbumPage() {
         setStatus(s.status as StatusAlbum);
       }
       setModelos((m as FotografoAlbumModelo[]) ?? []);
-      setComentarios((c as any[]) ?? []);
+      // Só os comentários da versão corrente (versões anteriores são histórico)
+      const versaoAtual = (s as AlbumSelecao | null)?.versao ?? 1;
+      setComentarios(((c as any[]) ?? []).filter((x) => (x.versao ?? 1) === versaoAtual));
       setCarregando(false);
     });
   }, [fotografo, id]);
@@ -309,6 +311,7 @@ export default function EditarAlbumPage() {
           <LaminasUpload
             selecaoId={id}
             fotografoId={fotografo?.id ?? ""}
+            versao={selecao?.versao ?? 1}
           />
         </div>
 

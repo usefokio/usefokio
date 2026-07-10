@@ -20,12 +20,14 @@ type Props = {
   /** Pode ser null quando o álbum ainda não existe (criação preguiçosa) */
   selecaoId: string | null;
   fotografoId: string;
+  /** Versão corrente do álbum — só as lâminas desta versão são carregadas/enviadas aqui */
+  versao?: number;
   /** Chamado antes do primeiro upload quando selecaoId é null — deve criar o álbum e retornar o id */
   ensureSelecaoId?: () => Promise<string | null>;
   onLaminasChange?: (laminas: AlbumLamina[]) => void;
 };
 
-export function LaminasUpload({ selecaoId, fotografoId, ensureSelecaoId, onLaminasChange }: Props) {
+export function LaminasUpload({ selecaoId, fotografoId, versao = 1, ensureSelecaoId, onLaminasChange }: Props) {
   const [fila,       setFila]       = useState<FilaItem[]>([]);
   const [laminas,    setLaminas]    = useState<AlbumLamina[]>([]);
   const [carregando, setCarregando] = useState(selecaoId !== null);
@@ -46,6 +48,7 @@ export function LaminasUpload({ selecaoId, fotografoId, ensureSelecaoId, onLamin
       .from("album_laminas")
       .select("*")
       .eq("selecao_id", selecaoId)
+      .eq("versao", versao)
       .order("ordem")
       .order("created_at")
       .then(({ data }) => {
@@ -54,7 +57,7 @@ export function LaminasUpload({ selecaoId, fotografoId, ensureSelecaoId, onLamin
         proximaOrdemRef.current = lista.length;
         setCarregando(false);
       });
-  }, [selecaoId]);
+  }, [selecaoId, versao]);
 
   async function adicionarArquivos(files: FileList | File[]) {
     const arr = Array.from(files).filter((f) => f.type.startsWith("image/"));
@@ -123,6 +126,7 @@ export function LaminasUpload({ selecaoId, fotografoId, ensureSelecaoId, onLamin
           largura:       processed.largura,
           altura:        processed.altura,
           ordem,
+          versao,
         })
         .select()
         .single();

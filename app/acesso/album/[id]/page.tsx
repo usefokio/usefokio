@@ -322,8 +322,10 @@ export default function AcessoAlbumPage() {
     ]).then(([{ data: s }, { data: l }, { data: c }]) => {
       if (!s) { setNaoEncontrado(true); setCarregando(false); return; }
       setSelecao(s as any);
-      setLaminas((l as AlbumLamina[]) ?? []);
-      setComentarios((c as AlbumComentario[]) ?? []);
+      // O cliente vê APENAS a versão corrente do álbum (versões anteriores são histórico do fotógrafo)
+      const versaoAtual = (s as { versao?: number }).versao ?? 1;
+      setLaminas(((l as AlbumLamina[]) ?? []).filter((x) => (x.versao ?? 1) === versaoAtual));
+      setComentarios(((c as AlbumComentario[]) ?? []).filter((x) => (x.versao ?? 1) === versaoAtual));
       setCarregando(false);
     });
   }, [id]);
@@ -348,7 +350,7 @@ export default function AcessoAlbumPage() {
       // Inserir novo
       const { data, error } = await supabase
         .from("album_comentarios")
-        .insert({ selecao_id: id, lamina_id: laminaId, pos_x: 0, pos_y: 0, texto })
+        .insert({ selecao_id: id, lamina_id: laminaId, pos_x: 0, pos_y: 0, texto, versao: selecao?.versao ?? 1 })
         .select()
         .single();
       if (!error && data) {

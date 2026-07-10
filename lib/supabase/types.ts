@@ -315,6 +315,7 @@ export type AlbumSelecao = {
   modelo_nome: string | null;
   modelo_largura_cm: number | null;
   modelo_altura_cm: number | null;
+  versao: number;            // versão corrente do álbum
   created_at: string;
   updated_at: string;
   // joined
@@ -332,6 +333,7 @@ export type AlbumLamina = {
   largura: number | null;
   altura: number | null;
   ordem: number;
+  versao: number;            // versão em que a lâmina foi enviada
   created_at: string;
 };
 
@@ -343,6 +345,7 @@ export type AlbumComentario = {
   pos_y: number;
   texto: string;
   resolvido: boolean;
+  versao: number;            // versão em que o comentário foi feito
   created_at: string;
   updated_at: string;
 };

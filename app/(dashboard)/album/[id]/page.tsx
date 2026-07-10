@@ -49,8 +49,10 @@ export default function VisualizarAlbumPage() {
       supabase.from("album_comentarios").select("*").eq("selecao_id", id).order("created_at"),
     ]).then(([{ data: s }, { data: l }, { data: c }]) => {
       setSelecao(s as AlbumSelecao & { clientes?: { nome: string | null } | null });
-      setLaminas((l as AlbumLamina[]) ?? []);
-      setComentarios((c as AlbumComentario[]) ?? []);
+      // Mostra a versão corrente do álbum (as anteriores são histórico)
+      const versaoAtual = (s as AlbumSelecao | null)?.versao ?? 1;
+      setLaminas(((l as AlbumLamina[]) ?? []).filter((x) => (x.versao ?? 1) === versaoAtual));
+      setComentarios(((c as AlbumComentario[]) ?? []).filter((x) => (x.versao ?? 1) === versaoAtual));
       setCarregando(false);
     });
   }, [fotografo, id]);
@@ -73,6 +75,17 @@ export default function VisualizarAlbumPage() {
     await createClient().from("album_selecoes").update({ status: "ativa", updated_at: new Date().toISOString() }).eq("id", id);
     setSelecao((s) => s ? { ...s, status: "ativa" } : s);
     setReativando(false);
+  }
+
+  // Adicionar nova versão: incrementa a versão do álbum (as lâminas/comentários atuais viram
+  // histórico), mantém todas as configurações e leva o fotógrafo a subir as novas imagens.
+  // Fica em rascunho até ele reativar/publicar para o cliente aprovar.
+  async function adicionarNovaVersao() {
+    if (!selecao) return;
+    const nova = (selecao.versao ?? 1) + 1;
+    if (!confirm(`Criar a versão ${nova} do álbum?\n\nAs lâminas e observações atuais viram histórico. Você vai enviar novas imagens (as configurações do álbum são mantidas). O álbum fica em rascunho até você reabrir o acesso do cliente.`)) return;
+    await createClient().from("album_selecoes").update({ versao: nova, status: "rascunho", updated_at: new Date().toISOString() }).eq("id", id);
+    router.push(`/album/${id}/editar`);
   }
 
   if (carregando) {
@@ -107,6 +120,9 @@ export default function VisualizarAlbumPage() {
             <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
               <h1 style={{ fontSize: 20, fontWeight: 800, letterSpacing: "-0.02em", color: "var(--color-text-primary)", margin: 0 }}>{selecao.titulo}</h1>
               <span style={{ padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 600, background: st.bg, color: st.color }}>{st.label}</span>
+              {(selecao.versao ?? 1) > 1 && (
+                <span title="Versão atual do álbum" style={{ padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 700, background: "rgba(37,99,235,0.12)", color: "#2563EB" }}>v{selecao.versao}</span>
+              )}
             </div>
             <div style={{ fontSize: 13, color: "var(--color-text-secondary)", marginTop: 4 }}>
               👤 {clienteNome}
@@ -117,12 +133,14 @@ export default function VisualizarAlbumPage() {
             </div>
           </div>
           <div style={{ display: "flex", gap: 8, flexShrink: 0, flexWrap: "wrap" }}>
-            {selecao.status !== "ativa" && selecao.status !== "rascunho" && (
+            {selecao.status !== "ativa" && (selecao.status !== "rascunho" || (selecao.versao ?? 1) > 1) && (
               <button onClick={reativar} disabled={reativando} style={{ ...btnStyle, background: "#B45309", color: "#fff", border: "none" }}>
-                {reativando ? "Reabrindo…" : "↩ Reativar"}
+                {reativando ? "Enviando…" : selecao.status === "rascunho" ? "📢 Enviar ao cliente" : "↩ Reativar"}
               </button>
             )}
-            <button onClick={() => router.push(`/album/${id}/revisao`)} style={btnStyle}>💬 Revisão{pendentes > 0 ? ` (${pendentes})` : ""}</button>
+            {selecao.status !== "rascunho" && (
+              <button onClick={adicionarNovaVersao} style={btnStyle}>➕ Adicionar nova versão</button>
+            )}
             <button onClick={() => router.push(`/album/${id}/editar`)} style={{ ...btnStyle, background: "var(--color-text-primary)", color: "var(--color-background-primary)", border: "none" }}>✏️ Editar</button>
           </div>
         </div>
