@@ -33,7 +33,7 @@ export async function POST(request: Request) {
     // Álbum — valida que existe e está num status coerente com a ação (evita disparo forjado)
     const { data: album } = await supabase
       .from("album_selecoes")
-      .select("titulo, fotografo_id, cliente_id, status")
+      .select("titulo, fotografo_id, cliente_id, status, versao")
       .eq("id", albumId)
       .in("status", ["aguardando_revisao", "aprovado"])
       .maybeSingle();
@@ -58,13 +58,15 @@ export async function POST(request: Request) {
       if (cli?.nome) clienteNome = cli.nome;
     }
 
-    // Nº de observações não resolvidas (só relevante no caso de revisão)
+    // Nº de observações não resolvidas da VERSÃO CORRENTE (não misturar versões antigas)
     let totalComentarios = 0;
     if (!aprovado) {
       const { count } = await supabase
         .from("album_comentarios")
         .select("id", { count: "exact", head: true })
-        .eq("selecao_id", albumId);
+        .eq("selecao_id", albumId)
+        .eq("versao", (album as { versao?: number }).versao ?? 1)
+        .eq("resolvido", false);
       totalComentarios = count ?? 0;
     }
 

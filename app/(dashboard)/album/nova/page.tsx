@@ -90,6 +90,7 @@ export default function NovoAlbumPage() {
   async function handleSave() {
     if (!titulo.trim()) { setError("Título é obrigatório."); return; }
     if (!fotografo)     { setError("Sessão expirada."); return; }
+    if (!temLaminas)    { setError("Envie ao menos uma lâmina antes de criar o álbum."); return; }
 
     setSaving(true);
     setError("");

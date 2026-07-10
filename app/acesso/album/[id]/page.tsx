@@ -321,10 +321,13 @@ export default function AcessoAlbumPage() {
       supabase.from("album_comentarios").select("*").eq("selecao_id", id).order("created_at"),
     ]).then(([{ data: s }, { data: l }, { data: c }]) => {
       if (!s) { setNaoEncontrado(true); setCarregando(false); return; }
-      setSelecao(s as any);
       // O cliente vê APENAS a versão corrente do álbum (versões anteriores são histórico do fotógrafo)
       const versaoAtual = (s as { versao?: number }).versao ?? 1;
-      setLaminas(((l as AlbumLamina[]) ?? []).filter((x) => (x.versao ?? 1) === versaoAtual));
+      const laminasVersao = ((l as AlbumLamina[]) ?? []).filter((x) => (x.versao ?? 1) === versaoAtual);
+      // Versão sem lâminas = álbum em preparação; não expor ao cliente (evita aprovar álbum vazio)
+      if (laminasVersao.length === 0) { setNaoEncontrado(true); setCarregando(false); return; }
+      setSelecao(s as any);
+      setLaminas(laminasVersao);
       setComentarios(((c as AlbumComentario[]) ?? []).filter((x) => (x.versao ?? 1) === versaoAtual));
       setCarregando(false);
     });

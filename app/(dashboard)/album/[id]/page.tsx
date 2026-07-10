@@ -39,6 +39,7 @@ export default function VisualizarAlbumPage() {
   const [carregando,  setCarregando]  = useState(true);
   const [copiado,     setCopiado]     = useState(false);
   const [reativando,  setReativando]  = useState(false);
+  const [versaoVista, setVersaoVista] = useState<number | null>(null); // null = versão corrente
 
   useEffect(() => {
     if (!fotografo) return;
@@ -49,10 +50,10 @@ export default function VisualizarAlbumPage() {
       supabase.from("album_comentarios").select("*").eq("selecao_id", id).order("created_at"),
     ]).then(([{ data: s }, { data: l }, { data: c }]) => {
       setSelecao(s as AlbumSelecao & { clientes?: { nome: string | null } | null });
-      // Mostra a versão corrente do álbum (as anteriores são histórico)
-      const versaoAtual = (s as AlbumSelecao | null)?.versao ?? 1;
-      setLaminas(((l as AlbumLamina[]) ?? []).filter((x) => (x.versao ?? 1) === versaoAtual));
-      setComentarios(((c as AlbumComentario[]) ?? []).filter((x) => (x.versao ?? 1) === versaoAtual));
+      // Guarda TODAS as versões (o histórico é navegado pelo seletor de versões).
+      setLaminas((l as AlbumLamina[]) ?? []);
+      setComentarios((c as AlbumComentario[]) ?? []);
+      setVersaoVista((s as AlbumSelecao | null)?.versao ?? 1);
       setCarregando(false);
     });
   }, [fotografo, id]);
@@ -70,6 +71,13 @@ export default function VisualizarAlbumPage() {
   // Não tem relação com versão do álbum.
   async function reativar() {
     if (!selecao) return;
+    // Não publicar uma versão sem nenhuma lâmina (cliente veria um álbum vazio e poderia aprovar)
+    const temLaminasNaVersao = laminas.some((l) => (l.versao ?? 1) === (selecao.versao ?? 1));
+    if (!temLaminasNaVersao) {
+      alert("Suba ao menos uma lâmina desta versão antes de enviar ao cliente.");
+      router.push(`/album/${id}/editar`);
+      return;
+    }
     if (!confirm("Reabrir o acesso do cliente? O álbum volta a ficar Ativo para o cliente visualizar, pedir alterações ou aprovar.")) return;
     setReativando(true);
     await createClient().from("album_selecoes").update({ status: "ativa", updated_at: new Date().toISOString() }).eq("id", id);
@@ -96,14 +104,22 @@ export default function VisualizarAlbumPage() {
   }
 
   const st = STATUS_BADGE[selecao.status as StatusAlbum] ?? STATUS_BADGE.rascunho;
-  const pendentes = comentarios.filter((c) => !c.resolvido).length;
-  const comentariosPorLamina = new Map(comentarios.map((c) => [c.lamina_id, c]));
   const clienteNome = selecao.clientes?.nome ?? "Sem cliente";
 
-  // Só as lâminas que receberam observação (o fotógrafo não precisa rever as páginas sem pedido).
-  const laminasComComentario = laminas
+  const versaoCorrente = selecao.versao ?? 1;
+  const vVista = versaoVista ?? versaoCorrente;
+  const ehCorrente = vVista === versaoCorrente;
+
+  // Lâminas/comentários da versão sendo vista (corrente por padrão, ou uma do histórico)
+  const laminasVista = laminas.filter((l) => (l.versao ?? 1) === vVista);
+  const comentariosVista = comentarios.filter((c) => (c.versao ?? 1) === vVista);
+  const comentariosPorLamina = new Map(comentariosVista.map((c) => [c.lamina_id, c]));
+  const pendentes = comentariosVista.filter((c) => !c.resolvido).length;
+
+  // Corrente: só as lâminas com observação (foco na ação). Histórico: todas as lâminas daquela versão.
+  const laminasParaExibir = laminasVista
     .map((l, i) => ({ lamina: l, numero: i + 1, comentario: comentariosPorLamina.get(l.id) }))
-    .filter((x): x is { lamina: AlbumLamina; numero: number; comentario: AlbumComentario } => !!x.comentario);
+    .filter((x) => (ehCorrente ? !!x.comentario : true));
 
   return (
     <div style={{ padding: "26px 30px", maxWidth: 900, margin: "0 auto" }}>
@@ -138,8 +154,8 @@ export default function VisualizarAlbumPage() {
                 {reativando ? "Enviando…" : selecao.status === "rascunho" ? "📢 Enviar ao cliente" : "↩ Reativar"}
               </button>
             )}
-            {selecao.status !== "rascunho" && (
-              <button onClick={adicionarNovaVersao} style={btnStyle}>➕ Adicionar nova versão</button>
+            {selecao.status === "aguardando_revisao" && (
+              <button onClick={adicionarNovaVersao} style={{ ...btnStyle, background: "#2563EB", color: "#fff", border: "none" }}>➕ Adicionar nova versão</button>
             )}
             <button onClick={() => router.push(`/album/${id}/editar`)} style={{ ...btnStyle, background: "var(--color-text-primary)", color: "var(--color-background-primary)", border: "none" }}>✏️ Editar</button>
           </div>
@@ -163,11 +179,11 @@ export default function VisualizarAlbumPage() {
         </div>
       </div>
 
-      {/* Métricas */}
-      <div style={{ display: "flex", gap: 12, marginBottom: 24, flexWrap: "wrap" }}>
+      {/* Métricas (da versão sendo vista) */}
+      <div style={{ display: "flex", gap: 12, marginBottom: 20, flexWrap: "wrap" }}>
         {[
-          { label: "Lâminas", valor: laminas.length, color: "var(--color-text-primary)" },
-          { label: "Observações", valor: comentarios.length, color: "var(--color-text-primary)" },
+          { label: "Lâminas", valor: laminasVista.length, color: "var(--color-text-primary)" },
+          { label: "Observações", valor: comentariosVista.length, color: "var(--color-text-primary)" },
           { label: "Pendentes", valor: pendentes, color: pendentes > 0 ? "#EF4444" : "#059669" },
         ].map((m) => (
           <div key={m.label} style={{ flex: 1, minWidth: 120, background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 10, padding: "14px 18px" }}>
@@ -177,12 +193,31 @@ export default function VisualizarAlbumPage() {
         ))}
       </div>
 
-      {/* Observações do cliente — cada lâmina COMENTADA com a imagem e o texto lado a lado.
-          Páginas sem observação não são exibidas (o fotógrafo só precisa ver o que foi pedido). */}
+      {/* Seletor de versões (histórico) — só aparece quando há mais de uma versão */}
+      {versaoCorrente > 1 && (
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
+          <span style={{ fontSize: 12, fontWeight: 700, color: "var(--color-text-secondary)" }}>Versões:</span>
+          {Array.from({ length: versaoCorrente }, (_, i) => versaoCorrente - i).map((v) => {
+            const ativa = v === vVista;
+            return (
+              <button key={v} onClick={() => setVersaoVista(v)}
+                style={{ padding: "5px 12px", borderRadius: 20, border: "0.5px solid", fontSize: 12, cursor: "pointer",
+                  borderColor: ativa ? "#2563EB" : "var(--color-border-secondary)",
+                  background: ativa ? "#2563EB" : "transparent",
+                  color: ativa ? "#fff" : "var(--color-text-secondary)", fontWeight: ativa ? 700 : 400 }}>
+                v{v}{v === versaoCorrente ? " (atual)" : ""}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Lâminas + observações da versão vista.
+          Corrente → só as lâminas comentadas (foco na ação). Histórico → todas as lâminas daquela versão. */}
       <div style={{ fontSize: 13, fontWeight: 700, color: "var(--color-text-primary)", marginBottom: 12 }}>
-        Observações do cliente ({laminasComComentario.length})
+        {ehCorrente ? `Observações do cliente (${laminasParaExibir.length})` : `Versão ${vVista} — ${laminasVista.length} lâmina${laminasVista.length !== 1 ? "s" : ""}, ${comentariosVista.length} observaç${comentariosVista.length !== 1 ? "ões" : "ão"}`}
       </div>
-      {laminasComComentario.length === 0 ? (
+      {laminasParaExibir.length === 0 ? (
         <div style={{ padding: "36px 24px", textAlign: "center", background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 12, fontSize: 13, color: "var(--color-text-secondary)" }}>
           {selecao.status === "rascunho"
             ? "Álbum ainda não enviado ao cliente."
@@ -194,21 +229,25 @@ export default function VisualizarAlbumPage() {
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          {laminasComComentario.map(({ lamina, numero, comentario }) => (
-            <div key={lamina.id} style={{ display: "flex", gap: 0, background: "var(--color-background-primary)", border: `0.5px solid ${comentario.resolvido ? "var(--color-border-tertiary)" : "rgba(239,68,68,0.25)"}`, borderRadius: 12, overflow: "hidden", flexWrap: "wrap", opacity: comentario.resolvido ? 0.7 : 1 }}>
+          {laminasParaExibir.map(({ lamina, numero, comentario }) => (
+            <div key={lamina.id} style={{ display: "flex", gap: 0, background: "var(--color-background-primary)", border: `0.5px solid ${comentario && !comentario.resolvido ? "rgba(239,68,68,0.25)" : "var(--color-border-tertiary)"}`, borderRadius: 12, overflow: "hidden", flexWrap: "wrap", opacity: comentario?.resolvido ? 0.7 : 1 }}>
               <img src={lamina.url_publica} alt={`Lâmina ${numero}`} style={{ width: 300, maxWidth: "100%", height: "auto", display: "block", flexShrink: 0 }} loading="lazy" draggable={false} />
               <div style={{ flex: 1, minWidth: 220, padding: "16px 18px", display: "flex", flexDirection: "column", gap: 8 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
                   <span style={{ fontSize: 12, fontWeight: 700, color: "var(--color-text-secondary)" }}>Lâmina {numero}</span>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: comentario.resolvido ? "#059669" : "#B45309" }}>{comentario.resolvido ? "✓ Resolvido" : "Pendente"}</span>
+                  {comentario && <span style={{ fontSize: 11, fontWeight: 700, color: comentario.resolvido ? "#059669" : "#B45309" }}>{comentario.resolvido ? "✓ Resolvido" : "Pendente"}</span>}
                 </div>
-                <div style={{ fontSize: 14, color: "var(--color-text-primary)", lineHeight: 1.6 }}>{comentario.texto}</div>
+                {comentario
+                  ? <div style={{ fontSize: 14, color: "var(--color-text-primary)", lineHeight: 1.6 }}>{comentario.texto}</div>
+                  : <div style={{ fontSize: 13, color: "var(--color-text-secondary)", fontStyle: "italic" }}>Sem observação nesta lâmina.</div>}
               </div>
             </div>
           ))}
-          <div style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>
-            Para marcar como resolvido, use a tela de <button onClick={() => router.push(`/album/${id}/revisao`)} style={{ background: "none", border: "none", padding: 0, color: "#2563EB", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>Revisão</button>.
-          </div>
+          {ehCorrente && (
+            <div style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>
+              Para marcar como resolvido, use a tela de <button onClick={() => router.push(`/album/${id}/revisao`)} style={{ background: "none", border: "none", padding: 0, color: "#2563EB", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>Revisão</button>.
+            </div>
+          )}
         </div>
       )}
     </div>

@@ -126,6 +126,27 @@ export default function EditarAlbumPage() {
     router.push("/album");
   }
 
+  // Enviar a nova versão ao cliente: reabre o acesso (status → ativa) automaticamente.
+  async function publicarNovaVersao() {
+    setSaving(true);
+    const supabase = createClient();
+    // Bloqueia publicar versão sem lâminas (álbum vazio para o cliente)
+    const { count } = await supabase
+      .from("album_laminas")
+      .select("id", { count: "exact", head: true })
+      .eq("selecao_id", id)
+      .eq("versao", selecao?.versao ?? 1);
+    if (!count) {
+      setSaving(false);
+      alert("Suba ao menos uma lâmina desta versão antes de enviar ao cliente.");
+      return;
+    }
+    if (!confirm("Enviar esta versão ao cliente? O álbum fica Ativo e o cliente pode visualizar e aprovar.")) { setSaving(false); return; }
+    await supabase.from("album_selecoes").update({ status: "ativa", updated_at: new Date().toISOString() }).eq("id", id);
+    setSaving(false);
+    router.push(`/album/${id}`);
+  }
+
   async function handleExcluir() {
     setExcluindo(true);
     const supabase = createClient();
@@ -250,7 +271,17 @@ export default function EditarAlbumPage() {
               WhatsApp
             </button>
           </div>
-          {status !== "ativa" && status !== "aguardando_revisao" && (
+          {status === "rascunho" && (selecao?.versao ?? 1) > 1 ? (
+            <div style={{ marginTop: 12, padding: "12px 16px", borderRadius: 9, background: "rgba(37,99,235,0.06)", border: "0.5px solid rgba(37,99,235,0.25)", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+              <div style={{ flex: 1, minWidth: 200, fontSize: 12, color: "#1E40AF", lineHeight: 1.5 }}>
+                Você está preparando a <strong>versão {selecao?.versao}</strong>. Suba as novas lâminas abaixo e, quando terminar, envie ao cliente.
+              </div>
+              <button onClick={publicarNovaVersao} disabled={saving}
+                style={{ padding: "9px 18px", borderRadius: 8, border: "none", background: "#2563EB", color: "#fff", fontSize: 13, fontWeight: 700, cursor: saving ? "default" : "pointer" }}>
+                {saving ? "Enviando…" : "📢 Enviar ao cliente"}
+              </button>
+            </div>
+          ) : status !== "ativa" && status !== "aguardando_revisao" && (
             <div style={{ marginTop: 10, padding: "7px 12px", borderRadius: 7, background: "rgba(245,158,11,0.08)", border: "0.5px solid rgba(245,158,11,0.25)", fontSize: 12, color: "#B45309" }}>
               O status atual é <strong>{st.label}</strong>. Mude para <strong>Ativa</strong> para o cliente conseguir acessar.
             </div>

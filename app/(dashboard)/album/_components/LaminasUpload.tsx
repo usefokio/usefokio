@@ -60,6 +60,9 @@ export function LaminasUpload({ selecaoId, fotografoId, versao = 1, ensureSeleca
   }, [selecaoId, versao]);
 
   async function adicionarArquivos(files: FileList | File[]) {
+    // Evita corrida: não aceitar upload antes de o SELECT inicial das lâminas resolver
+    // (senão a ordem é calculada com base numa lista ainda vazia e colide/some ao carregar).
+    if (carregando) return;
     const arr = Array.from(files).filter((f) => f.type.startsWith("image/"));
     if (arr.length === 0) return;
 
