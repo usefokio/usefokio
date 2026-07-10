@@ -1,7 +1,8 @@
 "use client";
 
 // Páginas do site (Sobre e personalizadas): editar título e conteúdo (rich text).
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { uploadFileClient } from "@/lib/storage/uploadClient";
@@ -20,8 +21,10 @@ const inputStyle: React.CSSProperties = {
 
 type Conteudo = { html?: string | null; imagens?: string[]; formulario?: ConfigFormulario };
 
-export default function PaginasPage() {
+function PaginasConteudo() {
   const { fotografo } = useFotografo();
+  const router = useRouter();
+  const editarId = useSearchParams().get("editar");
   const [paginas, setPaginas] = useState<SitePagina[]>([]);
   const [loading, setLoading] = useState(true);
   const [editando, setEditando] = useState<SitePagina | null>(null);
@@ -46,7 +49,7 @@ export default function PaginasPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fotografo]);
 
-  function abrir(p: SitePagina) {
+  function abrirLocal(p: SitePagina) {
     setEditando(p);
     setTitulo(p.titulo);
     const c = (p.conteudo ?? {}) as Conteudo;
@@ -59,10 +62,19 @@ export default function PaginasPage() {
     setMsg(null);
   }
 
+  // Estado de edição guiado pela URL (?editar=<id>): clicar de novo em "Páginas" no menu
+  // volta o URL para /site/paginas e fecha o editor (o React não remonta na mesma rota).
+  useEffect(() => {
+    if (!editarId) { if (editando) { setEditando(null); estado.inicializar("idle"); } return; }
+    if (editando?.id === editarId) return;
+    const p = paginas.find((x) => x.id === editarId);
+    if (p) abrirLocal(p);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editarId, paginas]);
+
   function voltarParaLista() {
     if (estado.temAlteracoes && !confirm("Há alterações não salvas nesta página. Sair sem salvar?")) return;
-    setEditando(null);
-    estado.inicializar("idle");
+    router.push("/site/paginas");
   }
 
   async function trocarFoto(files: FileList | null) {
@@ -110,7 +122,7 @@ export default function PaginasPage() {
       ) : !editando ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {paginas.map((p) => (
-            <div key={p.id} onClick={() => abrir(p)}
+            <div key={p.id} onClick={() => router.push(`/site/paginas?editar=${p.id}`)}
               style={{ border: "1px solid var(--color-border-tertiary)", borderRadius: 10, padding: "13px 16px", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}
               onMouseEnter={(e) => { e.currentTarget.style.background = "var(--color-background-secondary)"; }}
               onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}>
@@ -192,5 +204,13 @@ export default function PaginasPage() {
         onContinuar={estado.fecharModal}
       />
     </div>
+  );
+}
+
+export default function PaginasPage() {
+  return (
+    <Suspense>
+      <PaginasConteudo />
+    </Suspense>
   );
 }
