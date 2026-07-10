@@ -1,6 +1,7 @@
 // Renderer público do MOTOR DE BLOCOS (server component) — desenha a página a partir da lista de blocos.
 // Reusa as classes .lp-* (responsivas) do tema Editorial.
 import Link from "next/link";
+import type { CSSProperties } from "react";
 import type { SiteBloco } from "@/lib/site/blocos";
 import type { SiteDepoimento } from "@/lib/supabase/types";
 
@@ -96,7 +97,7 @@ function Bloco({ bloco, ctx }: { bloco: SiteBloco; ctx: ContextoBlocos }) {
       return (d.fotos?.length ?? 0) > 0 ? (
         <section className="lp-secao">
           {d.titulo && <h2 className="lp-titulo">{d.titulo}</h2>}
-          <div className="lp-galeria" style={{ gridTemplateColumns: `repeat(${Math.min(4, Math.max(2, d.colunas ?? 3))}, 1fr)` }}>
+          <div className="lp-galeria" style={{ "--lp-cols": Math.min(4, Math.max(2, d.colunas ?? 3)) } as CSSProperties}>
             {d.fotos!.map((f, i) => (
               <img key={i} src={f} alt="" loading="lazy" />
             ))}

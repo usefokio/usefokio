@@ -309,7 +309,7 @@ export default function EditorLandingPage({ params }: { params: Promise<{ id: st
                 </select>
               </div>
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(110px, 1fr))", gap: 8 }}>
+            <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.min(4, Math.max(2, d.colunas ?? 3))}, 1fr)`, gap: 8 }}>
               {(d.fotos ?? []).map((f, i) => (
                 <div key={i} style={{ position: "relative" }}>
                   <img src={f} alt="" style={{ width: "100%", aspectRatio: "1/1", objectFit: "cover", borderRadius: 6, display: "block" }} />

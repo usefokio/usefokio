@@ -77,11 +77,12 @@ a {
 .lp-video { max-width: 900px; margin: 0 auto; aspect-ratio: 16/9; }
 .lp-video iframe { width: 100%; height: 100%; border: 0; border-radius: 4px; }
 
-/* Bloco galeria de fotos — grid com colunas configuráveis (inline), responsivo */
-.lp-galeria { display: grid; gap: 10px; align-items: start; }
+/* Bloco galeria de fotos — nº de colunas vem da variável --lp-cols (setada inline no elemento).
+   Sem !important: as media queries cascateiam naturalmente (mesma especificidade, vêm depois). */
+.lp-galeria { display: grid; grid-template-columns: repeat(var(--lp-cols, 3), 1fr); gap: 10px; align-items: start; }
 .lp-galeria img { width: 100%; height: auto; display: block; border-radius: 4px; }
-@media (max-width: 900px) { .lp-galeria { grid-template-columns: repeat(2, 1fr) !important; } }
-@media (max-width: 560px) { .lp-galeria { grid-template-columns: 1fr !important; } }
+@media (max-width: 900px) { .lp-galeria { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 560px) { .lp-galeria { grid-template-columns: 1fr; } }
 
 /* Avaliações Google — faixa de resumo + botão */
 .gr-faixa { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; background: var(--site-superficie); border: 1px solid var(--site-borda); border-radius: 12px; padding: 18px 22px; text-align: left; }
