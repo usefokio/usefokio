@@ -1,6 +1,6 @@
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { createClient } from "@supabase/supabase-js";
-import { r2, R2_BUCKET, R2_PUBLIC_URL } from "./r2";
+import { r2, R2_BUCKET, R2_PUBLIC_URL, r2Site, R2_SITE_BUCKET, R2_SITE_PUBLIC_URL } from "./r2";
 
 // R2 configurado? Em dev as vars R2 ficam vazias → usamos o Storage do próprio Supabase.
 const R2_ATIVO = Boolean(
@@ -8,6 +8,14 @@ const R2_ATIVO = Boolean(
   (process.env.R2_ACCESS_KEY_ID ?? "").trim() &&
   (process.env.R2_SECRET_ACCESS_KEY ?? "").trim() &&
   R2_BUCKET && R2_PUBLIC_URL,
+);
+
+// R2 dedicado do SITE configurado? (bucket próprio para as mídias públicas do site)
+const R2_SITE_ATIVO = Boolean(
+  (process.env.R2_ACCOUNT_ID ?? "").trim() &&
+  (process.env.R2_SITE_ACCESS_KEY_ID ?? "").trim() &&
+  (process.env.R2_SITE_SECRET_ACCESS_KEY ?? "").trim() &&
+  R2_SITE_BUCKET && R2_SITE_PUBLIC_URL,
 );
 
 function supabaseService() {
@@ -24,6 +32,19 @@ export async function uploadFile(
   contentType = "image/jpeg",
 ): Promise<{ storage_path: string; url_publica: string }> {
   const buffer = Buffer.from(await blob.arrayBuffer());
+
+  // Mídias do SITE (path "site/...") vão para o bucket dedicado do site, quando configurado.
+  // Se não configurado, cai no fluxo abaixo (R2 das galerias em prod, ou Supabase em dev) — sem regressão.
+  if (path.startsWith("site/") && R2_SITE_ATIVO) {
+    await r2Site.send(new PutObjectCommand({
+      Bucket: R2_SITE_BUCKET,
+      Key: path,
+      Body: buffer,
+      ContentType: contentType,
+      CacheControl: "public, max-age=31536000",
+    }));
+    return { storage_path: path, url_publica: `${R2_SITE_PUBLIC_URL}/${path}` };
+  }
 
   // Sem R2 (ex.: ambiente de dev): grava no Storage do próprio Supabase (bucket "galerias").
   if (!R2_ATIVO) {
