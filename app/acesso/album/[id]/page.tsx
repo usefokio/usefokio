@@ -313,7 +313,7 @@ export default function AcessoAlbumPage() {
   useEffect(() => {
     const supabase = createClient();
     Promise.all([
-      supabase.from("album_selecoes").select("*, fotografos(logo_url)").eq("id", id).in("status", ["ativa", "aprovado"]).maybeSingle(),
+      supabase.from("album_selecoes").select("*, fotografos(logo_url)").eq("id", id).in("status", ["ativa", "aprovado", "aguardando_revisao"]).maybeSingle(),
       supabase.from("album_laminas").select("*").eq("selecao_id", id).order("ordem").order("created_at"),
       supabase.from("album_comentarios").select("*").eq("selecao_id", id).order("created_at"),
     ]).then(([{ data: s }, { data: l }, { data: c }]) => {
