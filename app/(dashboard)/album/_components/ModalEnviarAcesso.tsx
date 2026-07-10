@@ -3,7 +3,7 @@
 // Enviar acesso do álbum ao cliente — SEGUE O PADRÃO do sistema (ModalEnviarAcesso de seleção/entrega):
 // link + senha DO CLIENTE (clientes.senha_acesso) + WhatsApp + Enviar email pelo recurso interno
 // (/api/email/enviar, Resend + fallback SMTP). Nada de dropdown/mailto/senha própria do álbum.
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { AlbumSelecao } from "@/lib/supabase/types";
 
@@ -47,6 +47,13 @@ export function ModalEnviarAcesso({
     setSenhaSalva(true);
     setSalvandoSenha(false);
   }
+
+  // Garante que o cliente tenha senha assim que o fotógrafo abre o envio de acesso
+  // (clientes migrados sem senha ganham uma aqui; a partir daí o acesso ao álbum pede senha).
+  useEffect(() => {
+    if (cliente && !cliente.senha_acesso && senha) salvarSenha(senha);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const prazoTxt = album.expira_em ? new Date(album.expira_em).toLocaleDateString("pt-BR") : null;
 
