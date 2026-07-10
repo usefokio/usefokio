@@ -27,6 +27,10 @@ export function RichTextEditor({ value, onChange, readonly = false, minHeight = 
     content: value,
     editable: !readonly,
     immediatelyRender: false, // evita hydration mismatch no Next (render só no client)
+    // A área editável preenche todo o quadro — clicar em qualquer ponto foca e digita (padrão do sistema).
+    editorProps: {
+      attributes: { style: `min-height:${minHeight}px;padding:14px 16px;outline:none;` },
+    },
     onUpdate: ({ editor }: { editor: { getHTML: () => string } }) => {
       onChange?.(editor.getHTML());
     },
@@ -77,7 +81,7 @@ export function RichTextEditor({ value, onChange, readonly = false, minHeight = 
       {/* Editor */}
       <EditorContent
         editor={editor}
-        style={{ padding: "14px 16px", minHeight, fontSize: 14, lineHeight: 1.7, color: "var(--color-text-primary)", background: "var(--color-background-primary)", outline: "none" }}
+        style={{ fontSize: 14, lineHeight: 1.7, color: "var(--color-text-primary)", background: "var(--color-background-primary)", cursor: "text" }}
       />
     </div>
   );

@@ -197,6 +197,11 @@ sessão após sessão — tratar como checklist obrigatório, não como preferê
   (grava o registro inteiro); (c) **aviso ao sair sem salvar** via `lib/hooks/useUnsavedGuard.ts` (cliques em
   links + `beforeunload`; botões de Voltar chamam `pedirSaida`; modal de 3 botões Salvar e sair / Sair sem
   salvar / Continuar editando). Nunca auto-save. Referência: `site/landing-pages/[id]` e `entrega/[id]/editar`.
+- **Editor de texto rico (Tiptap)** (ver [[feedback_editor_area_clicavel]]): a **área editável preenche todo o
+  quadro** — clicar em qualquer ponto foca e digita (não só a 1ª linha). `min-height`+`padding` vão no PRÓPRIO
+  elemento editável via `editorProps.attributes.style`, **não** na moldura externa; tirar `outline` de foco.
+  Os únicos editores são `crm/_components/RichTextEditor.tsx` e `site/_components/SiteRichEditor.tsx` — qualquer
+  novo editor rico segue o mesmo padrão.
 - **Listagens**: título da coluna é **clicável** e alterna a ordenação; filtros e busca **persistentes**;
   paginação universal.
 - **Selects/dropdowns**: opções em **ordem alfabética** (ou por `ordem` explícita quando houver).
