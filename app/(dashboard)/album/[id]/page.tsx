@@ -116,10 +116,13 @@ export default function VisualizarAlbumPage() {
   const comentariosPorLamina = new Map(comentariosVista.map((c) => [c.lamina_id, c]));
   const pendentes = comentariosVista.filter((c) => !c.resolvido).length;
 
-  // Corrente: só as lâminas com observação (foco na ação). Histórico: todas as lâminas daquela versão.
+  // Versão final aprovada → mostra o álbum montado (todas as lâminas em grade).
+  const modoAlbumFinal = ehCorrente && selecao.status === "aprovado";
+  // Corrente em revisão: só as lâminas com observação (foco na ação). Histórico: todas.
+  const soComentadas = ehCorrente && !modoAlbumFinal;
   const laminasParaExibir = laminasVista
     .map((l, i) => ({ lamina: l, numero: i + 1, comentario: comentariosPorLamina.get(l.id) }))
-    .filter((x) => (ehCorrente ? !!x.comentario : true));
+    .filter((x) => (soComentadas ? !!x.comentario : true));
 
   return (
     <div style={{ padding: "26px 30px", maxWidth: 900, margin: "0 auto" }}>
@@ -212,19 +215,31 @@ export default function VisualizarAlbumPage() {
         </div>
       )}
 
-      {/* Lâminas + observações da versão vista.
-          Corrente → só as lâminas comentadas (foco na ação). Histórico → todas as lâminas daquela versão. */}
+      {/* Título da seção */}
       <div style={{ fontSize: 13, fontWeight: 700, color: "var(--color-text-primary)", marginBottom: 12 }}>
-        {ehCorrente ? `Observações do cliente (${laminasParaExibir.length})` : `Versão ${vVista} — ${laminasVista.length} lâmina${laminasVista.length !== 1 ? "s" : ""}, ${comentariosVista.length} observaç${comentariosVista.length !== 1 ? "ões" : "ão"}`}
+        {modoAlbumFinal
+          ? `✅ Versão final aprovada — ${laminasVista.length} lâmina${laminasVista.length !== 1 ? "s" : ""}`
+          : ehCorrente
+          ? `Observações do cliente (${laminasParaExibir.length})`
+          : `Versão ${vVista} — ${laminasVista.length} lâmina${laminasVista.length !== 1 ? "s" : ""}, ${comentariosVista.length} observaç${comentariosVista.length !== 1 ? "ões" : "ão"}`}
       </div>
-      {laminasParaExibir.length === 0 ? (
+
+      {modoAlbumFinal ? (
+        /* Álbum final aprovado: grade com todas as lâminas da versão aprovada (o álbum montado) */
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 12 }}>
+          {laminasVista.map((l, i) => (
+            <div key={l.id} style={{ position: "relative", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 10, overflow: "hidden", background: "var(--color-background-primary)" }}>
+              <img src={l.url_publica} alt={`Lâmina ${i + 1}`} style={{ width: "100%", height: "auto", display: "block" }} loading="lazy" draggable={false} />
+              <div style={{ position: "absolute", top: 8, left: 8, background: "rgba(0,0,0,0.55)", color: "#fff", fontSize: 11, fontWeight: 700, padding: "2px 9px", borderRadius: 20 }}>{i + 1}</div>
+            </div>
+          ))}
+        </div>
+      ) : laminasParaExibir.length === 0 ? (
         <div style={{ padding: "36px 24px", textAlign: "center", background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 12, fontSize: 13, color: "var(--color-text-secondary)" }}>
           {selecao.status === "rascunho"
             ? "Álbum ainda não enviado ao cliente."
             : selecao.status === "ativa"
             ? "O cliente ainda está revisando. As observações aparecem aqui quando ele enviar."
-            : selecao.status === "aprovado"
-            ? "Álbum aprovado sem observações."
             : "Nenhuma observação — o cliente não pediu alterações."}
         </div>
       ) : (
