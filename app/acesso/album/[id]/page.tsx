@@ -317,6 +317,7 @@ export default function AcessoAlbumPage() {
   const [erroSenha,     setErroSenha]     = useState("");
   const [verificando,   setVerificando]   = useState(false);
   const [enviado,       setEnviado]       = useState(false);
+  const [cab,           setCab]           = useState<{ titulo?: string; logoUrl?: string | null; clienteNome?: string | null }>({});
 
   // Acesso validado no servidor (status + expiração + senha). As lâminas só vêm quando liberado.
   async function carregar(senha?: string) {
@@ -329,6 +330,7 @@ export default function AcessoAlbumPage() {
         body: JSON.stringify({ albumId: id, senha }),
       });
       const data = await res.json();
+      if (data.titulo) setCab({ titulo: data.titulo, logoUrl: data.logoUrl, clienteNome: data.clienteNome });
       if (data.estado === "ok") {
         if ((data.laminas ?? []).length === 0) { setNaoEncontrado(true); }  // versão em preparação
         else { setSelecao(data.album); setLaminas(data.laminas); setComentarios(data.comentarios ?? []); setPrecisaSenha(false); }
@@ -435,19 +437,25 @@ export default function AcessoAlbumPage() {
   if (precisaSenha) {
     return (
       <div style={{ minHeight: "calc(100vh - var(--dev-banner-h, 0px))", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--color-background-tertiary)", padding: 20 }}>
-        <div style={{ textAlign: "center", maxWidth: 340, width: "100%" }}>
-          <div style={{ fontSize: 36, marginBottom: 12 }}>🔒</div>
-          <div style={{ fontSize: 16, fontWeight: 600, color: "var(--color-text-primary)", marginBottom: 6 }}>Álbum protegido</div>
-          <div style={{ fontSize: 13, color: "var(--color-text-secondary)", marginBottom: 18 }}>Digite a senha para visualizar o álbum.</div>
+        <div style={{ maxWidth: 360, width: "100%", background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 16, padding: "32px 28px", textAlign: "center", boxShadow: "0 12px 40px rgba(0,0,0,0.08)" }}>
+          {cab.logoUrl
+            ? <img src={cab.logoUrl} alt="" style={{ maxHeight: 44, maxWidth: 160, objectFit: "contain", margin: "0 auto 16px", display: "block" }} />
+            : <div style={{ fontSize: 34, marginBottom: 12 }}>🔒</div>}
+          <div style={{ fontSize: 17, fontWeight: 700, color: "var(--color-text-primary)", marginBottom: 4 }}>{cab.titulo ?? "Álbum protegido"}</div>
+          <div style={{ fontSize: 13, color: "var(--color-text-secondary)", marginBottom: 20, lineHeight: 1.5 }}>
+            {cab.clienteNome ? <>Olá, <strong>{cab.clienteNome.split(" ")[0]}</strong>! </> : null}
+            Digite sua senha de acesso para visualizar o álbum.
+          </div>
           <form onSubmit={(e) => { e.preventDefault(); if (senhaInput.trim()) carregar(senhaInput.trim()); }}>
             <input type="password" value={senhaInput} onChange={(e) => setSenhaInput(e.target.value)} autoFocus placeholder="Senha"
-              style={{ width: "100%", boxSizing: "border-box", padding: "11px 14px", borderRadius: 9, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", color: "var(--color-text-primary)", fontSize: 14, outline: "none", textAlign: "center" }} />
+              style={{ width: "100%", boxSizing: "border-box", padding: "11px 14px", borderRadius: 9, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-secondary)", color: "var(--color-text-primary)", fontSize: 15, outline: "none", textAlign: "center", letterSpacing: "0.08em" }} />
             {erroSenha && <div style={{ color: "#DC2626", fontSize: 12, marginTop: 8 }}>{erroSenha}</div>}
             <button type="submit" disabled={verificando || !senhaInput.trim()}
-              style={{ width: "100%", marginTop: 12, padding: "11px", borderRadius: 9, border: "none", background: "#2563EB", color: "#fff", fontSize: 14, fontWeight: 700, cursor: verificando || !senhaInput.trim() ? "default" : "pointer", opacity: verificando || !senhaInput.trim() ? 0.6 : 1 }}>
+              style={{ width: "100%", marginTop: 14, padding: "12px", borderRadius: 9, border: "none", background: "#2563EB", color: "#fff", fontSize: 14, fontWeight: 700, cursor: verificando || !senhaInput.trim() ? "default" : "pointer", opacity: verificando || !senhaInput.trim() ? 0.6 : 1 }}>
               {verificando ? "Verificando…" : "Entrar"}
             </button>
           </form>
+          <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 16 }}>É a mesma senha das suas galerias. Em caso de dúvida, fale com o fotógrafo.</div>
         </div>
       </div>
     );

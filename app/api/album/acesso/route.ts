@@ -19,7 +19,7 @@ export async function POST(request: Request) {
     const admin = createAdminClient();
     const { data: album } = await admin
       .from("album_selecoes")
-      .select("id, titulo, descricao, status, versao, expira_em, cliente_id, modelo_nome, modelo_largura_cm, modelo_altura_cm, fotografo_id, fotografos(logo_url), clientes(senha_acesso)")
+      .select("id, titulo, descricao, status, versao, expira_em, cliente_id, modelo_nome, modelo_largura_cm, modelo_altura_cm, fotografo_id, fotografos(logo_url), clientes(senha_acesso, nome)")
       .eq("id", albumId)
       .maybeSingle();
 
@@ -27,18 +27,25 @@ export async function POST(request: Request) {
       return NextResponse.json({ estado: "nao_encontrado" });
     }
 
+    // Dados de cabeçalho (não sensíveis) — usados na tela de senha/expirado
+    const cab = {
+      titulo: album.titulo as string,
+      logoUrl: (album.fotografos as { logo_url?: string | null } | null)?.logo_url ?? null,
+      clienteNome: (album.clientes as { nome?: string | null } | null)?.nome ?? null,
+    };
+
     // Expiração
     if (album.expira_em && new Date(album.expira_em as string) < new Date()) {
-      return NextResponse.json({ estado: "expirado" });
+      return NextResponse.json({ estado: "expirado", ...cab });
     }
 
     // Senha DO CLIENTE (padrão do sistema — a mesma das galerias de seleção). Sem cliente/sem senha → livre.
     const senhaCliente = (album.clientes as { senha_acesso?: string | null } | null)?.senha_acesso;
     const senhaDefinida = !!(senhaCliente && String(senhaCliente).trim());
     if (senhaDefinida) {
-      if (senha == null) return NextResponse.json({ estado: "senha" });               // pedir senha
+      if (senha == null) return NextResponse.json({ estado: "senha", ...cab });        // pedir senha
       if (senha.trim() !== String(senhaCliente).trim()) {
-        return NextResponse.json({ estado: "senha_incorreta" });                       // errada
+        return NextResponse.json({ estado: "senha_incorreta", ...cab });               // errada
       }
     }
 

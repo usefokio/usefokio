@@ -18,7 +18,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </head>
-      <body style={isDev ? ({ ["--dev-banner-h"]: "28px" } as React.CSSProperties) : undefined}>
+      <body suppressHydrationWarning style={isDev ? ({ ["--dev-banner-h"]: "28px" } as React.CSSProperties) : undefined}>
         <DevBanner />
         {children}
       </body>
