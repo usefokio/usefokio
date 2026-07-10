@@ -150,7 +150,7 @@ export default function EntregaPage() {
   const [deletarId,      setDeletarId]      = useState<string | null>(null);
   const [deletando,      setDeletando]      = useState(false);
   const [suspenderPendenteId, setSuspenderPendenteId] = useState<string | null>(null);
-  const [modalDrive,    setModalDrive]    = useState<{ galeria: GaleriaEntrega } | null>(null);
+  const [modalDrive,    setModalDrive]    = useState<{ galeria: GaleriaEntrega; modo: "marcar" | "reverter" } | null>(null);
   const [driveEmail,    setDriveEmail]    = useState(true);
   const [driveAssunto,  setDriveAssunto]  = useState("");
   const [driveCorpo,    setDriveCorpo]    = useState("");
@@ -269,28 +269,38 @@ export default function EntregaPage() {
     }
   }
 
-  function abrirModalDrive(g: GaleriaEntrega) {
-    const nomeCliente = (g.clientes as any)?.nome ?? "cliente";
+  function abrirModalDrive(g: GaleriaEntrega, modo: "marcar" | "reverter" = "marcar") {
+    const nomeCliente = g.clientes?.nome ?? "cliente";
     setDriveAssunto(`Sobre os arquivos do seu evento — ${g.titulo}`);
     setDriveCorpo(`Olá, ${nomeCliente}!\n\nPassamos para avisar que os arquivos originais (em alta resolução) do seu evento já foram processados e excluídos do nosso drive de edição.\n\nAs suas fotos editadas continuam disponíveis na sua galeria normalmente.\n\nMantemos, por prazo indeterminado, cópias de segurança dos arquivos em formato JPEG em baixa resolução. Caso esses arquivos de backup sejam excluídos em algum momento, entraremos em contato novamente com antecedência.\n\nSe você precisar recuperar esses arquivos de backup, isso é possível mediante uma taxa pelo serviço de armazenamento.\n\nQualquer dúvida, estamos à disposição!`);
-    setDriveEmail(!!(g.clientes as any)?.email);
-    setModalDrive({ galeria: g });
+    setDriveEmail(!!g.clientes?.email);
+    setModalDrive({ galeria: g, modo });
   }
 
   async function confirmarDrive() {
     if (!modalDrive) return;
     setDriveSalvando(true);
     const sb = createClient();
+    const { galeria, modo } = modalDrive;
+
+    if (modo === "reverter") {
+      await sb.from("galerias_entrega").update({ drive_processado: false, drive_processado_em: null }).eq("id", galeria.id);
+      setGalerias((prev) => prev.map((g) => g.id === galeria.id ? { ...g, drive_processado: false, drive_processado_em: null } : g));
+      setDriveSalvando(false);
+      setModalDrive(null);
+      return;
+    }
+
     const agora = new Date().toISOString();
-    await sb.from("galerias_entrega").update({ drive_processado: true, drive_processado_em: agora }).eq("id", modalDrive.galeria.id);
-    if (driveEmail && (modalDrive.galeria.clientes as any)?.email) {
+    await sb.from("galerias_entrega").update({ drive_processado: true, drive_processado_em: agora }).eq("id", galeria.id);
+    if (driveEmail && galeria.clientes?.email) {
       await fetch("/api/email/enviar", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ to: (modalDrive.galeria.clientes as any).email, subject: driveAssunto, body: driveCorpo }),
+        body: JSON.stringify({ to: galeria.clientes.email, subject: driveAssunto, body: driveCorpo }),
       }).catch(() => {});
     }
-    setGalerias((prev) => prev.map((g) => g.id === modalDrive.galeria.id ? { ...g, drive_processado: true, drive_processado_em: agora } as any : g));
+    setGalerias((prev) => prev.map((g) => g.id === galeria.id ? { ...g, drive_processado: true, drive_processado_em: agora } : g));
     setDriveSalvando(false);
     setModalDrive(null);
   }
@@ -720,11 +730,14 @@ export default function EntregaPage() {
                     onMouseLeave={(e) => (e.currentTarget.style.background = g.suspensa ? "rgba(245,158,11,0.08)" : "rgba(16,185,129,0.08)")}
                   ><IcoClock /></button>
 
-                  {(g as any).drive_processado ? (
-                    <span
-                      title={`Drive processado em ${formatarData((g as any).drive_processado_em ?? g.created_at)}`}
-                      style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 10, fontWeight: 600, padding: "0 7px", height: 26, borderRadius: 6, background: "rgba(5,150,105,0.10)", color: "#059669", border: "0.5px solid rgba(5,150,105,0.3)", whiteSpace: "nowrap" }}
-                    >✓ Drive</span>
+                  {g.drive_processado ? (
+                    <button
+                      onClick={() => abrirModalDrive(g, "reverter")}
+                      title={`Drive processado em ${formatarData(g.drive_processado_em ?? g.created_at)} — clique para reverter`}
+                      style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 10, fontWeight: 600, padding: "0 7px", height: 26, borderRadius: 6, background: "rgba(5,150,105,0.10)", color: "#059669", border: "0.5px solid rgba(5,150,105,0.3)", whiteSpace: "nowrap", cursor: "pointer" }}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(5,150,105,0.18)")}
+                      onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(5,150,105,0.10)")}
+                    >✓ Drive</button>
                   ) : (
                     <button
                       onClick={() => abrirModalDrive(g)}
@@ -787,26 +800,35 @@ export default function EntregaPage() {
       {modalDrive && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50 }} onClick={() => setModalDrive(null)}>
           <div onClick={(e) => e.stopPropagation()} style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 14, padding: "26px 28px", width: 480, maxHeight: "90vh", overflowY: "auto", boxShadow: "0 8px 40px rgba(0,0,0,0.18)" }}>
-            <h3 style={{ margin: "0 0 6px", fontSize: 15, fontWeight: 700, color: "var(--color-text-primary)" }}>Marcar drive como processado</h3>
+            <h3 style={{ margin: "0 0 6px", fontSize: 15, fontWeight: 700, color: "var(--color-text-primary)" }}>
+              {modalDrive.modo === "reverter" ? "Reverter processamento do drive" : "Marcar drive como processado"}
+            </h3>
             <p style={{ margin: "0 0 14px", fontSize: 13, color: "var(--color-text-secondary)", lineHeight: 1.6 }}>
-              Indica que os arquivos originais de <strong style={{ color: "var(--color-text-primary)" }}>{modalDrive.galeria.titulo}</strong> foram excluídos do drive.
+              {modalDrive.modo === "reverter" ? (
+                <>Isto vai <strong style={{ color: "var(--color-text-primary)" }}>desmarcar</strong> o processamento de <strong style={{ color: "var(--color-text-primary)" }}>{modalDrive.galeria.titulo}</strong>, voltando o registro para <strong>pendente</strong>.</>
+              ) : (
+                <>Indica que os arquivos originais de <strong style={{ color: "var(--color-text-primary)" }}>{modalDrive.galeria.titulo}</strong> foram excluídos do drive.</>
+              )}
             </p>
             <div style={{ padding: "10px 14px", borderRadius: 8, background: "rgba(245,158,11,0.08)", border: "0.5px solid rgba(245,158,11,0.3)", fontSize: 12, color: "#B45309", marginBottom: 18, lineHeight: 1.5 }}>
-              ⚠️ Esta ação é irreversível — serve apenas como registro interno.
+              {modalDrive.modo === "reverter"
+                ? "↩️ Isto remove o registro interno de que os originais foram excluídos. Nenhum arquivo é apagado ou recuperado — é só o marcador. Você pode marcar como processado de novo quando quiser."
+                : "Registro interno de que os originais foram excluídos do drive. Você pode reverter isso a qualquer momento clicando no selo ✓ Drive."}
             </div>
 
-            {/* Toggle email */}
+            {/* Toggle email — só ao marcar (reverter não notifica o cliente) */}
+            {modalDrive.modo === "marcar" && (<>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: driveEmail ? 14 : 22 }}>
               <div>
                 <div style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)" }}>Avisar o cliente por email</div>
-                {!(modalDrive.galeria.clientes as any)?.email && (
+                {!modalDrive.galeria.clientes?.email && (
                   <div style={{ fontSize: 11, color: "#EF4444", marginTop: 2 }}>Cliente sem email cadastrado</div>
                 )}
               </div>
               <button
                 onClick={() => setDriveEmail((v) => !v)}
-                disabled={!(modalDrive.galeria.clientes as any)?.email}
-                style={{ width: 44, height: 24, borderRadius: 12, border: "none", cursor: (modalDrive.galeria.clientes as any)?.email ? "pointer" : "not-allowed", position: "relative", background: driveEmail ? "#6366f1" : "var(--color-border-secondary)", opacity: (modalDrive.galeria.clientes as any)?.email ? 1 : 0.4 }}
+                disabled={!modalDrive.galeria.clientes?.email}
+                style={{ width: 44, height: 24, borderRadius: 12, border: "none", cursor: modalDrive.galeria.clientes?.email ? "pointer" : "not-allowed", position: "relative", background: driveEmail ? "#6366f1" : "var(--color-border-secondary)", opacity: modalDrive.galeria.clientes?.email ? 1 : 0.4 }}
               >
                 <span style={{ position: "absolute", top: 3, left: driveEmail ? 22 : 3, width: 18, height: 18, borderRadius: "50%", background: "#fff", transition: "left 0.15s", display: "block" }} />
               </button>
@@ -824,11 +846,12 @@ export default function EntregaPage() {
                 </div>
               </div>
             )}
+            </>)}
 
             <div style={{ display: "flex", gap: 8 }}>
               <button onClick={() => setModalDrive(null)} style={{ flex: 1, padding: "9px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "transparent", fontSize: 13, color: "var(--color-text-secondary)", cursor: "pointer" }}>Cancelar</button>
-              <button onClick={confirmarDrive} disabled={driveSalvando} style={{ flex: 1, padding: "9px", borderRadius: 8, border: "none", background: "#111", color: "#fff", fontSize: 13, fontWeight: 600, cursor: driveSalvando ? "default" : "pointer" }}>
-                {driveSalvando ? "Salvando…" : driveEmail ? "Confirmar e enviar email" : "Confirmar"}
+              <button onClick={confirmarDrive} disabled={driveSalvando} style={{ flex: 1, padding: "9px", borderRadius: 8, border: "none", background: modalDrive.modo === "reverter" ? "#B45309" : "#111", color: "#fff", fontSize: 13, fontWeight: 600, cursor: driveSalvando ? "default" : "pointer" }}>
+                {driveSalvando ? "Salvando…" : modalDrive.modo === "reverter" ? "Reverter" : driveEmail ? "Confirmar e enviar email" : "Confirmar"}
               </button>
             </div>
           </div>
