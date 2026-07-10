@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Avatar } from "@/components/ui/Avatar";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
+import { SinoNotificacoes } from "@/components/layout/SinoNotificacoes";
 
 interface HeaderProps {
   isMobile?: boolean;
@@ -68,11 +69,8 @@ export function Header({ isMobile = false, onAbrirSidebar }: HeaderProps) {
       )}
       {/* Right side */}
       <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10 }}>
-        {/* Alert */}
-        <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, color: "var(--color-text-secondary)" }}>
-          <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#EF4444" }} />
-          <span>1 seleção expirando</span>
-        </div>
+        {/* Notificações */}
+        <SinoNotificacoes />
 
         {/* User menu */}
         <div ref={menuRef} style={{ position: "relative" }}>
