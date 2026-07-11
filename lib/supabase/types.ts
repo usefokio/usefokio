@@ -627,6 +627,10 @@ export type CrmProductCategory = {
   nome: string;
   ativo: boolean;
   ordem: number;
+  // Flags: quais campos o formulário do PEDIDO daquela categoria pede (categoria de pedido = de produto)
+  pede_data: boolean;
+  pede_local: boolean;
+  pede_horario: boolean;
   created_at: string;
 };
 
@@ -768,19 +772,6 @@ export type CrmOrderNote = {
   pedido_id: string;
   fotografo_id: string;
   texto: string;
-  created_at: string;
-};
-
-// Categorias de PEDIDO configuráveis, com flags de quais campos a categoria pede.
-export type CrmPedidoCategoria = {
-  id: string;
-  fotografo_id: string;
-  nome: string;
-  ordem: number;
-  ativo: boolean;
-  pede_data: boolean;
-  pede_local: boolean;
-  pede_horario: boolean;
   created_at: string;
 };
 

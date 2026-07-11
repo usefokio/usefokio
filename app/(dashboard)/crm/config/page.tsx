@@ -5,9 +5,8 @@ import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import type { CrmProductCategory, CrmChartOfAccount, CrmOportunidadeStatus, CrmFunnel, CrmFunnelStage, CrmAgendamentoCategoria } from "@/lib/supabase/types";
 import { AbaContratos } from "./_components/AbaContratos";
-import { AbaPedidoCategorias } from "./_components/AbaPedidoCategorias";
 
-type Tab = "produtos" | "plano" | "canais" | "opp_cats" | "pedido_cats" | "status" | "funis" | "agenda_cats" | "email" | "contratos" | "notificacoes";
+type Tab = "produtos" | "plano" | "canais" | "opp_cats" | "status" | "funis" | "agenda_cats" | "email" | "contratos" | "notificacoes";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -1110,6 +1109,13 @@ export default function CrmConfigPage() {
     carregarCategorias();
   }
 
+  // Flags da categoria (quais campos o pedido daquela categoria pede) — update otimista
+  async function toggleFlagCategoria(cat: CrmProductCategory, flag: "pede_data" | "pede_local" | "pede_horario") {
+    const novo = !cat[flag];
+    setCategorias(prev => prev.map(c => c.id === cat.id ? { ...c, [flag]: novo } : c));
+    await sb.from("crm_product_categories").update({ [flag]: novo }).eq("id", cat.id);
+  }
+
   async function excluirCategoria(id: string) {
     if (!confirm("Excluir esta categoria?")) return;
     await sb.from("crm_product_categories").delete().eq("id", id);
@@ -1164,7 +1170,6 @@ export default function CrmConfigPage() {
       <div style={{ display: "flex", gap: 4, marginBottom: 28, background: "var(--color-background-secondary)", borderRadius: 9, padding: 4, width: "fit-content" }}>
         <button style={TAB_ST(tab === "funis")} onClick={() => setTab("funis")}>🔀 Funis</button>
         <button style={TAB_ST(tab === "opp_cats")} onClick={() => setTab("opp_cats")}>🎯 Categorias</button>
-        <button style={TAB_ST(tab === "pedido_cats")} onClick={() => setTab("pedido_cats")}>🧾 Cat. de Pedido</button>
         <button style={TAB_ST(tab === "canais")} onClick={() => setTab("canais")}>📍 Canais de Origem</button>
         <button style={TAB_ST(tab === "status")} onClick={() => setTab("status")}>📋 Status</button>
         <button style={TAB_ST(tab === "produtos")} onClick={() => setTab("produtos")}>🏷 Cat. Produtos</button>
@@ -1190,11 +1195,6 @@ export default function CrmConfigPage() {
         />
       )}
 
-      {/* ── Categorias de Pedido (com flags data/local/horário) ── */}
-      {tab === "pedido_cats" && fotografo && (
-        <AbaPedidoCategorias fotografoId={fotografo.id} />
-      )}
-
       {/* ── Canais de Origem ── */}
       {tab === "canais" && fotografo && (
         <ListaSimples
@@ -1214,7 +1214,8 @@ export default function CrmConfigPage() {
       {tab === "produtos" && (
         <div>
           <p style={{ fontSize: 13, color: "var(--color-text-secondary)", marginBottom: 20 }}>
-            As categorias aparecem nos formulários de produto e nos filtros de listagem.
+            As categorias aparecem nos formulários de produto, nos pedidos e nos filtros de listagem.
+            Marque em cada uma se o <strong>pedido</strong> daquela categoria pede <strong>data</strong>, <strong>local</strong> e <strong>horário</strong> (ex.: álbum pode ficar sem nenhum).
           </p>
           <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
             <input value={novaCat} onChange={(e) => setNovaCat(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") adicionarCategoria(); }} placeholder="Nome da nova categoria…" style={{ ...inputSt, flex: 1 }} />
@@ -1244,6 +1245,16 @@ export default function CrmConfigPage() {
                   ) : (
                     <>
                       <span style={{ flex: 1, fontSize: 13, fontWeight: 500, color: "var(--color-text-primary)" }}>{cat.nome}</span>
+                      {/* Flags: quais campos o pedido desta categoria pede */}
+                      <div style={{ display: "flex", gap: 12, flexShrink: 0 }}>
+                        {([["pede_data", "📅 data"], ["pede_local", "📍 local"], ["pede_horario", "🕐 horário"]] as const).map(([flag, rotulo]) => (
+                          <label key={flag} title={`O pedido desta categoria pede ${rotulo.slice(3)}?`}
+                            style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, color: cat[flag] ? "var(--color-text-primary)" : "var(--color-text-secondary)", cursor: "pointer", userSelect: "none", whiteSpace: "nowrap" }}>
+                            <input type="checkbox" checked={cat[flag]} onChange={() => toggleFlagCategoria(cat, flag)} style={{ accentColor: "#2563EB", cursor: "pointer" }} />
+                            {rotulo}
+                          </label>
+                        ))}
+                      </div>
                       <span style={{ fontSize: 11, padding: "2px 7px", borderRadius: 10, background: cat.ativo ? "rgba(34,197,94,0.1)" : "rgba(156,163,175,0.15)", color: cat.ativo ? "#16a34a" : "var(--color-text-secondary)", fontWeight: 600 }}>
                         {cat.ativo ? "Ativa" : "Inativa"}
                       </span>

@@ -10,7 +10,7 @@ import { inputStyle } from "@/lib/styles";
 import { ClienteSelect } from "@/components/ui/ClienteSelect";
 import { ComboSelect } from "@/components/ui/ComboSelect";
 import { ProdutoSearch } from "@/components/ui/ProdutoSearch";
-import type { CrmOrder, CrmProduct, Cliente, CrmPedidoCategoria } from "@/lib/supabase/types";
+import type { CrmOrder, CrmProduct, Cliente, CrmProductCategory } from "@/lib/supabase/types";
 
 // ── Tipos locais ──────────────────────────────────────────────────────────────
 
@@ -143,8 +143,8 @@ export default function FormPedido({ inicial, onSalvo }: Props) {
   const [produtos,     setProdutos]     = useState<CrmProduct[]>([]);
   const [itens,        setItens]        = useState<ItemPedido[]>([]);
 
-  // Categorias de pedido configuráveis (com flags pede_data/pede_local/pede_horario)
-  const [pedCats,      setPedCats]      = useState<CrmPedidoCategoria[]>([]);
+  // Categorias (de produto = de pedido), com flags pede_data/pede_local/pede_horario
+  const [pedCats,      setPedCats]      = useState<CrmProductCategory[]>([]);
 
   // Modal de produto
   const [modalProd,     setModalProd]     = useState<CrmProduct | null>(null);
@@ -195,11 +195,11 @@ export default function FormPedido({ inicial, onSalvo }: Props) {
     }
   }, [fid, inicial?.id, isEditing]);
 
-  // Categorias de pedido (para o combo e as flags de quais campos aparecem)
+  // Categorias de produto (= categorias do pedido) — combo + flags de quais campos aparecem
   useEffect(() => {
     if (!fid) return;
-    createClient().from("crm_pedido_categorias").select("*").eq("fotografo_id", fid).eq("ativo", true).order("ordem")
-      .then(({ data }) => setPedCats((data ?? []) as CrmPedidoCategoria[]));
+    createClient().from("crm_product_categories").select("*").eq("fotografo_id", fid).eq("ativo", true).order("ordem")
+      .then(({ data }) => setPedCats((data ?? []) as CrmProductCategory[]));
   }, [fid]);
 
   // Opções do combo (fallback à lista fixa se ainda não houver categorias configuradas)
