@@ -8,7 +8,7 @@ import FormPedido from "../_components/FormPedido";
 import { PEDIDO_STATUS_MAP, FIN_STATUS_MAP } from "@/lib/constants/statusMaps";
 import { formatBRL, formatData, formatNum, mascaraValor, parsearValor } from "@/lib/utils/format";
 import { usePersistState } from "@/lib/hooks/usePersistState";
-import type { CrmOrder, CrmFinancialEntry, CrmContractTemplate, CrmContract, CrmProduct } from "@/lib/supabase/types";
+import type { CrmOrder, CrmFinancialEntry, CrmContractTemplate, CrmContract, CrmProduct, CrmOrderNote } from "@/lib/supabase/types";
 import { RichTextEditor } from "@/app/(dashboard)/crm/_components/RichTextEditor";
 import { ProdutoSearch } from "@/components/ui/ProdutoSearch";
 
@@ -36,6 +36,9 @@ export default function PedidoDetailPage() {
   const [pedido,     setPedido]     = useState<OrderWithCliente | null>(null);
   const [financeiro, setFinanceiro] = useState<CrmFinancialEntry[]>([]);
   const [itens,      setItens]      = useState<OrderItem[]>([]);
+  const [notas,      setNotas]      = useState<CrmOrderNote[]>([]);
+  const [novaNota,   setNovaNota]   = useState("");
+  const [salvandoNota, setSalvandoNota] = useState(false);
   const [loading,    setLoading]    = useState(true);
   const [editing,    setEditing]    = useState(false);
   const [confirmDel,    setConfirmDel]    = useState(false);
@@ -98,14 +101,32 @@ export default function PedidoDetailPage() {
       sb.from("crm_financial_entries").select("*").eq("pedido_id", id).order("vencimento"),
       sb.from("crm_order_items").select("*, crm_products(nome)").eq("pedido_id", id).order("descricao"),
       sb.from("crm_contracts").select("*").eq("pedido_id", id).order("created_at"),
-    ]).then(([{ data: p }, { data: f }, { data: oi }, { data: ct }]) => {
+      sb.from("crm_order_notes").select("*").eq("pedido_id", id).order("created_at", { ascending: false }),
+    ]).then(([{ data: p }, { data: f }, { data: oi }, { data: ct }, { data: nt }]) => {
       setPedido(p as OrderWithCliente | null);
       setFinanceiro((f ?? []) as CrmFinancialEntry[]);
       setItens((oi ?? []) as OrderItem[]);
       setContratos((ct ?? []) as CrmContract[]);
+      setNotas((nt ?? []) as CrmOrderNote[]);
       setLoading(false);
     });
   };
+
+  async function adicionarNota() {
+    const texto = novaNota.trim();
+    if (!texto || !pedido) return;
+    setSalvandoNota(true);
+    const { data } = await createClient().from("crm_order_notes")
+      .insert({ pedido_id: pedido.id, fotografo_id: pedido.fotografo_id, texto }).select("*").single();
+    if (data) setNotas((prev) => [data as CrmOrderNote, ...prev]);
+    setNovaNota("");
+    setSalvandoNota(false);
+  }
+
+  async function excluirNota(notaId: string) {
+    setNotas((prev) => prev.filter((n) => n.id !== notaId));
+    await createClient().from("crm_order_notes").delete().eq("id", notaId);
+  }
 
   const toggleLancSort = (col: string) => {
     if (lancSortCol === col) setLancSortDir(d => d === "asc" ? "desc" : "asc");
@@ -566,6 +587,35 @@ export default function PedidoDetailPage() {
               <div style={{ padding: "14px 20px", fontSize: 13, color: "var(--color-text-primary)", lineHeight: 1.7, whiteSpace: "pre-wrap" }}>{pedido.observacoes}</div>
             </div>
           )}
+
+          {/* Observações (histórico datado) */}
+          <div style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 12, overflow: "hidden", marginBottom: 16 }}>
+            <div style={{ padding: "9px 20px", borderBottom: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-secondary)" }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.06em" }}>Observações (histórico)</span>
+            </div>
+            <div style={{ padding: "14px 20px" }}>
+              <div style={{ display: "flex", gap: 8, alignItems: "flex-start", marginBottom: notas.length ? 14 : 0 }}>
+                <textarea value={novaNota} onChange={(e) => setNovaNota(e.target.value)} rows={2} placeholder="Adicionar uma observação…"
+                  style={{ flex: 1, padding: "8px 12px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-secondary)", fontSize: 13, color: "var(--color-text-primary)", outline: "none", resize: "vertical", fontFamily: "inherit" }} />
+                <button onClick={adicionarNota} disabled={salvandoNota || !novaNota.trim()}
+                  style={{ padding: "8px 16px", borderRadius: 8, background: "#111", color: "#fff", border: "none", fontSize: 13, fontWeight: 600, cursor: salvandoNota || !novaNota.trim() ? "default" : "pointer", opacity: salvandoNota || !novaNota.trim() ? 0.5 : 1, whiteSpace: "nowrap" }}>
+                  {salvandoNota ? "Salvando…" : "Adicionar"}
+                </button>
+              </div>
+              {notas.map((n) => (
+                <div key={n.id} style={{ borderTop: "0.5px solid var(--color-border-tertiary)", padding: "10px 0", display: "flex", justifyContent: "space-between", gap: 10 }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginBottom: 3 }}>
+                      {new Date(n.created_at).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                    </div>
+                    <div style={{ fontSize: 13, color: "var(--color-text-primary)", whiteSpace: "pre-wrap", lineHeight: 1.6 }}>{n.texto}</div>
+                  </div>
+                  <button onClick={() => excluirNota(n.id)} title="Excluir observação" style={{ border: "none", background: "transparent", cursor: "pointer", color: "#EF4444", fontSize: 13, flexShrink: 0 }}>🗑</button>
+                </div>
+              ))}
+              {notas.length === 0 && <div style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>Nenhuma observação registrada ainda.</div>}
+            </div>
+          </div>
 
           {/* Produtos / Serviços — informativo (não gera pagamento nem altera o total) */}
           {/* sem overflow:hidden para o dropdown de busca não ser cortado pelo card */}

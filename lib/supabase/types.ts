@@ -762,6 +762,15 @@ export type CrmOportunidadeCategoria = {
   ativo: boolean;
 };
 
+// Observação datada de um pedido (histórico de anotações).
+export type CrmOrderNote = {
+  id: string;
+  pedido_id: string;
+  fotografo_id: string;
+  texto: string;
+  created_at: string;
+};
+
 // Categorias de PEDIDO configuráveis, com flags de quais campos a categoria pede.
 export type CrmPedidoCategoria = {
   id: string;
