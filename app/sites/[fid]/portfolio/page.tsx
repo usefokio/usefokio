@@ -1,9 +1,9 @@
 // Lista geral do portfólio (todas as categorias).
 import type { Metadata } from "next";
-import Link from "next/link";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { baseLinks, CATEGORIA_LABEL, carregarSite } from "@/lib/site/publico";
+import { baseLinks, carregarSite } from "@/lib/site/publico";
 import { CardTrabalho } from "../_components/CardTrabalho";
+import { PortfolioNav } from "../_components/PortfolioNav";
 import type { SiteTrabalho } from "@/lib/supabase/types";
 
 export async function generateMetadata({ params }: { params: Promise<{ fid: string }> }): Promise<Metadata> {
@@ -27,14 +27,7 @@ export default async function PortfolioPage({ params }: { params: Promise<{ fid:
   return (
     <div style={{ maxWidth: 1180, margin: "0 auto", padding: "48px 24px" }}>
       <h1 className="site-secao-titulo" style={{ fontSize: 30, textAlign: "center", margin: "0 0 24px" }}>Portfólio</h1>
-      <nav style={{ display: "flex", gap: 6, justifyContent: "center", flexWrap: "wrap", marginBottom: 44 }}>
-        <Link href={`${b}/portfolio`} style={{ padding: "7px 14px", fontSize: 12, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--site-titulo)", textDecoration: "underline", textUnderlineOffset: 4 }}>Todos</Link>
-        {categorias.map((c) => (
-          <Link key={c} href={`${b}/portfolio/${c}`} style={{ padding: "7px 14px", fontSize: 12, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--site-suave)", textDecoration: "none" }}>
-            {CATEGORIA_LABEL[c] ?? c}
-          </Link>
-        ))}
-      </nav>
+      <PortfolioNav base={b} categorias={categorias} ativa={null} />
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 34 }}>
         {lista.map((t) => (
           <CardTrabalho key={t.id} t={t} href={`${b}/portfolio/${t.categoria}/${t.legacy_id ? `${t.legacy_id}-` : ""}${t.slug}`} />
