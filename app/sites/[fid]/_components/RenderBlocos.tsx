@@ -173,8 +173,10 @@ function Bloco({ bloco, ctx }: { bloco: SiteBloco; ctx: ContextoBlocos }) {
 }
 
 export function RenderBlocos({ blocos, ctx }: { blocos: SiteBloco[]; ctx: ContextoBlocos }) {
+  // .landing-root sinaliza ao layout (via CSS :has) que esta é uma landing → esconde o header do site
+  // (a landing tem seu próprio hero/logo). O footer é mantido.
   return (
-    <div>
+    <div className="landing-root">
       {blocos.map((b) => <Bloco key={b.id} bloco={b} ctx={ctx} />)}
     </div>
   );

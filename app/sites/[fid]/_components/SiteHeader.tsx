@@ -9,6 +9,7 @@ export function SiteHeader({ base, logoUrl, nome, itens, logoAltura = 46, fundo,
 }) {
   return (
     <header
+      className="site-header"
       style={{
         position: "sticky",
         top: 0,
