@@ -25,6 +25,85 @@ const GOOGLE_HREF =
 
 // Paleta de cores para as barras (neutros + tons do site). "null" = usar a cor do tema.
 const PALETA = ["#FFFFFF", "#F8F7F4", "#F1EFEA", "#E8E2D6", "#5E6E5F", "#463F37", "#2B2B2B", "#1C1A17"];
+const HEX_RE = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i;
+
+const clamp01 = (n: number) => Math.min(1, Math.max(0, n));
+
+function hsvToHex(h: number, s: number, v: number): string {
+  const c = v * s, x = c * (1 - Math.abs(((h / 60) % 2) - 1)), m = v - c;
+  let r = 0, g = 0, b = 0;
+  if (h < 60) { r = c; g = x; } else if (h < 120) { r = x; g = c; } else if (h < 180) { g = c; b = x; }
+  else if (h < 240) { g = x; b = c; } else if (h < 300) { r = x; b = c; } else { r = c; b = x; }
+  const to = (n: number) => Math.round((n + m) * 255).toString(16).padStart(2, "0");
+  return "#" + to(r) + to(g) + to(b);
+}
+function hexToHsv(hex: string): { h: number; s: number; v: number } {
+  let x = hex.replace("#", "");
+  if (x.length === 3) x = x.split("").map((c) => c + c).join("");
+  const r = parseInt(x.slice(0, 2), 16) / 255, g = parseInt(x.slice(2, 4), 16) / 255, b = parseInt(x.slice(4, 6), 16) / 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
+  let h = 0;
+  if (d !== 0) {
+    if (max === r) h = ((g - b) / d) % 6;
+    else if (max === g) h = (b - r) / d + 2;
+    else h = (r - g) / d + 4;
+    h = h * 60; if (h < 0) h += 360;
+  }
+  return { h, s: max === 0 ? 0 : d / max, v: max };
+}
+
+// Seletor de cor moderno, inline e ancorado (matriz saturação/brilho + faixa de matiz + hex).
+function SeletorCor({ valor, onChange }: { valor: string; onChange: (hex: string) => void }) {
+  const init = hexToHsv(HEX_RE.test(valor) ? valor : "#5E6E5F");
+  const [h, setH] = useState(init.h);
+  const [s, setS] = useState(init.s);
+  const [v, setV] = useState(init.v);
+  const [hexTxt, setHexTxt] = useState(valor);
+  const svRef = useRef<HTMLDivElement>(null);
+  const hueRef = useRef<HTMLDivElement>(null);
+
+  const emit = (nh: number, ns: number, nv: number) => { const hx = hsvToHex(nh, ns, nv); setHexTxt(hx); onChange(hx); };
+  const updateSV = (e: React.PointerEvent) => {
+    const r = svRef.current!.getBoundingClientRect();
+    const ns = clamp01((e.clientX - r.left) / r.width), nv = 1 - clamp01((e.clientY - r.top) / r.height);
+    setS(ns); setV(nv); emit(h, ns, nv);
+  };
+  const updateHue = (e: React.PointerEvent) => {
+    const r = hueRef.current!.getBoundingClientRect();
+    const nh = clamp01((e.clientX - r.left) / r.width) * 360;
+    setH(nh); emit(nh, s, v);
+  };
+  const dot: React.CSSProperties = { position: "absolute", width: 14, height: 14, borderRadius: "50%", border: "2px solid #fff", boxShadow: "0 0 0 1px rgba(0,0,0,0.4)", transform: "translate(-50%,-50%)", pointerEvents: "none" };
+
+  return (
+    <div onPointerDown={(e) => e.stopPropagation()}
+      style={{ position: "absolute", top: 34, right: 0, zIndex: 30, width: 216, background: "var(--color-background-primary)", border: "1px solid var(--color-border-secondary)", borderRadius: 12, padding: 12, boxShadow: "0 12px 40px rgba(0,0,0,0.22)" }}>
+      {/* matriz saturação (x) × brilho (y) */}
+      <div ref={svRef} onPointerDown={(e) => { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); updateSV(e); }}
+        onPointerMove={(e) => { if ((e.currentTarget as HTMLElement).hasPointerCapture(e.pointerId)) updateSV(e); }}
+        style={{ position: "relative", width: "100%", height: 130, borderRadius: 8, cursor: "crosshair", touchAction: "none",
+          background: `linear-gradient(to top, #000, transparent), linear-gradient(to right, #fff, transparent), hsl(${h} 100% 50%)` }}>
+        <span style={{ ...dot, left: `${s * 100}%`, top: `${(1 - v) * 100}%`, background: hsvToHex(h, s, v) }} />
+      </div>
+      {/* faixa de matiz */}
+      <div ref={hueRef} onPointerDown={(e) => { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); updateHue(e); }}
+        onPointerMove={(e) => { if ((e.currentTarget as HTMLElement).hasPointerCapture(e.pointerId)) updateHue(e); }}
+        style={{ position: "relative", width: "100%", height: 14, borderRadius: 7, margin: "12px 0 10px", cursor: "pointer", touchAction: "none",
+          background: "linear-gradient(to right, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00)" }}>
+        <span style={{ ...dot, left: `${(h / 360) * 100}%`, top: "50%", background: `hsl(${h} 100% 50%)` }} />
+      </div>
+      {/* hex */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <span style={{ width: 22, height: 22, borderRadius: "50%", background: hsvToHex(h, s, v), border: "1px solid rgba(0,0,0,0.2)", flex: "0 0 auto" }} />
+        <input value={hexTxt} onChange={(e) => {
+          const t = e.target.value; setHexTxt(t);
+          if (HEX_RE.test(t)) { const c = hexToHsv(t); setH(c.h); setS(c.s); setV(c.v); onChange(t.length === 4 ? t : t.toLowerCase()); }
+        }}
+          style={{ flex: 1, minWidth: 0, padding: "6px 8px", borderRadius: 7, border: "1px solid var(--color-border-secondary)", background: "var(--color-background-primary)", color: "var(--color-text-primary)", fontSize: 13, fontFamily: "var(--font-mono)" }} />
+      </div>
+    </div>
+  );
+}
 
 const lbl: React.CSSProperties = { fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 10, display: "block" };
 const card: React.CSSProperties = { border: "1px solid var(--color-border-tertiary)", borderRadius: 12, padding: 18, background: "var(--color-background-primary)", marginBottom: 16 };
@@ -38,6 +117,7 @@ export default function AparenciaPage() {
   const [salvando, setSalvando] = useState(false);
   const [enviandoLogo, setEnviandoLogo] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const [picker, setPicker] = useState<"header" | "rodape" | null>(null);
   const inputLogo = useRef<HTMLInputElement>(null);
 
   const snapshot = JSON.stringify(design);
@@ -102,30 +182,34 @@ export default function AparenciaPage() {
   const nome = fotografo?.nome_empresa || "Seu Estúdio";
   const corBarra = (b: BarraConfig, base: string) => `color-mix(in srgb, ${b.cor ?? base} ${b.opacidade}%, transparent)`;
 
-  // Círculo de cor: presets + "tema" (auto) + custom (input nativo ancorado no próprio círculo).
-  function paleta(b: BarraConfig, set: (patch: Partial<BarraConfig>) => void) {
+  // Bolinhas de cor: presets + "tema" (auto) + personalizada (abre o SeletorCor ancorado).
+  function paleta(b: BarraConfig, qual: "header" | "rodape") {
+    const set = (patch: Partial<BarraConfig>) => setBarra(qual, patch);
     const atual = b.cor;
     const ehPreset = atual !== null && PALETA.some((c) => c.toLowerCase() === atual.toLowerCase());
     const ehCustom = atual !== null && !ehPreset;
+    const aberto = picker === qual;
     const anel = (on: boolean): React.CSSProperties => on
-      ? { boxShadow: "0 0 0 2px var(--color-background-primary), 0 0 0 4px #2563EB" }
-      : {};
+      ? { boxShadow: "0 0 0 2px var(--color-background-primary), 0 0 0 4px #2563EB" } : {};
     const circ: React.CSSProperties = { width: 26, height: 26, borderRadius: "50%", cursor: "pointer", border: "1px solid rgba(0,0,0,0.18)", padding: 0, flex: "0 0 auto" };
     return (
       <div style={{ display: "flex", alignItems: "center", gap: 9, flexWrap: "wrap" }}>
-        {/* Tema (automático) */}
-        <button type="button" title="Usar a cor do tema" onClick={() => set({ cor: null })}
+        <button type="button" title="Usar a cor do tema" onClick={() => { set({ cor: null }); setPicker(null); }}
           style={{ ...circ, background: tema.cores.fundo, borderStyle: "dashed", borderColor: "#9ca3af", ...anel(atual === null) }} />
         {PALETA.map((c) => (
-          <button key={c} type="button" title={c} onClick={() => set({ cor: c })}
+          <button key={c} type="button" title={c} onClick={() => { set({ cor: c }); setPicker(null); }}
             style={{ ...circ, background: c, ...anel(ehPreset && atual!.toLowerCase() === c.toLowerCase()) }} />
         ))}
-        {/* Custom: círculo com input nativo por cima (o seletor abre ANCORADO no círculo) */}
-        <label title="Cor personalizada" style={{ ...circ, position: "relative", overflow: "hidden", display: "inline-block",
-          background: ehCustom ? atual! : "conic-gradient(from 0deg, #f43f5e, #f59e0b, #10b981, #3b82f6, #a855f7, #f43f5e)", ...anel(ehCustom) }}>
-          <input type="color" value={atual ?? "#ffffff"} onChange={(e) => set({ cor: e.target.value })}
-            style={{ position: "absolute", inset: 0, width: "100%", height: "100%", opacity: 0, cursor: "pointer", border: "none", padding: 0 }} />
-        </label>
+        <div style={{ position: "relative" }}>
+          <button type="button" title="Cor personalizada" onClick={() => setPicker(aberto ? null : qual)}
+            style={{ ...circ, background: ehCustom ? atual! : "conic-gradient(from 0deg, #f43f5e, #f59e0b, #10b981, #3b82f6, #a855f7, #f43f5e)", ...anel(ehCustom || aberto) }} />
+          {aberto && (
+            <>
+              <div onClick={() => setPicker(null)} style={{ position: "fixed", inset: 0, zIndex: 29 }} />
+              <SeletorCor valor={atual ?? "#5E6E5F"} onChange={(hex) => set({ cor: hex })} />
+            </>
+          )}
+        </div>
       </div>
     );
   }
@@ -137,7 +221,7 @@ export default function AparenciaPage() {
       <div style={card}>
         <label style={lbl}>{titulo}</label>
         <div style={{ ...mini, marginBottom: 6 }}>Cor</div>
-        {paleta(b, set)}
+        {paleta(b, qual)}
         <div style={{ display: "flex", flexWrap: "wrap", gap: 22, marginTop: 14 }}>
           <div>
             <div style={{ ...mini, marginBottom: 4 }}>Transparência <strong>{100 - b.opacidade}%</strong></div>
@@ -168,22 +252,33 @@ export default function AparenciaPage() {
         <div className="aparencia-grid">
           {/* ---------- COLUNA ESQUERDA: controles ---------- */}
           <div>
-            {/* Fontes */}
+            {/* Fontes: cada linha é o exemplo escrito na própria fonte do par */}
             <div style={card}>
               <label style={lbl}>Fontes</label>
-              <select value={design.par} onChange={(e) => setDesign((d) => ({ ...d, par: e.target.value }))}
-                style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid var(--color-border-secondary)", background: "var(--color-background-primary)", color: "var(--color-text-primary)", fontSize: 14, cursor: "pointer" }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 4, maxHeight: 340, overflowY: "auto" }}>
                 {CATS.map((cat) => (
-                  <optgroup key={cat} label={CATEGORIA_LABEL[cat]}>
-                    {PARES_FONTE.filter((p) => p.categoria === cat).map((p) => (
-                      <option key={p.id} value={p.id}>{p.nome}</option>
-                    ))}
-                  </optgroup>
+                  <div key={cat}>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.06em", margin: "8px 0 4px" }}>{CATEGORIA_LABEL[cat]}</div>
+                    {PARES_FONTE.filter((p) => p.categoria === cat).map((p) => {
+                      const sel = design.par === p.id;
+                      const ft = `'${FONTE_NOME[p.titulo]}', Georgia, serif`;
+                      const fx = `'${FONTE_NOME[p.texto]}', Georgia, serif`;
+                      return (
+                        <button key={p.id} type="button" onClick={() => setDesign((d) => ({ ...d, par: p.id }))}
+                          style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", textAlign: "left", cursor: "pointer",
+                            padding: "8px 10px", borderRadius: 8, marginBottom: 2,
+                            background: sel ? "rgba(37,99,235,0.06)" : "transparent",
+                            border: sel ? "1.5px solid #2563EB" : "1px solid var(--color-border-tertiary)" }}>
+                          <span style={{ display: "flex", flexDirection: "column", gap: 1, minWidth: 0, flex: 1 }}>
+                            <span style={{ fontFamily: ft, fontSize: 17, lineHeight: 1.1, color: "var(--color-text-primary)" }}>Ensaios que viram histórias</span>
+                            <span style={{ fontFamily: fx, fontSize: 12.5, color: "var(--color-text-secondary)" }}>Um pequeno texto de exemplo do site.</span>
+                          </span>
+                          <span style={{ fontSize: 11, fontWeight: sel ? 700 : 500, color: sel ? "#2563EB" : "var(--color-text-secondary)", flex: "0 0 auto" }}>{p.nome}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 ))}
-              </select>
-              <div style={{ ...mini, marginTop: 8 }}>
-                Título: <strong style={{ fontFamily: fTitulo }}>{FONTE_NOME[par.titulo]}</strong>
-                {"  ·  "}Texto: <strong style={{ fontFamily: fTexto }}>{FONTE_NOME[par.texto]}</strong>
               </div>
             </div>
 
