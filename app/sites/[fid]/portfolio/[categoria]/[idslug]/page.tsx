@@ -92,6 +92,7 @@ export default async function TrabalhoPage({ params }: { params: Promise<{ fid: 
       <FotosTrabalho
         trabalhoId={t.id}
         titulo={t.titulo}
+        modo={t.modo_exibicao}
         fotos={fotos.map((f) => ({ id: f.id, url_publica: f.url_publica, descricao: f.descricao }))}
       />
 

@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { resolverMetaPagina } from "@/lib/site/seo";
+import { GaleriaFotos } from "../_components/GaleriaFotos";
 import type { SitePortfolio, SitePortfolioFoto } from "@/lib/supabase/types";
 
 type Props = { params: Promise<{ fid: string }>; searchParams: Promise<{ id?: string }> };
@@ -52,14 +53,10 @@ export default async function GaleriaLegadaPage({ params, searchParams }: Props)
       <div style={{ maxWidth: 1200, margin: "0 auto", padding: "48px 24px 40px" }}>
         <h1 className="site-secao-titulo" style={{ fontSize: 30, textAlign: "center", margin: "0 0 8px" }}>{p.titulo}</h1>
         {p.descricao && <p style={{ textAlign: "center", fontSize: 15, color: "var(--site-suave)", maxWidth: 700, margin: "0 auto 36px", lineHeight: 1.7 }}>{p.descricao}</p>}
-        <div style={{ columnCount: 3, columnGap: 14 }}>
-          {fotos.map((f) => (
-            f.url_publica && (
-              <img key={f.id} src={f.url_publica} alt={f.descricao || p.titulo}
-                style={{ width: "100%", height: "auto", borderRadius: 8, display: "block", marginBottom: 14, breakInside: "avoid" }} loading="lazy" />
-            )
-          ))}
-        </div>
+        <GaleriaFotos
+          modo={p.modo_exibicao}
+          fotos={fotos.filter((f) => f.url_publica).map((f) => ({ id: f.id, url: f.url_publica as string, alt: f.descricao || p.titulo }))}
+        />
       </div>
     </div>
   );

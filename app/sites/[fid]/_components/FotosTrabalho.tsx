@@ -1,8 +1,9 @@
 "use client";
 
-// Fotos da página do trabalho com curtida por foto (coração central que aparece no hover/toque,
-// como no site antigo) e registro de visualização. Sem número por foto — o total fica no cabeçalho.
+// Fotos da página do trabalho com curtida por foto (coração central que aparece no hover/toque)
+// e registro de visualização. O layout segue o "modo de exibição" (lista/slideshow/grid).
 import { useEffect, useState } from "react";
+import { GaleriaFotos } from "./GaleriaFotos";
 
 type Foto = { id: string; url_publica: string; descricao: string | null };
 
@@ -15,7 +16,7 @@ function salvarLikes(s: Set<string>) {
   try { localStorage.setItem(CHAVE_LIKES, JSON.stringify([...s])); } catch { /* sem storage */ }
 }
 
-export function FotosTrabalho({ trabalhoId, titulo, fotos }: { trabalhoId: string; titulo: string; fotos: Foto[] }) {
+export function FotosTrabalho({ trabalhoId, titulo, fotos, modo = "lista" }: { trabalhoId: string; titulo: string; fotos: Foto[]; modo?: string }) {
   const [curtidas, setCurtidas] = useState<Set<string>>(new Set());
 
   useEffect(() => {
@@ -33,44 +34,27 @@ export function FotosTrabalho({ trabalhoId, titulo, fotos }: { trabalhoId: strin
     } catch { /* sem storage */ }
   }, [trabalhoId]);
 
-  async function alternarLike(foto: Foto) {
-    const jaCurtiu = curtidas.has(foto.id);
+  async function alternarLike(fotoId: string) {
+    const jaCurtiu = curtidas.has(fotoId);
     const novas = new Set(curtidas);
-    if (jaCurtiu) novas.delete(foto.id); else novas.add(foto.id);
+    if (jaCurtiu) novas.delete(fotoId); else novas.add(fotoId);
     setCurtidas(novas);
     salvarLikes(novas);
     try {
       await fetch("/api/site/foto-like", {
         method: jaCurtiu ? "DELETE" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fotoId: foto.id }),
+        body: JSON.stringify({ fotoId }),
       });
     } catch { /* otimista; falha de rede não trava a navegação */ }
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      {fotos.map((f) => {
-        const curtiu = curtidas.has(f.id);
-        return (
-          <div key={f.id} className="site-foto" style={{ borderRadius: 8 }}>
-            <img
-              src={f.url_publica}
-              alt={f.descricao || titulo}
-              style={{ width: "100%", height: "auto", display: "block", borderRadius: 8 }}
-              loading="lazy"
-            />
-            <div
-              className="site-foto-acoes"
-              role="button"
-              aria-label={curtiu ? "Descurtir foto" : "Curtir foto"}
-              onClick={() => alternarLike(f)}
-            >
-              <span className={`site-foto-coracao${curtiu ? " curtido" : ""}`}>{curtiu ? "♥" : "♡"}</span>
-            </div>
-          </div>
-        );
-      })}
-    </div>
+    <GaleriaFotos
+      modo={modo}
+      curtidas={curtidas}
+      onCurtir={alternarLike}
+      fotos={fotos.map((f) => ({ id: f.id, url: f.url_publica, alt: f.descricao || titulo }))}
+    />
   );
 }

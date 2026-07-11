@@ -141,6 +141,34 @@ a {
   .site-foto-coracao { font-size: 40px; }
 }
 
+/* Galeria de fotos do trabalho/portfólio — modos de exibição (Configurações → Geral) */
+.site-galeria-lista { display: flex; flex-direction: column; gap: 14px; }
+.site-galeria-lista .site-foto img { width: 100%; height: auto; display: block; }
+
+.site-galeria-grid { display: grid; gap: 12px; align-items: start; }
+.site-galeria-grid.vertical { grid-template-columns: repeat(3, 1fr); }
+.site-galeria-grid.horizontal { grid-template-columns: repeat(2, 1fr); }
+.site-galeria-grid.vertical .site-foto { aspect-ratio: 3 / 4; }
+.site-galeria-grid.horizontal .site-foto { aspect-ratio: 3 / 2; }
+.site-galeria-grid .site-foto img { width: 100%; height: 100%; object-fit: cover; display: block; }
+@media (max-width: 720px) {
+  .site-galeria-grid.vertical { grid-template-columns: repeat(2, 1fr); }
+  .site-galeria-grid.horizontal { grid-template-columns: 1fr; }
+}
+
+/* Slideshow: uma foto por vez, com navegação (a foto inteira aparece, sem cortar) */
+.site-slideshow-palco { position: relative; width: 100%; aspect-ratio: 3 / 2; background: #111; border-radius: 8px; overflow: hidden; }
+.site-slideshow-palco .site-foto { width: 100%; height: 100%; border-radius: 0 !important; }
+.site-slideshow-palco .site-foto img { width: 100%; height: 100%; object-fit: contain; display: block; background: #111; }
+.site-slideshow-nav {
+  position: absolute; top: 50%; transform: translateY(-50%); width: 44px; height: 44px; border-radius: 50%;
+  background: rgba(0, 0, 0, 0.5); color: #fff; border: none; cursor: pointer; font-size: 26px; line-height: 1;
+  display: flex; align-items: center; justify-content: center; z-index: 3; padding: 0;
+}
+.site-slideshow-nav.prev { left: 12px; }
+.site-slideshow-nav.next { right: 12px; }
+.site-slideshow-contador { text-align: center; font-size: 12px; color: var(--site-suave); margin-top: 8px; letter-spacing: 0.06em; }
+
 /* Conteúdo rico do Site (posts, trabalhos, páginas) — no editor e nas páginas públicas */
 .site-conteudo img,
 .site-conteudo .post-img {
