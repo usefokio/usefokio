@@ -178,3 +178,7 @@ a {
   .site-contato { grid-template-columns: 1fr; gap: 28px; padding: 32px 20px; }
   .site-contato-foto { min-height: 240px; max-height: 340px; }
 }
+
+/* Logo do header do site — responsiva: a altura configurada vale no desktop e é limitada no mobile
+   (o header cresce/encolhe junto por ser content-driven, mantendo o alinhamento). */
+@media (max-width: 560px) { .site-header-logo { max-height: 44px; } }

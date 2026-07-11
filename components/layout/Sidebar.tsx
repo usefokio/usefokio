@@ -203,7 +203,7 @@ const SITE_ITEMS = [
   { href: "/site/inbox",       label: "Inbox" },
   { href: "/site/seo",         label: "SEO" },
   { href: "/site/dominio",     label: "Domínio" },
-  { href: "/site/temas",       label: "Temas" },
+  { href: "/site/temas",       label: "Aparência" },
   { href: "/site/config",      label: "Configurações" },
 ];
 

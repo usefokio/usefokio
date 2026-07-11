@@ -375,6 +375,8 @@ export type SiteConfig = {
   google_reviews: GoogleReview[] | null;
   google_sync_at: string | null;
   redes: Record<string, string> | null;
+  // Personalização de design (par de fontes, cores/altura de header/rodapé, logo) — ver lib/site/design.ts
+  design: Record<string, unknown> | null;
   created_at: string;
   updated_at: string;
 };

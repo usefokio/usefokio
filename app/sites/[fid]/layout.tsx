@@ -6,8 +6,14 @@ import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { carregarSite, baseLinks, normalizarHost, rotuloSubdominio } from "@/lib/site/publico";
 import { getTema, temaCssVars } from "@/lib/site/temas";
-import { fonteTitulo, fonteCorpo } from "./_fontes";
+import { normalizarDesign, getPar, type BarraConfig } from "@/lib/site/design";
+import { classesFontes, FONTE_VAR } from "./_fontes";
 import { SiteHeader } from "./_components/SiteHeader";
+
+// Fundo de uma barra (header/rodapé): cor própria (ou a do tema) + opacidade (transparência).
+function fundoBarra(b: BarraConfig, corTema: string): string {
+  return `color-mix(in srgb, ${b.cor ?? corTema} ${b.opacidade}%, transparent)`;
+}
 
 export async function generateMetadata({ params }: { params: Promise<{ fid: string }> }): Promise<Metadata> {
   const { fid } = await params;
@@ -90,6 +96,13 @@ export default async function SitePublicoLayout({ children, params }: { children
   const redes = (config?.redes ?? {}) as Record<string, string>;
   const tema = getTema(config?.tema);
 
+  // Personalização de design (Aparência): par de fontes, logo, cor/opacidade/altura de header e rodapé.
+  const design = normalizarDesign(config?.design);
+  const par = getPar(design.par);
+  const fonteTituloVar = FONTE_VAR[par.titulo] ?? "--f-cormorant";
+  const fonteCorpoVar  = FONTE_VAR[par.texto]  ?? "--f-crimson";
+  const logoSite = design.logo_url ?? fotografo?.logo_url ?? null;
+
   // JSON-LD do negócio (dados estruturados — ajuda o Google a entender o fotógrafo)
   const hostPrincipal = config?.dominio_customizado
     ? normalizarHost(config.dominio_customizado)
@@ -117,23 +130,28 @@ export default async function SitePublicoLayout({ children, params }: { children
 
   return (
     <div
-      className={`site-root ${fonteTitulo.variable} ${fonteCorpo.variable}`}
+      className={`site-root ${classesFontes}`}
       style={{
         ...temaCssVars(tema),
+        "--site-fonte-titulo": `var(${fonteTituloVar})`,
+        "--site-fonte-corpo": `var(${fonteCorpoVar})`,
         background: "var(--site-fundo)",
         color: "var(--site-texto)",
         fontFamily: "var(--site-fonte-corpo), Georgia, serif",
         minHeight: "100vh",
         display: "flex",
         flexDirection: "column",
-      }}
+      } as React.CSSProperties}
     >
       <ScriptsRastreamento analytics={config?.analytics_head ?? null} pixel={config?.facebook_pixel ?? null} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <SiteHeader
         base={b}
-        logoUrl={fotografo?.logo_url ?? null}
+        logoUrl={logoSite}
+        logoAltura={design.logo_altura}
+        fundo={fundoBarra(design.header, "var(--site-fundo)")}
+        padY={design.header.altura}
         nome={fotografo?.nome_empresa ?? "Fotografia"}
         itens={itensMenu.map((m) => ({ id: String(m.id), label: m.label, href: m.href }))}
       />
@@ -141,8 +159,8 @@ export default async function SitePublicoLayout({ children, params }: { children
       <main style={{ flex: 1 }}>{children}</main>
 
       {/* Footer */}
-      <footer style={{ borderTop: "1px solid var(--site-borda)", marginTop: 70, background: "var(--site-superficie)" }}>
-        <div style={{ maxWidth: 1180, margin: "0 auto", padding: "44px 24px", display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 20, flexWrap: "wrap" }}>
+      <footer style={{ borderTop: "1px solid var(--site-borda)", marginTop: 70, background: fundoBarra(design.rodape, "var(--site-superficie)") }}>
+        <div style={{ maxWidth: 1180, margin: "0 auto", padding: `${design.rodape.altura}px 24px`, display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 20, flexWrap: "wrap" }}>
           <div style={{ fontSize: 15, color: "var(--site-texto)" }}>
             <div style={{ fontFamily: "var(--site-fonte-titulo), Georgia, serif", fontSize: 22, color: "var(--site-titulo)", marginBottom: 8 }}>{fotografo?.nome_empresa ?? ""}</div>
             {fotografo?.telefone && <div>{fotografo.telefone}</div>}
