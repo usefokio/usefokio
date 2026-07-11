@@ -10,6 +10,8 @@ import { uploadFileClient } from "@/lib/storage/uploadClient";
 import { deleteFilesClient } from "@/lib/storage/deleteClient";
 import { processarImagemEntrega } from "@/lib/imageResize";
 import { useEditorEstado, SeloEstado, BotaoSalvarEstado, ModalNaoSalvo } from "@/app/(dashboard)/_components/EditorEstado";
+import { ConfigPaginaModal } from "@/app/(dashboard)/site/_components/ConfigPaginaModal";
+import type { ConfigPaginaValores } from "@/lib/site/seo";
 import type { SitePortfolio, SitePortfolioFoto } from "@/lib/supabase/types";
 
 const inputStyle: React.CSSProperties = {
@@ -36,6 +38,14 @@ export default function PortfolioEditorPage({ params }: { params: Promise<{ id: 
   const [publicado, setPublicado] = useState(true);
   const [seoTitle, setSeoTitle] = useState("");
   const [seoDesc, setSeoDesc] = useState("");
+  const [seoKw, setSeoKw] = useState("");
+  const [seoNoindex, setSeoNoindex] = useState(false);
+  const [ogTitle, setOgTitle] = useState("");
+  const [ogDesc, setOgDesc] = useState("");
+  const [ogImage, setOgImage] = useState<string | null>(null);
+  const [modoExibicao, setModoExibicao] = useState("lista");
+  const [configAberto, setConfigAberto] = useState(false);
+  const [dominio, setDominio] = useState("seusite.usefokio.com.br");
 
   const [fotos, setFotos] = useState<SitePortfolioFoto[]>([]);
   const [fila, setFila] = useState<{ total: number; feitas: number } | null>(null);
@@ -43,7 +53,7 @@ export default function PortfolioEditorPage({ params }: { params: Promise<{ id: 
   const inputFileRef = useRef<HTMLInputElement>(null);
 
   // Estado de salvamento claro (regra de sistema) — fotos ficam de fora (persistem na hora, por design)
-  const snapshotAtual = JSON.stringify([titulo, publicado, seoTitle, seoDesc]);
+  const snapshotAtual = JSON.stringify([titulo, publicado, seoTitle, seoDesc, seoKw, seoNoindex, ogTitle, ogDesc, ogImage, modoExibicao]);
   const estado = useEditorEstado(snapshotAtual, "/site/galerias");
 
   useEffect(() => {
@@ -56,10 +66,17 @@ export default function PortfolioEditorPage({ params }: { params: Promise<{ id: 
       setPortfolio(port);
       setTitulo(port.titulo);
       setPublicado(port.publicado);
-      setSeoTitle(port.seo_title ?? ""); setSeoDesc(port.seo_description ?? "");
+      setSeoTitle(port.seo_title ?? ""); setSeoDesc(port.seo_description ?? ""); setSeoKw(port.seo_keywords ?? "");
+      setSeoNoindex(port.seo_noindex); setOgTitle(port.og_title ?? ""); setOgDesc(port.og_description ?? ""); setOgImage(port.og_image_url);
+      setModoExibicao(port.modo_exibicao || "lista");
+      const { data: cfg } = await supabase.from("site_config").select("subdominio, dominio_customizado").eq("fotografo_id", fotografo!.id).maybeSingle();
+      if (cfg) setDominio(cfg.dominio_customizado || (cfg.subdominio ? `${cfg.subdominio}.usefokio.com.br` : "seusite.usefokio.com.br"));
       const { data: fts } = await supabase.from("site_portfolio_fotos").select("*").eq("portfolio_id", id).order("ordem");
       setFotos((fts as SitePortfolioFoto[]) ?? []);
-      estado.inicializar(JSON.stringify([port.titulo, port.publicado, port.seo_title ?? "", port.seo_description ?? ""]));
+      estado.inicializar(JSON.stringify([
+        port.titulo, port.publicado, port.seo_title ?? "", port.seo_description ?? "", port.seo_keywords ?? "",
+        port.seo_noindex, port.og_title ?? "", port.og_description ?? "", port.og_image_url, port.modo_exibicao || "lista",
+      ]));
       setCarregando(false);
     }
     carregar();
@@ -72,7 +89,9 @@ export default function PortfolioEditorPage({ params }: { params: Promise<{ id: 
     const supabase = createClient();
     const { error } = await supabase.from("site_portfolios").update({
       titulo: titulo.trim(), publicado,
-      seo_title: seoTitle.trim() || null, seo_description: seoDesc.trim() || null,
+      seo_title: seoTitle.trim() || null, seo_description: seoDesc.trim() || null, seo_keywords: seoKw.trim() || null,
+      seo_noindex: seoNoindex, og_title: ogTitle.trim() || null, og_description: ogDesc.trim() || null, og_image_url: ogImage,
+      modo_exibicao: modoExibicao,
       updated_at: new Date().toISOString(),
     }).eq("id", id);
     setSalvando(false);
@@ -167,6 +186,24 @@ export default function PortfolioEditorPage({ params }: { params: Promise<{ id: 
     if (error) setMsg({ tipo: "erro", texto: "Falha ao salvar a ordem: " + error.message });
   }
 
+  // Ponte para o modal de Configurações (portfólio: modo de exibição + SEO + redes; sem URL/data).
+  const urlPublica = `/gallery.php?id=${portfolio?.legacy_id ?? ""}`;
+  const valores: ConfigPaginaValores = {
+    slug: "", mostrar_data: false, modo_exibicao: modoExibicao,
+    seo_title: seoTitle, seo_description: seoDesc, seo_keywords: seoKw, seo_noindex: seoNoindex,
+    og_title: ogTitle, og_description: ogDesc, og_image_url: ogImage,
+  };
+  const setValores = (patch: Partial<ConfigPaginaValores>) => {
+    if (patch.modo_exibicao !== undefined) setModoExibicao(patch.modo_exibicao);
+    if (patch.seo_title !== undefined) setSeoTitle(patch.seo_title);
+    if (patch.seo_description !== undefined) setSeoDesc(patch.seo_description);
+    if (patch.seo_keywords !== undefined) setSeoKw(patch.seo_keywords);
+    if (patch.seo_noindex !== undefined) setSeoNoindex(patch.seo_noindex);
+    if (patch.og_title !== undefined) setOgTitle(patch.og_title);
+    if (patch.og_description !== undefined) setOgDesc(patch.og_description);
+    if (patch.og_image_url !== undefined) setOgImage(patch.og_image_url);
+  };
+
   if (carregando) return <div style={{ padding: 60, textAlign: "center", fontSize: 13, color: "var(--color-text-secondary)" }}>Carregando…</div>;
 
   return (
@@ -174,6 +211,10 @@ export default function PortfolioEditorPage({ params }: { params: Promise<{ id: 
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4, gap: 10, flexWrap: "wrap" }}>
         <h1 style={{ fontSize: 22, fontWeight: 800, color: "var(--color-text-primary)", margin: 0, letterSpacing: "-0.02em" }}>Editar portfólio</h1>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <button onClick={() => setConfigAberto(true)} title="Configurações da página (SEO, redes sociais, modo de exibição)"
+            style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 8, border: "1px solid var(--color-border-secondary)", background: "transparent", fontSize: 12, fontWeight: 600, color: "var(--color-text-primary)", cursor: "pointer" }}>
+            ⚙ Configurações
+          </button>
           <SeloEstado temAlteracoes={estado.temAlteracoes} />
           <BotaoSalvarEstado temAlteracoes={estado.temAlteracoes} salvando={salvando} onClick={() => salvar()} />
         </div>
@@ -196,13 +237,9 @@ export default function PortfolioEditorPage({ params }: { params: Promise<{ id: 
           <input type="checkbox" checked={publicado} onChange={(e) => setPublicado(e.target.checked)} style={{ width: 15, height: 15 }} />
           Publicado
         </label>
-        <details>
-          <summary style={{ fontSize: 12, fontWeight: 600, color: "var(--color-text-secondary)", cursor: "pointer" }}>SEO</summary>
-          <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 10 }}>
-            <input value={seoTitle} onChange={(e) => setSeoTitle(e.target.value)} style={inputStyle} placeholder="SEO title" />
-            <textarea value={seoDesc} onChange={(e) => setSeoDesc(e.target.value)} rows={2} style={{ ...inputStyle, resize: "vertical" }} placeholder="SEO description" />
-          </div>
-        </details>
+        <div style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>
+          SEO, redes sociais e modo de exibição ficam em <button onClick={() => setConfigAberto(true)} style={{ border: "none", background: "transparent", color: "#2563EB", fontWeight: 600, cursor: "pointer", padding: 0, fontSize: 12 }}>⚙ Configurações</button>.
+        </div>
       </div>
 
       <div style={{ marginTop: 30 }}>
@@ -265,6 +302,23 @@ export default function PortfolioEditorPage({ params }: { params: Promise<{ id: 
       </div>
 
       {msg && <div style={{ marginTop: 16, fontSize: 13, fontWeight: 600, color: msg.tipo === "ok" ? "#059669" : "#DC2626" }}>{msg.texto}</div>}
+
+      {configAberto && fotografo && (
+        <ConfigPaginaModal
+          onFechar={() => setConfigAberto(false)}
+          onSalvar={async () => { if (await salvar()) setConfigAberto(false); }}
+          valores={valores}
+          onChange={setValores}
+          recursos={{ exibicao: true }}
+          urlPublica={urlPublica}
+          dominio={dominio}
+          tituloFallback={titulo}
+          descricaoFallback={(portfolio?.descricao ?? "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim() || undefined}
+          imagemFallback={portfolio?.capa_url}
+          fotografoId={fotografo.id}
+          salvando={salvando}
+        />
+      )}
 
       <ModalNaoSalvo
         aberto={estado.modalAberto}

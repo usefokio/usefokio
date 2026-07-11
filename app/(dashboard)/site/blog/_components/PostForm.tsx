@@ -9,6 +9,8 @@ import { uploadFileClient } from "@/lib/storage/uploadClient";
 import { processarImagemEntrega } from "@/lib/imageResize";
 import { SiteRichEditor } from "@/app/(dashboard)/site/_components/SiteRichEditor";
 import { useEditorEstado, SeloEstado, BotaoSalvarEstado, ModalNaoSalvo } from "@/app/(dashboard)/_components/EditorEstado";
+import { ConfigPaginaModal } from "@/app/(dashboard)/site/_components/ConfigPaginaModal";
+import type { ConfigPaginaValores } from "@/lib/site/seo";
 import type { SitePost } from "@/lib/supabase/types";
 
 function slugify(texto: string): string {
@@ -51,16 +53,23 @@ export function PostForm({ postId }: { postId?: string }) {
   const [seoTitle, setSeoTitle] = useState("");
   const [seoDesc, setSeoDesc] = useState("");
   const [seoKw, setSeoKw] = useState("");
+  const [seoNoindex, setSeoNoindex] = useState(false);
+  const [ogTitle, setOgTitle] = useState("");
+  const [ogDesc, setOgDesc] = useState("");
+  const [ogImage, setOgImage] = useState<string | null>(null);
+  const [mostrarData, setMostrarData] = useState(true);
+  const [configAberto, setConfigAberto] = useState(false);
+  const [dominio, setDominio] = useState("seusite.usefokio.com.br");
   const [enviandoCapa, setEnviandoCapa] = useState(false);
   const inputCapaRef = useRef<HTMLInputElement>(null);
 
   // Estado de salvamento claro (regra de sistema) — capa fica de fora (upload persiste na hora)
-  const snapshotAtual = JSON.stringify([titulo, slug, categoria, tags, resumo, corpo, publicado, publicadoEm, seoTitle, seoDesc, seoKw]);
+  const snapshotAtual = JSON.stringify([titulo, slug, categoria, tags, resumo, corpo, publicado, publicadoEm, seoTitle, seoDesc, seoKw, seoNoindex, ogTitle, ogDesc, ogImage, mostrarData]);
   const estado = useEditorEstado(snapshotAtual, "/site/blog");
 
   useEffect(() => {
     if (!editando) {
-      estado.inicializar(JSON.stringify(["", "", "", "", "", "", false, new Date().toISOString().slice(0, 10), "", "", ""]));
+      estado.inicializar(JSON.stringify(["", "", "", "", "", "", false, new Date().toISOString().slice(0, 10), "", "", "", false, "", "", null, true]));
       return;
     }
     if (!fotografo) return;
@@ -76,10 +85,15 @@ export function PostForm({ postId }: { postId?: string }) {
       setPublicadoEm(p.publicado_em ? p.publicado_em.slice(0, 10) : new Date().toISOString().slice(0, 10));
       setCapaUrl(p.capa_url); setLegacyId(p.legacy_id);
       setSeoTitle(p.seo_title ?? ""); setSeoDesc(p.seo_description ?? ""); setSeoKw(p.seo_keywords ?? "");
+      setSeoNoindex(p.seo_noindex); setOgTitle(p.og_title ?? ""); setOgDesc(p.og_description ?? ""); setOgImage(p.og_image_url);
+      setMostrarData(p.mostrar_data);
+      const { data: cfg } = await supabase.from("site_config").select("subdominio, dominio_customizado").eq("fotografo_id", fotografo!.id).maybeSingle();
+      if (cfg) setDominio(cfg.dominio_customizado || (cfg.subdominio ? `${cfg.subdominio}.usefokio.com.br` : "seusite.usefokio.com.br"));
       estado.inicializar(JSON.stringify([
         p.titulo, p.slug, p.categoria ?? "", p.tags ?? "", p.resumo ?? "", p.corpo ?? "", p.publicado,
         p.publicado_em ? p.publicado_em.slice(0, 10) : new Date().toISOString().slice(0, 10),
         p.seo_title ?? "", p.seo_description ?? "", p.seo_keywords ?? "",
+        p.seo_noindex, p.og_title ?? "", p.og_description ?? "", p.og_image_url, p.mostrar_data,
       ]));
       setCarregando(false);
     }
@@ -88,6 +102,24 @@ export function PostForm({ postId }: { postId?: string }) {
   }, [editando, postId, fotografo]);
 
   const urlPublica = useMemo(() => `/post/${legacyId ? `${legacyId}-` : ""}${slug || slugify(titulo)}`, [legacyId, slug, titulo]);
+
+  // Ponte para o modal de Configurações (post: URL + mostrar data + SEO + redes; sem modo de exibição).
+  const valores: ConfigPaginaValores = {
+    slug, mostrar_data: mostrarData, modo_exibicao: "lista",
+    seo_title: seoTitle, seo_description: seoDesc, seo_keywords: seoKw, seo_noindex: seoNoindex,
+    og_title: ogTitle, og_description: ogDesc, og_image_url: ogImage,
+  };
+  const setValores = (patch: Partial<ConfigPaginaValores>) => {
+    if (patch.slug !== undefined) { setSlug(patch.slug); setSlugTocado(true); }
+    if (patch.mostrar_data !== undefined) setMostrarData(patch.mostrar_data);
+    if (patch.seo_title !== undefined) setSeoTitle(patch.seo_title);
+    if (patch.seo_description !== undefined) setSeoDesc(patch.seo_description);
+    if (patch.seo_keywords !== undefined) setSeoKw(patch.seo_keywords);
+    if (patch.seo_noindex !== undefined) setSeoNoindex(patch.seo_noindex);
+    if (patch.og_title !== undefined) setOgTitle(patch.og_title);
+    if (patch.og_description !== undefined) setOgDesc(patch.og_description);
+    if (patch.og_image_url !== undefined) setOgImage(patch.og_image_url);
+  };
 
   async function salvar(): Promise<boolean> {
     if (!fotografo) return false;
@@ -103,6 +135,8 @@ export function PostForm({ postId }: { postId?: string }) {
       capa_url: capaUrl, publicado,
       publicado_em: publicado ? `${publicadoEm}T12:00:00Z` : null,
       seo_title: seoTitle.trim() || null, seo_description: seoDesc.trim() || null, seo_keywords: seoKw.trim() || null,
+      seo_noindex: seoNoindex, og_title: ogTitle.trim() || null, og_description: ogDesc.trim() || null, og_image_url: ogImage,
+      mostrar_data: mostrarData,
       updated_at: new Date().toISOString(),
     };
     if (editando) {
@@ -156,6 +190,12 @@ export function PostForm({ postId }: { postId?: string }) {
           {editando ? "Editar post" : "Novo post"}
         </h1>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          {editando && (
+            <button onClick={() => setConfigAberto(true)} title="Configurações da página (URL, SEO, redes sociais)"
+              style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 8, border: "1px solid var(--color-border-secondary)", background: "transparent", fontSize: 12, fontWeight: 600, color: "var(--color-text-primary)", cursor: "pointer" }}>
+              ⚙ Configurações
+            </button>
+          )}
           {editando && <SeloEstado temAlteracoes={estado.temAlteracoes} />}
           {btnSalvar}
         </div>
@@ -179,12 +219,6 @@ export function PostForm({ postId }: { postId?: string }) {
             <label style={labelStyle}>Tags (separadas por vírgula)</label>
             <input value={tags} onChange={(e) => setTags(e.target.value)} style={inputStyle} placeholder="dicas para noivas, making-of…" />
           </div>
-        </div>
-
-        <div>
-          <label style={labelStyle}>Slug (URL)</label>
-          <input value={slug} onChange={(e) => { setSlug(slugify(e.target.value)); setSlugTocado(true); }} style={{ ...inputStyle, fontFamily: "monospace", fontSize: 12 }} />
-          <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 4, fontFamily: "monospace" }}>{urlPublica}</div>
         </div>
 
         <div>
@@ -222,18 +256,30 @@ export function PostForm({ postId }: { postId?: string }) {
           )}
         </div>
 
-        <details>
-          <summary style={{ fontSize: 12, fontWeight: 600, color: "var(--color-text-secondary)", cursor: "pointer" }}>SEO (título, descrição e palavras-chave)</summary>
-          <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 10 }}>
-            <input value={seoTitle} onChange={(e) => setSeoTitle(e.target.value)} style={inputStyle} placeholder="SEO title (vazio = usa o título)" />
-            <textarea value={seoDesc} onChange={(e) => setSeoDesc(e.target.value)} rows={2} style={{ ...inputStyle, resize: "vertical" }} placeholder="SEO description" />
-            <textarea value={seoKw} onChange={(e) => setSeoKw(e.target.value)} rows={2} style={{ ...inputStyle, resize: "vertical" }} placeholder="Palavras-chave (separadas por vírgula)" />
-          </div>
-        </details>
+        <div style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>
+          URL, SEO e redes sociais ficam em <button onClick={() => setConfigAberto(true)} style={{ border: "none", background: "transparent", color: "#2563EB", fontWeight: 600, cursor: "pointer", padding: 0, fontSize: 12 }}>⚙ Configurações</button>.
+        </div>
       </div>
 
       {msg && <div style={{ marginTop: 16, fontSize: 13, fontWeight: 600, color: msg.tipo === "ok" ? "#059669" : "#DC2626" }}>{msg.texto}</div>}
       <div style={{ marginTop: 20, display: "flex", justifyContent: "flex-end" }}>{btnSalvar}</div>
+
+      {configAberto && fotografo && (
+        <ConfigPaginaModal
+          onFechar={() => setConfigAberto(false)}
+          onSalvar={async () => { if (await salvar() && editando) setConfigAberto(false); }}
+          valores={valores}
+          onChange={setValores}
+          recursos={{ url: true, data: true }}
+          urlPublica={urlPublica}
+          dominio={dominio}
+          tituloFallback={titulo}
+          descricaoFallback={resumo}
+          imagemFallback={capaUrl}
+          fotografoId={fotografo.id}
+          salvando={salvando}
+        />
+      )}
 
       <ModalNaoSalvo
         aberto={estado.modalAberto}

@@ -10,7 +10,9 @@ import { processarImagemEntrega } from "@/lib/imageResize";
 import { SiteRichEditor } from "@/app/(dashboard)/site/_components/SiteRichEditor";
 import { FormularioConfigEditor } from "@/app/(dashboard)/site/_components/FormularioConfigEditor";
 import { useEditorEstado, SeloEstado, BotaoSalvarEstado, ModalNaoSalvo } from "@/app/(dashboard)/_components/EditorEstado";
+import { ConfigPaginaModal } from "@/app/(dashboard)/site/_components/ConfigPaginaModal";
 import { normalizarConfig, type ConfigFormulario } from "@/lib/site/formulario";
+import type { ConfigPaginaValores } from "@/lib/site/seo";
 import type { SitePagina } from "@/lib/supabase/types";
 
 const inputStyle: React.CSSProperties = {
@@ -32,13 +34,22 @@ function PaginasConteudo() {
   const [html, setHtml] = useState("");
   const [imagens, setImagens] = useState<string[]>([]);
   const [formConfig, setFormConfig] = useState<ConfigFormulario>(() => normalizarConfig(null));
+  const [seoTitle, setSeoTitle] = useState("");
+  const [seoDesc, setSeoDesc] = useState("");
+  const [seoKw, setSeoKw] = useState("");
+  const [seoNoindex, setSeoNoindex] = useState(false);
+  const [ogTitle, setOgTitle] = useState("");
+  const [ogDesc, setOgDesc] = useState("");
+  const [ogImage, setOgImage] = useState<string | null>(null);
+  const [configAberto, setConfigAberto] = useState(false);
+  const [dominio, setDominio] = useState("seusite.usefokio.com.br");
   const [enviandoFoto, setEnviandoFoto] = useState(false);
   const [salvando, setSalvando] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const inputFotoRef = useRef<HTMLInputElement>(null);
 
   // Estado de salvamento claro (regra de sistema) — dirty só enquanto uma página está em edição
-  const snapshotAtual = editando ? JSON.stringify([editando.id, titulo, html, imagens, formConfig]) : "idle";
+  const snapshotAtual = editando ? JSON.stringify([editando.id, titulo, html, imagens, formConfig, seoTitle, seoDesc, seoKw, seoNoindex, ogTitle, ogDesc, ogImage]) : "idle";
   const estado = useEditorEstado(snapshotAtual, "/site");
 
   useEffect(() => {
@@ -46,6 +57,8 @@ function PaginasConteudo() {
     const supabase = createClient();
     supabase.from("site_paginas").select("*").eq("fotografo_id", fotografo.id).order("slug")
       .then(({ data }) => { setPaginas((data as SitePagina[]) ?? []); estado.inicializar("idle"); setLoading(false); });
+    supabase.from("site_config").select("subdominio, dominio_customizado").eq("fotografo_id", fotografo.id).maybeSingle()
+      .then(({ data }) => { if (data) setDominio(data.dominio_customizado || (data.subdominio ? `${data.subdominio}.usefokio.com.br` : "seusite.usefokio.com.br")); });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fotografo]);
 
@@ -58,7 +71,9 @@ function PaginasConteudo() {
     setImagens(imgs);
     const cfg = normalizarConfig(c.formulario);
     setFormConfig(cfg);
-    estado.inicializar(JSON.stringify([p.id, p.titulo, c.html ?? "", imgs, cfg]));
+    setSeoTitle(p.seo_title ?? ""); setSeoDesc(p.seo_description ?? ""); setSeoKw(p.seo_keywords ?? "");
+    setSeoNoindex(p.seo_noindex); setOgTitle(p.og_title ?? ""); setOgDesc(p.og_description ?? ""); setOgImage(p.og_image_url);
+    estado.inicializar(JSON.stringify([p.id, p.titulo, c.html ?? "", imgs, cfg, p.seo_title ?? "", p.seo_description ?? "", p.seo_keywords ?? "", p.seo_noindex, p.og_title ?? "", p.og_description ?? "", p.og_image_url]));
     setMsg(null);
   }
 
@@ -99,18 +114,39 @@ function PaginasConteudo() {
     const conteudoAtual = (editando.conteudo ?? {}) as Conteudo;
     const novoConteudo: Conteudo = { ...conteudoAtual, html: html.replace(/<p>\s*<\/p>/g, "").trim() || null, imagens };
     if (editando.slug === "contato") novoConteudo.formulario = formConfig;
+    const camposSeo = {
+      seo_title: seoTitle.trim() || null, seo_description: seoDesc.trim() || null, seo_keywords: seoKw.trim() || null,
+      seo_noindex: seoNoindex, og_title: ogTitle.trim() || null, og_description: ogDesc.trim() || null, og_image_url: ogImage,
+    };
     const { error } = await supabase.from("site_paginas").update({
       titulo: titulo.trim() || editando.titulo,
       conteudo: novoConteudo,
+      ...camposSeo,
       updated_at: new Date().toISOString(),
     }).eq("id", editando.id);
     setSalvando(false);
     if (error) { setMsg("Erro: " + error.message); return false; }
-    setPaginas((prev) => prev.map((p) => p.id === editando.id ? { ...p, titulo, conteudo: novoConteudo } : p));
+    setPaginas((prev) => prev.map((p) => p.id === editando.id ? { ...p, titulo, conteudo: novoConteudo, ...camposSeo } : p));
     estado.marcarSalvo(snapshotAtual);
     setMsg("Página salva!");
     return true;
   }
+
+  // Ponte para o modal de Configurações (páginas: só SEO + redes; slug institucional não é editável).
+  const valores: ConfigPaginaValores = {
+    slug: editando?.slug ?? "", mostrar_data: false, modo_exibicao: "lista",
+    seo_title: seoTitle, seo_description: seoDesc, seo_keywords: seoKw, seo_noindex: seoNoindex,
+    og_title: ogTitle, og_description: ogDesc, og_image_url: ogImage,
+  };
+  const setValores = (patch: Partial<ConfigPaginaValores>) => {
+    if (patch.seo_title !== undefined) setSeoTitle(patch.seo_title);
+    if (patch.seo_description !== undefined) setSeoDesc(patch.seo_description);
+    if (patch.seo_keywords !== undefined) setSeoKw(patch.seo_keywords);
+    if (patch.seo_noindex !== undefined) setSeoNoindex(patch.seo_noindex);
+    if (patch.og_title !== undefined) setOgTitle(patch.og_title);
+    if (patch.og_description !== undefined) setOgDesc(patch.og_description);
+    if (patch.og_image_url !== undefined) setOgImage(patch.og_image_url);
+  };
 
   return (
     <div style={{ maxWidth: 900, margin: "0 auto", padding: "40px 24px" }}>
@@ -145,7 +181,13 @@ function PaginasConteudo() {
             <button onClick={voltarParaLista} style={{ border: "none", background: "transparent", color: "var(--color-text-secondary)", fontSize: 12, cursor: "pointer", padding: 0 }}>
               ← Voltar para a lista
             </button>
-            <SeloEstado temAlteracoes={estado.temAlteracoes} />
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <button onClick={() => setConfigAberto(true)} title="Configurações da página (SEO, redes sociais)"
+                style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 12px", borderRadius: 8, border: "1px solid var(--color-border-secondary)", background: "transparent", fontSize: 12, fontWeight: 600, color: "var(--color-text-primary)", cursor: "pointer" }}>
+                ⚙ Configurações
+              </button>
+              <SeloEstado temAlteracoes={estado.temAlteracoes} />
+            </div>
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             <div>
@@ -194,6 +236,23 @@ function PaginasConteudo() {
             </div>
           </div>
         </div>
+      )}
+
+      {configAberto && fotografo && editando && (
+        <ConfigPaginaModal
+          onFechar={() => setConfigAberto(false)}
+          onSalvar={async () => { if (await salvar()) setConfigAberto(false); }}
+          valores={valores}
+          onChange={setValores}
+          recursos={{}}
+          urlPublica={`/${editando.slug}`}
+          dominio={dominio}
+          tituloFallback={titulo}
+          descricaoFallback={html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim()}
+          imagemFallback={imagens[0] ?? null}
+          fotografoId={fotografo.id}
+          salvando={salvando}
+        />
       )}
 
       <ModalNaoSalvo
