@@ -266,6 +266,12 @@ export function TrabalhoForm({ trabalhoId }: { trabalhoId?: string }) {
         </h1>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           {editando && (
+            <a href={`/sites/${fotografo?.id ?? ""}${urlPublica}`} target="_blank" rel="noopener noreferrer" title="Abrir esta página no site (nova aba)"
+              style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 8, border: "1px solid var(--color-border-secondary)", background: "transparent", fontSize: 12, fontWeight: 600, color: "var(--color-text-primary)", cursor: "pointer", textDecoration: "none" }}>
+              Ver no site ↗
+            </a>
+          )}
+          {editando && (
             <button onClick={() => setConfigAberto(true)} title="Configurações da página (URL, SEO, redes sociais, exibição)"
               style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 8, border: "1px solid var(--color-border-secondary)", background: "transparent", fontSize: 12, fontWeight: 600, color: "var(--color-text-primary)", cursor: "pointer" }}>
               ⚙ Configurações
@@ -319,9 +325,6 @@ export function TrabalhoForm({ trabalhoId }: { trabalhoId?: string }) {
           </label>
         </div>
 
-        <div style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>
-          URL, SEO, redes sociais e modo de exibição ficam em <button onClick={() => setConfigAberto(true)} style={{ border: "none", background: "transparent", color: "#2563EB", fontWeight: 600, cursor: "pointer", padding: 0, fontSize: 12 }}>⚙ Configurações</button>.
-        </div>
       </div>
 
       {editando && (

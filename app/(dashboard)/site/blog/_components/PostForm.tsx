@@ -256,9 +256,6 @@ export function PostForm({ postId }: { postId?: string }) {
           )}
         </div>
 
-        <div style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>
-          URL, SEO e redes sociais ficam em <button onClick={() => setConfigAberto(true)} style={{ border: "none", background: "transparent", color: "#2563EB", fontWeight: 600, cursor: "pointer", padding: 0, fontSize: 12 }}>⚙ Configurações</button>.
-        </div>
       </div>
 
       {msg && <div style={{ marginTop: 16, fontSize: 13, fontWeight: 600, color: msg.tipo === "ok" ? "#059669" : "#DC2626" }}>{msg.texto}</div>}

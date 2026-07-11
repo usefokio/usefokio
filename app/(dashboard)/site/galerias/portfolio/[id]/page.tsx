@@ -211,6 +211,10 @@ export default function PortfolioEditorPage({ params }: { params: Promise<{ id: 
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4, gap: 10, flexWrap: "wrap" }}>
         <h1 style={{ fontSize: 22, fontWeight: 800, color: "var(--color-text-primary)", margin: 0, letterSpacing: "-0.02em" }}>Editar portfólio</h1>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <a href={`/sites/${fotografo?.id ?? ""}${urlPublica}`} target="_blank" rel="noopener noreferrer" title="Abrir este portfólio no site (nova aba)"
+            style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 8, border: "1px solid var(--color-border-secondary)", background: "transparent", fontSize: 12, fontWeight: 600, color: "var(--color-text-primary)", cursor: "pointer", textDecoration: "none" }}>
+            Ver no site ↗
+          </a>
           <button onClick={() => setConfigAberto(true)} title="Configurações da página (SEO, redes sociais, modo de exibição)"
             style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 8, border: "1px solid var(--color-border-secondary)", background: "transparent", fontSize: 12, fontWeight: 600, color: "var(--color-text-primary)", cursor: "pointer" }}>
             ⚙ Configurações
@@ -237,9 +241,6 @@ export default function PortfolioEditorPage({ params }: { params: Promise<{ id: 
           <input type="checkbox" checked={publicado} onChange={(e) => setPublicado(e.target.checked)} style={{ width: 15, height: 15 }} />
           Publicado
         </label>
-        <div style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>
-          SEO, redes sociais e modo de exibição ficam em <button onClick={() => setConfigAberto(true)} style={{ border: "none", background: "transparent", color: "#2563EB", fontWeight: 600, cursor: "pointer", padding: 0, fontSize: 12 }}>⚙ Configurações</button>.
-        </div>
       </div>
 
       <div style={{ marginTop: 30 }}>
