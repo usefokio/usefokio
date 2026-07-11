@@ -10,7 +10,7 @@ import { inputStyle } from "@/lib/styles";
 import { ClienteSelect } from "@/components/ui/ClienteSelect";
 import { ComboSelect } from "@/components/ui/ComboSelect";
 import { ProdutoSearch } from "@/components/ui/ProdutoSearch";
-import type { CrmOrder, CrmProduct, Cliente } from "@/lib/supabase/types";
+import type { CrmOrder, CrmProduct, Cliente, CrmPedidoCategoria } from "@/lib/supabase/types";
 
 // ── Tipos locais ──────────────────────────────────────────────────────────────
 
@@ -143,6 +143,9 @@ export default function FormPedido({ inicial, onSalvo }: Props) {
   const [produtos,     setProdutos]     = useState<CrmProduct[]>([]);
   const [itens,        setItens]        = useState<ItemPedido[]>([]);
 
+  // Categorias de pedido configuráveis (com flags pede_data/pede_local/pede_horario)
+  const [pedCats,      setPedCats]      = useState<CrmPedidoCategoria[]>([]);
+
   // Modal de produto
   const [modalProd,     setModalProd]     = useState<CrmProduct | null>(null);
   const [modalDescricao, setModalDescricao] = useState("");
@@ -191,6 +194,25 @@ export default function FormPedido({ inicial, onSalvo }: Props) {
       });
     }
   }, [fid, inicial?.id, isEditing]);
+
+  // Categorias de pedido (para o combo e as flags de quais campos aparecem)
+  useEffect(() => {
+    if (!fid) return;
+    createClient().from("crm_pedido_categorias").select("*").eq("fotografo_id", fid).eq("ativo", true).order("ordem")
+      .then(({ data }) => setPedCats((data ?? []) as CrmPedidoCategoria[]));
+  }, [fid]);
+
+  // Opções do combo (fallback à lista fixa se ainda não houver categorias configuradas)
+  const catOptions = pedCats.length > 0
+    ? pedCats.map((c) => ({ id: c.nome, label: c.nome }))
+    : CATEGORIAS_PADRAO.map((c) => ({ id: c, label: c }));
+  // Flags da categoria selecionada (default tudo true = mostra todos os campos)
+  const catAtual = pedCats.find((c) => c.nome === form.categoria);
+  const flags = {
+    pede_data:    catAtual ? catAtual.pede_data : true,
+    pede_local:   catAtual ? catAtual.pede_local : true,
+    pede_horario: catAtual ? catAtual.pede_horario : true,
+  };
 
   // ── Helpers de UI ───────────────────────────────────────────────────────────
   const upd = (k: keyof FormData, v: string) => setForm(f => ({ ...f, [k]: v }));
@@ -355,12 +377,12 @@ export default function FormPedido({ inicial, onSalvo }: Props) {
       discount:        parseMoney(form.discount),
       other_expenses:  parseMoney(form.other_expenses),
       payment_method:  planos.length > 0 ? (planos[0].forma || null) : null,
-      data_evento:     form.data_evento || null,
-      hora_evento:     form.hora_evento.trim() || null,
-      local_evento:    form.local_evento.trim() || null,
+      data_evento:     flags.pede_data ? (form.data_evento || null) : null,
+      hora_evento:     flags.pede_horario ? (form.hora_evento.trim() || null) : null,
+      local_evento:    flags.pede_local ? (form.local_evento.trim() || null) : null,
       convidados:      form.convidados ? parseInt(form.convidados) || null : null,
-      local_cerimonia: form.local_cerimonia.trim() || null,
-      local_recepcao:  form.local_recepcao.trim() || null,
+      local_cerimonia: flags.pede_local ? (form.local_cerimonia.trim() || null) : null,
+      local_recepcao:  flags.pede_local ? (form.local_recepcao.trim() || null) : null,
       data_entrega:    null,
       observacoes:     form.observacoes.trim() || null,
       updated_at:      new Date().toISOString(),
@@ -368,7 +390,7 @@ export default function FormPedido({ inicial, onSalvo }: Props) {
     };
 
     const dataEventoAnterior = inicial?.data_evento ?? null;
-    const dataEventoNova = form.data_evento || null;
+    const dataEventoNova = flags.pede_data ? (form.data_evento || null) : null;
     let agendaAtualizado = false;
 
     let id = inicial?.id;
@@ -560,7 +582,7 @@ export default function FormPedido({ inicial, onSalvo }: Props) {
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
           <Field label="Categoria">
             <ComboSelect
-              options={CATEGORIAS_PADRAO.map(c => ({ id: c, label: c }))}
+              options={catOptions}
               value={form.categoria}
               onChange={v => upd("categoria", v)}
               placeholder="Selecionar categoria…"
@@ -580,30 +602,45 @@ export default function FormPedido({ inicial, onSalvo }: Props) {
             />
           </Field>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14 }}>
-          <Field label="Data do evento">
-            <input type="date" value={form.data_evento} onChange={e => upd("data_evento", e.target.value)} style={inputStyle} />
-          </Field>
-          <Field label="Horário">
-            <input value={form.hora_evento} onChange={e => upd("hora_evento", e.target.value)} placeholder="Ex: 16h" style={inputStyle} />
-          </Field>
-          <Field label="Convidados">
-            <input type="number" min="0" value={form.convidados} onChange={e => upd("convidados", e.target.value)} placeholder="Ex: 150" style={inputStyle} />
-          </Field>
-        </div>
-        {(form.categoria.toLowerCase().includes("casamento") || form.categoria === "Bodas") ? (
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-            <Field label="Local da cerimônia">
-              <input value={form.local_cerimonia} onChange={e => upd("local_cerimonia", e.target.value)} placeholder="Ex: Igreja São Francisco" style={inputStyle} />
-            </Field>
-            <Field label="Local da recepção">
-              <input value={form.local_recepcao} onChange={e => upd("local_recepcao", e.target.value)} placeholder="Ex: Clube Náutico" style={inputStyle} />
-            </Field>
+        {/* Data / Horário conforme as flags da categoria; Convidados sempre (adapta a largura) */}
+        {(flags.pede_data || flags.pede_horario) && (
+          <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
+            {flags.pede_data && (
+              <div style={{ flex: "1 1 160px" }}>
+                <Field label="Data do evento">
+                  <input type="date" value={form.data_evento} onChange={e => upd("data_evento", e.target.value)} style={inputStyle} />
+                </Field>
+              </div>
+            )}
+            {flags.pede_horario && (
+              <div style={{ flex: "1 1 160px" }}>
+                <Field label="Horário">
+                  <input value={form.hora_evento} onChange={e => upd("hora_evento", e.target.value)} placeholder="Ex: 16h" style={inputStyle} />
+                </Field>
+              </div>
+            )}
+            <div style={{ flex: "1 1 160px" }}>
+              <Field label="Convidados">
+                <input type="number" min="0" value={form.convidados} onChange={e => upd("convidados", e.target.value)} placeholder="Ex: 150" style={inputStyle} />
+              </Field>
+            </div>
           </div>
-        ) : (
-          <Field label="Local do evento">
-            <input value={form.local_evento} onChange={e => upd("local_evento", e.target.value)} placeholder="Ex: Espaço Villa dos Sonhos" style={inputStyle} />
-          </Field>
+        )}
+        {flags.pede_local && (
+          (form.categoria.toLowerCase().includes("casamento") || form.categoria === "Bodas") ? (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+              <Field label="Local da cerimônia">
+                <input value={form.local_cerimonia} onChange={e => upd("local_cerimonia", e.target.value)} placeholder="Ex: Igreja São Francisco" style={inputStyle} />
+              </Field>
+              <Field label="Local da recepção">
+                <input value={form.local_recepcao} onChange={e => upd("local_recepcao", e.target.value)} placeholder="Ex: Clube Náutico" style={inputStyle} />
+              </Field>
+            </div>
+          ) : (
+            <Field label="Local do evento">
+              <input value={form.local_evento} onChange={e => upd("local_evento", e.target.value)} placeholder="Ex: Espaço Villa dos Sonhos" style={inputStyle} />
+            </Field>
+          )
         )}
       </div>
 

@@ -762,6 +762,19 @@ export type CrmOportunidadeCategoria = {
   ativo: boolean;
 };
 
+// Categorias de PEDIDO configuráveis, com flags de quais campos a categoria pede.
+export type CrmPedidoCategoria = {
+  id: string;
+  fotografo_id: string;
+  nome: string;
+  ordem: number;
+  ativo: boolean;
+  pede_data: boolean;
+  pede_local: boolean;
+  pede_horario: boolean;
+  created_at: string;
+};
+
 export type CrmOportunidadeStatus = {
   id: string;
   fotografo_id: string;

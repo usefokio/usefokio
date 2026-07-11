@@ -5,8 +5,9 @@ import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import type { CrmProductCategory, CrmChartOfAccount, CrmOportunidadeStatus, CrmFunnel, CrmFunnelStage, CrmAgendamentoCategoria } from "@/lib/supabase/types";
 import { AbaContratos } from "./_components/AbaContratos";
+import { AbaPedidoCategorias } from "./_components/AbaPedidoCategorias";
 
-type Tab = "produtos" | "plano" | "canais" | "opp_cats" | "status" | "funis" | "agenda_cats" | "email" | "contratos" | "notificacoes";
+type Tab = "produtos" | "plano" | "canais" | "opp_cats" | "pedido_cats" | "status" | "funis" | "agenda_cats" | "email" | "contratos" | "notificacoes";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -1163,6 +1164,7 @@ export default function CrmConfigPage() {
       <div style={{ display: "flex", gap: 4, marginBottom: 28, background: "var(--color-background-secondary)", borderRadius: 9, padding: 4, width: "fit-content" }}>
         <button style={TAB_ST(tab === "funis")} onClick={() => setTab("funis")}>🔀 Funis</button>
         <button style={TAB_ST(tab === "opp_cats")} onClick={() => setTab("opp_cats")}>🎯 Categorias</button>
+        <button style={TAB_ST(tab === "pedido_cats")} onClick={() => setTab("pedido_cats")}>🧾 Cat. de Pedido</button>
         <button style={TAB_ST(tab === "canais")} onClick={() => setTab("canais")}>📍 Canais de Origem</button>
         <button style={TAB_ST(tab === "status")} onClick={() => setTab("status")}>📋 Status</button>
         <button style={TAB_ST(tab === "produtos")} onClick={() => setTab("produtos")}>🏷 Cat. Produtos</button>
@@ -1186,6 +1188,11 @@ export default function CrmConfigPage() {
           descricao="Categorias exclusivas para as oportunidades do CRM (ex: Casamento, Ensaio, Evento)."
           placeholder="Nome da nova categoria…"
         />
+      )}
+
+      {/* ── Categorias de Pedido (com flags data/local/horário) ── */}
+      {tab === "pedido_cats" && fotografo && (
+        <AbaPedidoCategorias fotografoId={fotografo.id} />
       )}
 
       {/* ── Canais de Origem ── */}
