@@ -31,7 +31,7 @@ export default function ProdutosPage() {
   const [pageSize, setPageSize] = usePersistState<25|50|100>("produtos:pageSize", 50);
   const [busca,         setBusca]         = usePersistState("produtos:busca",         "");
   const [categFiltro,   setCategFiltro]   = usePersistState("produtos:categFiltro",   "");
-  const [somenteAtivos, setSomenteAtivos] = usePersistState("produtos:somenteAtivos", true);
+  const [somenteAtivos, setSomenteAtivos] = usePersistState("produtos:soAtivos", false);
   const [sortCol, setSortCol] = usePersistState("produtos:sortCol", "nome");
   const [sortDir, setSortDir] = usePersistState<"asc" | "desc">("produtos:sortDir", "asc");
   const toggleSort = (col: string) => {
@@ -93,15 +93,18 @@ export default function ProdutosPage() {
 
   const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
+  // Ativa/desativa na hora, sem recarregar a lista (update otimista) — o produto NÃO some.
   const toggleAtivo = async (p: CrmProduct) => {
-    await createClient().from("crm_products").update({ ativo: !p.ativo }).eq("id", p.id);
-    carregar();
+    const novo = !p.ativo;
+    setProdutos((prev) => prev.map((x) => x.id === p.id ? { ...x, ativo: novo } : x));
+    const { error } = await createClient().from("crm_products").update({ ativo: novo }).eq("id", p.id);
+    if (error) setProdutos((prev) => prev.map((x) => x.id === p.id ? { ...x, ativo: p.ativo } : x)); // reverte se falhar
   };
 
   const excluir = async (id: string) => {
     if (!confirm("Excluir produto?")) return;
+    setProdutos((prev) => prev.filter((x) => x.id !== id));
     await createClient().from("crm_products").delete().eq("id", id);
-    carregar();
   };
 
   return (
@@ -199,14 +202,13 @@ export default function ProdutosPage() {
                     </td>
                   )}
                   <td style={{ padding: "10px 14px" }}>
-                    <span
-                      onClick={() => toggleAtivo(p)}
-                      style={{ fontSize: 11, fontWeight: 600, padding: "3px 8px", borderRadius: 10, cursor: "pointer",
-                        background: p.ativo ? "rgba(34,197,94,0.1)" : "rgba(156,163,175,0.15)",
-                        color: p.ativo ? "#16a34a" : "var(--color-text-secondary)" }}
-                    >
-                      {p.ativo ? "Ativo" : "Inativo"}
-                    </span>
+                    <label title={p.ativo ? "Ativo — desmarque para desativar" : "Inativo — marque para ativar"}
+                      style={{ display: "inline-flex", alignItems: "center", gap: 7, cursor: "pointer", userSelect: "none" }}>
+                      <input type="checkbox" checked={p.ativo} onChange={() => toggleAtivo(p)} style={{ accentColor: "#16a34a", cursor: "pointer", width: 15, height: 15 }} />
+                      <span style={{ fontSize: 11, fontWeight: 600, color: p.ativo ? "#16a34a" : "var(--color-text-secondary)" }}>
+                        {p.ativo ? "Ativo" : "Inativo"}
+                      </span>
+                    </label>
                   </td>
                   <td style={{ padding: "10px 14px" }}>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 5 }}>

@@ -49,7 +49,7 @@ export function FormProduto({ produto }: Props) {
   const [descricao,     setDescricao]     = useState(produto?.descricao     ?? "");
   const [tagsInput,     setTagsInput]     = useState(produto?.tags?.join(", ") ?? "");
   const [pacote,        setPacote]        = useState(produto?.pacote        ?? false);
-  const [preco,         setPreco]         = useState(produto ? String(produto.preco) : "");
+  const [preco,         setPreco]         = useState(produto ? formatNum(produto.preco) : "");
   const [contaVendas,   setContaVendas]   = useState(produto?.conta_vendas_id ?? "");
   const [ativo,         setAtivo]         = useState(produto?.ativo         ?? true);
   // Campos custos
@@ -323,8 +323,10 @@ export function FormProduto({ produto }: Props) {
               <div style={{ position: "relative" }}>
                 <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", fontSize: 13, color: "var(--color-text-secondary)" }}>R$</span>
                 <input
+                  type="text"
+                  inputMode="decimal"
                   value={preco}
-                  onChange={(e) => setPreco(e.target.value)}
+                  onChange={(e) => setPreco(mascaraValor(e.target.value))}
                   placeholder="0,00"
                   style={{ ...inputStyle, paddingLeft: 32 }}
                 />
