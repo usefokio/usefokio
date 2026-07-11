@@ -141,6 +141,19 @@ a {
   .site-foto-coracao { font-size: 40px; }
 }
 
+/* Proteção de imagem (deterrência) no site público: evita arrastar-para-baixar e o long-press
+   "salvar imagem" no iOS. O bloqueio do menu de contexto/arrastar vem do componente ProtecaoImagem. */
+.site-root img { -webkit-user-drag: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+/* Impressão: esconde o site e mostra só um aviso (dificulta "imprimir/salvar como PDF" as fotos) */
+.print-bloqueio { display: none; }
+@media print {
+  .site-root { display: none !important; }
+  .print-bloqueio {
+    display: flex !important; position: fixed; inset: 0; align-items: center; justify-content: center;
+    text-align: center; padding: 40px; font-size: 16px; color: #000; background: #fff;
+  }
+}
+
 /* Galeria de fotos do trabalho/portfólio — modos de exibição (Configurações → Geral) */
 .site-galeria-lista { display: flex; flex-direction: column; gap: 14px; }
 .site-galeria-lista .site-foto img { width: 100%; height: auto; display: block; }

@@ -9,6 +9,7 @@ import { getTema, temaCssVars } from "@/lib/site/temas";
 import { normalizarDesign, getPar, type BarraConfig } from "@/lib/site/design";
 import { classesFontes, FONTE_VAR } from "./_fontes";
 import { SiteHeader } from "./_components/SiteHeader";
+import { ProtecaoImagem } from "./_components/ProtecaoImagem";
 
 // Fundo de uma barra (header/rodapé): cor própria (ou a do tema) + opacidade (transparência).
 function fundoBarra(b: BarraConfig, corTema: string): string {
@@ -129,6 +130,7 @@ export default async function SitePublicoLayout({ children, params }: { children
   ];
 
   return (
+    <>
     <div
       className={`site-root ${classesFontes}`}
       style={{
@@ -143,6 +145,7 @@ export default async function SitePublicoLayout({ children, params }: { children
         flexDirection: "column",
       } as React.CSSProperties}
     >
+      <ProtecaoImagem />
       <ScriptsRastreamento analytics={config?.analytics_head ?? null} pixel={config?.facebook_pixel ?? null} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
@@ -177,5 +180,8 @@ export default async function SitePublicoLayout({ children, params }: { children
         </div>
       </footer>
     </div>
+    {/* Aviso exibido só na impressão (o resto do site fica oculto via @media print) */}
+    <div className="print-bloqueio" aria-hidden>Conteúdo protegido — impressão desabilitada.</div>
+    </>
   );
 }
