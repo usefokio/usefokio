@@ -418,6 +418,10 @@ export type SiteTrabalho = {
   seo_title: string | null;
   seo_description: string | null;
   seo_keywords: string | null;
+  seo_noindex: boolean;
+  og_title: string | null;
+  og_description: string | null;
+  og_image_url: string | null;
   views: number;
   likes: number;
   created_at: string;
@@ -450,9 +454,14 @@ export type SitePortfolio = {
   descricao: string | null;
   ordem: number;
   publicado: boolean;
+  modo_exibicao: string; // lista | slideshow | grid-vertical | grid-horizontal
   seo_title: string | null;
   seo_description: string | null;
   seo_keywords: string | null;
+  seo_noindex: boolean;
+  og_title: string | null;
+  og_description: string | null;
+  og_image_url: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -483,9 +492,14 @@ export type SitePost = {
   ordem: number;
   publicado: boolean;
   publicado_em: string | null;
+  mostrar_data: boolean;
   seo_title: string | null;
   seo_description: string | null;
   seo_keywords: string | null;
+  seo_noindex: boolean;
+  og_title: string | null;
+  og_description: string | null;
+  og_image_url: string | null;
   views: number;
   created_at: string;
   updated_at: string;
@@ -534,6 +548,11 @@ export type SitePagina = {
   publicado: boolean;
   seo_title: string | null;
   seo_description: string | null;
+  seo_keywords: string | null;
+  seo_noindex: boolean;
+  og_title: string | null;
+  og_description: string | null;
+  og_image_url: string | null;
   created_at: string;
   updated_at: string;
 };

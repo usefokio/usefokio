@@ -11,6 +11,8 @@ import { deleteFilesClient } from "@/lib/storage/deleteClient";
 import { processarImagemEntrega } from "@/lib/imageResize";
 import { RichTextEditor } from "@/app/(dashboard)/crm/_components/RichTextEditor";
 import { useEditorEstado, SeloEstado, BotaoSalvarEstado, ModalNaoSalvo } from "@/app/(dashboard)/_components/EditorEstado";
+import { ConfigPaginaModal } from "@/app/(dashboard)/site/_components/ConfigPaginaModal";
+import type { ConfigPaginaValores } from "@/lib/site/seo";
 import type { SiteTrabalho, SiteTrabalhoFoto } from "@/lib/supabase/types";
 
 const CATEGORIAS_BASE = [
@@ -61,6 +63,15 @@ export function TrabalhoForm({ trabalhoId }: { trabalhoId?: string }) {
   const [destaqueHome, setDestaqueHome] = useState(false);
   const [seoTitle, setSeoTitle]     = useState("");
   const [seoDesc, setSeoDesc]       = useState("");
+  const [seoKeywords, setSeoKeywords] = useState("");
+  const [seoNoindex, setSeoNoindex]   = useState(false);
+  const [ogTitle, setOgTitle]         = useState("");
+  const [ogDesc, setOgDesc]           = useState("");
+  const [ogImage, setOgImage]         = useState<string | null>(null);
+  const [mostrarData, setMostrarData] = useState(true);
+  const [modoExibicao, setModoExibicao] = useState("lista");
+  const [configAberto, setConfigAberto] = useState(false);
+  const [dominio, setDominio]         = useState("seusite.usefokio.com.br");
   const [capaUrl, setCapaUrl]       = useState<string | null>(null);
   const [legacyId, setLegacyId]     = useState<number | null>(null);
 
@@ -69,13 +80,13 @@ export function TrabalhoForm({ trabalhoId }: { trabalhoId?: string }) {
   const inputFileRef                = useRef<HTMLInputElement>(null);
 
   // Estado de salvamento claro (regra de sistema) — fotos ficam de fora (persistem na hora)
-  const snapshotAtual = JSON.stringify([titulo, categoria, slug, descricao, localEvento, dataEvento, publicado, destaqueHome, seoTitle, seoDesc]);
+  const snapshotAtual = JSON.stringify([titulo, categoria, slug, descricao, localEvento, dataEvento, publicado, destaqueHome, seoTitle, seoDesc, seoKeywords, seoNoindex, ogTitle, ogDesc, ogImage, mostrarData, modoExibicao]);
   const estado = useEditorEstado(snapshotAtual, "/site/galerias");
 
   useEffect(() => {
     if (!editando) {
       // Novo trabalho: baseline = formulário vazio (dirty quando algo for preenchido)
-      estado.inicializar(JSON.stringify(["", "casamentos", "", "", "", "", true, false, "", ""]));
+      estado.inicializar(JSON.stringify(["", "casamentos", "", "", "", "", true, false, "", "", "", false, "", "", null, true, "lista"]));
       return;
     }
     if (!fotografo) return;
@@ -88,12 +99,20 @@ export function TrabalhoForm({ trabalhoId }: { trabalhoId?: string }) {
       setDescricao(trab.descricao ?? ""); setLocalEvento(trab.local ?? ""); setDataEvento(trab.data_evento ?? "");
       setPublicado(trab.publicado); setDestaqueHome(trab.destaque_home);
       setSeoTitle(trab.seo_title ?? ""); setSeoDesc(trab.seo_description ?? "");
+      setSeoKeywords(trab.seo_keywords ?? ""); setSeoNoindex(trab.seo_noindex);
+      setOgTitle(trab.og_title ?? ""); setOgDesc(trab.og_description ?? ""); setOgImage(trab.og_image_url);
+      setMostrarData(trab.mostrar_data); setModoExibicao(trab.modo_exibicao || "lista");
       setCapaUrl(trab.capa_url); setLegacyId(trab.legacy_id);
+      // Domínio do site (para as prévias do modal de configurações)
+      const { data: cfg } = await supabase.from("site_config").select("subdominio, dominio_customizado").eq("fotografo_id", fotografo!.id).maybeSingle();
+      if (cfg) setDominio(cfg.dominio_customizado || (cfg.subdominio ? `${cfg.subdominio}.usefokio.com.br` : "seusite.usefokio.com.br"));
       const { data: fts } = await supabase.from("site_trabalho_fotos").select("*").eq("trabalho_id", trabalhoId!).order("ordem");
       setFotos((fts as SiteTrabalhoFoto[]) ?? []);
       estado.inicializar(JSON.stringify([
         trab.titulo, trab.categoria, trab.slug, trab.descricao ?? "", trab.local ?? "", trab.data_evento ?? "",
         trab.publicado, trab.destaque_home, trab.seo_title ?? "", trab.seo_description ?? "",
+        trab.seo_keywords ?? "", trab.seo_noindex, trab.og_title ?? "", trab.og_description ?? "", trab.og_image_url,
+        trab.mostrar_data, trab.modo_exibicao || "lista",
       ]));
       setCarregando(false);
     }
@@ -105,6 +124,25 @@ export function TrabalhoForm({ trabalhoId }: { trabalhoId?: string }) {
     const idPart = legacyId ? `${legacyId}-` : "";
     return `/portfolio/${categoria}/${idPart}${slug || slugify(titulo)}`;
   }, [categoria, legacyId, slug, titulo]);
+
+  // Ponte para o modal de Configurações (SEO/redes/exibição): objeto controlado + despacho por campo.
+  const valores: ConfigPaginaValores = {
+    slug, mostrar_data: mostrarData, modo_exibicao: modoExibicao,
+    seo_title: seoTitle, seo_description: seoDesc, seo_keywords: seoKeywords, seo_noindex: seoNoindex,
+    og_title: ogTitle, og_description: ogDesc, og_image_url: ogImage,
+  };
+  const setValores = (patch: Partial<ConfigPaginaValores>) => {
+    if (patch.slug !== undefined) { setSlug(patch.slug); setSlugTocado(true); }
+    if (patch.mostrar_data !== undefined) setMostrarData(patch.mostrar_data);
+    if (patch.modo_exibicao !== undefined) setModoExibicao(patch.modo_exibicao);
+    if (patch.seo_title !== undefined) setSeoTitle(patch.seo_title);
+    if (patch.seo_description !== undefined) setSeoDesc(patch.seo_description);
+    if (patch.seo_keywords !== undefined) setSeoKeywords(patch.seo_keywords);
+    if (patch.seo_noindex !== undefined) setSeoNoindex(patch.seo_noindex);
+    if (patch.og_title !== undefined) setOgTitle(patch.og_title);
+    if (patch.og_description !== undefined) setOgDesc(patch.og_description);
+    if (patch.og_image_url !== undefined) setOgImage(patch.og_image_url);
+  };
 
   async function salvar(): Promise<boolean> {
     if (!fotografo) return false;
@@ -119,6 +157,9 @@ export function TrabalhoForm({ trabalhoId }: { trabalhoId?: string }) {
       descricao: descLimpa || null, local: localEvento.trim() || null, data_evento: dataEvento || null,
       publicado, destaque_home: destaqueHome,
       seo_title: seoTitle.trim() || null, seo_description: seoDesc.trim() || null,
+      seo_keywords: seoKeywords.trim() || null, seo_noindex: seoNoindex,
+      og_title: ogTitle.trim() || null, og_description: ogDesc.trim() || null, og_image_url: ogImage,
+      mostrar_data: mostrarData, modo_exibicao: modoExibicao,
       updated_at: new Date().toISOString(),
     };
     if (editando) {
@@ -224,6 +265,12 @@ export function TrabalhoForm({ trabalhoId }: { trabalhoId?: string }) {
           {editando ? "Editar trabalho" : "Novo trabalho"}
         </h1>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          {editando && (
+            <button onClick={() => setConfigAberto(true)} title="Configurações da página (URL, SEO, redes sociais, exibição)"
+              style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 8, border: "1px solid var(--color-border-secondary)", background: "transparent", fontSize: 12, fontWeight: 600, color: "var(--color-text-primary)", cursor: "pointer" }}>
+              ⚙ Configurações
+            </button>
+          )}
           {editando && <SeloEstado temAlteracoes={estado.temAlteracoes} />}
           {btnSalvar}
         </div>
@@ -256,12 +303,6 @@ export function TrabalhoForm({ trabalhoId }: { trabalhoId?: string }) {
         </div>
 
         <div>
-          <label style={labelStyle}>Slug (URL)</label>
-          <input value={slug} onChange={(e) => { setSlug(slugify(e.target.value)); setSlugTocado(true); }} style={{ ...inputStyle, fontFamily: "monospace", fontSize: 12 }} />
-          <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 4, fontFamily: "monospace" }}>{urlPublica}</div>
-        </div>
-
-        <div>
           <label style={labelStyle}>Descrição</label>
           <RichTextEditor value={descricao} onChange={setDescricao} minHeight={160} />
           <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 4 }}>Texto exibido na página do trabalho (bom para SEO).</div>
@@ -278,13 +319,9 @@ export function TrabalhoForm({ trabalhoId }: { trabalhoId?: string }) {
           </label>
         </div>
 
-        <details>
-          <summary style={{ fontSize: 12, fontWeight: 600, color: "var(--color-text-secondary)", cursor: "pointer" }}>SEO (título e descrição da página)</summary>
-          <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 10 }}>
-            <input value={seoTitle} onChange={(e) => setSeoTitle(e.target.value)} style={inputStyle} placeholder="SEO title (vazio = usa o título)" />
-            <textarea value={seoDesc} onChange={(e) => setSeoDesc(e.target.value)} rows={2} style={{ ...inputStyle, resize: "vertical" }} placeholder="SEO description" />
-          </div>
-        </details>
+        <div style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>
+          URL, SEO, redes sociais e modo de exibição ficam em <button onClick={() => setConfigAberto(true)} style={{ border: "none", background: "transparent", color: "#2563EB", fontWeight: 600, cursor: "pointer", padding: 0, fontSize: 12 }}>⚙ Configurações</button>.
+        </div>
       </div>
 
       {editando && (
@@ -342,6 +379,23 @@ export function TrabalhoForm({ trabalhoId }: { trabalhoId?: string }) {
         <div style={{ marginTop: 16, fontSize: 13, fontWeight: 600, color: msg.tipo === "ok" ? "#059669" : "#DC2626" }}>{msg.texto}</div>
       )}
       <div style={{ marginTop: 20, display: "flex", justifyContent: "flex-end" }}>{btnSalvar}</div>
+
+      {configAberto && fotografo && (
+        <ConfigPaginaModal
+          onFechar={() => setConfigAberto(false)}
+          onSalvar={async () => { if (await salvar() && editando) setConfigAberto(false); }}
+          valores={valores}
+          onChange={setValores}
+          recursos={{ url: true, data: true, exibicao: true }}
+          urlPublica={urlPublica}
+          dominio={dominio}
+          tituloFallback={titulo}
+          descricaoFallback={descricao.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim()}
+          imagemFallback={capaUrl}
+          fotografoId={fotografo.id}
+          salvando={salvando}
+        />
+      )}
 
       <ModalNaoSalvo
         aberto={estado.modalAberto}
