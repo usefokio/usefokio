@@ -73,8 +73,12 @@ function num(v: unknown, def: number, min: number, max: number): number {
 // Normaliza a config vinda do banco (pode estar parcial/antiga) para o shape completo.
 export function normalizarDesign(raw: unknown): ConfigDesign {
   const d = (raw && typeof raw === "object" ? raw : {}) as Partial<ConfigDesign>;
+  // cor só é aceita se for hex válido (#rgb/#rrggbb) — senão null (usa a cor do tema).
+  // Guard na LEITURA: um valor malformado (dado legado/escritor futuro) não zera o fundo da barra.
+  const corHex = (c: unknown): string | null =>
+    typeof c === "string" && /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(c.trim()) ? c.trim() : null;
   const barra = (b: Partial<BarraConfig> | undefined, def: BarraConfig): BarraConfig => ({
-    cor: typeof b?.cor === "string" && b.cor.trim() ? b.cor.trim() : null,
+    cor: corHex(b?.cor),
     opacidade: num(b?.opacidade, def.opacidade, 0, 100),
     altura: num(b?.altura, def.altura, 4, 200),
   });
