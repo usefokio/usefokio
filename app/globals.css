@@ -182,3 +182,11 @@ a {
 /* Logo do header do site — responsiva: a altura configurada vale no desktop e é limitada no mobile
    (o header cresce/encolhe junto por ser content-driven, mantendo o alinhamento). */
 @media (max-width: 560px) { .site-header-logo { max-height: 44px; } }
+
+/* Tela Site → Aparência: controles à esquerda, preview ao vivo (sticky) à direita; empilha no mobile. */
+.aparencia-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 440px); gap: 28px; align-items: start; }
+.aparencia-preview-wrap { position: sticky; top: 16px; }
+@media (max-width: 940px) {
+  .aparencia-grid { grid-template-columns: 1fr; }
+  .aparencia-preview-wrap { position: static; order: -1; } /* preview em cima no mobile */
+}
