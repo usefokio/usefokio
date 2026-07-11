@@ -1,12 +1,17 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef, forwardRef, useImperativeHandle } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
+import { useUnsavedGuard } from "@/lib/hooks/useUnsavedGuard";
+import { SeloEstado, ModalNaoSalvo } from "@/app/(dashboard)/_components/EditorEstado";
 import type { CrmProductCategory, CrmChartOfAccount, CrmOportunidadeStatus, CrmFunnel, CrmFunnelStage, CrmAgendamentoCategoria } from "@/lib/supabase/types";
 import { AbaContratos } from "./_components/AbaContratos";
 
 type Tab = "produtos" | "plano" | "canais" | "opp_cats" | "status" | "funis" | "agenda_cats" | "email" | "contratos" | "notificacoes";
+
+// Handle exposto pelas abas Email/Notificações para o guard de troca de aba da página-mãe.
+type AbaHandle = { temAlteracoes: boolean; salvar: () => Promise<void> };
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -819,13 +824,17 @@ function ContaRow({
 
 // ── Aba Notificações ─────────────────────────────────────────────────────────
 
-function AbaNotificacoes({ fotografoId }: { fotografoId: string }) {
+const AbaNotificacoes = forwardRef<AbaHandle, { fotografoId: string }>(function AbaNotificacoes({ fotografoId }, ref) {
   const sb = createClient();
   const [lembreteDia, setLembreteDia] = useState(true);
   const [lembrete1d,  setLembrete1d]  = useState(true);
   const [loading,     setLoading]     = useState(true);
   const [saving,      setSaving]      = useState(false);
-  const [ok,          setOk]          = useState(false);
+  const [baseline,    setBaseline]    = useState<string | null>(null);
+
+  const snapshot = JSON.stringify([lembreteDia, lembrete1d]);
+  const temAlteracoes = baseline !== null && snapshot !== baseline;
+  const guard = useUnsavedGuard(temAlteracoes);
 
   useEffect(() => {
     sb.from("fotografos")
@@ -833,20 +842,24 @@ function AbaNotificacoes({ fotografoId }: { fotografoId: string }) {
       .eq("id", fotografoId)
       .single()
       .then(({ data }) => {
-        setLembreteDia(data?.lembrete_agenda_dia ?? true);
-        setLembrete1d(data?.lembrete_agenda_1d ?? true);
+        const dia = data?.lembrete_agenda_dia ?? true;
+        const um  = data?.lembrete_agenda_1d ?? true;
+        setLembreteDia(dia); setLembrete1d(um);
+        setBaseline(JSON.stringify([dia, um]));
         setLoading(false);
       });
-  }, [fotografoId]);
+  }, [fotografoId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const salvar = async () => {
-    setSaving(true); setOk(false);
+    setSaving(true);
     await sb.from("fotografos")
       .update({ lembrete_agenda_dia: lembreteDia, lembrete_agenda_1d: lembrete1d })
       .eq("id", fotografoId);
-    setSaving(false); setOk(true);
-    setTimeout(() => setOk(false), 2500);
+    setBaseline(JSON.stringify([lembreteDia, lembrete1d]));
+    setSaving(false);
   };
+
+  useImperativeHandle(ref, () => ({ temAlteracoes, salvar }), [temAlteracoes, lembreteDia, lembrete1d]);
 
   const Toggle = ({ value, onChange, label, descricao }: { value: boolean; onChange: (v: boolean) => void; label: string; descricao: string }) => (
     <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, padding: "16px 0", borderBottom: "0.5px solid var(--color-border-tertiary)" }}>
@@ -888,18 +901,23 @@ function AbaNotificacoes({ fotografoId }: { fotografoId: string }) {
       </div>
 
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-        <button onClick={salvar} disabled={saving} style={{ padding: "9px 22px", borderRadius: 8, background: "#111", color: "#fff", border: "none", fontSize: 13, fontWeight: 700, cursor: saving ? "not-allowed" : "pointer", opacity: saving ? 0.6 : 1 }}>
+        <button onClick={salvar} disabled={saving || !temAlteracoes} style={{ padding: "9px 22px", borderRadius: 8, background: "#111", color: "#fff", border: "none", fontSize: 13, fontWeight: 700, cursor: (saving || !temAlteracoes) ? "not-allowed" : "pointer", opacity: (saving || !temAlteracoes) ? 0.6 : 1 }}>
           {saving ? "Salvando…" : "Salvar preferências"}
         </button>
-        {ok && <span style={{ fontSize: 13, color: "#059669", fontWeight: 600 }}>✓ Salvo</span>}
+        <SeloEstado temAlteracoes={temAlteracoes} />
       </div>
+
+      <ModalNaoSalvo aberto={guard.modalAberto} salvando={saving}
+        onSalvarESair={async () => { await salvar(); guard.irParaDestino("/crm"); }}
+        onSairSemSalvar={() => guard.irParaDestino("/crm")}
+        onContinuar={() => guard.setModalAberto(false)} />
     </div>
   );
-}
+});
 
 // ── Aba Email ────────────────────────────────────────────────────────────────
 
-function AbaEmail({ fotografoId }: { fotografoId: string }) {
+const AbaEmail = forwardRef<AbaHandle, { fotografoId: string }>(function AbaEmail({ fotografoId }, ref) {
   const sb = createClient();
   const [nomeRemetente, setNomeRemetente] = useState("");
   const [emailFrom,     setEmailFrom]     = useState("");
@@ -912,7 +930,11 @@ function AbaEmail({ fotografoId }: { fotografoId: string }) {
   const [smtpSecure,    setSmtpSecure]    = useState(false);
   const [loading,       setLoading]       = useState(true);
   const [saving,        setSaving]        = useState(false);
-  const [ok,            setOk]            = useState(false);
+  const [baseline,      setBaseline]      = useState<string | null>(null);
+
+  const snapshot = JSON.stringify([nomeRemetente, emailFrom, emailResposta, assinatura, smtpHost, smtpPort, smtpUser, smtpPass, smtpSecure]);
+  const temAlteracoes = baseline !== null && snapshot !== baseline;
+  const guard = useUnsavedGuard(temAlteracoes);
 
   useEffect(() => {
     sb.from("fotografos")
@@ -924,21 +946,26 @@ function AbaEmail({ fotografoId }: { fotografoId: string }) {
           nome_remetente?: string; email_from?: string; email_resposta?: string; assinatura?: string;
           smtp_host?: string; smtp_port?: number; smtp_user?: string; smtp_pass?: string; smtp_secure?: boolean;
         } | null;
-        setNomeRemetente(cfg?.nome_remetente ?? data?.nome_empresa ?? "");
-        setEmailFrom(cfg?.email_from ?? "");
-        setEmailResposta(cfg?.email_resposta ?? data?.email ?? "");
-        setAssinatura(cfg?.assinatura ?? "");
-        setSmtpHost(cfg?.smtp_host ?? "");
-        setSmtpPort(String(cfg?.smtp_port ?? 587));
-        setSmtpUser(cfg?.smtp_user ?? "");
-        setSmtpPass(cfg?.smtp_pass ?? "");
-        setSmtpSecure(cfg?.smtp_secure ?? false);
+        const v = [
+          cfg?.nome_remetente ?? data?.nome_empresa ?? "",
+          cfg?.email_from ?? "",
+          cfg?.email_resposta ?? data?.email ?? "",
+          cfg?.assinatura ?? "",
+          cfg?.smtp_host ?? "",
+          String(cfg?.smtp_port ?? 587),
+          cfg?.smtp_user ?? "",
+          cfg?.smtp_pass ?? "",
+          cfg?.smtp_secure ?? false,
+        ] as const;
+        setNomeRemetente(v[0]); setEmailFrom(v[1]); setEmailResposta(v[2]); setAssinatura(v[3]);
+        setSmtpHost(v[4]); setSmtpPort(v[5]); setSmtpUser(v[6]); setSmtpPass(v[7]); setSmtpSecure(v[8]);
+        setBaseline(JSON.stringify(v));
         setLoading(false);
       });
-  }, [fotografoId]);
+  }, [fotografoId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const salvar = async () => {
-    setSaving(true); setOk(false);
+    setSaving(true);
     await sb.from("fotografos").update({
       crm_email_config: {
         nome_remetente: nomeRemetente.trim(),
@@ -952,9 +979,12 @@ function AbaEmail({ fotografoId }: { fotografoId: string }) {
         smtp_secure: smtpSecure,
       },
     }).eq("id", fotografoId);
-    setSaving(false); setOk(true);
-    setTimeout(() => setOk(false), 2500);
+    setBaseline(JSON.stringify([nomeRemetente, emailFrom, emailResposta, assinatura, smtpHost, smtpPort, smtpUser, smtpPass, smtpSecure]));
+    setSaving(false);
   };
+
+  useImperativeHandle(ref, () => ({ temAlteracoes, salvar }),
+    [temAlteracoes, nomeRemetente, emailFrom, emailResposta, assinatura, smtpHost, smtpPort, smtpUser, smtpPass, smtpSecure]);
 
   const labelSt: React.CSSProperties = { fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", letterSpacing: "0.04em", display: "block", marginBottom: 5 };
   const temSMTP = smtpHost.trim() && smtpUser.trim() && smtpPass.trim();
@@ -1030,21 +1060,38 @@ function AbaEmail({ fotografoId }: { fotografoId: string }) {
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <button onClick={salvar} disabled={saving} style={{ ...btnPrimary, opacity: saving ? 0.7 : 1 }}>
+          <button onClick={salvar} disabled={saving || !temAlteracoes} style={{ ...btnPrimary, opacity: (saving || !temAlteracoes) ? 0.6 : 1, cursor: (saving || !temAlteracoes) ? "default" : "pointer" }}>
             {saving ? "Salvando…" : "Salvar configurações"}
           </button>
-          {ok && <span style={{ fontSize: 13, color: "#059669", fontWeight: 600 }}>✓ Salvo!</span>}
+          <SeloEstado temAlteracoes={temAlteracoes} />
         </div>
       </div>
+
+      <ModalNaoSalvo aberto={guard.modalAberto} salvando={saving}
+        onSalvarESair={async () => { await salvar(); guard.irParaDestino("/crm"); }}
+        onSairSemSalvar={() => guard.irParaDestino("/crm")}
+        onContinuar={() => guard.setModalAberto(false)} />
     </div>
   );
-}
+});
 
 // ── Página principal ──────────────────────────────────────────────────────────
 
 export default function CrmConfigPage() {
   const { fotografo } = useFotografo();
   const [tab, setTab] = useState<Tab>("produtos");
+
+  // Guard de troca de aba com alterações não salvas (só Email e Notificações têm estado editável direto)
+  const emailRef = useRef<AbaHandle>(null);
+  const notifRef = useRef<AbaHandle>(null);
+  const [tabPendente, setTabPendente] = useState<Tab | null>(null);
+  const [salvandoAba, setSalvandoAba] = useState(false);
+  const abaRefAtiva = () => (tab === "email" ? emailRef.current : tab === "notificacoes" ? notifRef.current : null);
+  const trocarTab = (nova: Tab) => {
+    if (nova === tab) return;
+    if (abaRefAtiva()?.temAlteracoes) setTabPendente(nova);
+    else setTab(nova);
+  };
 
   // ── Categorias de Produtos ──
   const [categorias, setCategorias]     = useState<CrmProductCategory[]>([]);
@@ -1168,16 +1215,16 @@ export default function CrmConfigPage() {
 
       {/* Tabs */}
       <div style={{ display: "flex", gap: 4, marginBottom: 28, background: "var(--color-background-secondary)", borderRadius: 9, padding: 4, width: "fit-content" }}>
-        <button style={TAB_ST(tab === "funis")} onClick={() => setTab("funis")}>🔀 Funis</button>
-        <button style={TAB_ST(tab === "opp_cats")} onClick={() => setTab("opp_cats")}>🎯 Categorias</button>
-        <button style={TAB_ST(tab === "canais")} onClick={() => setTab("canais")}>📍 Canais de Origem</button>
-        <button style={TAB_ST(tab === "status")} onClick={() => setTab("status")}>📋 Status</button>
-        <button style={TAB_ST(tab === "produtos")} onClick={() => setTab("produtos")}>🏷 Cat. Produtos</button>
-        <button style={TAB_ST(tab === "agenda_cats")} onClick={() => setTab("agenda_cats")}>📅 Cat. Agendamento</button>
-        <button style={TAB_ST(tab === "plano")} onClick={() => setTab("plano")}>📊 Plano de Contas</button>
-        <button style={TAB_ST(tab === "email")} onClick={() => setTab("email")}>✉️ E-mail</button>
-        <button style={TAB_ST(tab === "notificacoes")} onClick={() => setTab("notificacoes")}>🔔 Notificações</button>
-        <button style={TAB_ST(tab === "contratos")} onClick={() => setTab("contratos")}>📄 Contratos</button>
+        <button style={TAB_ST(tab === "funis")} onClick={() => trocarTab("funis")}>🔀 Funis</button>
+        <button style={TAB_ST(tab === "opp_cats")} onClick={() => trocarTab("opp_cats")}>🎯 Categorias</button>
+        <button style={TAB_ST(tab === "canais")} onClick={() => trocarTab("canais")}>📍 Canais de Origem</button>
+        <button style={TAB_ST(tab === "status")} onClick={() => trocarTab("status")}>📋 Status</button>
+        <button style={TAB_ST(tab === "produtos")} onClick={() => trocarTab("produtos")}>🏷 Cat. Produtos</button>
+        <button style={TAB_ST(tab === "agenda_cats")} onClick={() => trocarTab("agenda_cats")}>📅 Cat. Agendamento</button>
+        <button style={TAB_ST(tab === "plano")} onClick={() => trocarTab("plano")}>📊 Plano de Contas</button>
+        <button style={TAB_ST(tab === "email")} onClick={() => trocarTab("email")}>✉️ E-mail</button>
+        <button style={TAB_ST(tab === "notificacoes")} onClick={() => trocarTab("notificacoes")}>🔔 Notificações</button>
+        <button style={TAB_ST(tab === "contratos")} onClick={() => trocarTab("contratos")}>📄 Contratos</button>
       </div>
 
       {/* ── Funis ── */}
@@ -1300,18 +1347,29 @@ export default function CrmConfigPage() {
 
       {/* ── E-mail ── */}
       {tab === "email" && fotografo && (
-        <AbaEmail fotografoId={fotografo.id} />
+        <AbaEmail ref={emailRef} fotografoId={fotografo.id} />
       )}
 
       {/* ── Notificações ── */}
       {tab === "notificacoes" && fotografo && (
-        <AbaNotificacoes fotografoId={fotografo.id} />
+        <AbaNotificacoes ref={notifRef} fotografoId={fotografo.id} />
       )}
 
       {/* ── Contratos ── */}
       {tab === "contratos" && fotografo && (
         <AbaContratos fotografoId={fotografo.id} />
       )}
+
+      {/* Guard: trocar de aba com E-mail/Notificações não salvos */}
+      <ModalNaoSalvo aberto={tabPendente !== null} salvando={salvandoAba}
+        onSalvarESair={async () => {
+          const r = abaRefAtiva();
+          if (r) { setSalvandoAba(true); try { await r.salvar(); } finally { setSalvandoAba(false); } }
+          if (tabPendente) setTab(tabPendente);
+          setTabPendente(null);
+        }}
+        onSairSemSalvar={() => { if (tabPendente) setTab(tabPendente); setTabPendente(null); }}
+        onContinuar={() => setTabPendente(null)} />
     </div>
   );
 }

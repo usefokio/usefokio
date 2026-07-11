@@ -470,9 +470,9 @@ export default function PedidoDetailPage() {
 
       {/* Breadcrumb */}
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20 }}>
-        <button onClick={() => router.push("/crm/pedidos")} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--color-text-secondary)", fontSize: 13, padding: 0 }}>
+        <Link href="/crm/pedidos" style={{ background: "none", border: "none", cursor: "pointer", color: "var(--color-text-secondary)", fontSize: 13, padding: 0, textDecoration: "none" }}>
           ← Pedidos
-        </button>
+        </Link>
         <span style={{ color: "var(--color-border-secondary)" }}>/</span>
         <span style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 300 }}>
           {pedido.nome ?? pedido.numero ?? "Pedido"}
@@ -530,21 +530,23 @@ export default function PedidoDetailPage() {
           </div>
         </div>
 
-        {/* Botões */}
-        <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
-          <button
-            onClick={() => setEditing(!editing)}
-            style={{ padding: "8px 14px", borderRadius: 8, background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-secondary)", fontSize: 12, fontWeight: 500, cursor: "pointer", color: "var(--color-text-primary)" }}
-          >
-            {editing ? "Cancelar edição" : "✏️ Editar"}
-          </button>
-          <button
-            onClick={() => setConfirmDel(true)}
-            style={{ padding: "8px 14px", borderRadius: 8, background: "rgba(239,68,68,0.06)", border: "0.5px solid rgba(239,68,68,0.2)", fontSize: 12, cursor: "pointer", color: "#EF4444" }}
-          >
-            🗑
-          </button>
-        </div>
+        {/* Botões (ocultos durante a edição — o formulário tem seu próprio Cancelar com guard de não-salvo) */}
+        {!editing && (
+          <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+            <button
+              onClick={() => setEditing(true)}
+              style={{ padding: "8px 14px", borderRadius: 8, background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-secondary)", fontSize: 12, fontWeight: 500, cursor: "pointer", color: "var(--color-text-primary)" }}
+            >
+              ✏️ Editar
+            </button>
+            <button
+              onClick={() => setConfirmDel(true)}
+              style={{ padding: "8px 14px", borderRadius: 8, background: "rgba(239,68,68,0.06)", border: "0.5px solid rgba(239,68,68,0.2)", fontSize: 12, cursor: "pointer", color: "#EF4444" }}
+            >
+              🗑
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Formulário de edição */}
@@ -575,6 +577,7 @@ export default function PedidoDetailPage() {
                 if (agendaAtualizado) setAgendaMsg("O agendamento foi atualizado com a nova data do evento.");
               });
           }}
+          onCancelar={() => setEditing(false)}
         />
       ) : (
         <>

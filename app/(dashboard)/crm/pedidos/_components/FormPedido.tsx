@@ -11,6 +11,8 @@ import { ClienteSelect } from "@/components/ui/ClienteSelect";
 import { ComboSelect } from "@/components/ui/ComboSelect";
 import { ProdutoSearch } from "@/components/ui/ProdutoSearch";
 import type { CrmOrder, CrmProduct, Cliente, CrmProductCategory } from "@/lib/supabase/types";
+import { useUnsavedGuard } from "@/lib/hooks/useUnsavedGuard";
+import { SeloEstado, ModalNaoSalvo } from "@/app/(dashboard)/_components/EditorEstado";
 
 // ── Tipos locais ──────────────────────────────────────────────────────────────
 
@@ -125,11 +127,13 @@ function calcParcelas(plano: PlanoItem): ParcelaPreview[] {
 type Props = {
   inicial?: Partial<FormData & { id: string; oportunidade_id: string }>;
   onSalvo?: (id: string, agendaAtualizado?: boolean) => void;
+  /** Modo edição embutido (detalhe do pedido): fecha o editor no lugar de navegar. */
+  onCancelar?: () => void;
 };
 
 // ── Componente ────────────────────────────────────────────────────────────────
 
-export default function FormPedido({ inicial, onSalvo }: Props) {
+export default function FormPedido({ inicial, onSalvo, onCancelar }: Props) {
   const router        = useRouter();
   const { fotografo } = useFotografo();
 
@@ -164,6 +168,18 @@ export default function FormPedido({ inicial, onSalvo }: Props) {
 
   const isEditing = !!inicial?.id;
 
+  // ── Estado "não salvo" (guard de saída) ───────────────────────────────────────
+  const [carregado,      setCarregado]      = useState(false);
+  const [baseline,       setBaseline]       = useState<string | null>(null);
+  const [saiu,           setSaiu]           = useState(false);
+  const [cancelPendente, setCancelPendente] = useState(false);
+  const baselineInit = useRef(false);
+
+  const snapshot = JSON.stringify({ form, itens, planos });
+  const temAlteracoes = !saiu && baseline !== null && snapshot !== baseline;
+  const guard = useUnsavedGuard(temAlteracoes);
+  const rotaVolta = isEditing && inicial?.id ? `/crm/pedidos/${inicial.id}` : "/crm/pedidos";
+
   // ── Efeito de carregamento ──────────────────────────────────────────────────
   const fid = fotografo?.id ?? null;
   useEffect(() => {
@@ -187,10 +203,12 @@ export default function FormPedido({ inicial, onSalvo }: Props) {
             valor: String(e.valor), obs: e.descricao, parcelasOverride: null,
           })));
         }
+        setCarregado(true);
       });
     } else {
       p2.then(r2 => {
         setProdutos((r2.data ?? []) as CrmProduct[]);
+        setCarregado(true);
       });
     }
   }, [fid, inicial?.id, isEditing]);
@@ -201,6 +219,14 @@ export default function FormPedido({ inicial, onSalvo }: Props) {
     createClient().from("crm_product_categories").select("*").eq("fotografo_id", fid).eq("ativo", true).order("ordem")
       .then(({ data }) => setPedCats((data ?? []) as CrmProductCategory[]));
   }, [fid]);
+
+  // Captura o baseline do "não salvo" só DEPOIS que o carregamento assíncrono termina
+  // (na edição os planos chegam via fetch; itens abrem vazios). Uma única vez (ref).
+  useEffect(() => {
+    if (baselineInit.current || !carregado) return;
+    baselineInit.current = true;
+    setBaseline(snapshot);
+  }, [carregado, snapshot]);
 
   // Opções do combo (fallback à lista fixa se ainda não houver categorias configuradas)
   const catOptions = pedCats.length > 0
@@ -336,17 +362,19 @@ export default function FormPedido({ inicial, onSalvo }: Props) {
   };
 
   // ── Salvar pedido ───────────────────────────────────────────────────────────
-  const handleSave = async () => {
-    if (!form.nome.trim()) { setError("Nome é obrigatório."); return; }
-    if (form.data_evento && !isValidDate(form.data_evento)) { setError("Data do evento inválida."); return; }
+  // Retorna true só em caso de sucesso. `navegar` controla a navegação interna
+  // pós-salvar (botões normais navegam; o "Salvar e sair" do modal decide o destino).
+  const handleSave = async (navegar = true): Promise<boolean> => {
+    if (!form.nome.trim()) { setError("Nome é obrigatório."); return false; }
+    if (form.data_evento && !isValidDate(form.data_evento)) { setError("Data do evento inválida."); return false; }
     for (const plano of planos) {
-      if (plano.dataPrazo && !isValidDate(plano.dataPrazo)) { setError("Data de vencimento do plano de pagamento inválida."); return; }
+      if (plano.dataPrazo && !isValidDate(plano.dataPrazo)) { setError("Data de vencimento do plano de pagamento inválida."); return false; }
       const ps = plano.parcelasOverride ?? calcParcelas(plano);
       for (const p of ps) {
-        if (!isValidDate(p.vencimento)) { setError(`Vencimento de parcela inválido: ${p.vencimento}`); return; }
+        if (!isValidDate(p.vencimento)) { setError(`Vencimento de parcela inválido: ${p.vencimento}`); return false; }
       }
     }
-    if (!fotografo) return;
+    if (!fotografo) return false;
     setSaving(true);
     setError("");
 
@@ -396,7 +424,7 @@ export default function FormPedido({ inicial, onSalvo }: Props) {
     let id = inicial?.id;
     if (isEditing && id) {
       const { error: err } = await sb.from("crm_orders").update(payload).eq("id", id);
-      if (err) { setError(err.message); setSaving(false); return; }
+      if (err) { setError(err.message); setSaving(false); return false; }
 
       // Atualizar agendamento vinculado se data_evento mudou
       if (dataEventoNova && dataEventoNova !== dataEventoAnterior) {
@@ -429,7 +457,7 @@ export default function FormPedido({ inicial, onSalvo }: Props) {
       }
     } else {
       const { data, error: err } = await sb.from("crm_orders").insert(payload).select("id").single();
-      if (err) { setError(err.message); setSaving(false); return; }
+      if (err) { setError(err.message); setSaving(false); return false; }
       id = (data as { id: string }).id;
 
       // Mover oportunidade para última etapa do funil e gravar venda_efetuada
@@ -531,7 +559,44 @@ export default function FormPedido({ inicial, onSalvo }: Props) {
     }
 
     setSaving(false);
-    onSalvo ? onSalvo(id!, agendaAtualizado) : router.push(`/crm/pedidos/${id}`);
+    setSaiu(true); // desliga o guard antes de navegar/fechar o editor
+    if (navegar) {
+      onSalvo ? onSalvo(id!, agendaAtualizado) : router.push(`/crm/pedidos/${id}`);
+    }
+    return true;
+  };
+
+  // ── Saída com guard de "não salvo" ────────────────────────────────────────────
+  const pedirSair = () => {
+    if (temAlteracoes) { setCancelPendente(true); guard.setModalAberto(true); }
+    else if (isEditing && onCancelar) onCancelar();
+    else router.back();
+  };
+  const confirmarSairSemSalvar = () => {
+    setSaiu(true);
+    if (cancelPendente) {
+      setCancelPendente(false);
+      guard.setModalAberto(false);
+      if (isEditing && onCancelar) onCancelar();
+      else router.back();
+    } else {
+      guard.irParaDestino(rotaVolta); // saída interceptada (link do menu/breadcrumb)
+    }
+  };
+  const continuarEditando = () => { setCancelPendente(false); guard.setModalAberto(false); };
+  // "Salvar e sair": salva e decide o destino. Cancelar explícito → deixa o handleSave
+  // navegar/fechar sozinho; saída interceptada (link do menu) → salva SEM navegar e honra
+  // o destino clicado. Se o salvamento falhar, fecha o modal para o erro ficar visível.
+  const salvarESair = async () => {
+    const eraCancelExplicito = cancelPendente;
+    setCancelPendente(false);
+    const ok = await handleSave(eraCancelExplicito);
+    if (!ok) { guard.setModalAberto(false); return; } // erro fica visível (modal fechado)
+    // Sucesso: fecha o modal em qualquer caso (sem janela para duplo-save durante o
+    // re-fetch do onSalvo). Cancelar explícito → handleSave já navegou/fechou o editor;
+    // saída interceptada → honra o destino do link clicado.
+    if (eraCancelExplicito) guard.setModalAberto(false);
+    else guard.irParaDestino(rotaVolta);
   };
 
   // ── Helpers de layout ───────────────────────────────────────────────────────
@@ -562,15 +627,16 @@ export default function FormPedido({ inicial, onSalvo }: Props) {
       )}
 
       {/* ── Botões topo ── */}
-      <div style={{ display: "flex", gap: 10, marginBottom: 28 }}>
-        <button onClick={handleSave} disabled={saving || !form.nome.trim()}
+      <div style={{ display: "flex", gap: 10, marginBottom: 28, alignItems: "center" }}>
+        <button onClick={() => handleSave()} disabled={saving || !form.nome.trim()}
           style={{ padding: "10px 28px", borderRadius: 8, background: saving || !form.nome.trim() ? "#93C5FD" : "#111", color: "#fff", border: "none", fontSize: 13, fontWeight: 700, cursor: saving || !form.nome.trim() ? "not-allowed" : "pointer" }}>
           {saving ? "Salvando…" : isEditing ? "Salvar alterações" : "Criar pedido"}
         </button>
-        <button onClick={() => router.back()}
+        <button onClick={pedirSair}
           style={{ padding: "10px 18px", borderRadius: 8, background: "transparent", color: "var(--color-text-secondary)", border: "0.5px solid var(--color-border-secondary)", fontSize: 13, cursor: "pointer" }}>
           Cancelar
         </button>
+        <div style={{ marginLeft: "auto" }}><SeloEstado temAlteracoes={temAlteracoes} /></div>
       </div>
 
       {/* ── Pedido ── */}
@@ -860,16 +926,22 @@ export default function FormPedido({ inicial, onSalvo }: Props) {
       </div>
 
       {/* ── Botões ── */}
-      <div style={{ marginTop: 24, display: "flex", gap: 10 }}>
-        <button onClick={handleSave} disabled={saving || !form.nome.trim()}
+      <div style={{ marginTop: 24, display: "flex", gap: 10, alignItems: "center" }}>
+        <button onClick={() => handleSave()} disabled={saving || !form.nome.trim()}
           style={{ padding: "10px 28px", borderRadius: 8, background: saving || !form.nome.trim() ? "#93C5FD" : "#111", color: "#fff", border: "none", fontSize: 13, fontWeight: 700, cursor: saving || !form.nome.trim() ? "not-allowed" : "pointer" }}>
           {saving ? "Salvando…" : isEditing ? "Salvar alterações" : "Criar pedido"}
         </button>
-        <button onClick={() => router.back()}
+        <button onClick={pedirSair}
           style={{ padding: "10px 18px", borderRadius: 8, background: "transparent", color: "var(--color-text-secondary)", border: "0.5px solid var(--color-border-secondary)", fontSize: 13, cursor: "pointer" }}>
           Cancelar
         </button>
+        <div style={{ marginLeft: "auto" }}><SeloEstado temAlteracoes={temAlteracoes} /></div>
       </div>
+
+      <ModalNaoSalvo aberto={guard.modalAberto} salvando={saving}
+        onSalvarESair={salvarESair}
+        onSairSemSalvar={confirmarSairSemSalvar}
+        onContinuar={continuarEditando} />
 
       {/* ════════════════════════════════════════════════════════════════════════
           MODAL — Detalhes do Produto
