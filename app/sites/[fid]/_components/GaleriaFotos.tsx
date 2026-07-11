@@ -63,6 +63,12 @@ export function GaleriaFotos({ fotos, modo = "lista", onCurtir, curtidas }: {
         <button type="button" className="site-lightbox-nav next" aria-label="Próxima foto"
           onClick={(e) => { e.stopPropagation(); setLb((i) => (i! + 1) % fotos.length); }}>›</button>
       )}
+      {onCurtir && (
+        <button type="button" className="site-lightbox-like" aria-label={curtidas?.has(fotos[lb].id) ? "Descurtir foto" : "Curtir foto"}
+          onClick={(e) => { e.stopPropagation(); onCurtir(fotos[lb].id); }}>
+          <span className={curtidas?.has(fotos[lb].id) ? "curtido" : ""}>{curtidas?.has(fotos[lb].id) ? "♥" : "♡"}</span>
+        </button>
+      )}
       <div className="site-lightbox-contador">{lb + 1} / {fotos.length}</div>
     </div>,
     document.body,

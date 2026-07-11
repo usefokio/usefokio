@@ -192,6 +192,13 @@ a {
 .site-lightbox-nav.prev { left: 16px; }
 .site-lightbox-nav.next { right: 16px; }
 .site-lightbox-contador { position: fixed; left: 0; right: 0; bottom: 18px; text-align: center; color: rgba(255, 255, 255, 0.8); font-size: 13px; letter-spacing: 0.06em; }
+/* Curtir na foto ampliada — centralizado acima do contador */
+.site-lightbox-like {
+  position: fixed; bottom: 44px; left: 50%; transform: translateX(-50%); width: 46px; height: 46px;
+  border-radius: 50%; background: rgba(255, 255, 255, 0.12); border: none; color: #fff; font-size: 22px;
+  line-height: 1; cursor: pointer; z-index: 1; display: flex; align-items: center; justify-content: center;
+}
+.site-lightbox-like .curtido { color: #f43f5e; }
 
 /* Slideshow: uma foto por vez, com navegação (a foto inteira aparece, sem cortar) */
 .site-slideshow-palco { position: relative; width: 100%; aspect-ratio: 3 / 2; background: #111; border-radius: 8px; overflow: hidden; }
