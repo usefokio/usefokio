@@ -183,10 +183,6 @@ a {
    (o header cresce/encolhe junto por ser content-driven, mantendo o alinhamento). */
 @media (max-width: 560px) { .site-header-logo { max-height: 44px; } }
 
-/* Landing page (motor de blocos) não leva o header do site — ela tem hero/logo próprios.
-   A raiz da landing marca .landing-root; o header some quando o .site-root a contém. */
-.site-root:has(.landing-root) .site-header { display: none; }
-
 /* Tela Site → Aparência: controles à esquerda, preview ao vivo (sticky) à direita; empilha no mobile. */
 .aparencia-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 440px); gap: 28px; align-items: start; }
 .aparencia-preview-wrap { position: sticky; top: 16px; }

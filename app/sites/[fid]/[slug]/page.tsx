@@ -20,7 +20,12 @@ export async function generateMetadata({ params }: { params: Promise<{ fid: stri
   const { fid, slug } = await params;
   const lp = await buscarLanding(fid, slug);
   if (!lp) return {};
-  return { title: lp.seo_title ?? lp.titulo, description: lp.seo_description ?? undefined };
+  // Landing tem finalidade específica (campanha/orçamento) → noindex por padrão (sobrepõe o robots do layout).
+  return {
+    title: lp.seo_title ?? lp.titulo,
+    description: lp.seo_description ?? undefined,
+    robots: { index: false, follow: true },
+  };
 }
 
 export default async function LandingPage({ params }: { params: Promise<{ fid: string; slug: string }> }) {
@@ -45,15 +50,20 @@ export default async function LandingPage({ params }: { params: Promise<{ fid: s
   const blocos = d.blocos && d.blocos.length > 0 ? d.blocos : dadosParaBlocos(d);
 
   return (
-    <RenderBlocos
-      blocos={blocos}
-      ctx={{
-        base: b,
-        fid,
-        depoimentos: (depoimentos ?? []) as SiteDepoimento[],
-        whatsappFallback: fotografo?.whatsapp ?? null,
-        categorias,
-      }}
-    />
+    <>
+      {/* Landing não leva o header/menu do site (tem hero/logo próprios). <style> inline (fora do
+          pipeline do Tailwind/Lightning CSS) garante o efeito em dev e prod, sem refatorar rotas. */}
+      <style>{`.site-header{display:none!important}`}</style>
+      <RenderBlocos
+        blocos={blocos}
+        ctx={{
+          base: b,
+          fid,
+          depoimentos: (depoimentos ?? []) as SiteDepoimento[],
+          whatsappFallback: fotografo?.whatsapp ?? null,
+          categorias,
+        }}
+      />
+    </>
   );
 }
