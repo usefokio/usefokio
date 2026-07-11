@@ -144,7 +144,7 @@ export default function ResultadosPage() {
       // Sempre inclui pedidos nativos do CRM (crm_nativo=true).
       // Quando temDRE=false, também inclui pedidos legados com data_lancamento.
       const q = sb.from("crm_orders")
-        .select("categoria, total, data_lancamento")
+        .select("categoria, total, data_lancamento, crm_order_items(total, crm_products(conta_vendas_id))")
         .eq("fotografo_id", fid)
         .gte("data_lancamento", `${ano}-01-01`).lte("data_lancamento", `${ano}-12-31`)
         .not("data_lancamento", "is", null);
@@ -195,12 +195,28 @@ export default function ResultadosPage() {
         novoMapa[cod] ??= {};
         novoMapa[cod][mes] = (novoMapa[cod][mes] ?? 0) + e.valor;
       }
-      for (const o of (ordersData ?? []) as { categoria: string; total: number; data_lancamento: string }[]) {
-        const codigo = CATEGORIA_CODIGO[o.categoria];
-        if (!codigo) { semMapeamento[o.categoria || "(sem categoria)"] = (semMapeamento[o.categoria || "(sem categoria)"] ?? 0) + o.total; continue; }
+      // Pedido crm_nativo: classifica CADA ITEM na conta do seu produto (conta_vendas_id → código).
+      // O que sobra (total − Σ itens; ou pedido sem itens = legado) cai na conta da CATEGORIA (mapa),
+      // preservando o comportamento anterior para pedidos sem itens.
+      type OrdItem = { total: number | null; crm_products: { conta_vendas_id: string | null } | null };
+      for (const o of (ordersData ?? []) as { categoria: string; total: number; data_lancamento: string; crm_order_items?: OrdItem[] | null }[]) {
         const mes = parseInt(o.data_lancamento.slice(5, 7));
-        novoMapa[codigo] ??= {};
-        novoMapa[codigo][mes] = (novoMapa[codigo][mes] ?? 0) + o.total;
+        let somaItens = 0;
+        for (const it of (o.crm_order_items ?? [])) {
+          const contaId = it.crm_products?.conta_vendas_id ?? null;
+          const cod = contaId ? idParaCodigo[contaId] : null;
+          if (!cod) continue; // item sem conta mapeável → entra no resíduo abaixo
+          novoMapa[cod] ??= {};
+          novoMapa[cod][mes] = (novoMapa[cod][mes] ?? 0) + (it.total ?? 0);
+          somaItens += (it.total ?? 0);
+        }
+        const residuo = Math.round((o.total - somaItens) * 100) / 100;
+        if (Math.abs(residuo) > 0.005) {
+          const codigo = CATEGORIA_CODIGO[o.categoria];
+          if (!codigo) { semMapeamento[o.categoria || "(sem categoria)"] = (semMapeamento[o.categoria || "(sem categoria)"] ?? 0) + residuo; continue; }
+          novoMapa[codigo] ??= {};
+          novoMapa[codigo][mes] = (novoMapa[codigo][mes] ?? 0) + residuo;
+        }
       }
     } else {
       // Competência sem DRE (novos usuários): crm_financial_entries com conta_id direto
@@ -297,17 +313,28 @@ export default function ResultadosPage() {
       for (const e of (dreData ?? []) as { id: string; descricao: string | null; valor: number; vencimento: string; pedido_id?: string | null }[]) {
         entries.push({ id: e.id, descricao: e.descricao, valor: e.valor, data: e.vencimento, pedido_id: e.pedido_id, fonte: "entry" });
       }
-      // Pedidos crm_nativo mapeados para esta conta via CATEGORIA_CODIGO
-      const categoriasDaConta = Object.entries(CATEGORIA_CODIGO)
-        .filter(([, cod]) => cod === conta.codigo).map(([cat]) => cat);
-      if (categoriasDaConta.length > 0) {
+      // Pedidos crm_nativo: mostra o que cai NESTA conta — itens cujo produto é desta conta
+      // + resíduo de pedidos cuja CATEGORIA mapeia para esta conta (mesma lógica da agregação).
+      {
+        const contaIdsSet = new Set(codigoIds[conta.codigo] ?? [conta.id]);
+        const categoriasDaConta = new Set(
+          Object.entries(CATEGORIA_CODIGO).filter(([, cod]) => cod === conta.codigo).map(([cat]) => cat)
+        );
+        type DItem = { total: number | null; crm_products: { conta_vendas_id: string | null } | null };
         const { data: ordData } = await sb.from("crm_orders")
-          .select("id, nome, total, data_lancamento")
+          .select("id, nome, total, data_lancamento, categoria, crm_order_items(total, crm_products(conta_vendas_id))")
           .eq("fotografo_id", fid).eq("crm_nativo", true)
-          .in("categoria", categoriasDaConta)
           .gte("data_lancamento", mesStart).lte("data_lancamento", mesEnd);
-        for (const o of (ordData ?? []) as { id: string; nome: string; total: number; data_lancamento: string }[]) {
-          entries.push({ id: o.id, descricao: o.nome, valor: o.total, data: o.data_lancamento, pedido_id: o.id, fonte: "order" });
+        for (const o of (ordData ?? []) as unknown as { id: string; nome: string; total: number; data_lancamento: string; categoria: string; crm_order_items?: DItem[] | null }[]) {
+          let somaItens = 0, valorConta = 0;
+          for (const it of (o.crm_order_items ?? [])) {
+            const cid = it.crm_products?.conta_vendas_id ?? null;
+            somaItens += (it.total ?? 0);
+            if (cid && contaIdsSet.has(cid)) valorConta += (it.total ?? 0);
+          }
+          const residuo = Math.round((o.total - somaItens) * 100) / 100;
+          if (Math.abs(residuo) > 0.005 && categoriasDaConta.has(o.categoria)) valorConta += residuo;
+          if (Math.abs(valorConta) > 0.005) entries.push({ id: o.id, descricao: o.nome, valor: valorConta, data: o.data_lancamento, pedido_id: o.id, fonte: "order" });
         }
       }
     } else if (temDRE && tipo === "despesa") {
