@@ -158,16 +158,40 @@ a {
 .site-galeria-lista { display: flex; flex-direction: column; gap: 14px; }
 .site-galeria-lista .site-foto img { width: 100%; height: auto; display: block; }
 
-.site-galeria-grid { display: grid; gap: 12px; align-items: start; }
-/* Fluido como a galeria de entrega: mais/menos colunas conforme a tela.
-   min(Xpx, calc(50% - 6px)) limita a largura mínima da coluna a ~metade do contêiner
-   (gap 12px → 6px por lado), então NUNCA cai abaixo de 2 colunas; em telas largas cresce
-   quantas couberem de Xpx. Vertical (retrato) = colunas mais estreitas → mais colunas. */
-.site-galeria-grid.vertical { grid-template-columns: repeat(auto-fill, minmax(min(200px, calc(50% - 6px)), 1fr)); }
-.site-galeria-grid.horizontal { grid-template-columns: repeat(auto-fill, minmax(min(300px, calc(50% - 6px)), 1fr)); }
-.site-galeria-grid.vertical .site-foto { aspect-ratio: 3 / 4; }
-.site-galeria-grid.horizontal .site-foto { aspect-ratio: 3 / 2; }
-.site-galeria-grid .site-foto img { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* Grid VERTICAL = mosaico/masonry: colunas de largura igual, cada foto na ALTURA NATURAL
+   (retrato fica alto, paisagem baixo); bem juntas. Nº de colunas responsivo. */
+.site-galeria-masonry { column-count: 4; column-gap: 6px; }
+.site-galeria-masonry .site-foto { break-inside: avoid; margin-bottom: 6px; border-radius: 6px; cursor: zoom-in; }
+.site-galeria-masonry .site-foto img { width: 100%; height: auto; display: block; }
+@media (max-width: 1100px) { .site-galeria-masonry { column-count: 3; } }
+@media (max-width: 720px)  { .site-galeria-masonry { column-count: 2; } }
+
+/* Grid HORIZONTAL = linhas justificadas: altura fixa por linha, cada foto na LARGURA NATURAL
+   (mantém a orientação), embaladas em linhas; bem juntas. */
+.site-galeria-justif { display: flex; flex-wrap: wrap; gap: 6px; }
+.site-galeria-justif .site-foto { height: 240px; border-radius: 6px; cursor: zoom-in; flex: 0 0 auto; }
+.site-galeria-justif .site-foto img { height: 100%; width: auto; max-width: 100%; display: block; }
+@media (max-width: 900px) { .site-galeria-justif .site-foto { height: 180px; } }
+@media (max-width: 560px) { .site-galeria-justif .site-foto { height: 140px; } }
+
+/* Coração de curtir no canto (grades e slideshow) — aparece no hover; sempre no toque */
+.site-foto-like {
+  position: absolute; top: 8px; right: 8px; z-index: 2; width: 32px; height: 32px; border-radius: 50%;
+  border: none; background: rgba(0, 0, 0, 0.4); color: #fff; font-size: 16px; line-height: 1; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.2s;
+}
+.site-foto:hover .site-foto-like { opacity: 1; }
+.site-foto-like .curtido { color: #f43f5e; }
+@media (hover: none) { .site-foto-like { opacity: 1; } }
+
+/* Lightbox: clicar numa miniatura amplia a foto */
+.site-lightbox { position: fixed; inset: 0; z-index: 1000; background: rgba(0, 0, 0, 0.93); display: flex; align-items: center; justify-content: center; padding: 20px; cursor: zoom-out; }
+.site-lightbox img { max-width: 94vw; max-height: 92vh; object-fit: contain; cursor: default; user-select: none; }
+.site-lightbox-x { position: fixed; top: 16px; right: 20px; width: 40px; height: 40px; border-radius: 50%; background: rgba(255, 255, 255, 0.12); border: none; color: #fff; font-size: 24px; line-height: 1; cursor: pointer; z-index: 1; }
+.site-lightbox-nav { position: fixed; top: 50%; transform: translateY(-50%); width: 50px; height: 50px; border-radius: 50%; background: rgba(255, 255, 255, 0.12); border: none; color: #fff; font-size: 30px; line-height: 1; cursor: pointer; z-index: 1; }
+.site-lightbox-nav.prev { left: 16px; }
+.site-lightbox-nav.next { right: 16px; }
+.site-lightbox-contador { position: fixed; left: 0; right: 0; bottom: 18px; text-align: center; color: rgba(255, 255, 255, 0.8); font-size: 13px; letter-spacing: 0.06em; }
 
 /* Slideshow: uma foto por vez, com navegação (a foto inteira aparece, sem cortar) */
 .site-slideshow-palco { position: relative; width: 100%; aspect-ratio: 3 / 2; background: #111; border-radius: 8px; overflow: hidden; }
