@@ -3,17 +3,29 @@ import type { Metadata } from "next";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { carregarSite, CATEGORIA_LABEL } from "@/lib/site/publico";
 import { normalizarConfig } from "@/lib/site/formulario";
+import { resolverMetaPagina, type CfgSeoOg } from "@/lib/site/seo";
 import { ContatoForm } from "../_components/ContatoForm";
 import type { SitePagina } from "@/lib/supabase/types";
 
 export async function generateMetadata({ params }: { params: Promise<{ fid: string }> }): Promise<Metadata> {
   const { fid } = await params;
   const admin = createAdminClient();
-  const { data } = await admin.from("site_paginas").select("seo_title, seo_description").eq("fotografo_id", fid).eq("slug", "contato").maybeSingle();
-  const p = data as { seo_title: string | null; seo_description: string | null } | null;
+  const { data } = await admin.from("site_paginas")
+    .select("titulo, conteudo, seo_title, seo_description, seo_keywords, seo_noindex, og_title, og_description, og_image_url")
+    .eq("fotografo_id", fid).eq("slug", "contato").maybeSingle();
+  const p = data as (CfgSeoOg & { titulo?: string | null; conteudo?: unknown }) | null;
+  const img = (() => { const c = (p?.conteudo ?? {}) as { imagens?: string[] }; return Array.isArray(c.imagens) ? c.imagens[0] : null; })();
+  const m = resolverMetaPagina(p, {
+    titulo: p?.titulo || "Solicite seu orçamento",
+    descricao: "Conte sobre o seu evento — data, cidade e o que planeja — e solicite um orçamento.",
+    imagem: img,
+  });
   return {
-    title: p?.seo_title ?? "Solicite seu orçamento",
-    description: p?.seo_description ?? "Conte sobre o seu evento — data, cidade e o que planeja — e solicite um orçamento.",
+    title: m.title,
+    description: m.description,
+    keywords: m.keywords,
+    ...(m.noindex ? { robots: { index: false, follow: true } } : {}),
+    openGraph: { title: m.ogTitle, description: m.ogDescription, images: m.ogImage ? [m.ogImage] : undefined },
   };
 }
 

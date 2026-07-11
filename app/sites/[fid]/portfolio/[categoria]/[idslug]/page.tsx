@@ -5,6 +5,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { baseLinks, CATEGORIA_LABEL, legacyDoSlug } from "@/lib/site/publico";
+import { resolverMetaPagina } from "@/lib/site/seo";
 import { FotosTrabalho } from "../../../_components/FotosTrabalho";
 import { JsonLd } from "../../../_components/JsonLd";
 import type { SiteTrabalho, SiteTrabalhoFoto } from "@/lib/supabase/types";
@@ -24,11 +25,14 @@ export async function generateMetadata({ params }: { params: Promise<{ fid: stri
   const { fid, idslug } = await params;
   const t = await buscarTrabalho(fid, idslug);
   if (!t) return {};
+  const excerpt = (t.descricao ?? "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 200) || null;
+  const m = resolverMetaPagina(t, { titulo: t.titulo, descricao: excerpt, imagem: t.capa_url });
   return {
-    title: t.seo_title ?? t.titulo,
-    description: t.seo_description ?? undefined,
-    keywords: t.seo_keywords ?? undefined,
-    openGraph: { title: t.seo_title ?? t.titulo, description: t.seo_description ?? undefined, images: t.capa_url ? [t.capa_url] : undefined },
+    title: m.title,
+    description: m.description,
+    keywords: m.keywords,
+    ...(m.noindex ? { robots: { index: false, follow: true } } : {}),
+    openGraph: { title: m.ogTitle, description: m.ogDescription, images: m.ogImage ? [m.ogImage] : undefined },
   };
 }
 

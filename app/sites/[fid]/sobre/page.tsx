@@ -1,6 +1,7 @@
 // Página Sobre — conteúdo importado (site_paginas.tipo = 'sobre').
 import type { Metadata } from "next";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { resolverMetaPagina } from "@/lib/site/seo";
 import type { SitePagina } from "@/lib/supabase/types";
 
 async function buscarSobre(fid: string): Promise<SitePagina | null> {
@@ -12,7 +13,17 @@ async function buscarSobre(fid: string): Promise<SitePagina | null> {
 export async function generateMetadata({ params }: { params: Promise<{ fid: string }> }): Promise<Metadata> {
   const { fid } = await params;
   const p = await buscarSobre(fid);
-  return { title: p?.seo_title ?? p?.titulo ?? "Sobre", description: p?.seo_description ?? undefined };
+  if (!p) return { title: "Sobre" };
+  const c = (p.conteudo ?? {}) as { html?: string | null; imagens?: string[] };
+  const excerpt = (c.html ?? "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 200) || null;
+  const m = resolverMetaPagina(p, { titulo: p.titulo || "Sobre", descricao: excerpt, imagem: c.imagens?.[0] ?? null });
+  return {
+    title: m.title,
+    description: m.description,
+    keywords: m.keywords,
+    ...(m.noindex ? { robots: { index: false, follow: true } } : {}),
+    openGraph: { title: m.ogTitle, description: m.ogDescription, images: m.ogImage ? [m.ogImage] : undefined },
+  };
 }
 
 export default async function SobrePage({ params }: { params: Promise<{ fid: string }> }) {

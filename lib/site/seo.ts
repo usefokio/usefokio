@@ -29,10 +29,21 @@ export function slugifySite(texto: string): string {
     .slice(0, 90);
 }
 
+// Campos de SEO/OG como vêm do banco (nullable) — aceita os registros Site* diretamente.
+export type CfgSeoOg = {
+  seo_title?: string | null;
+  seo_description?: string | null;
+  seo_keywords?: string | null;
+  seo_noindex?: boolean | null;
+  og_title?: string | null;
+  og_description?: string | null;
+  og_image_url?: string | null;
+};
+
 // Resolve os metadados EFETIVOS para a renderização pública:
 // OG herda do SEO quando vazio; SEO herda do título/descrição da página quando vazio.
 export function resolverMetaPagina(
-  cfg: Partial<ConfigPaginaValores> | null | undefined,
+  cfg: CfgSeoOg | null | undefined,
   fallback: { titulo: string; descricao?: string | null; imagem?: string | null },
 ) {
   const t = (s: string | null | undefined) => (typeof s === "string" && s.trim() ? s.trim() : null);

@@ -2,6 +2,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { resolverMetaPagina } from "@/lib/site/seo";
 import type { SitePortfolio, SitePortfolioFoto } from "@/lib/supabase/types";
 
 type Props = { params: Promise<{ fid: string }>; searchParams: Promise<{ id?: string }> };
@@ -19,7 +20,14 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
   const { id } = await searchParams;
   const p = await buscarPortfolio(fid, id);
   if (!p) return {};
-  return { title: p.seo_title ?? p.titulo, description: p.seo_description ?? undefined, keywords: p.seo_keywords ?? undefined };
+  const m = resolverMetaPagina(p, { titulo: p.titulo, descricao: p.descricao, imagem: p.capa_url });
+  return {
+    title: m.title,
+    description: m.description,
+    keywords: m.keywords,
+    ...(m.noindex ? { robots: { index: false, follow: true } } : {}),
+    openGraph: { title: m.ogTitle, description: m.ogDescription, images: m.ogImage ? [m.ogImage] : undefined },
+  };
 }
 
 export default async function GaleriaLegadaPage({ params, searchParams }: Props) {

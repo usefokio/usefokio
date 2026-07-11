@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { legacyDoSlug } from "@/lib/site/publico";
+import { resolverMetaPagina } from "@/lib/site/seo";
 import { JsonLd } from "../../_components/JsonLd";
 import type { SitePost } from "@/lib/supabase/types";
 
@@ -21,11 +22,13 @@ export async function generateMetadata({ params }: { params: Promise<{ fid: stri
   const { fid, idslug } = await params;
   const p = await buscarPost(fid, idslug);
   if (!p) return {};
+  const m = resolverMetaPagina(p, { titulo: p.titulo, descricao: p.resumo, imagem: p.capa_url });
   return {
-    title: p.seo_title ?? p.titulo,
-    description: p.seo_description ?? p.resumo ?? undefined,
-    keywords: p.seo_keywords ?? p.tags ?? undefined,
-    openGraph: { title: p.seo_title ?? p.titulo, images: p.capa_url ? [p.capa_url] : undefined },
+    title: m.title,
+    description: m.description,
+    keywords: m.keywords ?? p.tags ?? undefined,
+    ...(m.noindex ? { robots: { index: false, follow: true } } : {}),
+    openGraph: { title: m.ogTitle, description: m.ogDescription, images: m.ogImage ? [m.ogImage] : undefined },
   };
 }
 
@@ -33,7 +36,7 @@ export default async function PostPage({ params }: { params: Promise<{ fid: stri
   const { fid, idslug } = await params;
   const p = await buscarPost(fid, idslug);
   if (!p) notFound();
-  const dataFmt = p.publicado_em ? new Date(p.publicado_em).toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" }) : null;
+  const dataFmt = p.publicado_em && p.mostrar_data ? new Date(p.publicado_em).toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" }) : null;
 
   return (
     <article>
