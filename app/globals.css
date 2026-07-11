@@ -146,15 +146,15 @@ a {
 .site-galeria-lista .site-foto img { width: 100%; height: auto; display: block; }
 
 .site-galeria-grid { display: grid; gap: 12px; align-items: start; }
-.site-galeria-grid.vertical { grid-template-columns: repeat(3, 1fr); }
-.site-galeria-grid.horizontal { grid-template-columns: repeat(2, 1fr); }
+/* Fluido como a galeria de entrega: mais/menos colunas conforme a tela.
+   min(Xpx, calc(50% - 6px)) limita a largura mínima da coluna a ~metade do contêiner
+   (gap 12px → 6px por lado), então NUNCA cai abaixo de 2 colunas; em telas largas cresce
+   quantas couberem de Xpx. Vertical (retrato) = colunas mais estreitas → mais colunas. */
+.site-galeria-grid.vertical { grid-template-columns: repeat(auto-fill, minmax(min(200px, calc(50% - 6px)), 1fr)); }
+.site-galeria-grid.horizontal { grid-template-columns: repeat(auto-fill, minmax(min(300px, calc(50% - 6px)), 1fr)); }
 .site-galeria-grid.vertical .site-foto { aspect-ratio: 3 / 4; }
 .site-galeria-grid.horizontal .site-foto { aspect-ratio: 3 / 2; }
 .site-galeria-grid .site-foto img { width: 100%; height: 100%; object-fit: cover; display: block; }
-@media (max-width: 720px) {
-  .site-galeria-grid.vertical { grid-template-columns: repeat(2, 1fr); }
-  .site-galeria-grid.horizontal { grid-template-columns: 1fr; }
-}
 
 /* Slideshow: uma foto por vez, com navegação (a foto inteira aparece, sem cortar) */
 .site-slideshow-palco { position: relative; width: 100%; aspect-ratio: 3 / 2; background: #111; border-radius: 8px; overflow: hidden; }
