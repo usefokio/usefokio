@@ -7,6 +7,7 @@ import { useFotografo } from "@/lib/context/FotografoContext";
 import { GraficoPanorama } from "./_components/GraficoPanorama";
 import { GraficoMensal } from "./_components/GraficoMensal";
 import { useWindowWidth, TABLET } from "@/lib/hooks/useWindowWidth";
+import { carregarDreAnual, panoramaPorAno, CATEGORIA_CODIGO } from "@/lib/crm/dreAnual";
 
 type Conta = { id: string; codigo: string; nome: string };
 type Regime = "competencia" | "caixa";
@@ -23,25 +24,6 @@ type DrillEntry = {
 const MESES = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
 const UNCAT_ID = "__naoclass__";
 const UNCAT_CONTA: Conta = { id: UNCAT_ID, codigo: "5.0", nome: "Não classificado" };
-
-const CATEGORIA_CODIGO: Record<string, string> = {
-  "Casamento - foto": "3.1.1", "Casamento - Foto": "3.1.1", "Bodas": "3.1.1",
-  "Casamento - Foto e Video": "3.1.1.2",
-  "Aniversário Infantil": "3.1.2", "Aniversario Infantil": "3.1.2",
-  "Aniversário Adulto": "3.1.2", "Aniversario Adulto": "3.1.2",
-  "Aniversário 15 anos": "3.1.2", "Batizado": "3.1.2",
-  "Evento Corporativo": "3.1.2", "Eventos": "3.1.2",
-  "Ensaio Gestante": "3.1.3", "Ensaio/Book": "3.1.3", "Ensaio Infantil": "3.1.3",
-  "Ensaio 15 anos": "3.1.3", "Ensaio Casal": "3.1.3", "Ensaio Familia": "3.1.3",
-  "Ensaio Newborn": "3.1.3", "Acompanhamento": "3.1.3",
-  "Diagramação de livro/álbum": "3.1.4",
-  "Consultoria": "3.1.6", "Cursos e Treinamento": "3.1.7",
-  "Vendas Extras": "3.1.9", "Outros Serviços": "3.1.9",
-  "Publicidade": "3.1.9", "Foto Produto": "3.1.9",
-  "Casamento - Video": "3.1.11",
-  "Video cultural": "3.1.12", "Video Cultural": "3.1.12",
-  "Video Geral": "3.1.13",
-};
 
 function fmtBRL(v: number) {
   if (v === 0) return "";
@@ -254,31 +236,18 @@ export default function ResultadosPage() {
 
   useEffect(() => { carregar(); }, [carregar]);
 
-  // Panorama: apenas dados DRE via RPC — lançamentos individuais são histórico
+  // Gráfico "por ano" do rodapé: MESMA fonte da DRE do Panorama (helper
+  // compartilhado), respeitando o regime — garante que Resultados e Panorama
+  // sempre batam e que os pedidos crm_nativo apareçam aqui também.
   useEffect(() => {
     if (!fotografo) return;
+    let ativo = true;
     const sb = createClient();
-
-    sb.rpc("get_panorama_financeiro", { p_fotografo_id: fotografo.id })
-      .then(({ data, error }) => {
-        if (error) { console.error("panorama rpc:", error); return; }
-
-        type Row = { ano: number; tipo: string; total: number };
-        const mapa: Record<number, { rec: number; desp: number }> = {};
-
-        for (const row of (data ?? []) as Row[]) {
-          mapa[row.ano] ??= { rec: 0, desp: 0 };
-          if (row.tipo === "receita") mapa[row.ano].rec += Number(row.total);
-          else if (row.tipo === "despesa") mapa[row.ano].desp += Number(row.total);
-        }
-
-        const dados: PanoramaItem[] = Object.entries(mapa)
-          .map(([y, v]) => ({ ano: parseInt(y), receitas: v.rec, despesas: v.desp, lucro: v.rec - v.desp }))
-          .sort((a, b) => a.ano - b.ano);
-
-        setPanorama(dados);
-      }, console.error);
-  }, [fotografo]);
+    carregarDreAnual(sb, fotografo.id, regime)
+      .then(({ mapa, anos }) => { if (ativo) setPanorama(panoramaPorAno(mapa, anos)); })
+      .catch(console.error);
+    return () => { ativo = false; };
+  }, [fotografo, regime]);
 
   const abrirDrill = useCallback(async (conta: Conta, mes: number | null) => {
     if (!fotografo) return;

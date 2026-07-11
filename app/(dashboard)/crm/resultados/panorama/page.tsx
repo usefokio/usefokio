@@ -3,34 +3,14 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { fetchAllRows } from "@/lib/supabase/fetchAll";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { GraficoPanorama } from "../_components/GraficoPanorama";
+import { carregarDreAnual, panoramaPorAno, CATEGORIA_CODIGO } from "@/lib/crm/dreAnual";
 
-type PanoramaItem = { ano: number; receitas: number; despesas: number; lucro: number };
 type Conta = { id: string; codigo: string; nome: string };
 type Regime = "competencia" | "caixa";
 type DrillEntry = { id: string; descricao: string | null; valor: number; data: string; pedido_id?: string | null };
 type Periodo = { label: string; anos: number[] };
-
-const CATEGORIA_CODIGO: Record<string, string> = {
-  "Casamento - foto": "3.1.1", "Casamento - Foto": "3.1.1", "Bodas": "3.1.1",
-  "Casamento - Foto e Video": "3.1.1.2",
-  "Aniversário Infantil": "3.1.2", "Aniversario Infantil": "3.1.2",
-  "Aniversário Adulto": "3.1.2", "Aniversario Adulto": "3.1.2",
-  "Aniversário 15 anos": "3.1.2", "Batizado": "3.1.2",
-  "Evento Corporativo": "3.1.2", "Eventos": "3.1.2",
-  "Ensaio Gestante": "3.1.3", "Ensaio/Book": "3.1.3", "Ensaio Infantil": "3.1.3",
-  "Ensaio 15 anos": "3.1.3", "Ensaio Casal": "3.1.3", "Ensaio Familia": "3.1.3",
-  "Ensaio Newborn": "3.1.3", "Acompanhamento": "3.1.3",
-  "Diagramação de livro/álbum": "3.1.4",
-  "Consultoria": "3.1.6", "Cursos e Treinamento": "3.1.7",
-  "Vendas Extras": "3.1.9", "Outros Serviços": "3.1.9",
-  "Publicidade": "3.1.9", "Foto Produto": "3.1.9",
-  "Casamento - Video": "3.1.11",
-  "Video cultural": "3.1.12", "Video Cultural": "3.1.12",
-  "Video Geral": "3.1.13",
-};
 
 function fmtBRL(v: number) {
   return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -60,8 +40,6 @@ export default function PanoramaPage() {
   const router = useRouter();
   const { fotografo } = useFotografo();
 
-  const [dados, setDados]         = useState<PanoramaItem[]>([]);
-  const [loading, setLoading]     = useState(true);
   const [regime, setRegime]       = useState<Regime>("competencia");
 
   // DRE anual
@@ -83,166 +61,17 @@ export default function PanoramaPage() {
   const [drillItems, setDrillItems] = useState<DrillEntry[]>([]);
   const [drillLoading, setDrillLoading] = useState(false);
 
-  // Panorama resumo (RPC)
-  useEffect(() => {
-    if (!fotografo) return;
-    const sb = createClient();
-    sb.rpc("get_panorama_financeiro", { p_fotografo_id: fotografo.id })
-      .then(({ data, error }) => {
-        if (error) { console.error("panorama rpc:", error); return; }
-        type Row = { ano: number; tipo: string; total: number };
-        const mapa: Record<number, { rec: number; desp: number }> = {};
-        for (const row of (data ?? []) as Row[]) {
-          mapa[row.ano] ??= { rec: 0, desp: 0 };
-          if (row.tipo === "receita") mapa[row.ano].rec += Number(row.total);
-          else mapa[row.ano].desp += Number(row.total);
-        }
-        setDados(Object.entries(mapa)
-          .map(([y, v]) => ({ ano: parseInt(y), receitas: v.rec, despesas: v.desp, lucro: v.rec - v.desp }))
-          .sort((a, b) => a.ano - b.ano));
-        setLoading(false);
-      });
-  }, [fotografo]);
-
-  // DRE anual detalhado por conta
+  // DRE anual detalhado por conta (fonte única compartilhada com o Resultados)
   const carregarDRE = useCallback(async () => {
     if (!fotografo) return;
     setDreLoading(true);
     const sb = createClient();
-    const fid = fotografo.id;
-
-    const [{ data: contasData }, { count: dreCount }] = await Promise.all([
-      sb.from("crm_chart_of_accounts").select("id, codigo, nome")
-        .or(`fotografo_id.is.null,fotografo_id.eq.${fid}`).eq("ativo", true)
-        .order("codigo").order("fotografo_id", { nullsFirst: false }),
-      sb.from("crm_financial_entries").select("*", { count: "exact", head: true })
-        .eq("fotografo_id", fid).eq("num_documento", "DRE"),
-    ]);
-
-    // Índices sobre TODAS as versões de conta (sistema + cópia): id→código e código→[ids].
-    const todasContas = (contasData ?? []) as Conta[];
-    const idParaCodigo: Record<string, string> = {};
-    const codigoParaIds: Record<string, string[]> = {};
-    for (const c of todasContas) {
-      idParaCodigo[c.id] = c.codigo;
-      (codigoParaIds[c.codigo] ??= []).push(c.id);
-    }
-
-    // Dedup por código (mantém a 1ª — com o tie-breaker acima, a cópia do fotógrafo).
-    const seen = new Set<string>();
-    const contasArr = todasContas.filter(c => {
-      if (seen.has(c.codigo)) return false;
-      seen.add(c.codigo);
-      return true;
-    });
-    const temDRELocal = (dreCount ?? 0) > 0;
-    setTemDRE(temDRELocal);
-
-    // novoMapa é chaveado por CÓDIGO da conta.
-    const novoMapa: Record<string, Record<number, number>> = {};
-    const anosSet = new Set<number>();
-
-    if (regime === "caixa") {
-      type Row = { conta_id: string | null; valor: number; pago_em: string };
-      // temDRE: usar apenas entradas DRE (únicas com conta_id no histórico) agrupadas por pago_em
-      // sem temDRE: entradas normais (excluindo DRE) com conta_id
-      const entries = await fetchAllRows<Row>((sbc, f, t) => {
-        const q = sbc.from("crm_financial_entries")
-          .select("conta_id, valor, pago_em")
-          .eq("fotografo_id", fid).eq("status", "pago")
-          .not("pago_em", "is", null);
-        return (temDRELocal
-          ? q.eq("num_documento", "DRE")
-          : q.or("num_documento.is.null,num_documento.neq.DRE")
-        ).range(f, t);
-      }, sb);
-
-      for (const e of entries) {
-        if (!e.pago_em || !e.conta_id) continue;
-        const cod = idParaCodigo[e.conta_id];
-        if (!cod) continue;
-        const ano = parseInt(e.pago_em.slice(0, 4));
-        anosSet.add(ano);
-        novoMapa[cod] ??= {};
-        novoMapa[cod][ano] = (novoMapa[cod][ano] ?? 0) + e.valor;
-      }
-    } else if (temDRELocal) {
-      // Competência com DRE: entradas DRE legadas + pedidos crm_nativo
-      type EntRow = { conta_id: string | null; tipo: string; valor: number; vencimento: string };
-      const dreEntries = await fetchAllRows<EntRow>((sbc, f, t) =>
-        sbc.from("crm_financial_entries")
-          .select("conta_id, tipo, valor, vencimento")
-          .eq("fotografo_id", fid).eq("num_documento", "DRE")
-          .not("vencimento", "is", null).range(f, t), sb);
-
-      for (const e of dreEntries) {
-        if (!e.vencimento || !e.conta_id) continue;
-        const cod = idParaCodigo[e.conta_id];
-        if (!cod) continue;
-        const ano = parseInt(e.vencimento.slice(0, 4));
-        anosSet.add(ano);
-        novoMapa[cod] ??= {};
-        novoMapa[cod][ano] = (novoMapa[cod][ano] ?? 0) + e.valor;
-      }
-
-      // Pedidos crm_nativo: cada ITEM na conta do seu produto; resíduo (ou pedido sem itens = legado)
-      // cai na conta da CATEGORIA (mapa). Preserva o comportamento anterior para pedidos sem itens.
-      type OrdItem = { total: number | null; crm_products: { conta_vendas_id: string | null } | null };
-      type OrdRow = { categoria: string; total: number; data_lancamento: string; crm_order_items?: OrdItem[] | null };
-      const orders = await fetchAllRows<OrdRow>((sbc, f, t) =>
-        sbc.from("crm_orders")
-          .select("categoria, total, data_lancamento, crm_order_items(total, crm_products(conta_vendas_id))")
-          .eq("fotografo_id", fid).eq("crm_nativo", true)
-          .not("data_lancamento", "is", null).range(f, t), sb);
-
-      for (const o of orders) {
-        if (!o.data_lancamento) continue;
-        const ano = parseInt(o.data_lancamento.slice(0, 4));
-        let somaItens = 0;
-        for (const it of (o.crm_order_items ?? [])) {
-          const contaId = it.crm_products?.conta_vendas_id ?? null;
-          const cod = contaId ? idParaCodigo[contaId] : null;
-          if (!cod) continue;
-          anosSet.add(ano);
-          novoMapa[cod] ??= {};
-          novoMapa[cod][ano] = (novoMapa[cod][ano] ?? 0) + (it.total ?? 0);
-          somaItens += (it.total ?? 0);
-        }
-        const residuo = Math.round((o.total - somaItens) * 100) / 100;
-        if (Math.abs(residuo) > 0.005) {
-          const codigo = CATEGORIA_CODIGO[o.categoria];
-          if (!codigo) continue;
-          anosSet.add(ano);
-          novoMapa[codigo] ??= {};
-          novoMapa[codigo][ano] = (novoMapa[codigo][ano] ?? 0) + residuo;
-        }
-      }
-    } else {
-      // Sem DRE: crm_financial_entries com conta_id direto
-      type EntRow = { conta_id: string | null; tipo: string; valor: number; vencimento: string };
-      const entries = await fetchAllRows<EntRow>((sbc, f, t) =>
-        sbc.from("crm_financial_entries")
-          .select("conta_id, tipo, valor, vencimento")
-          .eq("fotografo_id", fid)
-          .or("num_documento.is.null,num_documento.neq.DRE")
-          .not("vencimento", "is", null).range(f, t), sb);
-
-      for (const e of entries) {
-        if (!e.vencimento || !e.conta_id) continue;
-        const cod = idParaCodigo[e.conta_id];
-        if (!cod) continue;
-        const ano = parseInt(e.vencimento.slice(0, 4));
-        anosSet.add(ano);
-        novoMapa[cod] ??= {};
-        novoMapa[cod][ano] = (novoMapa[cod][ano] ?? 0) + e.valor;
-      }
-    }
-
-    const anosOrdenados = [...anosSet].sort();
-    setContas(contasArr);
-    setAnos(anosOrdenados);
-    setMapaAnual(novoMapa);
-    setCodigoIds(codigoParaIds);
+    const r = await carregarDreAnual(sb, fotografo.id, regime);
+    setContas(r.contas);
+    setAnos(r.anos);
+    setMapaAnual(r.mapa);
+    setCodigoIds(r.codigoIds);
+    setTemDRE(r.temDRE);
     setDreLoading(false);
   }, [fotografo, regime]);
 
@@ -359,6 +188,11 @@ export default function PanoramaPage() {
     URL.revokeObjectURL(url);
   }, [contas, periodos, mapaAnual]);
 
+  // Cards + gráfico + tabela "por ano" derivam do MESMO mapa da DRE (regime-aware,
+  // com pedidos crm_nativo classificados por item) — não mais da RPC. Assim as duas
+  // telas sempre batem e o pedido novo aparece aqui também.
+  const dados = useMemo(() => panoramaPorAno(mapaAnual, anos), [mapaAnual, anos]);
+
   const totalReceitas = dados.reduce((s, d) => s + d.receitas, 0);
   const totalDespesas = dados.reduce((s, d) => s + d.despesas, 0);
   const totalLucro    = totalReceitas - totalDespesas;
@@ -453,22 +287,40 @@ export default function PanoramaPage() {
   return (
     <div style={{ padding: "28px 32px", maxWidth: 1400, fontFamily: "var(--font-sans)" }}>
 
-      <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 24 }}>
-        <button onClick={() => router.back()}
-          style={{ padding: "7px 14px", borderRadius: 8, border: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-primary)", fontSize: 12, cursor: "pointer", color: "var(--color-text-secondary)" }}>
-          ← Voltar
-        </button>
-        <div>
-          <h1 style={{ fontSize: 20, fontWeight: 800, letterSpacing: "-0.03em", color: "var(--color-text-primary)", margin: "0 0 2px" }}>
-            Panorama Financeiro
-          </h1>
-          <p style={{ fontSize: 13, color: "var(--color-text-secondary)", margin: 0 }}>
-            Visão geral de todos os anos
-          </p>
+      <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 24, justifyContent: "space-between", flexWrap: "wrap" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+          <button onClick={() => router.back()}
+            style={{ padding: "7px 14px", borderRadius: 8, border: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-primary)", fontSize: 12, cursor: "pointer", color: "var(--color-text-secondary)" }}>
+            ← Voltar
+          </button>
+          <div>
+            <h1 style={{ fontSize: 20, fontWeight: 800, letterSpacing: "-0.03em", color: "var(--color-text-primary)", margin: "0 0 2px" }}>
+              Panorama Financeiro
+            </h1>
+            <p style={{ fontSize: 13, color: "var(--color-text-secondary)", margin: 0 }}>
+              Visão geral de todos os anos
+            </p>
+          </div>
+        </div>
+        {/* Toggle de regime — rege TODA a tela (cards, gráfico, tabela ano e DRE) */}
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
+          <div style={{ display: "flex", background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 8, padding: 2, gap: 2 }}>
+            {(["competencia", "caixa"] as Regime[]).map(r => (
+              <button key={r} onClick={() => setRegime(r)}
+                style={{ padding: "6px 14px", borderRadius: 6, fontSize: 12, fontWeight: 600, border: "none", cursor: "pointer", background: regime === r ? "var(--color-background-primary)" : "transparent", color: regime === r ? "var(--color-text-primary)" : "var(--color-text-secondary)", boxShadow: regime === r ? "0 1px 3px rgba(0,0,0,0.1)" : "none" }}>
+                {r === "competencia" ? "Competência" : "Caixa"}
+              </button>
+            ))}
+          </div>
+          <span style={{ fontSize: 11, color: "var(--color-text-secondary)", maxWidth: 280, textAlign: "right" }}>
+            {regime === "competencia"
+              ? "Inclui pedidos do CRM e lançamentos por vencimento"
+              : "Somente valores pagos, por data de pagamento"}
+          </span>
         </div>
       </div>
 
-      {loading ? (
+      {dreLoading ? (
         <div style={{ padding: "60px 0", textAlign: "center", fontSize: 13, color: "var(--color-text-secondary)" }}>Carregando…</div>
       ) : (
         <>
@@ -486,7 +338,12 @@ export default function PanoramaPage() {
           </div>
 
           <div style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 12, padding: "20px 24px", marginBottom: 24 }}>
-            <div style={{ marginBottom: 16, fontSize: 13, fontWeight: 700, color: "var(--color-text-primary)" }}>Receitas, despesas e lucro por ano</div>
+            <div style={{ marginBottom: 16, fontSize: 13, fontWeight: 700, color: "var(--color-text-primary)" }}>
+              Receitas, despesas e lucro por ano
+              <span style={{ fontSize: 11, fontWeight: 500, color: "var(--color-text-secondary)", marginLeft: 8 }}>
+                · {regime === "competencia" ? "Competência" : "Caixa"}
+              </span>
+            </div>
             <GraficoPanorama dados={dados} height={360} />
           </div>
 
@@ -531,15 +388,6 @@ export default function PanoramaPage() {
               <button key={n} onClick={() => setAgrupamento(n)}
                 style={{ padding: "6px 12px", borderRadius: 6, fontSize: 12, fontWeight: 600, border: "none", cursor: "pointer", background: agrupamento === n ? "var(--color-background-primary)" : "transparent", color: agrupamento === n ? "var(--color-text-primary)" : "var(--color-text-secondary)", boxShadow: agrupamento === n ? "0 1px 3px rgba(0,0,0,0.1)" : "none", whiteSpace: "nowrap" }}>
                 {n === 1 ? "1 ano" : `${n} anos`}
-              </button>
-            ))}
-          </div>
-          {/* Toggle regime */}
-          <div style={{ display: "flex", background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 8, padding: 2, gap: 2 }}>
-            {(["competencia", "caixa"] as Regime[]).map(r => (
-              <button key={r} onClick={() => setRegime(r)}
-                style={{ padding: "6px 14px", borderRadius: 6, fontSize: 12, fontWeight: 600, border: "none", cursor: "pointer", background: regime === r ? "var(--color-background-primary)" : "transparent", color: regime === r ? "var(--color-text-primary)" : "var(--color-text-secondary)", boxShadow: regime === r ? "0 1px 3px rgba(0,0,0,0.1)" : "none" }}>
-                {r === "competencia" ? "Competência" : "Caixa"}
               </button>
             ))}
           </div>
