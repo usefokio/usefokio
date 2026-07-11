@@ -17,8 +17,7 @@ export type ConfigPaginaValores = {
 export const MODOS_EXIBICAO: { valor: string; label: string }[] = [
   { valor: "lista", label: "Lista" },
   { valor: "slideshow", label: "Slideshow" },
-  { valor: "grid-vertical", label: "Grid — Vertical" },
-  { valor: "grid-horizontal", label: "Grid — Horizontal" },
+  { valor: "grid", label: "Grid" },
 ];
 
 // slug seguro (mesma regra usada nos editores) — client-safe.

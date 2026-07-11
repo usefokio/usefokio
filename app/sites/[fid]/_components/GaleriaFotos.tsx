@@ -3,12 +3,20 @@
 // Galeria de fotos do site com modo de exibição:
 //  - lista: empilhado, largura cheia (coração central no hover, clique curte);
 //  - slideshow: uma por vez com navegação;
-//  - grid-vertical: mosaico/masonry (colunas, orientação natural);
-//  - grid-horizontal: linhas justificadas (altura fixa, largura natural).
-// Nas grades, clicar na miniatura AMPLIA (lightbox) e o coração fica num botão no canto.
+//  - grid: linhas justificadas com pouca margem, cada foto na ORIENTAÇÃO NATURAL
+//    (como a galeria de entrega). A proporção é medida no carregamento da imagem
+//    (--ar no wrapper), já que largura/altura não existem no banco para fotos antigas.
+// No grid/slideshow, clicar AMPLIA (lightbox via portal no body) e o coração fica no canto.
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 
 export type FotoGaleria = { id: string; url: string; alt: string };
+
+// Grava a proporção real da foto no wrapper (.site-foto) — o CSS usa var(--ar) para justificar.
+function aplicarProporcao(img: HTMLImageElement | null) {
+  if (!img || !img.complete || !img.naturalWidth || !img.naturalHeight) return;
+  img.parentElement?.style.setProperty("--ar", (img.naturalWidth / img.naturalHeight).toFixed(4));
+}
 
 export function GaleriaFotos({ fotos, modo = "lista", onCurtir, curtidas }: {
   fotos: FotoGaleria[];
@@ -33,7 +41,7 @@ export function GaleriaFotos({ fotos, modo = "lista", onCurtir, curtidas }: {
 
   if (fotos.length === 0) return null;
 
-  // Botão de curtir no canto (usado nas grades e no slideshow)
+  // Botão de curtir no canto (grid e slideshow)
   const botaoLike = (f: FotoGaleria) => onCurtir ? (
     <button type="button" className="site-foto-like" aria-label={curtidas?.has(f.id) ? "Descurtir foto" : "Curtir foto"}
       onClick={(e) => { e.stopPropagation(); onCurtir(f.id); }}>
@@ -41,16 +49,8 @@ export function GaleriaFotos({ fotos, modo = "lista", onCurtir, curtidas }: {
     </button>
   ) : null;
 
-  // Célula da grade: clique amplia; coração no canto.
-  const cellGrid = (f: FotoGaleria, i: number) => (
-    <div key={f.id} className="site-foto" style={{ cursor: "zoom-in" }} onClick={() => setLb(i)}>
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={f.url} alt={f.alt} loading="lazy" />
-      {botaoLike(f)}
-    </div>
-  );
-
-  const lightbox = lb !== null && (
+  // Lightbox no body via portal — nenhum CSS/stacking do layout interfere; lb só é setado no client.
+  const lightbox = lb !== null && typeof document !== "undefined" ? createPortal(
     <div className="site-lightbox" onClick={() => setLb(null)}>
       <button type="button" className="site-lightbox-x" onClick={() => setLb(null)} aria-label="Fechar">×</button>
       {fotos.length > 1 && (
@@ -64,8 +64,9 @@ export function GaleriaFotos({ fotos, modo = "lista", onCurtir, curtidas }: {
           onClick={(e) => { e.stopPropagation(); setLb((i) => (i! + 1) % fotos.length); }}>›</button>
       )}
       <div className="site-lightbox-contador">{lb + 1} / {fotos.length}</div>
-    </div>
-  );
+    </div>,
+    document.body,
+  ) : null;
 
   if (modo === "slideshow") {
     const atual = Math.min(slide, fotos.length - 1);
@@ -73,7 +74,7 @@ export function GaleriaFotos({ fotos, modo = "lista", onCurtir, curtidas }: {
     return (
       <div className="site-slideshow">
         <div className="site-slideshow-palco">
-          <div className="site-foto" style={{ width: "100%", height: "100%" }} onClick={() => setLb(atual)}>
+          <div className="site-foto" style={{ width: "100%", height: "100%", cursor: "zoom-in" }} onClick={() => setLb(atual)}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={fotos[atual].url} alt={fotos[atual].alt} loading="lazy" />
             {botaoLike(fotos[atual])}
@@ -91,17 +92,25 @@ export function GaleriaFotos({ fotos, modo = "lista", onCurtir, curtidas }: {
     );
   }
 
-  if (modo === "grid-vertical" || modo === "grid-horizontal") {
-    const cls = modo === "grid-vertical" ? "site-galeria-masonry" : "site-galeria-justif";
+  // "grid" (valores legados grid-vertical/grid-horizontal caem aqui até a migração rodar em prod)
+  if (modo === "grid" || modo === "grid-vertical" || modo === "grid-horizontal") {
     return (
       <>
-        <div className={cls}>{fotos.map(cellGrid)}</div>
+        <div className="site-galeria-grid">
+          {fotos.map((f, i) => (
+            <div key={f.id} className="site-foto" onClick={() => setLb(i)}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={f.url} alt={f.alt} loading="lazy" ref={aplicarProporcao} onLoad={(e) => aplicarProporcao(e.currentTarget)} />
+              {botaoLike(f)}
+            </div>
+          ))}
+        </div>
         {lightbox}
       </>
     );
   }
 
-  // Lista: coração central no hover, clique curte (comportamento atual).
+  // Lista: coração central no hover, clique curte (comportamento original).
   return (
     <div className="site-galeria-lista">
       {fotos.map((f) => {
