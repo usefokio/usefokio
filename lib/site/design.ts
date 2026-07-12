@@ -64,7 +64,7 @@ export type HeaderConfig = BarraConfig & {
 // Conjunto FIXO de blocos (não é lista livre como as landing pages). Cada bloco
 // tem on/off; a ORDEM do array define a ordem de render na home. Campos por bloco
 // num "saco" plano com nomes distintos (evita colisão de tipo entre blocos).
-export type HomeBlocoKey = "banner" | "trabalhos" | "blog" | "depoimentos" | "selos";
+export type HomeBlocoKey = "banner" | "trabalhos" | "blog" | "depoimentos" | "selos" | "cta";
 
 export type BannerTipo = "foto_unica" | "deslizante" | "grid";
 export type BannerAjuste = "manter_proporcao" | "preencher";
@@ -98,6 +98,10 @@ export type HomeBloco = {
   mostrar_texto?: boolean;
   // selos
   mostrar_titulo?: boolean;
+  // cta (chamada para orçamento)
+  cta_titulo?: string;
+  cta_subtitulo?: string;
+  cta_botao?: string;
 };
 
 export const PROPORCOES: readonly ProporcaoCapa[] = ["horizontal_3x2", "vertical_2x3", "quadrado_1x1"];
@@ -110,7 +114,7 @@ export const ASPECT: Record<ProporcaoCapa, string> = {
   quadrado_1x1: "1 / 1",
 };
 
-export const BLOCOS_ORDEM_PADRAO: HomeBlocoKey[] = ["banner", "trabalhos", "blog", "depoimentos", "selos"];
+export const BLOCOS_ORDEM_PADRAO: HomeBlocoKey[] = ["banner", "trabalhos", "blog", "depoimentos", "selos", "cta"];
 
 export const BLOCO_DEFAULTS: Record<HomeBlocoKey, HomeBloco> = {
   banner:      { key: "banner",      on: true, tipo: "deslizante", ajuste: "manter_proporcao", altura: 300, velocidade: 4, colunas: 3 },
@@ -118,6 +122,7 @@ export const BLOCO_DEFAULTS: Record<HomeBlocoKey, HomeBloco> = {
   blog:        { key: "blog",        on: true, layout: "capa_esquerda", colunas: 3, proporcao: "horizontal_3x2", titulo_pos: "abaixo", descricao: true },
   depoimentos: { key: "depoimentos", on: true, layout: "lista_vertical", colunas: 3, mostrar_foto: true, mostrar_nome: true, mostrar_texto: true },
   selos:       { key: "selos",       on: true, mostrar_titulo: true },
+  cta:         { key: "cta",         on: true, cta_titulo: "Vamos registrar a sua história?", cta_subtitulo: "Entre em contato e solicite seu orçamento.", cta_botao: "Solicitar orçamento" },
 };
 
 export const BLOCOS_PADRAO: HomeBloco[] = BLOCOS_ORDEM_PADRAO.map((k) => ({ ...BLOCO_DEFAULTS[k] }));
@@ -128,6 +133,7 @@ export const BLOCO_LABEL: Record<HomeBlocoKey, string> = {
   blog: "Blog",
   depoimentos: "Depoimentos",
   selos: "Selos e associações",
+  cta: "Chamada (orçamento)",
 };
 
 export type ConfigDesign = {
@@ -154,6 +160,10 @@ function num(v: unknown, def: number, min: number, max: number): number {
 }
 function bool(v: unknown, def: boolean): boolean {
   return typeof v === "boolean" ? v : def;
+}
+function str(v: unknown, def: string, max: number): string {
+  // string presente (mesmo vazia) é mantida; ausente cai no default.
+  return typeof v === "string" ? v.slice(0, max) : def;
 }
 function umDe<T extends string>(v: unknown, opts: readonly T[], def: T): T {
   return opts.includes(v as T) ? (v as T) : def;
@@ -217,6 +227,11 @@ function normalizarBloco(key: HomeBlocoKey, raw: unknown): HomeBloco {
         mostrar_texto: bool(r.mostrar_texto, d.mostrar_texto!) };
     case "selos":
       return { key, on, mostrar_titulo: bool(r.mostrar_titulo, d.mostrar_titulo!) };
+    case "cta":
+      return { key, on,
+        cta_titulo: str(r.cta_titulo, d.cta_titulo!, 120),
+        cta_subtitulo: str(r.cta_subtitulo, d.cta_subtitulo!, 200),
+        cta_botao: str(r.cta_botao, d.cta_botao!, 40) };
   }
 }
 

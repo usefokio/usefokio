@@ -4,6 +4,7 @@
 import Link from "next/link";
 import { CATEGORIA_LABEL } from "@/lib/site/publico";
 import { ASPECT, type HomeBloco } from "@/lib/site/design";
+import { gradPlaceholder } from "./placeholder";
 import type { SiteTrabalho } from "@/lib/supabase/types";
 
 export function BlocoTrabalhos({ config, trabalhos, base }: { config: HomeBloco; trabalhos: SiteTrabalho[]; base: string }) {
@@ -34,7 +35,7 @@ export function BlocoTrabalhos({ config, trabalhos, base }: { config: HomeBloco;
         {trabalhos.map((t) => (
           <Link key={t.id} href={url(t)} style={{ textDecoration: "none", color: "var(--site-texto)" }}>
             {pos === "acima" && titulo(t, false)}
-            <div style={{ position: "relative", overflow: "hidden", background: "var(--site-superficie)", aspectRatio: aspect }}>
+            <div style={{ position: "relative", overflow: "hidden", background: t.capa_url ? "var(--site-superficie)" : gradPlaceholder(t.id), aspectRatio: aspect }}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               {t.capa_url && <img src={t.capa_url} alt={t.titulo} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} loading="lazy" />}
               {pos === "centro" && titulo(t, true)}

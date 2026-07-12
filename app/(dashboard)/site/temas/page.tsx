@@ -19,6 +19,7 @@ import {
 } from "@/lib/site/design";
 import { SiteHeader } from "@/app/sites/[fid]/_components/SiteHeader";
 import { HomeBlocos } from "@/app/sites/[fid]/_components/home/HomeBlocos";
+import { DADOS_EXEMPLO } from "@/app/sites/[fid]/_components/home/exemplo";
 import type { DadosHome } from "@/app/sites/[fid]/_components/home/tipos";
 import type { SiteBanner, SiteDepoimento, SitePost, SiteSelo, SiteTrabalho } from "@/lib/supabase/types";
 
@@ -37,6 +38,7 @@ const POS_OPTS = [{ v: "acima", l: "Acima" }, { v: "centro", l: "Sobre a capa" }
 const lbl: React.CSSProperties = { fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em" };
 const mini: React.CSSProperties = { fontSize: 12, color: "var(--color-text-secondary)" };
 const cardBox: React.CSSProperties = { border: "1px solid var(--color-border-tertiary)", borderRadius: 12, padding: 16, background: "var(--color-background-primary)", marginBottom: 12 };
+const inp: React.CSSProperties = { width: "100%", padding: "8px 10px", borderRadius: 8, boxSizing: "border-box", border: "1px solid var(--color-border-secondary)", fontSize: 13, background: "var(--color-background-primary)", color: "var(--color-text-primary)" };
 
 // ── Conversões de cor + seletor (matriz saturação/brilho + matiz + hex) ──
 function hsvToHex(h: number, s: number, v: number): string {
@@ -306,6 +308,16 @@ export default function AparenciaPage() {
   const logoProprio = !!design.logo_url;
   const nome = fotografo?.nome_empresa || "Seu Estúdio";
 
+  // Prévia sempre completa: bloco sem conteúdo real usa dados fictícios (imagens viram gradientes),
+  // para o fotógrafo ver TODOS os blocos como se já tivesse conteúdo.
+  const dadosPreview: DadosHome = {
+    banners: dados.banners.length ? dados.banners : DADOS_EXEMPLO.banners,
+    trabalhos: dados.trabalhos.length ? dados.trabalhos : DADOS_EXEMPLO.trabalhos,
+    posts: dados.posts.length ? dados.posts : DADOS_EXEMPLO.posts,
+    depoimentos: dados.depoimentos.length ? dados.depoimentos : DADOS_EXEMPLO.depoimentos,
+    selos: dados.selos.length ? dados.selos : DADOS_EXEMPLO.selos,
+  };
+
   const campo = (titulo: string, node: React.ReactNode) => (
     <div style={{ marginBottom: 14 }}>
       <div style={{ ...mini, marginBottom: 6, fontWeight: 600 }}>{titulo}</div>
@@ -372,6 +384,15 @@ export default function AparenciaPage() {
           <>
             {campo("Título", linhaChave("Mostrar o título de cada selo", b.mostrar_titulo !== false, (v) => setBloco("selos", { mostrar_titulo: v })))}
             <p style={{ ...mini, marginTop: 4 }}>Adicione os selos em <strong>Site → Selos</strong>.</p>
+          </>
+        );
+      case "cta":
+        return (
+          <>
+            {campo("Título", <input value={b.cta_titulo ?? ""} onChange={(e) => setBloco("cta", { cta_titulo: e.target.value })} placeholder="Vamos registrar a sua história?" style={inp} />)}
+            {campo("Subtítulo", <input value={b.cta_subtitulo ?? ""} onChange={(e) => setBloco("cta", { cta_subtitulo: e.target.value })} placeholder="Entre em contato e solicite seu orçamento." style={inp} />)}
+            {campo("Texto do botão", <input value={b.cta_botao ?? ""} onChange={(e) => setBloco("cta", { cta_botao: e.target.value })} placeholder="Solicitar orçamento" style={inp} />)}
+            <p style={{ ...mini, marginTop: 4 }}>O botão leva à página de Contato.</p>
           </>
         );
     }
@@ -489,7 +510,7 @@ export default function AparenciaPage() {
                 <button key={k} onClick={() => setDisp(k)} style={{ padding: "6px 12px", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer", border: disp === k ? "1.5px solid #2563EB" : "1px solid var(--color-border-tertiary)", background: disp === k ? "rgba(37,99,235,0.06)" : "transparent", color: disp === k ? "#2563EB" : "var(--color-text-primary)" }}>{l}</button>
               ))}
             </div>
-            <Preview design={design} dados={dados} menu={menu} nome={nome} logoUrl={logo} disp={disp} tema={tema} />
+            <Preview design={design} dados={dadosPreview} menu={menu} nome={nome} logoUrl={logo} disp={disp} tema={tema} />
             <div style={{ ...mini, marginTop: 8, textAlign: "center" }}>Prévia ao vivo — o site real segue estas escolhas.</div>
           </div>
         </div>

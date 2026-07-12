@@ -7,12 +7,15 @@
 // Toggles independentes: foto, nome, depoimento.
 import { useState } from "react";
 import type { HomeBloco } from "@/lib/site/design";
+import { gradPlaceholder } from "./placeholder";
 import type { SiteDepoimento } from "@/lib/supabase/types";
 
 function Card({ d, foto, nome, texto }: { d: SiteDepoimento; foto: boolean; nome: boolean; texto: boolean }) {
   return (
     <figure style={{ margin: 0, textAlign: "center", padding: "8px 16px" }}>
-      {foto && d.foto_url && <img src={d.foto_url} alt={d.nome} style={{ width: 64, height: 64, borderRadius: "50%", objectFit: "cover", margin: "0 auto 16px", display: "block" }} />}
+      {foto && (d.foto_url
+        ? <img src={d.foto_url} alt={d.nome} style={{ width: 64, height: 64, borderRadius: "50%", objectFit: "cover", margin: "0 auto 16px", display: "block" }} />
+        : <div style={{ width: 64, height: 64, borderRadius: "50%", margin: "0 auto 16px", background: gradPlaceholder(d.id) }} />)}
       {texto && <blockquote style={{ margin: "0 0 16px", fontSize: 17, lineHeight: 1.7, color: "var(--site-texto)", fontStyle: "italic", fontFamily: "var(--site-fonte-corpo), Georgia, serif" }}>“{d.texto.length > 240 ? d.texto.slice(0, 240) + "…" : d.texto}”</blockquote>}
       {nome && <figcaption style={{ fontSize: 12, textTransform: "uppercase", letterSpacing: "0.14em", color: "var(--site-suave)" }}>{d.nome}</figcaption>}
     </figure>

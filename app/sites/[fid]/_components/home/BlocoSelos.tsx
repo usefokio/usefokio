@@ -1,6 +1,7 @@
 // Bloco "Selos e associações" — barra horizontal ÚNICA (uma linha, sem quebra e sem
 // slider). Cada item = logo (+ título opcional) com link para o perfil da instituição.
 import type { HomeBloco } from "@/lib/site/design";
+import { gradPlaceholder } from "./placeholder";
 import type { SiteSelo } from "@/lib/supabase/types";
 
 export function BlocoSelos({ config, selos }: { config: HomeBloco; selos: SiteSelo[] }) {
@@ -14,7 +15,9 @@ export function BlocoSelos({ config, selos }: { config: HomeBloco; selos: SiteSe
           const conteudo = (
             <span style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, minWidth: 0 }}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={s.logo_url} alt={s.titulo ?? ""} style={{ height: 46, width: "auto", maxWidth: "100%", objectFit: "contain" }} loading="lazy" />
+              {s.logo_url
+                ? <img src={s.logo_url} alt={s.titulo ?? ""} style={{ height: 46, width: "auto", maxWidth: "100%", objectFit: "contain" }} loading="lazy" />
+                : <span style={{ height: 46, width: 72, borderRadius: 6, background: gradPlaceholder(s.id), display: "block" }} />}
               {mostrarTitulo && s.titulo && (
                 <span style={{ fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--site-suave)", textAlign: "center" }}>{s.titulo}</span>
               )}

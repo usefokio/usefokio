@@ -7,6 +7,7 @@ import { BlocoTrabalhos } from "./BlocoTrabalhos";
 import { BlocoBlog } from "./BlocoBlog";
 import { BlocoDepoimentos } from "./BlocoDepoimentos";
 import { BlocoSelos } from "./BlocoSelos";
+import { BlocoCta } from "./BlocoCta";
 
 export function HomeBlocos({ blocos, dados, base }: { blocos: HomeBloco[]; dados: DadosHome; base: string }) {
   return (
@@ -18,6 +19,7 @@ export function HomeBlocos({ blocos, dados, base }: { blocos: HomeBloco[]; dados
           case "blog": return <BlocoBlog key="blog" config={b} posts={dados.posts} base={base} />;
           case "depoimentos": return <BlocoDepoimentos key="depoimentos" config={b} depoimentos={dados.depoimentos} />;
           case "selos": return <BlocoSelos key="selos" config={b} selos={dados.selos} />;
+          case "cta": return <BlocoCta key="cta" config={b} base={base} />;
           default: return null;
         }
       })}

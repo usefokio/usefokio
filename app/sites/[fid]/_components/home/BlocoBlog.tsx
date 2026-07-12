@@ -3,6 +3,7 @@
 // posição do título (nos layouts de capa no topo) e descrição (excerpt) liga/desliga.
 import Link from "next/link";
 import { ASPECT, type HomeBloco } from "@/lib/site/design";
+import { gradPlaceholder } from "./placeholder";
 import type { SitePost } from "@/lib/supabase/types";
 
 export function BlocoBlog({ config, posts, base }: { config: HomeBloco; posts: SitePost[]; base: string }) {
@@ -14,7 +15,7 @@ export function BlocoBlog({ config, posts, base }: { config: HomeBloco; posts: S
   const url = (p: SitePost) => `${base}/post/${p.legacy_id ? `${p.legacy_id}-` : ""}${p.slug}`;
 
   const capa = (p: SitePost) => (
-    <div style={{ position: "relative", overflow: "hidden", background: "var(--site-superficie)", aspectRatio: aspect }}>
+    <div style={{ position: "relative", overflow: "hidden", background: p.capa_url ? "var(--site-superficie)" : gradPlaceholder(p.id), aspectRatio: aspect }}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       {p.capa_url && <img src={p.capa_url} alt={p.titulo} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} loading="lazy" />}
     </div>

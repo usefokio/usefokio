@@ -5,8 +5,10 @@
 //    (contain — nunca corta/estica; letterbox se sobrar) ou preencher (cover — pode cortar).
 //  • deslizante: fotos em proporção natural, deixando um pedaço da próxima ao lado; auto-desliza.
 //  • grid: várias imagens em grade (sem rotação), colunas configuráveis.
+// Onde falta imagem (site sem conteúdo / prévia fictícia) → gradiente placeholder.
 import { useEffect, useRef, useState } from "react";
 import type { HomeBloco } from "@/lib/site/design";
+import { gradPlaceholder } from "./placeholder";
 import type { SiteBanner } from "@/lib/supabase/types";
 
 function Seta({ dir, onClick, disabled }: { dir: "esq" | "dir"; onClick: () => void; disabled?: boolean }) {
@@ -22,6 +24,10 @@ export function BlocoBanner({ config, banners, base }: { config: HomeBloco; bann
   const tipo = config.tipo ?? "deslizante";
   const altura = config.altura ?? 300;
   const resolver = (link: string) => (link.startsWith("/") ? `${base}${link}` : link);
+  const envolver = (b: SiteBanner, conteudo: React.ReactNode, extra?: React.CSSProperties) =>
+    b.link
+      ? <a key={b.id} href={resolver(b.link)} style={extra}>{conteudo}</a>
+      : <div key={b.id} style={extra}>{conteudo}</div>;
   if (banners.length === 0) return null;
 
   if (tipo === "grid") {
@@ -29,10 +35,9 @@ export function BlocoBanner({ config, banners, base }: { config: HomeBloco; bann
     return (
       <section>
         <div className="site-banner-grid" style={{ display: "grid", gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gap: 4 }}>
-          {banners.map((b) => {
-            const img = <img src={b.imagem_url} alt={b.titulo ?? ""} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", aspectRatio: "3 / 2" }} loading="lazy" />;
-            return b.link ? <a key={b.id} href={resolver(b.link)}>{img}</a> : <div key={b.id}>{img}</div>;
-          })}
+          {banners.map((b) => envolver(b, b.imagem_url
+            ? <img src={b.imagem_url} alt={b.titulo ?? ""} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", aspectRatio: "3 / 2" }} loading="lazy" />
+            : <div style={{ width: "100%", aspectRatio: "3 / 2", background: gradPlaceholder(b.id) }} />))}
         </div>
       </section>
     );
@@ -54,8 +59,10 @@ function FotoUnica({ banners, altura, velocidade, ajuste, resolver }: { banners:
   return (
     <section style={{ position: "relative", height: altura, overflow: "hidden", background: "#111" }}>
       {banners.map((b, idx) => {
-        const img = <img src={b.imagem_url} alt={b.titulo ?? ""} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: fit, opacity: idx === i ? 1 : 0, transition: "opacity 0.8s ease", pointerEvents: idx === i ? "auto" : "none" }} loading={idx === 0 ? "eager" : "lazy"} />;
-        return b.link ? <a key={b.id} href={resolver(b.link)}>{img}</a> : <div key={b.id}>{img}</div>;
+        const camada = b.imagem_url
+          ? <img src={b.imagem_url} alt={b.titulo ?? ""} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: fit, opacity: idx === i ? 1 : 0, transition: "opacity 0.8s ease", pointerEvents: idx === i ? "auto" : "none" }} loading={idx === 0 ? "eager" : "lazy"} />
+          : <div style={{ position: "absolute", inset: 0, background: gradPlaceholder(b.id), opacity: idx === i ? 1 : 0, transition: "opacity 0.8s ease" }} />;
+        return b.link ? <a key={b.id} href={resolver(b.link)}>{camada}</a> : <div key={b.id}>{camada}</div>;
       })}
       {n > 1 && <><Seta dir="esq" onClick={() => setI((a) => (a - 1 + n) % n)} /><Seta dir="dir" onClick={() => setI((a) => (a + 1) % n)} /></>}
     </section>
@@ -84,10 +91,11 @@ function Deslizante({ banners, altura, velocidade, resolver }: { banners: SiteBa
     return () => clearInterval(t);
   }, [n, velocidade]);
   const item = (b: SiteBanner) => {
-    const img = <img src={b.imagem_url} alt={b.titulo ?? ""} style={{ height: "100%", width: "auto", display: "block", objectFit: "cover" }} loading="lazy" />;
-    return b.link
-      ? <a key={b.id} href={resolver(b.link)} style={{ flex: "0 0 auto", height: "100%", scrollSnapAlign: "center" }}>{img}</a>
-      : <div key={b.id} style={{ flex: "0 0 auto", height: "100%", scrollSnapAlign: "center" }}>{img}</div>;
+    const conteudo = b.imagem_url
+      ? <img src={b.imagem_url} alt={b.titulo ?? ""} style={{ height: "100%", width: "auto", display: "block", objectFit: "cover" }} loading="lazy" />
+      : <div style={{ height: "100%", width: Math.round(altura * 1.5), background: gradPlaceholder(b.id) }} />;
+    const st: React.CSSProperties = { flex: "0 0 auto", height: "100%", scrollSnapAlign: "center" };
+    return b.link ? <a key={b.id} href={resolver(b.link)} style={st}>{conteudo}</a> : <div key={b.id} style={st}>{conteudo}</div>;
   };
   return (
     <section style={{ position: "relative", background: "#111" }}>
