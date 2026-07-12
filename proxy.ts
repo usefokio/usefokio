@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
 import { ehAppHost, hostDaRequisicao, normalizarHost, rotuloSubdominio, SUBDOMINIOS_RESERVADOS } from "@/lib/site/publico";
+import { urlSupabase, anonSupabase } from "@/lib/supabase/env";
 
 const WEBMASTER_ID = process.env.NEXT_PUBLIC_WEBMASTER_ID ?? "";
 const APP_PRINCIPAL = "https://www.usefokio.com.br";
@@ -33,8 +34,8 @@ async function resolverTenant(host: string, rotulo: string | null): Promise<Tena
   const emCache = cacheTenant.get(host);
   if (emCache && emCache.exp > agora) return emCache.tenant;
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const supabaseUrl = urlSupabase();
+  const anonKey = anonSupabase();
   let tenant: Tenant | null = null;
 
   if (supabaseUrl && anonKey) {

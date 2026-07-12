@@ -1,4 +1,5 @@
 import { createBrowserClient } from "@supabase/ssr";
+import { urlSupabase, anonSupabase } from "./env";
 
 // Evita múltiplos redirects quando várias requisições retornam 401 ao mesmo tempo.
 let redirecionandoLogin = false;
@@ -20,8 +21,8 @@ function ehRotaPublica(pathname: string): boolean {
 
 export function createClient() {
   return createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    urlSupabase(),
+    anonSupabase(),
     {
       global: {
         // Intercepta as respostas do Supabase: se a sessão expirar no meio do uso,
