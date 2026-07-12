@@ -30,14 +30,25 @@ export async function baseLinks(fid: string): Promise<string> {
 // ── Multi-tenant por host ────────────────────────────────────────────────────
 
 // Subdomínios que nunca podem ser de fotógrafo (rotas/serviços do próprio UseFokio).
+// "saas-origin" e "conectar" são a infra do domínio próprio (Cloudflare for SaaS):
+// fallback origin e CNAME target — nunca podem virar site de fotógrafo.
 export const SUBDOMINIOS_RESERVADOS = new Set([
   "www", "app", "api", "arquivos", "admin", "webmaster", "mail", "smtp", "ftp",
   "dev", "staging", "preview", "teste", "cdn", "static", "assets", "status",
   "painel", "login", "conta", "crm", "suporte", "ajuda", "docs", "blog", "site",
+  "saas-origin", "conectar",
 ]);
 
 // Formato válido de subdomínio: minúsculas/dígitos/hífen, sem começar/terminar com hífen, até 40 chars.
 export const REGEX_SUBDOMINIO = /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/;
+
+// Saneia a digitação de um subdomínio (minúsculas, sem acento, só [a-z0-9-], até 40).
+export function slugSub(v: string): string {
+  return v.normalize("NFD").replace(/[^\x20-\x7E]/g, "").toLowerCase().replace(/[^a-z0-9-]+/g, "").slice(0, 40);
+}
+
+// Alvo do CNAME que o fotógrafo cria no provedor dele para o domínio próprio.
+export const CNAME_TARGET_DOMINIO = "conectar.usefokio.com.br";
 
 // Normaliza o header Host: remove porta, minúsculas, sem ponto final.
 export function normalizarHost(hostHeader: string): string {

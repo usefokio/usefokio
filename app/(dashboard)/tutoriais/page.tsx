@@ -2,6 +2,7 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { youtubeEmbedUrl } from "@/lib/utils/youtube";
 
 type Tutorial = {
   id: string;
@@ -11,11 +12,6 @@ type Tutorial = {
   ordem: number;
   categoria: string;
 };
-
-function youtubeEmbedUrl(url: string): string | null {
-  const m = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/);
-  return m ? `https://www.youtube.com/embed/${m[1]}` : null;
-}
 
 function TutoriaisConteudo() {
   const searchParams = useSearchParams();

@@ -377,8 +377,23 @@ export type SiteConfig = {
   redes: Record<string, string> | null;
   // Personalização de design (par de fontes, cores/altura de header/rodapé, logo) — ver lib/site/design.ts
   design: Record<string, unknown> | null;
+  // Ciclo de vida do domínio próprio (Cloudflare for SaaS) — ver /site/dominio
+  dominio_status: "nenhum" | "pendente_dns" | "verificando" | "ativo" | "erro";
+  dominio_cf_hostname_id: string | null;
+  dominio_verificacao: RegistroDns[] | null;
+  dominio_ssl_status: string | null;
+  dominio_erro: string | null;
+  dominio_checado_em: string | null;
   created_at: string;
   updated_at: string;
+};
+
+// Registro DNS que o fotógrafo deve criar no provedor dele (exibido em /site/dominio)
+export type RegistroDns = {
+  tipo: string;   // CNAME | TXT | A
+  nome: string;   // ex.: www (ou o host completo)
+  valor: string;  // ex.: conectar.usefokio.com.br
+  papel: "roteamento" | "cert" | "ownership";
 };
 
 // Avaliação do Google normalizada (o que exibimos no widget)
