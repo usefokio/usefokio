@@ -26,15 +26,16 @@ const boxStyle: React.CSSProperties = { padding: "14px 16px", borderRadius: 12, 
 const ajudaStyle: React.CSSProperties = { fontSize: 11, color: "var(--color-text-secondary)", lineHeight: 1.6 };
 const btnSec: React.CSSProperties = { padding: "8px 14px", borderRadius: 8, border: "1px solid var(--color-border-secondary)", background: "transparent", fontSize: 12, fontWeight: 600, color: "var(--color-text-primary)", cursor: "pointer" };
 
-type DominioStatus = "nenhum" | "pendente_dns" | "verificando" | "ativo" | "erro";
+type DominioStatus = "nenhum" | "pendente_dns" | "verificando" | "ativo" | "erro" | "aguardando_seo";
 type Disp = null | "checando" | "ok" | "em_uso" | "formato" | "reservado";
 
 const STATUS_INFO: Record<DominioStatus, { rotulo: string; cor: string; fundo: string }> = {
-  nenhum:       { rotulo: "Não conectado",            cor: "#6B7280", fundo: "rgba(107,114,128,0.12)" },
-  pendente_dns: { rotulo: "Aguardando DNS",           cor: "#B45309", fundo: "rgba(245,158,11,0.15)" },
-  verificando:  { rotulo: "DNS ok — emitindo HTTPS",  cor: "#1D4ED8", fundo: "rgba(37,99,235,0.10)" },
-  ativo:        { rotulo: "Ativo",                    cor: "#059669", fundo: "rgba(16,185,129,0.12)" },
-  erro:         { rotulo: "Erro",                     cor: "#DC2626", fundo: "rgba(220,38,38,0.10)" },
+  nenhum:         { rotulo: "Não conectado",              cor: "#6B7280", fundo: "rgba(107,114,128,0.12)" },
+  pendente_dns:   { rotulo: "Aguardando DNS",             cor: "#B45309", fundo: "rgba(245,158,11,0.15)" },
+  verificando:    { rotulo: "DNS ok — emitindo HTTPS",    cor: "#1D4ED8", fundo: "rgba(37,99,235,0.10)" },
+  ativo:          { rotulo: "Ativo",                      cor: "#059669", fundo: "rgba(16,185,129,0.12)" },
+  erro:           { rotulo: "Erro",                       cor: "#DC2626", fundo: "rgba(220,38,38,0.10)" },
+  aguardando_seo: { rotulo: "Migração assistida (SEO)",   cor: "#7C3AED", fundo: "rgba(124,58,237,0.10)" },
 };
 
 export default function SiteDominioPage() {
@@ -46,6 +47,7 @@ export default function SiteDominioPage() {
 
   // Domínio próprio (ações explícitas, fora do snapshot de Salvar)
   const [dominioInput, setDominioInput] = useState("");
+  const [jaTemSite, setJaTemSite] = useState<null | "sim" | "nao">(null); // trava de SEO (obrigatório)
   const [dominio, setDominio] = useState<string | null>(null);
   const [status, setStatus] = useState<DominioStatus>("nenhum");
   const [registros, setRegistros] = useState<RegistroDns[]>([]);
@@ -135,6 +137,10 @@ export default function SiteDominioPage() {
 
   async function conectarDominio() {
     if (!fotografo) return;
+    // TRAVA DE SEO (regra de sistema): a pergunta é obrigatória. Domínio que JÁ tem site
+    // indexado NUNCA segue o self-service — vira migração assistida (crawl 1:1 + mapa de 301)
+    // para não perder as posições no Google.
+    if (jaTemSite === null) { setMsg("Erro: responda antes se este domínio já tem um site no ar."); return; }
     const host = normalizarHost(dominioInput.trim().replace(/^https?:\/\//, "").replace(/\/.*$/, ""));
     if (!host || !host.includes(".")) { setMsg("Erro: digite um domínio válido (ex.: www.seudominio.com.br)."); return; }
     if (host.endsWith(".usefokio.com.br") || host === "usefokio.com.br") { setMsg("Erro: este campo é para o SEU domínio — o subdomínio UseFokio é configurado acima."); return; }
@@ -144,14 +150,15 @@ export default function SiteDominioPage() {
       const j = await r.json();
       if (!j.disponivel) { setMsg(`Erro: o domínio "${host}" já está conectado a outro site.`); setConectando(false); return; }
     } catch { /* segue — o UNIQUE do banco é a barreira final */ }
-    const novosRegistros: RegistroDns[] = [
+    const assistido = jaTemSite === "sim";
+    const novosRegistros: RegistroDns[] = assistido ? [] : [
       { tipo: "CNAME", nome: rotuloCname(host), valor: CNAME_TARGET_DOMINIO, papel: "roteamento" },
     ];
     const { error } = await createClient().from("site_config").upsert({
       fotografo_id: fotografo.id,
       dominio_customizado: host,
-      dominio_status: "pendente_dns",
-      dominio_verificacao: novosRegistros,
+      dominio_status: assistido ? "aguardando_seo" : "pendente_dns",
+      dominio_verificacao: assistido ? null : novosRegistros,
       dominio_erro: null,
       dominio_checado_em: null,
       updated_at: new Date().toISOString(),
@@ -161,8 +168,8 @@ export default function SiteDominioPage() {
       setMsg(error.code === "23505" ? `Erro: o domínio "${host}" já está conectado a outro site.` : "Erro: " + error.message);
       return;
     }
-    setDominio(host); setStatus("pendente_dns"); setRegistros(novosRegistros); setErroDominio(null); setChecadoEm(null);
-    setDominioInput("");
+    setDominio(host); setStatus(assistido ? "aguardando_seo" : "pendente_dns"); setRegistros(novosRegistros); setErroDominio(null); setChecadoEm(null);
+    setDominioInput(""); setJaTemSite(null);
   }
 
   async function desconectarDominio() {
@@ -275,13 +282,33 @@ export default function SiteDominioPage() {
                 no seu nome, no seu provedor — você só aponta o site para o UseFokio. Seu e-mail não é afetado.
               </div>
               <label style={labelStyle}>Seu domínio</label>
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                <input value={dominioInput} onChange={(e) => setDominioInput(e.target.value)} style={{ ...inputStyle, flex: 1, minWidth: 220 }} placeholder="www.seudominio.com.br" />
-                <button onClick={conectarDominio} disabled={conectando || !dominioInput.trim()}
-                  style={{ padding: "9px 18px", borderRadius: 8, border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", fontSize: 12.5, fontWeight: 700, cursor: "pointer", opacity: conectando || !dominioInput.trim() ? 0.6 : 1 }}>
-                  {conectando ? "Conectando…" : "Conectar domínio"}
-                </button>
+              <input value={dominioInput} onChange={(e) => setDominioInput(e.target.value)} style={{ ...inputStyle, maxWidth: 380 }} placeholder="www.seudominio.com.br" />
+
+              {/* Trava de SEO — pergunta obrigatória antes de conectar */}
+              <div style={{ margin: "12px 0 4px", fontSize: 12.5, fontWeight: 600, color: "var(--color-text-primary)" }}>
+                Este domínio já tem um site no ar hoje, com visitas vindas do Google?
               </div>
+              <div style={{ display: "flex", gap: 16, marginBottom: 8, flexWrap: "wrap" }}>
+                <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, color: "var(--color-text-primary)", cursor: "pointer" }}>
+                  <input type="radio" name="jaTemSite" checked={jaTemSite === "nao"} onChange={() => setJaTemSite("nao")} />
+                  Não — é um domínio novo/sem site
+                </label>
+                <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, color: "var(--color-text-primary)", cursor: "pointer" }}>
+                  <input type="radio" name="jaTemSite" checked={jaTemSite === "sim"} onChange={() => setJaTemSite("sim")} />
+                  Sim — já existe um site nele
+                </label>
+              </div>
+              {jaTemSite === "sim" && (
+                <div style={{ fontSize: 12, color: "#7C3AED", lineHeight: 1.6, marginBottom: 8 }}>
+                  🛡️ Para <strong>não perder suas posições no Google</strong>, a troca de um site já indexado é feita
+                  de forma assistida: preservamos os endereços das suas páginas e criamos os redirecionamentos
+                  necessários antes de virar o domínio. Ao conectar, seu pedido entra como <strong>migração assistida</strong>.
+                </div>
+              )}
+              <button onClick={conectarDominio} disabled={conectando || !dominioInput.trim() || jaTemSite === null}
+                style={{ padding: "9px 18px", borderRadius: 8, border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", fontSize: 12.5, fontWeight: 700, cursor: "pointer", opacity: conectando || !dominioInput.trim() || jaTemSite === null ? 0.6 : 1 }}>
+                {conectando ? "Conectando…" : "Conectar domínio"}
+              </button>
               <div style={{ ...ajudaStyle, marginTop: 8 }}>
                 💡 Recomendamos usar o endereço com <strong>www</strong>. Ainda não tem um domínio? Registre no
                 Registro.br (domínios .br) ou no provedor da sua preferência e volte aqui.
@@ -320,7 +347,15 @@ export default function SiteDominioPage() {
               )}
 
               {/* status + erro + ações */}
-              {erroDominio && status !== "ativo" && (
+              {status === "aguardando_seo" && (
+                <div style={{ fontSize: 12, color: "#7C3AED", lineHeight: 1.7, marginBottom: 8 }}>
+                  🛡️ <strong>Migração assistida em andamento.</strong> Este domínio já tem um site indexado no Google,
+                  então a virada é feita com preservação de SEO: conferimos que cada página antiga continua existindo
+                  no site novo (ou ganha um redirecionamento) <em>antes</em> de apontar o domínio. Nossa equipe vai te
+                  orientar nos próximos passos — <strong>não altere o DNS do seu domínio por enquanto</strong>.
+                </div>
+              )}
+              {erroDominio && status !== "ativo" && status !== "aguardando_seo" && (
                 <div style={{ fontSize: 12, color: "#B45309", lineHeight: 1.6, marginBottom: 8 }}>⚠️ {erroDominio}</div>
               )}
               {status === "verificando" && (
@@ -334,13 +369,15 @@ export default function SiteDominioPage() {
                   ✓ Seu site está no ar em <a href={`https://${dominio}`} target="_blank" rel="noopener noreferrer" style={{ color: "#059669" }}>{dominio}</a>.
                 </div>
               )}
-              {checadoEm && (
+              {checadoEm && status !== "aguardando_seo" && (
                 <div style={{ ...ajudaStyle, marginBottom: 8 }}>Última verificação: {new Date(checadoEm).toLocaleString("pt-BR")}</div>
               )}
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                <button onClick={verificarAgora} disabled={verificando} style={{ ...btnSec, opacity: verificando ? 0.6 : 1 }}>
-                  {verificando ? "Verificando…" : "Verificar agora"}
-                </button>
+                {status !== "aguardando_seo" && (
+                  <button onClick={verificarAgora} disabled={verificando} style={{ ...btnSec, opacity: verificando ? 0.6 : 1 }}>
+                    {verificando ? "Verificando…" : "Verificar agora"}
+                  </button>
+                )}
                 <button onClick={desconectarDominio} style={{ ...btnSec, color: "#DC2626", borderColor: "rgba(220,38,38,0.4)" }}>Desconectar</button>
               </div>
             </>

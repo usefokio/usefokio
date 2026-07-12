@@ -377,8 +377,9 @@ export type SiteConfig = {
   redes: Record<string, string> | null;
   // Personalização de design (par de fontes, cores/altura de header/rodapé, logo) — ver lib/site/design.ts
   design: Record<string, unknown> | null;
-  // Ciclo de vida do domínio próprio (Cloudflare for SaaS) — ver /site/dominio
-  dominio_status: "nenhum" | "pendente_dns" | "verificando" | "ativo" | "erro";
+  // Ciclo de vida do domínio próprio (Cloudflare for SaaS) — ver /site/dominio.
+  // "aguardando_seo": domínio já indexado → cutover assistido (preservação de SEO), não self-service.
+  dominio_status: "nenhum" | "pendente_dns" | "verificando" | "ativo" | "erro" | "aguardando_seo";
   dominio_cf_hostname_id: string | null;
   dominio_verificacao: RegistroDns[] | null;
   dominio_ssl_status: string | null;

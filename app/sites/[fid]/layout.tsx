@@ -37,8 +37,10 @@ export async function generateMetadata({ params }: { params: Promise<{ fid: stri
 
   // Canonical: só quando servido via host do fotógrafo (o proxy injeta x-site-path com a query,
   // essencial para /gallery.php?id=). Na prévia /sites/{fid} não há canonical (noindex cobre).
+  // Em DEV nunca emitir canonical de produção nem parecer indexável (higiene de SEO).
+  const ehDev = process.env.NODE_ENV === "development";
   const xSitePath = h.get("x-site-path");
-  const canonical = hostPrincipal && xSitePath ? `https://${hostPrincipal}${xSitePath === "/" ? "" : xSitePath}` : undefined;
+  const canonical = !ehDev && hostPrincipal && xSitePath ? `https://${hostPrincipal}${xSitePath === "/" ? "" : xSitePath}` : undefined;
 
   const nomeSite = config?.seo_title ?? config?.titulo_site ?? fotografo?.nome_empresa ?? "Site do fotógrafo";
   const ogImage = config?.og_image_url ?? fotografo?.logo_url ?? undefined;
@@ -52,7 +54,7 @@ export async function generateMetadata({ params }: { params: Promise<{ fid: stri
     alternates: canonical ? { canonical } : undefined,
     // Favicon do site = logo do fotógrafo (senão o navegador cai no favicon do app)
     icons: fotografo?.logo_url ? { icon: fotografo.logo_url, shortcut: fotografo.logo_url } : undefined,
-    robots: ehHostDoSite && config?.publicado ? { index: true, follow: true } : { index: false, follow: false },
+    robots: !ehDev && ehHostDoSite && config?.publicado ? { index: true, follow: true } : { index: false, follow: false },
     openGraph: {
       type: "website",
       locale: "pt_BR",

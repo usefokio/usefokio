@@ -226,6 +226,12 @@ sessão após sessão — tratar como checklist obrigatório, não como preferê
   (não constantes no código).
 - **Cliente único**: uma só tabela `clientes` compartilhada por CRM/seleção/entrega. Nunca base paralela nem
   recadastro. Ver [[project_cliente_unico]].
+- **SEO do Site é regra-mãe (zero prejuízo)**: o site substitui um domínio com ~143k views indexados.
+  (a) Todo link "ver site" do painel é **ambiente-aware** — `urlPublicaSite` retorna a prévia local em dev,
+  nunca a produção; (b) em dev o site público é sempre `noindex` e sem canonical de prod; (c) **domínio que
+  já tem site indexado NUNCA é self-service** — vira `dominio_status='aguardando_seo'` (migração assistida:
+  crawl 1:1 das URLs + mapa de 301 antes de apontar); (d) não mudar URLs de imagens/páginas já indexadas
+  sem 301. Ver memória [[feedback_seo_regra_mae]].
 
 ## Migrações de schema (regra)
 Toda mudança de schema vira um **arquivo SQL numerado** em `supabase/migrations/`, aplicado **primeiro no dev**

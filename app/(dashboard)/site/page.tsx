@@ -37,7 +37,8 @@ export default function SiteDashboardPage() {
           {host && (
             <span style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>
               {publicado ? "no ar em " : "endereço reservado: "}
-              <a href={`https://${host}`} target="_blank" rel="noopener noreferrer" style={{ color: "var(--color-text-primary)", fontWeight: 600 }}>{host}</a>
+              {/* Em dev o clique abre a prévia local — nunca a produção */}
+              <a href={process.env.NODE_ENV === "development" ? url : `https://${host}`} target="_blank" rel="noopener noreferrer" style={{ color: "var(--color-text-primary)", fontWeight: 600 }}>{host}</a>
             </span>
           )}
         </div>

@@ -20,8 +20,11 @@ export function hostPublicoSite(cfg: ConfigUrl | null | undefined): string | nul
 }
 
 // URL completa para abrir/linkar o site. Usa o domínio real quando publicado; senão, a prévia interna.
+// REGRA DE AMBIENTE: em dev SEMPRE a prévia local (/sites/{fid}) — nunca linkar a produção a partir
+// do localhost (o banco de dev também tem publicado=true; sem este guard os testes caem na prod).
 export function urlPublicaSite(cfg: ConfigUrl | null | undefined, fid: string, path = ""): string {
   const p = path && path !== "/" ? path : "";
+  if (process.env.NODE_ENV === "development") return `/sites/${fid}${p}`;
   if (cfg?.publicado) {
     const host = hostPublicoSite(cfg);
     if (host) return `https://${host}${p}`;

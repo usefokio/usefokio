@@ -40,6 +40,12 @@ export async function POST() {
   const host = cfg?.dominio_customizado ? normalizarHost(cfg.dominio_customizado) : null;
   if (!host) return NextResponse.json({ erro: "Nenhum domínio conectado." }, { status: 400 });
 
+  // Trava de SEO: domínio em migração assistida NÃO passa pela verificação self-service —
+  // o apontamento só é liberado após a preservação de SEO (crawl 1:1 + mapa de 301).
+  if (cfg?.dominio_status === "aguardando_seo") {
+    return NextResponse.json({ status: "aguardando_seo", dns_ok: false, detalhe: "Domínio em migração assistida — aguarde a orientação da equipe." });
+  }
+
   const cnames = await consultarCname(host);
   const dnsOk = cnames.some((c) => c === CNAME_TARGET_DOMINIO);
 
