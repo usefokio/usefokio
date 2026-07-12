@@ -13,6 +13,7 @@ import { FormularioConfigEditor } from "@/app/(dashboard)/site/_components/Formu
 import { normalizarConfig } from "@/lib/site/formulario";
 import { useUnsavedGuard } from "@/lib/hooks/useUnsavedGuard";
 import { CATALOGO_BLOCOS, dadosParaBlocos, novoBloco, type SiteBloco, type TipoBloco } from "@/lib/site/blocos";
+import { urlPublicaSite, type ConfigUrl } from "@/lib/site/urlPublica";
 import type { SiteLandingPage, SiteLandingDados } from "@/lib/supabase/types";
 
 const inputStyle: React.CSSProperties = {
@@ -74,10 +75,12 @@ export default function EditorLandingPage({ params }: { params: Promise<{ id: st
   const alvoUpload = useRef<{ blocoId: string; campo: "imagem_url" | "logo_url" | "url"; cardIdx?: number } | null>(null);
   const alvoGaleria = useRef<string | null>(null);
   const [filaGaleria, setFilaGaleria] = useState<{ total: number; feitas: number } | null>(null);
+  const [cfgSite, setCfgSite] = useState<ConfigUrl | null>(null);
 
   useEffect(() => {
     if (!fotografo) return;
     const supabase = createClient();
+    supabase.from("site_config").select("subdominio, dominio_customizado, publicado").eq("fotografo_id", fotografo.id).maybeSingle().then(({ data }) => setCfgSite((data as ConfigUrl) ?? null));
     supabase.from("site_landing_pages").select("*").eq("id", id).maybeSingle().then(({ data }) => {
       if (!data) { setMsg("Erro: landing não encontrada."); setCarregando(false); return; }
       const lp = data as SiteLandingPage;
@@ -404,7 +407,7 @@ export default function EditorLandingPage({ params }: { params: Promise<{ id: st
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           {seloEstado}
           {fotografo && (
-            <a href={`/sites/${fotografo.id}/${slugifyUrl(slug)}`} target="_blank" rel="noopener noreferrer" style={{ ...btnPeq, textDecoration: "none" }}>
+            <a href={urlPublicaSite(cfgSite, fotografo.id, `/${slugifyUrl(slug)}`)} target="_blank" rel="noopener noreferrer" style={{ ...btnPeq, textDecoration: "none" }}>
               👁 Ver página
             </a>
           )}

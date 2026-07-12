@@ -12,6 +12,7 @@ import { processarImagemEntrega } from "@/lib/imageResize";
 import { useEditorEstado, SeloEstado, BotaoSalvarEstado, ModalNaoSalvo } from "@/app/(dashboard)/_components/EditorEstado";
 import { ConfigPaginaModal } from "@/app/(dashboard)/site/_components/ConfigPaginaModal";
 import type { ConfigPaginaValores } from "@/lib/site/seo";
+import { urlPublicaSite, type ConfigUrl } from "@/lib/site/urlPublica";
 import type { SitePortfolio, SitePortfolioFoto } from "@/lib/supabase/types";
 
 const inputStyle: React.CSSProperties = {
@@ -46,6 +47,7 @@ export default function PortfolioEditorPage({ params }: { params: Promise<{ id: 
   const [modoExibicao, setModoExibicao] = useState("lista");
   const [configAberto, setConfigAberto] = useState(false);
   const [dominio, setDominio] = useState("seusite.usefokio.com.br");
+  const [cfgSite, setCfgSite] = useState<ConfigUrl | null>(null);
 
   const [fotos, setFotos] = useState<SitePortfolioFoto[]>([]);
   const [fila, setFila] = useState<{ total: number; feitas: number } | null>(null);
@@ -69,8 +71,8 @@ export default function PortfolioEditorPage({ params }: { params: Promise<{ id: 
       setSeoTitle(port.seo_title ?? ""); setSeoDesc(port.seo_description ?? ""); setSeoKw(port.seo_keywords ?? "");
       setSeoNoindex(port.seo_noindex); setOgTitle(port.og_title ?? ""); setOgDesc(port.og_description ?? ""); setOgImage(port.og_image_url);
       setModoExibicao(port.modo_exibicao || "lista");
-      const { data: cfg } = await supabase.from("site_config").select("subdominio, dominio_customizado").eq("fotografo_id", fotografo!.id).maybeSingle();
-      if (cfg) setDominio(cfg.dominio_customizado || (cfg.subdominio ? `${cfg.subdominio}.usefokio.com.br` : "seusite.usefokio.com.br"));
+      const { data: cfg } = await supabase.from("site_config").select("subdominio, dominio_customizado, publicado").eq("fotografo_id", fotografo!.id).maybeSingle();
+      if (cfg) { setDominio(cfg.dominio_customizado || (cfg.subdominio ? `${cfg.subdominio}.usefokio.com.br` : "seusite.usefokio.com.br")); setCfgSite(cfg as ConfigUrl); }
       const { data: fts } = await supabase.from("site_portfolio_fotos").select("*").eq("portfolio_id", id).order("ordem");
       setFotos((fts as SitePortfolioFoto[]) ?? []);
       estado.inicializar(JSON.stringify([
@@ -211,7 +213,7 @@ export default function PortfolioEditorPage({ params }: { params: Promise<{ id: 
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4, gap: 10, flexWrap: "wrap" }}>
         <h1 style={{ fontSize: 22, fontWeight: 800, color: "var(--color-text-primary)", margin: 0, letterSpacing: "-0.02em" }}>Editar portfólio</h1>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <a href={`/sites/${fotografo?.id ?? ""}${urlPublica}`} target="_blank" rel="noopener noreferrer" title="Abrir este portfólio no site (nova aba)"
+          <a href={urlPublicaSite(cfgSite, fotografo?.id ?? "", urlPublica)} target="_blank" rel="noopener noreferrer" title="Abrir este portfólio no site (nova aba)"
             style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 8, border: "1px solid var(--color-border-secondary)", background: "transparent", fontSize: 12, fontWeight: 600, color: "var(--color-text-primary)", cursor: "pointer", textDecoration: "none" }}>
             Ver no site ↗
           </a>
