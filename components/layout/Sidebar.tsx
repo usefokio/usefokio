@@ -200,6 +200,7 @@ const SITE_ITEMS = [
   { href: "/site/banners",     label: "Banners" },
   { href: "/site/menu",        label: "Menu" },
   { href: "/site/depoimentos", label: "Depoimentos" },
+  { href: "/site/selos",       label: "Selos" },
   { href: "/site/inbox",       label: "Inbox" },
   { href: "/site/seo",         label: "SEO" },
   { href: "/site/dominio",     label: "Domínio" },

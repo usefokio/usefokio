@@ -582,6 +582,18 @@ export type SiteBanner = {
   created_at: string;
 };
 
+export type SiteSelo = {
+  id: string;
+  fotografo_id: string;
+  logo_url: string;
+  storage_path: string | null;
+  titulo: string | null;
+  link: string | null;
+  ordem: number;
+  publicado: boolean;
+  created_at: string;
+};
+
 export type SiteMenuItem = {
   id: string;
   fotografo_id: string;

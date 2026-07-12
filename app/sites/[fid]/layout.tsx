@@ -103,6 +103,7 @@ export default async function SitePublicoLayout({ children, params }: { children
   const fonteTituloVar = FONTE_VAR[par.titulo] ?? "--f-cormorant";
   const fonteCorpoVar  = FONTE_VAR[par.texto]  ?? "--f-crimson";
   const logoSite = design.logo_url ?? fotografo?.logo_url ?? null;
+  const lateral = design.header.orientacao === "lateral_esquerda";
 
   // JSON-LD do negócio (dados estruturados — ajuda o Google a entender o fotógrafo)
   const hostPrincipal = config?.dominio_customizado
@@ -142,7 +143,7 @@ export default async function SitePublicoLayout({ children, params }: { children
         fontFamily: "var(--site-fonte-corpo), Georgia, serif",
         minHeight: "100vh",
         display: "flex",
-        flexDirection: "column",
+        flexDirection: lateral ? "row" : "column",
       } as React.CSSProperties}
     >
       <ProtecaoImagem />
@@ -155,30 +156,37 @@ export default async function SitePublicoLayout({ children, params }: { children
         logoAltura={design.logo_altura}
         fundo={fundoBarra(design.header, "var(--site-fundo)")}
         padY={design.header.altura}
+        orientacao={design.header.orientacao}
+        logoPos={design.header.logo_pos}
+        corTexto={design.header.cor_texto}
+        largura={design.header.largura}
         nome={fotografo?.nome_empresa ?? "Fotografia"}
         itens={itensMenu.map((m) => ({ id: String(m.id), label: m.label, href: m.href }))}
       />
 
-      <main style={{ flex: 1 }}>{children}</main>
+      {/* Em orientação lateral, o conteúdo (main+rodapé) vira a coluna à direita da barra. */}
+      <div style={lateral ? { flex: 1, minWidth: 0, display: "flex", flexDirection: "column" } : { display: "contents" }}>
+        <main className="site-main" style={{ flex: 1, minWidth: 0 }}>{children}</main>
 
-      {/* Footer */}
-      <footer style={{ borderTop: "1px solid var(--site-borda)", marginTop: 70, background: fundoBarra(design.rodape, "var(--site-superficie)") }}>
-        <div style={{ maxWidth: 1180, margin: "0 auto", padding: `${design.rodape.altura}px 24px`, display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 20, flexWrap: "wrap" }}>
-          <div style={{ fontSize: 15, color: "var(--site-texto)" }}>
-            <div style={{ fontFamily: "var(--site-fonte-titulo), Georgia, serif", fontSize: 22, color: "var(--site-titulo)", marginBottom: 8 }}>{fotografo?.nome_empresa ?? ""}</div>
-            {fotografo?.telefone && <div>{fotografo.telefone}</div>}
-            {fotografo?.email && <div>{fotografo.email}</div>}
+        {/* Footer */}
+        <footer style={{ borderTop: "1px solid var(--site-borda)", marginTop: 70, background: fundoBarra(design.rodape, "var(--site-superficie)") }}>
+          <div style={{ maxWidth: 1180, margin: "0 auto", padding: `${design.rodape.altura}px 24px`, display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 20, flexWrap: "wrap" }}>
+            <div style={{ fontSize: 15, color: "var(--site-texto)" }}>
+              <div style={{ fontFamily: "var(--site-fonte-titulo), Georgia, serif", fontSize: 22, color: "var(--site-titulo)", marginBottom: 8 }}>{fotografo?.nome_empresa ?? ""}</div>
+              {fotografo?.telefone && <div>{fotografo.telefone}</div>}
+              {fotografo?.email && <div>{fotografo.email}</div>}
+            </div>
+            <div style={{ display: "flex", gap: 18 }}>
+              {redes.instagram && <a href={redes.instagram} target="_blank" rel="noopener noreferrer" style={{ fontSize: 13, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--site-titulo)", textDecoration: "none" }}>Instagram</a>}
+              {redes.facebook && <a href={redes.facebook} target="_blank" rel="noopener noreferrer" style={{ fontSize: 13, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--site-titulo)", textDecoration: "none" }}>Facebook</a>}
+              {redes.youtube && <a href={redes.youtube} target="_blank" rel="noopener noreferrer" style={{ fontSize: 13, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--site-titulo)", textDecoration: "none" }}>YouTube</a>}
+            </div>
           </div>
-          <div style={{ display: "flex", gap: 18 }}>
-            {redes.instagram && <a href={redes.instagram} target="_blank" rel="noopener noreferrer" style={{ fontSize: 13, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--site-titulo)", textDecoration: "none" }}>Instagram</a>}
-            {redes.facebook && <a href={redes.facebook} target="_blank" rel="noopener noreferrer" style={{ fontSize: 13, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--site-titulo)", textDecoration: "none" }}>Facebook</a>}
-            {redes.youtube && <a href={redes.youtube} target="_blank" rel="noopener noreferrer" style={{ fontSize: 13, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--site-titulo)", textDecoration: "none" }}>YouTube</a>}
+          <div style={{ textAlign: "center", padding: "0 24px 28px", fontSize: 12, color: "var(--site-suave)" }}>
+            © {fotografo?.nome_empresa ?? ""}
           </div>
-        </div>
-        <div style={{ textAlign: "center", padding: "0 24px 28px", fontSize: 12, color: "var(--site-suave)" }}>
-          © {fotografo?.nome_empresa ?? ""}
-        </div>
-      </footer>
+        </footer>
+      </div>
     </div>
     {/* Aviso exibido só na impressão (o resto do site fica oculto via @media print) */}
     <div className="print-bloqueio" aria-hidden>Conteúdo protegido — impressão desabilitada.</div>

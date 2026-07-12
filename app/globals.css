@@ -255,6 +255,26 @@ a {
    (o header cresce/encolhe junto por ser content-driven, mantendo o alinhamento). */
 @media (max-width: 560px) { .site-header-logo { max-height: 44px; } }
 
+/* Container-queries: a home e o header respondem à LARGURA do seu container — o viewport no
+   site real e a largura do dispositivo escolhido (PC/tablet/celular) na prévia do editor. */
+.site-header { container-type: inline-size; }
+.site-main { container-type: inline-size; }
+.site-header-mobile { display: none; }
+@container (max-width: 760px) {
+  .site-header-desktop { display: none !important; }
+  .site-header-mobile { display: flex !important; }
+  .site-grid-cards { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  .site-blog-linha { grid-template-columns: 1fr !important; }
+}
+@container (max-width: 460px) {
+  .site-grid-cards { grid-template-columns: minmax(0, 1fr) !important; }
+  .site-banner-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+}
+
+/* Faixas deslizantes (banner/blog): navegação por setas/auto — sem barra de rolagem visível. */
+.site-esconde-scroll { scrollbar-width: none; -ms-overflow-style: none; }
+.site-esconde-scroll::-webkit-scrollbar { display: none; }
+
 /* Tela Site → Aparência: controles à esquerda, preview ao vivo (sticky) à direita; empilha no mobile. */
 .aparencia-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 440px); gap: 28px; align-items: start; }
 .aparencia-preview-wrap { position: sticky; top: 16px; }

@@ -1,0 +1,100 @@
+"use client";
+
+// Bloco "Banner" — 3 tipos:
+//  • foto_unica: uma foto por vez, com setas e passagem automática; ajuste manter_proporcao
+//    (contain — nunca corta/estica; letterbox se sobrar) ou preencher (cover — pode cortar).
+//  • deslizante: fotos em proporção natural, deixando um pedaço da próxima ao lado; auto-desliza.
+//  • grid: várias imagens em grade (sem rotação), colunas configuráveis.
+import { useEffect, useRef, useState } from "react";
+import type { HomeBloco } from "@/lib/site/design";
+import type { SiteBanner } from "@/lib/supabase/types";
+
+function Seta({ dir, onClick, disabled }: { dir: "esq" | "dir"; onClick: () => void; disabled?: boolean }) {
+  return (
+    <button onClick={onClick} disabled={disabled} aria-label={dir === "esq" ? "Anterior" : "Próximo"}
+      style={{ position: "absolute", top: "50%", [dir === "esq" ? "left" : "right"]: 12, transform: "translateY(-50%)", zIndex: 3, width: 44, height: 44, borderRadius: "50%", border: "none", cursor: disabled ? "default" : "pointer", background: "rgba(0,0,0,0.4)", color: "#fff", fontSize: 22, lineHeight: 1, opacity: disabled ? 0.3 : 1, display: "flex", alignItems: "center", justifyContent: "center" } as React.CSSProperties}>
+      {dir === "esq" ? "‹" : "›"}
+    </button>
+  );
+}
+
+export function BlocoBanner({ config, banners, base }: { config: HomeBloco; banners: SiteBanner[]; base: string }) {
+  const tipo = config.tipo ?? "deslizante";
+  const altura = config.altura ?? 300;
+  const resolver = (link: string) => (link.startsWith("/") ? `${base}${link}` : link);
+  if (banners.length === 0) return null;
+
+  if (tipo === "grid") {
+    const cols = config.colunas ?? 3;
+    return (
+      <section>
+        <div className="site-banner-grid" style={{ display: "grid", gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gap: 4 }}>
+          {banners.map((b) => {
+            const img = <img src={b.imagem_url} alt={b.titulo ?? ""} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", aspectRatio: "3 / 2" }} loading="lazy" />;
+            return b.link ? <a key={b.id} href={resolver(b.link)}>{img}</a> : <div key={b.id}>{img}</div>;
+          })}
+        </div>
+      </section>
+    );
+  }
+
+  if (tipo === "deslizante") return <Deslizante banners={banners} altura={altura} velocidade={config.velocidade ?? 4} resolver={resolver} />;
+  return <FotoUnica banners={banners} altura={altura} velocidade={config.velocidade ?? 4} ajuste={config.ajuste ?? "manter_proporcao"} resolver={resolver} />;
+}
+
+function FotoUnica({ banners, altura, velocidade, ajuste, resolver }: { banners: SiteBanner[]; altura: number; velocidade: number; ajuste: string; resolver: (l: string) => string }) {
+  const [i, setI] = useState(0);
+  const n = banners.length;
+  useEffect(() => {
+    if (n <= 1) return;
+    const t = setInterval(() => setI((a) => (a + 1) % n), velocidade * 1000);
+    return () => clearInterval(t);
+  }, [n, velocidade]);
+  const fit = ajuste === "preencher" ? "cover" : "contain";
+  return (
+    <section style={{ position: "relative", height: altura, overflow: "hidden", background: "#111" }}>
+      {banners.map((b, idx) => {
+        const img = <img src={b.imagem_url} alt={b.titulo ?? ""} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: fit, opacity: idx === i ? 1 : 0, transition: "opacity 0.8s ease", pointerEvents: idx === i ? "auto" : "none" }} loading={idx === 0 ? "eager" : "lazy"} />;
+        return b.link ? <a key={b.id} href={resolver(b.link)}>{img}</a> : <div key={b.id}>{img}</div>;
+      })}
+      {n > 1 && <><Seta dir="esq" onClick={() => setI((a) => (a - 1 + n) % n)} /><Seta dir="dir" onClick={() => setI((a) => (a + 1) % n)} /></>}
+    </section>
+  );
+}
+
+function Deslizante({ banners, altura, velocidade, resolver }: { banners: SiteBanner[]; altura: number; velocidade: number; resolver: (l: string) => string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [i, setI] = useState(0);
+  const n = banners.length;
+  const irPara = (idx: number) => {
+    const el = ref.current;
+    const filho = el?.children[idx] as HTMLElement | undefined;
+    if (el && filho) el.scrollTo({ left: filho.offsetLeft, behavior: "smooth" });
+    setI(idx);
+  };
+  useEffect(() => {
+    if (n <= 1) return;
+    const t = setInterval(() => setI((prev) => {
+      const nx = (prev + 1) % n;
+      const el = ref.current;
+      const filho = el?.children[nx] as HTMLElement | undefined;
+      if (el && filho) el.scrollTo({ left: filho.offsetLeft, behavior: "smooth" });
+      return nx;
+    }), velocidade * 1000);
+    return () => clearInterval(t);
+  }, [n, velocidade]);
+  const item = (b: SiteBanner) => {
+    const img = <img src={b.imagem_url} alt={b.titulo ?? ""} style={{ height: "100%", width: "auto", display: "block", objectFit: "cover" }} loading="lazy" />;
+    return b.link
+      ? <a key={b.id} href={resolver(b.link)} style={{ flex: "0 0 auto", height: "100%", scrollSnapAlign: "center" }}>{img}</a>
+      : <div key={b.id} style={{ flex: "0 0 auto", height: "100%", scrollSnapAlign: "center" }}>{img}</div>;
+  };
+  return (
+    <section style={{ position: "relative", background: "#111" }}>
+      <div ref={ref} className="site-esconde-scroll" style={{ display: "flex", gap: 4, overflowX: "auto", scrollSnapType: "x mandatory", height: altura }}>
+        {banners.map(item)}
+      </div>
+      {n > 1 && <><Seta dir="esq" onClick={() => irPara((i - 1 + n) % n)} /><Seta dir="dir" onClick={() => irPara((i + 1) % n)} /></>}
+    </section>
+  );
+}
