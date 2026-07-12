@@ -173,7 +173,6 @@ export default function FormPedido({ inicial, onSalvo, onCancelar }: Props) {
   const [baseline,       setBaseline]       = useState<string | null>(null);
   const [saiu,           setSaiu]           = useState(false);
   const [cancelPendente, setCancelPendente] = useState(false);
-  const baselineInit = useRef(false);
 
   const snapshot = JSON.stringify({ form, itens, planos });
   const temAlteracoes = !saiu && baseline !== null && snapshot !== baseline;
@@ -221,12 +220,12 @@ export default function FormPedido({ inicial, onSalvo, onCancelar }: Props) {
   }, [fid]);
 
   // Captura o baseline do "não salvo" só DEPOIS que o carregamento assíncrono termina
-  // (na edição os planos chegam via fetch; itens abrem vazios). Uma única vez (ref).
+  // (na edição os planos chegam via fetch; itens abrem vazios). baseline===null é o
+  // sentinela de "ainda não capturado" — ele nunca volta a null.
   useEffect(() => {
-    if (baselineInit.current || !carregado) return;
-    baselineInit.current = true;
+    if (baseline !== null || !carregado) return;
     setBaseline(snapshot);
-  }, [carregado, snapshot]);
+  }, [carregado, snapshot, baseline]);
 
   // Opções do combo (fallback à lista fixa se ainda não houver categorias configuradas)
   const catOptions = pedCats.length > 0

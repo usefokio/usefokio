@@ -145,20 +145,30 @@ Dados copiados da produção (fotógrafo `contato@fernandoagrelafotografia.com.b
 | `lib/constants/statusMaps.ts` | `PEDIDO_STATUS_MAP`, `FIN_STATUS_MAP` |
 | `app/(dashboard)/crm/_components/Icons.tsx` | `IcoEdit`, `IcoTrash`, `IcoOpen`, `IcoMail`, `IcoCheck`, `IcoWhatsApp` |
 
-### Lógica de Resultados (DRE) — fontes e regras (auditoria 2026-07-04)
+### Lógica de Resultados (DRE) — fontes e regras (unificação 2026-07-11)
 
-**Duas telas, DUAS fontes distintas** (podem divergir — cuidado ao comparar):
+**Fonte única: `lib/crm/dreAnual.ts`.** A RPC `get_panorama_financeiro` está OCIOSA (não removida do banco).
 
-1. **Cards do topo + gráfico "por ano"** (`resultados/page.tsx` e `resultados/panorama/page.tsx`): RPC
-   `get_panorama_financeiro` → soma `crm_financial_entries` com `num_documento='DRE'`, `status='pago'`, por
-   ano de **`vencimento`**, agrupado por `tipo`. NÃO inclui pedidos `crm_nativo` nem lançamentos não-DRE.
-2. **Tabela "DRE por Plano de Contas" (panorama) + Resultados mensal**: função `carregarDRE`/`carregar`:
-   - **Competência**: lançamentos `num_documento='DRE'` por `vencimento` **+** pedidos `crm_orders`
-     `crm_nativo=true` por `data_lancamento` (mapeados via `CATEGORIA_CODIGO`). Não filtra `status`.
-   - **Caixa**: `crm_financial_entries` `status='pago'` (exceto DRE) por `pago_em`.
-   - **Usuário novo (sem DRE)**: lançamentos não-DRE por `conta_id`.
+- **`carregarDreAnual(sb, fid, regime)`** (anual, todos os anos): alimenta os cards + gráfico + tabela
+  ano-a-ano do Panorama, a tabela "DRE por Plano de Contas" e o gráfico "por ano" do rodapé do Resultados.
+- **`carregar()` mensal** (`resultados/page.tsx`): função própria, mas ESPELHA as mesmas regras/filtros do
+  helper — ao mudar um lado, mudar o outro (candidato futuro: parametrizar o helper por granularidade).
+- **`classificarPedidoNativo(pedido, idParaCodigo)`**: regra ÚNICA do pedido `crm_nativo` — cada item cai na
+  conta do produto (`conta_vendas_id`→código); o resíduo (total − Σ itens mapeados; ou pedido sem itens) cai
+  na conta da CATEGORIA. Usada pela agregação anual, mensal e pelos DOIS drill-downs. Nunca reimplementar.
+- **`indexarContasDRE`**: id→código + código→[ids] + dedup (2 versões por código). **`completarContasOrfas`**:
+  linhas sintéticas p/ códigos com valor sem conta ativa (senão os cards somam o que a tabela não exibe).
 
-**`CATEGORIA_CODIGO`** (categoria do pedido → código contábil) é hardcoded nos dois arquivos — atualizar ao
+**Regras por regime** (idênticas no mensal e no anual):
+- **Competência com DRE** (`temDRE` = existe lançamento `num_documento='DRE'` em QUALQUER ano — global, nunca
+  por ano): lançamentos DRE por `vencimento` + pedidos `crm_nativo` por `data_lancamento`. Não filtra status.
+- **Caixa**: `status='pago'` por `pago_em` (com DRE: só lançamentos DRE; sem DRE: só não-DRE, excluindo
+  transferências).
+- **Sem DRE** (usuário novo): não-DRE por `vencimento`, excluindo transferências; despesa só quando paga;
+  pedidos NÃO entram (as receitas deles já chegam pelos lançamentos das parcelas — contar 2x duplicaria).
+- **Sem conta contábil**: receita é descartada; despesa cai em "Não classificado" (5.0) — nos dois lados.
+
+**`CATEGORIA_CODIGO`** (categoria do pedido → código contábil) vive SÓ em `lib/crm/dreAnual.ts` — atualizar ao
 adicionar categoria/conta. Categorias sem mapeamento exibem aviso amarelo (só no Resultados).
 
 **Dados importados (contas recebidas/pagas):** vão para `crm_financial_entries` — recebidas `tipo=receita`,
@@ -173,9 +183,10 @@ conta**, não por `conta_id` (senão a dedup por código escolhe a versão errad
 errados; foi o bug corrigido em 2026-07-04). Ao mexer na DRE, sempre agregar por `codigo` e, no drill-down,
 buscar `.in("conta_id", <todos os ids do código>)`.
 
-**Divergências conhecidas (não corrigidas):** a RPC (cards) filtra `status='pago'` e ignora `crm_nativo`,
-enquanto a tabela DRE (competência) não filtra status e inclui `crm_nativo` → podem divergir com pedidos
-novos/lançamentos pendentes. O card "Despesas" soma custos (seção 4) + despesas (seção 5) juntos.
+**Divergências conhecidas (aceitas, não corrigir sem pedido):** em CAIXA com DRE, o anual usa lançamentos
+DRE-pagos e a tabela mensal usa não-DRE-pagos (fontes disjuntas — pré-existente; mudar alteraria a visão paga
+consolidada). Em competência-com-DRE, despesas não-DRE (custos de pedidos novos) não entram — só DRE.
+O card "Despesas" soma custos (seção 4) + despesas (seção 5) juntos.
 
 ## Padrões de sistema — REVISAR esta lista antes de entregar QUALQUER tela/form novo
 

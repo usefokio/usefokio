@@ -7,7 +7,7 @@ import { useFotografo } from "@/lib/context/FotografoContext";
 import { GraficoPanorama } from "./_components/GraficoPanorama";
 import { GraficoMensal } from "./_components/GraficoMensal";
 import { useWindowWidth, TABLET } from "@/lib/hooks/useWindowWidth";
-import { carregarDreAnual, panoramaPorAno, CATEGORIA_CODIGO } from "@/lib/crm/dreAnual";
+import { carregarDreAnual, panoramaPorAno, indexarContasDRE, classificarPedidoNativo, completarContasOrfas, CONTA_NAO_CLASSIFICADA, type ItemPedidoDRE } from "@/lib/crm/dreAnual";
 
 type Conta = { id: string; codigo: string; nome: string };
 type Regime = "competencia" | "caixa";
@@ -22,8 +22,6 @@ type DrillEntry = {
 };
 
 const MESES = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
-const UNCAT_ID = "__naoclass__";
-const UNCAT_CONTA: Conta = { id: UNCAT_ID, codigo: "5.0", nome: "Não classificado" };
 
 function fmtBRL(v: number) {
   if (v === 0) return "";
@@ -60,16 +58,14 @@ export default function ResultadosPage() {
     const sb = createClient();
     const fid = fotografo.id;
 
-    const dateField = regime === "caixa" ? "pago_em" : "vencimento";
-
-    // Verificar se o ano tem entradas DRE
+    // temDRE é GLOBAL (qualquer ano), como no helper anual (lib/crm/dreAnual.ts).
+    // Se fosse por ano, um ano sem DRE importada cairia no ramo "sem DRE" e os
+    // pedidos crm_nativo sumiriam da tabela enquanto o gráfico do rodapé os mostra.
     const { count: dreCount } = await sb
       .from("crm_financial_entries")
       .select("*", { count: "exact", head: true })
       .eq("fotografo_id", fid)
-      .eq("num_documento", "DRE")
-      .gte("vencimento", `${ano}-01-01`)
-      .lte("vencimento", `${ano}-12-31`);
+      .eq("num_documento", "DRE");
     const temDRELocal = (dreCount ?? 0) > 0;
 
     // Queries separadas para evitar erro TypeScript "type instantiation excessively deep"
@@ -98,6 +94,7 @@ export default function ResultadosPage() {
         : fetchAllRows<DespRow>((sbc, f, t) => sbc.from("crm_financial_entries")
             .select("conta_id, valor, vencimento, pago_em")
             .eq("fotografo_id", fid).eq("tipo", "despesa").eq("status", "pago")
+            .or("num_documento.is.null,num_documento.neq.DRE")
             .neq("internal_account_type", "transferencia")
             .gte("vencimento", `${ano}-01-01`).lte("vencimento", `${ano}-12-31`).range(f, t), sb);
 
@@ -123,8 +120,9 @@ export default function ResultadosPage() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let qOrders: any;
     if (regime === "competencia") {
-      // Sempre inclui pedidos nativos do CRM (crm_nativo=true).
-      // Quando temDRE=false, também inclui pedidos legados com data_lancamento.
+      // Com DRE: pedidos crm_nativo entram POR PEDIDO (classificarPedidoNativo).
+      // Sem DRE: não entram — as receitas deles já chegam pelos lançamentos
+      // não-DRE das parcelas (contar o pedido seria duplicar).
       const q = sb.from("crm_orders")
         .select("categoria, total, data_lancamento, crm_order_items(total, crm_products(conta_vendas_id))")
         .eq("fotografo_id", fid)
@@ -140,19 +138,7 @@ export default function ResultadosPage() {
       qContas, qOrders, pDespesas, pReceitas,
     ]);
 
-    const todasContas = (contasData ?? []) as Conta[];
-    const idParaCodigo: Record<string, string> = {};
-    const codigoParaIds: Record<string, string[]> = {};
-    for (const c of todasContas) {
-      idParaCodigo[c.id] = c.codigo;
-      (codigoParaIds[c.codigo] ??= []).push(c.id);
-    }
-    const seen = new Set<string>();
-    const contasArr = todasContas.filter(c => {
-      if (seen.has(c.codigo)) return false;
-      seen.add(c.codigo);
-      return true;
-    });
+    const { idParaCodigo, codigoParaIds, contas: contasArr } = indexarContasDRE((contasData ?? []) as Conta[]);
 
     const novoMapa: Record<string, Record<number, number>> = {};
     const semMapeamento: Record<string, number> = {};
@@ -177,27 +163,21 @@ export default function ResultadosPage() {
         novoMapa[cod] ??= {};
         novoMapa[cod][mes] = (novoMapa[cod][mes] ?? 0) + e.valor;
       }
-      // Pedido crm_nativo: classifica CADA ITEM na conta do seu produto (conta_vendas_id → código).
-      // O que sobra (total − Σ itens; ou pedido sem itens = legado) cai na conta da CATEGORIA (mapa),
-      // preservando o comportamento anterior para pedidos sem itens.
-      type OrdItem = { total: number | null; crm_products: { conta_vendas_id: string | null } | null };
-      for (const o of (ordersData ?? []) as { categoria: string; total: number; data_lancamento: string; crm_order_items?: OrdItem[] | null }[]) {
+      // Pedido crm_nativo: regra única compartilhada (item → conta do produto;
+      // resíduo → conta da categoria) — ver classificarPedidoNativo em lib/crm/dreAnual.ts.
+      for (const o of (ordersData ?? []) as { categoria: string; total: number; data_lancamento: string; crm_order_items?: ItemPedidoDRE[] | null }[]) {
         const mes = parseInt(o.data_lancamento.slice(5, 7));
-        let somaItens = 0;
-        for (const it of (o.crm_order_items ?? [])) {
-          const contaId = it.crm_products?.conta_vendas_id ?? null;
-          const cod = contaId ? idParaCodigo[contaId] : null;
-          if (!cod) continue; // item sem conta mapeável → entra no resíduo abaixo
+        const r = classificarPedidoNativo(o, idParaCodigo);
+        for (const [cod, v] of Object.entries(r.porCodigo)) {
           novoMapa[cod] ??= {};
-          novoMapa[cod][mes] = (novoMapa[cod][mes] ?? 0) + (it.total ?? 0);
-          somaItens += (it.total ?? 0);
+          novoMapa[cod][mes] = (novoMapa[cod][mes] ?? 0) + v;
         }
-        const residuo = Math.round((o.total - somaItens) * 100) / 100;
-        if (Math.abs(residuo) > 0.005) {
-          const codigo = CATEGORIA_CODIGO[o.categoria];
-          if (!codigo) { semMapeamento[o.categoria || "(sem categoria)"] = (semMapeamento[o.categoria || "(sem categoria)"] ?? 0) + residuo; continue; }
-          novoMapa[codigo] ??= {};
-          novoMapa[codigo][mes] = (novoMapa[codigo][mes] ?? 0) + residuo;
+        if (r.codigoResiduo) {
+          novoMapa[r.codigoResiduo] ??= {};
+          novoMapa[r.codigoResiduo][mes] = (novoMapa[r.codigoResiduo][mes] ?? 0) + r.residuo;
+        } else if (r.residuo !== 0) {
+          const cat = o.categoria || "(sem categoria)";
+          semMapeamento[cat] = (semMapeamento[cat] ?? 0) + r.residuo;
         }
       }
     } else {
@@ -218,20 +198,16 @@ export default function ResultadosPage() {
       const dataRef = regime === "caixa" ? e.pago_em : e.vencimento;
       if (!dataRef) continue;
       const mes = parseInt(dataRef.slice(5, 7));
-      const cod = (e.conta_id ? idParaCodigo[e.conta_id] : null) ?? UNCAT_CONTA.codigo;
+      const cod = (e.conta_id ? idParaCodigo[e.conta_id] : null) ?? CONTA_NAO_CLASSIFICADA.codigo;
       novoMapa[cod] ??= {};
       novoMapa[cod][mes] = (novoMapa[cod][mes] ?? 0) + e.valor;
     }
 
-    const contasComUncat = novoMapa[UNCAT_CONTA.codigo]
-      ? [...contasArr, UNCAT_CONTA]
-      : contasArr;
-    setContas(contasComUncat);
+    setContas(completarContasOrfas(contasArr, novoMapa));
     setMapa(novoMapa);
     setCodigoIds(codigoParaIds);
     setTemDRE(temDRELocal);
     setLoading(false);
-    void dateField;
   }, [fotografo, ano, regime]);
 
   useEffect(() => { carregar(); }, [carregar]);
@@ -263,63 +239,76 @@ export default function ResultadosPage() {
     const mesEnd   = mes !== null ? `${ano}-${String(mes).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}` : `${ano}-12-31`;
     const tipo = conta.codigo.startsWith("3") ? "receita" : "despesa";
 
+    // Conta sintética: órfã (__orfa_) não tem lançamentos por definição (só resíduo
+    // de pedido) — pular a busca evita id não-uuid no banco (erro 22P02 silencioso).
+    const idsConta = codigoIds[conta.codigo] ?? [];
+    const ehSemConta = conta.codigo === CONTA_NAO_CLASSIFICADA.codigo;
+    const buscaLancamentos = ehSemConta || idsConta.length > 0;
+    // "5.0" = complemento da agregação: conta_id NULL ou apontando p/ conta fora do plano ativo.
+    const todosIdsAtivos = Object.values(codigoIds).flat();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const filtroConta = (q: any) => ehSemConta
+      ? (todosIdsAtivos.length > 0 ? q.or(`conta_id.is.null,conta_id.not.in.(${todosIdsAtivos.join(",")})`) : q.is("conta_id", null))
+      : q.in("conta_id", idsConta);
+
     if (regime === "caixa") {
-      const { data } = await sb.from("crm_financial_entries")
-        .select("id, descricao, valor, pago_em, pedido_id")
-        .eq("fotografo_id", fid).eq("tipo", tipo).eq("status", "pago")
-        .or("num_documento.is.null,num_documento.neq.DRE")
-        .in("conta_id", codigoIds[conta.codigo] ?? [conta.id])
-        .gte("pago_em", mesStart).lte("pago_em", mesEnd);
-      for (const e of (data ?? []) as { id: string; descricao: string | null; valor: number; pago_em: string; pedido_id?: string | null }[]) {
-        entries.push({ id: e.id, descricao: e.descricao, valor: e.valor, data: e.pago_em, pedido_id: e.pedido_id, fonte: "entry" });
+      if (buscaLancamentos) {
+        const { data } = await filtroConta(sb.from("crm_financial_entries")
+          .select("id, descricao, valor, pago_em, pedido_id")
+          .eq("fotografo_id", fid).eq("tipo", tipo).eq("status", "pago")
+          .or("num_documento.is.null,num_documento.neq.DRE")
+          .neq("internal_account_type", "transferencia"))
+          .gte("pago_em", mesStart).lte("pago_em", mesEnd);
+        for (const e of (data ?? []) as { id: string; descricao: string | null; valor: number; pago_em: string; pedido_id?: string | null }[]) {
+          entries.push({ id: e.id, descricao: e.descricao, valor: e.valor, data: e.pago_em, pedido_id: e.pedido_id, fonte: "entry" });
+        }
       }
     } else if (temDRE && tipo === "receita") {
       // DRE entries legadas
-      const { data: dreData } = await sb.from("crm_financial_entries")
-        .select("id, descricao, valor, vencimento, pedido_id")
-        .eq("fotografo_id", fid).eq("tipo", "receita").eq("num_documento", "DRE")
-        .in("conta_id", codigoIds[conta.codigo] ?? [conta.id]).gte("vencimento", mesStart).lte("vencimento", mesEnd);
-      for (const e of (dreData ?? []) as { id: string; descricao: string | null; valor: number; vencimento: string; pedido_id?: string | null }[]) {
-        entries.push({ id: e.id, descricao: e.descricao, valor: e.valor, data: e.vencimento, pedido_id: e.pedido_id, fonte: "entry" });
+      if (buscaLancamentos) {
+        const { data: dreData } = await filtroConta(sb.from("crm_financial_entries")
+          .select("id, descricao, valor, vencimento, pedido_id")
+          .eq("fotografo_id", fid).eq("tipo", "receita").eq("num_documento", "DRE"))
+          .gte("vencimento", mesStart).lte("vencimento", mesEnd);
+        for (const e of (dreData ?? []) as { id: string; descricao: string | null; valor: number; vencimento: string; pedido_id?: string | null }[]) {
+          entries.push({ id: e.id, descricao: e.descricao, valor: e.valor, data: e.vencimento, pedido_id: e.pedido_id, fonte: "entry" });
+        }
       }
-      // Pedidos crm_nativo: mostra o que cai NESTA conta — itens cujo produto é desta conta
-      // + resíduo de pedidos cuja CATEGORIA mapeia para esta conta (mesma lógica da agregação).
+      // Pedidos crm_nativo: MESMA regra da agregação (classificarPedidoNativo) —
+      // itens desta conta + resíduo quando a categoria mapeia para ela.
       {
-        const contaIdsSet = new Set(codigoIds[conta.codigo] ?? [conta.id]);
-        const categoriasDaConta = new Set(
-          Object.entries(CATEGORIA_CODIGO).filter(([, cod]) => cod === conta.codigo).map(([cat]) => cat)
-        );
-        type DItem = { total: number | null; crm_products: { conta_vendas_id: string | null } | null };
+        const idParaCodigo: Record<string, string> = {};
+        for (const [cod, ids] of Object.entries(codigoIds)) for (const cid of ids) idParaCodigo[cid] = cod;
         const { data: ordData } = await sb.from("crm_orders")
           .select("id, nome, total, data_lancamento, categoria, crm_order_items(total, crm_products(conta_vendas_id))")
           .eq("fotografo_id", fid).eq("crm_nativo", true)
           .gte("data_lancamento", mesStart).lte("data_lancamento", mesEnd);
-        for (const o of (ordData ?? []) as unknown as { id: string; nome: string; total: number; data_lancamento: string; categoria: string; crm_order_items?: DItem[] | null }[]) {
-          let somaItens = 0, valorConta = 0;
-          for (const it of (o.crm_order_items ?? [])) {
-            const cid = it.crm_products?.conta_vendas_id ?? null;
-            somaItens += (it.total ?? 0);
-            if (cid && contaIdsSet.has(cid)) valorConta += (it.total ?? 0);
-          }
-          const residuo = Math.round((o.total - somaItens) * 100) / 100;
-          if (Math.abs(residuo) > 0.005 && categoriasDaConta.has(o.categoria)) valorConta += residuo;
+        for (const o of (ordData ?? []) as unknown as { id: string; nome: string; total: number; data_lancamento: string; categoria: string; crm_order_items?: ItemPedidoDRE[] | null }[]) {
+          const r = classificarPedidoNativo(o, idParaCodigo);
+          const valorConta = (r.porCodigo[conta.codigo] ?? 0) + (r.codigoResiduo === conta.codigo ? r.residuo : 0);
           if (Math.abs(valorConta) > 0.005) entries.push({ id: o.id, descricao: o.nome, valor: valorConta, data: o.data_lancamento, pedido_id: o.id, fonte: "order" });
         }
       }
     } else if (temDRE && tipo === "despesa") {
-      const { data } = await sb.from("crm_financial_entries")
-        .select("id, descricao, valor, vencimento, pedido_id")
-        .eq("fotografo_id", fid).eq("tipo", "despesa").eq("num_documento", "DRE")
-        .in("conta_id", codigoIds[conta.codigo] ?? [conta.id]).gte("vencimento", mesStart).lte("vencimento", mesEnd);
-      for (const e of (data ?? []) as { id: string; descricao: string | null; valor: number; vencimento: string; pedido_id?: string | null }[]) {
-        entries.push({ id: e.id, descricao: e.descricao, valor: e.valor, data: e.vencimento, pedido_id: e.pedido_id, fonte: "entry" });
+      if (buscaLancamentos) {
+        const { data } = await filtroConta(sb.from("crm_financial_entries")
+          .select("id, descricao, valor, vencimento, pedido_id")
+          .eq("fotografo_id", fid).eq("tipo", "despesa").eq("num_documento", "DRE"))
+          .gte("vencimento", mesStart).lte("vencimento", mesEnd);
+        for (const e of (data ?? []) as { id: string; descricao: string | null; valor: number; vencimento: string; pedido_id?: string | null }[]) {
+          entries.push({ id: e.id, descricao: e.descricao, valor: e.valor, data: e.vencimento, pedido_id: e.pedido_id, fonte: "entry" });
+        }
       }
-    } else {
-      // Novos usuários (sem DRE) — regime competência
-      const { data } = await sb.from("crm_financial_entries")
+    } else if (buscaLancamentos) {
+      // Novos usuários (sem DRE) — competência, MESMOS filtros da agregação:
+      // não-DRE, sem transferências, despesa só quando paga.
+      let q = sb.from("crm_financial_entries")
         .select("id, descricao, valor, vencimento, pedido_id")
         .eq("fotografo_id", fid).eq("tipo", tipo)
-        .in("conta_id", codigoIds[conta.codigo] ?? [conta.id]).gte("vencimento", mesStart).lte("vencimento", mesEnd);
+        .or("num_documento.is.null,num_documento.neq.DRE")
+        .neq("internal_account_type", "transferencia");
+      if (tipo === "despesa") q = q.eq("status", "pago");
+      const { data } = await filtroConta(q).gte("vencimento", mesStart).lte("vencimento", mesEnd);
       for (const e of (data ?? []) as { id: string; descricao: string | null; valor: number; vencimento: string; pedido_id?: string | null }[]) {
         entries.push({ id: e.id, descricao: e.descricao, valor: e.valor, data: e.vencimento, pedido_id: e.pedido_id, fonte: "entry" });
       }
