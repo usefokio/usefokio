@@ -44,6 +44,13 @@ export function normalizarHost(hostHeader: string): string {
   return hostHeader.split(":")[0].toLowerCase().replace(/\.$/, "");
 }
 
+// Host público da requisição, tolerante a proxy reverso (Railway/borda): prefere
+// x-forwarded-host e cai para o header host. O roteamento multi-tenant depende do
+// host público — usar em vez de ler "host" cru no proxy e no layout do site.
+export function hostDaRequisicao(h: { get(name: string): string | null }): string {
+  return normalizarHost(h.get("x-forwarded-host") ?? h.get("host") ?? "");
+}
+
 // Hosts do próprio app UseFokio (não são domínios/subdomínios de fotógrafo).
 // Atenção: `fulano.localhost` NÃO é app host — permite testar o host-routing em dev.
 export function ehAppHost(host: string): boolean {
@@ -52,6 +59,7 @@ export function ehAppHost(host: string): boolean {
     h === "localhost" ||
     h === "127.0.0.1" ||
     h.endsWith(".vercel.app") ||
+    h.endsWith(".up.railway.app") ||
     h === "usefokio.com.br" ||
     h === "www.usefokio.com.br"
   );

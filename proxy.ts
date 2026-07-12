@@ -1,6 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
-import { ehAppHost, normalizarHost, rotuloSubdominio, SUBDOMINIOS_RESERVADOS } from "@/lib/site/publico";
+import { ehAppHost, hostDaRequisicao, normalizarHost, rotuloSubdominio, SUBDOMINIOS_RESERVADOS } from "@/lib/site/publico";
 
 const WEBMASTER_ID = process.env.NEXT_PUBLIC_WEBMASTER_ID ?? "";
 const APP_PRINCIPAL = "https://www.usefokio.com.br";
@@ -69,7 +69,7 @@ async function resolverTenant(host: string, rotulo: string | null): Promise<Tena
 }
 
 export async function proxy(request: NextRequest) {
-  const host = normalizarHost(request.headers.get("host") ?? "");
+  const host = hostDaRequisicao(request.headers);
   const { pathname, search } = request.nextUrl;
 
   // ── 1) Host de fotógrafo (subdomínio ou domínio próprio) → serve o SITE público

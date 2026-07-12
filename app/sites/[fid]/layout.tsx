@@ -4,7 +4,7 @@
 // fora dele ficam noindex para não indexar /sites/... no domínio do app.
 import type { Metadata } from "next";
 import { headers } from "next/headers";
-import { carregarSite, baseLinks, normalizarHost, rotuloSubdominio } from "@/lib/site/publico";
+import { carregarSite, baseLinks, hostDaRequisicao, normalizarHost, rotuloSubdominio } from "@/lib/site/publico";
 import { getTema, temaCssVars } from "@/lib/site/temas";
 import { normalizarDesign, getPar, type BarraConfig } from "@/lib/site/design";
 import { classesFontes, FONTE_VAR } from "./_fontes";
@@ -20,7 +20,7 @@ export async function generateMetadata({ params }: { params: Promise<{ fid: stri
   const { fid } = await params;
   const { fotografo, config } = await carregarSite(fid);
   const h = await headers();
-  const host = normalizarHost(h.get("host") ?? "");
+  const host = hostDaRequisicao(h);
 
   // Host principal do site: domínio próprio tem precedência sobre o subdomínio.
   const hostPrincipal = config?.dominio_customizado
