@@ -1,34 +1,44 @@
 "use client";
 
-// Aparência do site: par de fontes (pré-configurado), logo do site + tamanho,
-// cor/transparência/altura do header e do rodapé. Salva em site_config.design (jsonb).
-// Layout em 2 colunas: controles à esquerda + PREVIEW ao vivo (sticky) à direita.
+// Aparência do site — CONSTRUTOR por blocos. Coluna esquerda: cards de configuração
+// (Fontes/Logo/Header fixos no topo, blocos reordenáveis por arraste, Rodapé fixo no fim),
+// cada card minimizável. Coluna direita: PRÉVIA AO VIVO (sticky) usando os MESMOS componentes
+// do site real (HomeBlocos + SiteHeader), com barra de dispositivo PC/Tablet/Celular.
+// Salva em site_config.design (jsonb), com estado "não salvo" (useEditorEstado).
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { fetchAllRows } from "@/lib/supabase/fetchAll";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { uploadFileClient } from "@/lib/storage/uploadClient";
-import { getTema } from "@/lib/site/temas";
+import { getTema, temaCssVars, type TemaSite } from "@/lib/site/temas";
 import { useEditorEstado, SeloEstado, BotaoSalvarEstado, ModalNaoSalvo } from "@/app/(dashboard)/_components/EditorEstado";
 import {
-  PARES_FONTE, CATEGORIA_LABEL, FONTE_NOME, getPar, normalizarDesign, DESIGN_PADRAO,
-  type ConfigDesign, type BarraConfig, type CategoriaFonte,
+  PARES_FONTE, CATEGORIA_LABEL, FONTE_NOME, getPar, normalizarDesign, DESIGN_PADRAO, BLOCO_LABEL,
+  type ConfigDesign, type BarraConfig, type HeaderConfig, type CategoriaFonte,
+  type HomeBloco, type HomeBlocoKey, type BlogLayout, type DepoLayout,
 } from "@/lib/site/design";
+import { SiteHeader } from "@/app/sites/[fid]/_components/SiteHeader";
+import { HomeBlocos } from "@/app/sites/[fid]/_components/home/HomeBlocos";
+import type { DadosHome } from "@/app/sites/[fid]/_components/home/tipos";
+import type { SiteBanner, SiteDepoimento, SitePost, SiteSelo, SiteTrabalho } from "@/lib/supabase/types";
 
 const CATS: CategoriaFonte[] = ["minimalista", "serifada", "elegante"];
-
-// <link> do Google Fonts só para o PREVIEW no painel (o site público self-hospeda via next/font).
 const FONTES_UNICAS = [...new Set(PARES_FONTE.flatMap((p) => [p.titulo, p.texto]))];
-const GOOGLE_HREF =
-  "https://fonts.googleapis.com/css2?" +
-  FONTES_UNICAS.map((id) => `family=${FONTE_NOME[id].replace(/ /g, "+")}`).join("&") +
-  "&display=swap";
+const GOOGLE_HREF = "https://fonts.googleapis.com/css2?" + FONTES_UNICAS.map((id) => `family=${FONTE_NOME[id].replace(/ /g, "+")}`).join("&") + "&display=swap";
 
-// Paleta de cores para as barras (neutros + tons do site). "null" = usar a cor do tema.
 const PALETA = ["#FFFFFF", "#F8F7F4", "#F1EFEA", "#E8E2D6", "#5E6E5F", "#463F37", "#2B2B2B", "#1C1A17"];
 const HEX_RE = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i;
-
 const clamp01 = (n: number) => Math.min(1, Math.max(0, n));
 
+const PROP_OPTS = [{ v: "horizontal_3x2", l: "Horizontal 3:2" }, { v: "vertical_2x3", l: "Vertical 2:3" }, { v: "quadrado_1x1", l: "Quadrado" }] as const;
+const POS_OPTS = [{ v: "acima", l: "Acima" }, { v: "centro", l: "Sobre a capa" }, { v: "abaixo", l: "Abaixo" }] as const;
+
+// ── Estilos base ──
+const lbl: React.CSSProperties = { fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em" };
+const mini: React.CSSProperties = { fontSize: 12, color: "var(--color-text-secondary)" };
+const cardBox: React.CSSProperties = { border: "1px solid var(--color-border-tertiary)", borderRadius: 12, padding: 16, background: "var(--color-background-primary)", marginBottom: 12 };
+
+// ── Conversões de cor + seletor (matriz saturação/brilho + matiz + hex) ──
 function hsvToHex(h: number, s: number, v: number): string {
   const c = v * s, x = c * (1 - Math.abs(((h / 60) % 2) - 1)), m = v - c;
   let r = 0, g = 0, b = 0;
@@ -44,128 +54,246 @@ function hexToHsv(hex: string): { h: number; s: number; v: number } {
   const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
   let h = 0;
   if (d !== 0) {
-    if (max === r) h = ((g - b) / d) % 6;
-    else if (max === g) h = (b - r) / d + 2;
-    else h = (r - g) / d + 4;
+    if (max === r) h = ((g - b) / d) % 6; else if (max === g) h = (b - r) / d + 2; else h = (r - g) / d + 4;
     h = h * 60; if (h < 0) h += 360;
   }
   return { h, s: max === 0 ? 0 : d / max, v: max };
 }
-
-// Seletor de cor moderno, inline e ancorado (matriz saturação/brilho + faixa de matiz + hex).
 function SeletorCor({ valor, onChange }: { valor: string; onChange: (hex: string) => void }) {
   const init = hexToHsv(HEX_RE.test(valor) ? valor : "#5E6E5F");
-  const [h, setH] = useState(init.h);
-  const [s, setS] = useState(init.s);
-  const [v, setV] = useState(init.v);
+  const [h, setH] = useState(init.h); const [s, setS] = useState(init.s); const [v, setV] = useState(init.v);
   const [hexTxt, setHexTxt] = useState(valor);
-  const svRef = useRef<HTMLDivElement>(null);
-  const hueRef = useRef<HTMLDivElement>(null);
-
+  const svRef = useRef<HTMLDivElement>(null); const hueRef = useRef<HTMLDivElement>(null);
   const emit = (nh: number, ns: number, nv: number) => { const hx = hsvToHex(nh, ns, nv); setHexTxt(hx); onChange(hx); };
-  const updateSV = (e: React.PointerEvent) => {
-    const r = svRef.current!.getBoundingClientRect();
-    const ns = clamp01((e.clientX - r.left) / r.width), nv = 1 - clamp01((e.clientY - r.top) / r.height);
-    setS(ns); setV(nv); emit(h, ns, nv);
-  };
-  const updateHue = (e: React.PointerEvent) => {
-    const r = hueRef.current!.getBoundingClientRect();
-    const nh = clamp01((e.clientX - r.left) / r.width) * 360;
-    setH(nh); emit(nh, s, v);
-  };
+  const updateSV = (e: React.PointerEvent) => { const r = svRef.current!.getBoundingClientRect(); const ns = clamp01((e.clientX - r.left) / r.width), nv = 1 - clamp01((e.clientY - r.top) / r.height); setS(ns); setV(nv); emit(h, ns, nv); };
+  const updateHue = (e: React.PointerEvent) => { const r = hueRef.current!.getBoundingClientRect(); const nh = clamp01((e.clientX - r.left) / r.width) * 360; setH(nh); emit(nh, s, v); };
   const dot: React.CSSProperties = { position: "absolute", width: 14, height: 14, borderRadius: "50%", border: "2px solid #fff", boxShadow: "0 0 0 1px rgba(0,0,0,0.4)", transform: "translate(-50%,-50%)", pointerEvents: "none" };
-
   return (
-    <div onPointerDown={(e) => e.stopPropagation()}
-      style={{ position: "absolute", top: 34, right: 0, zIndex: 30, width: 216, background: "var(--color-background-primary)", border: "1px solid var(--color-border-secondary)", borderRadius: 12, padding: 12, boxShadow: "0 12px 40px rgba(0,0,0,0.22)" }}>
-      {/* matriz saturação (x) × brilho (y) */}
-      <div ref={svRef} onPointerDown={(e) => { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); updateSV(e); }}
-        onPointerMove={(e) => { if ((e.currentTarget as HTMLElement).hasPointerCapture(e.pointerId)) updateSV(e); }}
-        style={{ position: "relative", width: "100%", height: 130, borderRadius: 8, cursor: "crosshair", touchAction: "none",
-          background: `linear-gradient(to top, #000, transparent), linear-gradient(to right, #fff, transparent), hsl(${h} 100% 50%)` }}>
+    <div onPointerDown={(e) => e.stopPropagation()} style={{ position: "absolute", top: 34, right: 0, zIndex: 30, width: 216, background: "var(--color-background-primary)", border: "1px solid var(--color-border-secondary)", borderRadius: 12, padding: 12, boxShadow: "0 12px 40px rgba(0,0,0,0.22)" }}>
+      <div ref={svRef} onPointerDown={(e) => { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); updateSV(e); }} onPointerMove={(e) => { if ((e.currentTarget as HTMLElement).hasPointerCapture(e.pointerId)) updateSV(e); }}
+        style={{ position: "relative", width: "100%", height: 130, borderRadius: 8, cursor: "crosshair", touchAction: "none", background: `linear-gradient(to top, #000, transparent), linear-gradient(to right, #fff, transparent), hsl(${h} 100% 50%)` }}>
         <span style={{ ...dot, left: `${s * 100}%`, top: `${(1 - v) * 100}%`, background: hsvToHex(h, s, v) }} />
       </div>
-      {/* faixa de matiz */}
-      <div ref={hueRef} onPointerDown={(e) => { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); updateHue(e); }}
-        onPointerMove={(e) => { if ((e.currentTarget as HTMLElement).hasPointerCapture(e.pointerId)) updateHue(e); }}
-        style={{ position: "relative", width: "100%", height: 14, borderRadius: 7, margin: "12px 0 10px", cursor: "pointer", touchAction: "none",
-          background: "linear-gradient(to right, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00)" }}>
+      <div ref={hueRef} onPointerDown={(e) => { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); updateHue(e); }} onPointerMove={(e) => { if ((e.currentTarget as HTMLElement).hasPointerCapture(e.pointerId)) updateHue(e); }}
+        style={{ position: "relative", width: "100%", height: 14, borderRadius: 7, margin: "12px 0 10px", cursor: "pointer", touchAction: "none", background: "linear-gradient(to right, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00)" }}>
         <span style={{ ...dot, left: `${(h / 360) * 100}%`, top: "50%", background: `hsl(${h} 100% 50%)` }} />
       </div>
-      {/* hex */}
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         <span style={{ width: 22, height: 22, borderRadius: "50%", background: hsvToHex(h, s, v), border: "1px solid rgba(0,0,0,0.2)", flex: "0 0 auto" }} />
-        <input value={hexTxt} onChange={(e) => {
-          const t = e.target.value; setHexTxt(t);
-          if (HEX_RE.test(t)) { const c = hexToHsv(t); setH(c.h); setS(c.s); setV(c.v); onChange(t.length === 4 ? t : t.toLowerCase()); }
-        }}
+        <input value={hexTxt} onChange={(e) => { const t = e.target.value; setHexTxt(t); if (HEX_RE.test(t)) { const c = hexToHsv(t); setH(c.h); setS(c.s); setV(c.v); onChange(t.length === 4 ? t : t.toLowerCase()); } }}
           style={{ flex: 1, minWidth: 0, padding: "6px 8px", borderRadius: 7, border: "1px solid var(--color-border-secondary)", background: "var(--color-background-primary)", color: "var(--color-text-primary)", fontSize: 13, fontFamily: "var(--font-mono)" }} />
       </div>
     </div>
   );
 }
 
-const lbl: React.CSSProperties = { fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 10, display: "block" };
-const card: React.CSSProperties = { border: "1px solid var(--color-border-tertiary)", borderRadius: 12, padding: 18, background: "var(--color-background-primary)", marginBottom: 16 };
-const mini: React.CSSProperties = { fontSize: 12, color: "var(--color-text-secondary)" };
+// Paleta de cores (bolinhas + personalizada) — genérica: header, texto do menu, rodapé.
+function PaletaCor({ valor, onChange, corTema }: { valor: string | null; onChange: (c: string | null) => void; corTema: string }) {
+  const [aberto, setAberto] = useState(false);
+  const atual = valor;
+  const ehPreset = atual !== null && PALETA.some((c) => c.toLowerCase() === atual.toLowerCase());
+  const ehCustom = atual !== null && !ehPreset;
+  const anel = (on: boolean): React.CSSProperties => on ? { boxShadow: "0 0 0 2px var(--color-background-primary), 0 0 0 4px #2563EB" } : {};
+  const circ: React.CSSProperties = { width: 26, height: 26, borderRadius: "50%", cursor: "pointer", border: "1px solid rgba(0,0,0,0.18)", padding: 0, flex: "0 0 auto" };
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 9, flexWrap: "wrap" }}>
+      <button type="button" title="Cor do tema (automática)" onClick={() => { onChange(null); setAberto(false); }} style={{ ...circ, background: corTema, borderStyle: "dashed", borderColor: "#9ca3af", ...anel(atual === null) }} />
+      {PALETA.map((c) => (
+        <button key={c} type="button" title={c} onClick={() => { onChange(c); setAberto(false); }} style={{ ...circ, background: c, ...anel(ehPreset && atual!.toLowerCase() === c.toLowerCase()) }} />
+      ))}
+      <div style={{ position: "relative" }}>
+        <button type="button" title="Cor personalizada" onClick={() => setAberto((a) => !a)} style={{ ...circ, background: ehCustom ? atual! : "conic-gradient(from 0deg, #f43f5e, #f59e0b, #10b981, #3b82f6, #a855f7, #f43f5e)", ...anel(ehCustom || aberto) }} />
+        {aberto && (
+          <>
+            <div onClick={() => setAberto(false)} style={{ position: "fixed", inset: 0, zIndex: 29 }} />
+            <SeletorCor valor={atual ?? "#5E6E5F"} onChange={(hex) => onChange(hex)} />
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Controles reutilizáveis ──
+function Seg<T extends string>({ value, options, onChange }: { value: T; options: readonly { v: T; l: string }[]; onChange: (v: T) => void }) {
+  return (
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+      {options.map((o) => (
+        <button key={o.v} type="button" onClick={() => onChange(o.v)}
+          style={{ padding: "7px 12px", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer", border: value === o.v ? "1.5px solid #2563EB" : "1px solid var(--color-border-tertiary)", background: value === o.v ? "rgba(37,99,235,0.06)" : "transparent", color: value === o.v ? "#2563EB" : "var(--color-text-primary)" }}>
+          {o.l}
+        </button>
+      ))}
+    </div>
+  );
+}
+function Range({ label, value, min, max, unidade, onChange }: { label: string; value: number; min: number; max: number; unidade?: string; onChange: (v: number) => void }) {
+  return (
+    <div>
+      <div style={{ ...mini, marginBottom: 4 }}>{label} <strong>{value}{unidade ?? ""}</strong></div>
+      <input type="range" min={min} max={max} value={value} onChange={(e) => onChange(Number(e.target.value))} style={{ width: "100%", accentColor: "#2563EB" }} />
+    </div>
+  );
+}
+function Chave({ on, onChange, titulo }: { on: boolean; onChange: (v: boolean) => void; titulo?: string }) {
+  return (
+    <button type="button" title={titulo} onClick={(e) => { e.stopPropagation(); onChange(!on); }}
+      style={{ width: 38, height: 22, borderRadius: 11, border: "none", cursor: "pointer", padding: 2, background: on ? "#2563EB" : "var(--color-border-secondary)", display: "flex", justifyContent: on ? "flex-end" : "flex-start", alignItems: "center", transition: "background .15s", flex: "0 0 auto" }}>
+      <span style={{ width: 18, height: 18, borderRadius: "50%", background: "#fff", display: "block" }} />
+    </button>
+  );
+}
+
+// Card minimizável (chevron à esquerda; clicar no cabeçalho alterna; alça/chave param a propagação).
+function Card({ titulo, aberto, onToggle, alca, chave, destaque, rootProps, children }: {
+  titulo: React.ReactNode; aberto: boolean; onToggle: () => void;
+  alca?: React.ReactNode; chave?: React.ReactNode; destaque?: boolean;
+  rootProps?: React.HTMLAttributes<HTMLDivElement> & { draggable?: boolean }; children: React.ReactNode;
+}) {
+  const { style: rootStyle, ...restRoot } = rootProps ?? {};
+  return (
+    <div {...restRoot} style={{ ...cardBox, ...(destaque ? { borderColor: "#2563EB", boxShadow: "0 0 0 1px #2563EB" } : {}), ...(rootStyle || {}) }}>
+      <div onClick={onToggle} style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", userSelect: "none" }}>
+        <span style={{ fontSize: 12, color: "var(--color-text-secondary)", transition: "transform .15s", transform: aberto ? "none" : "rotate(-90deg)", display: "inline-block" }}>▾</span>
+        {alca}
+        <span style={{ ...lbl, flex: 1 }}>{titulo}</span>
+        {chave}
+      </div>
+      {aberto && <div style={{ marginTop: 14 }}>{children}</div>}
+    </div>
+  );
+}
+
+// ── Prévia ao vivo: renderiza o site real numa largura virtual (dispositivo), escalada p/ caber. ──
+function Preview({ design, dados, menu, nome, logoUrl, disp, tema }: {
+  design: ConfigDesign; dados: DadosHome; menu: { id: string; label: string; href: string }[];
+  nome: string; logoUrl: string | null; disp: "pc" | "tablet" | "celular"; tema: TemaSite;
+}) {
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const innerRef = useRef<HTMLDivElement>(null);
+  const [wrapW, setWrapW] = useState(420);
+  const [innerH, setInnerH] = useState(760);
+  useEffect(() => {
+    const el = wrapRef.current; if (!el) return;
+    const ro = new ResizeObserver(() => setWrapW(el.clientWidth));
+    ro.observe(el); setWrapW(el.clientWidth);
+    return () => ro.disconnect();
+  }, []);
+  useEffect(() => {
+    const el = innerRef.current; if (!el) return;
+    const ro = new ResizeObserver(() => setInnerH(el.scrollHeight));
+    ro.observe(el); setInnerH(el.scrollHeight);
+    return () => ro.disconnect();
+  }, []);
+  const VIRT = disp === "pc" ? 1280 : disp === "tablet" ? 768 : 380;
+  const scale = Math.min(1, wrapW / VIRT);
+  const par = getPar(design.par);
+  const fTitulo = `'${FONTE_NOME[par.titulo]}', Georgia, serif`;
+  const fTexto = `'${FONTE_NOME[par.texto]}', Georgia, serif`;
+  const lateral = design.header.orientacao === "lateral_esquerda";
+  const fundoBarra = (b: BarraConfig, base: string) => `color-mix(in srgb, ${b.cor ?? base} ${b.opacidade}%, transparent)`;
+  const itens = menu.length ? menu : [
+    { id: "1", label: "Histórias", href: "/portfolio" }, { id: "2", label: "Orçamento", href: "/contato" },
+    { id: "3", label: "Sobre", href: "/sobre" }, { id: "4", label: "Blog", href: "/blog" },
+  ];
+  return (
+    <div ref={wrapRef} style={{ borderRadius: 14, overflowX: "hidden", overflowY: "auto", maxHeight: "76vh", border: "1px solid var(--color-border-secondary)", boxShadow: "0 8px 30px rgba(0,0,0,0.1)", background: tema.cores.fundo }}>
+      <div style={{ position: "relative", width: "100%", height: Math.round(innerH * scale) }}>
+        <div ref={innerRef} style={{
+          position: "absolute", top: 0, left: 0, width: VIRT, transform: `scale(${scale})`, transformOrigin: "top left", pointerEvents: "none",
+          ...temaCssVars(tema),
+          ["--site-fonte-titulo" as string]: fTitulo,
+          ["--site-fonte-corpo" as string]: fTexto,
+          background: "var(--site-fundo)", color: "var(--site-texto)", fontFamily: "var(--site-fonte-corpo), Georgia, serif",
+          display: lateral ? "flex" : "block",
+        } as React.CSSProperties}>
+          <SiteHeader base="#" logoUrl={logoUrl} nome={nome} itens={itens}
+            logoAltura={design.logo_altura} fundo={fundoBarra(design.header, tema.cores.fundo)} padY={design.header.altura}
+            orientacao={design.header.orientacao} logoPos={design.header.logo_pos} corTexto={design.header.cor_texto} largura={design.header.largura} />
+          <div style={lateral ? { flex: 1, minWidth: 0 } : undefined}>
+            <div className="site-main">
+              <HomeBlocos blocos={design.blocos} dados={dados} base="#" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const DADOS_VAZIO: DadosHome = { banners: [], trabalhos: [], posts: [], depoimentos: [], selos: [] };
 
 export default function AparenciaPage() {
   const { fotografo } = useFotografo();
   const [design, setDesign] = useState<ConfigDesign>(DESIGN_PADRAO);
   const [temaId, setTemaId] = useState<string | null>(null);
+  const [dados, setDados] = useState<DadosHome>(DADOS_VAZIO);
+  const [menu, setMenu] = useState<{ id: string; label: string; href: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [enviandoLogo, setEnviandoLogo] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
-  const [picker, setPicker] = useState<"header" | "rodape" | null>(null);
+  const [disp, setDisp] = useState<"pc" | "tablet" | "celular">("pc");
+  const [aberto, setAberto] = useState<Record<string, boolean>>({});
   const inputLogo = useRef<HTMLInputElement>(null);
+  const dragIdx = useRef<number | null>(null);
+  const [sobreIdx, setSobreIdx] = useState<number | null>(null);
 
   const snapshot = JSON.stringify(design);
   const estado = useEditorEstado(snapshot, "/site");
 
   useEffect(() => {
     if (!fotografo) return;
-    createClient().from("site_config").select("design, tema").eq("fotografo_id", fotografo.id).maybeSingle()
-      .then(({ data }) => {
-        const row = data as { design?: unknown; tema?: string | null } | null;
-        const d = normalizarDesign(row?.design);
-        setDesign(d);
-        setTemaId(row?.tema ?? null);
-        estado.inicializar(JSON.stringify(d));
-        setLoading(false);
-      });
+    const sb = createClient();
+    (async () => {
+      const { data: cfg } = await sb.from("site_config").select("design, tema").eq("fotografo_id", fotografo.id).maybeSingle();
+      const row = cfg as { design?: unknown; tema?: string | null } | null;
+      const d = normalizarDesign(row?.design);
+      setDesign(d); setTemaId(row?.tema ?? null); estado.inicializar(JSON.stringify(d));
+      const fid = fotografo.id;
+      const [banners, trabalhos, posts, depoimentos, selos, menuRows] = await Promise.all([
+        fetchAllRows<SiteBanner>((s, f, t) => s.from("site_banners").select("*").eq("fotografo_id", fid).eq("publicado", true).order("ordem").range(f, t), sb),
+        fetchAllRows<SiteTrabalho>((s, f, t) => s.from("site_trabalhos").select("*").eq("fotografo_id", fid).eq("publicado", true).order("data_evento", { ascending: false }).range(f, t), sb),
+        fetchAllRows<SitePost>((s, f, t) => s.from("site_posts").select("*").eq("fotografo_id", fid).eq("publicado", true).order("ordem").range(f, t), sb),
+        fetchAllRows<SiteDepoimento>((s, f, t) => s.from("site_depoimentos").select("*").eq("fotografo_id", fid).eq("publicado", true).order("ordem").range(f, t), sb),
+        fetchAllRows<SiteSelo>((s, f, t) => s.from("site_selos").select("*").eq("fotografo_id", fid).eq("publicado", true).order("ordem").range(f, t), sb),
+        fetchAllRows<{ id: string; label: string; href: string; visivel: boolean }>((s, f, t) => s.from("site_menu").select("id,label,href,visivel").eq("fotografo_id", fid).order("ordem").range(f, t), sb),
+      ]);
+      setDados({ banners, trabalhos: trabalhos.slice(0, 9), posts: posts.slice(0, 6), depoimentos, selos });
+      setMenu(menuRows.filter((m) => m.visivel !== false).map((m) => ({ id: String(m.id), label: m.label, href: m.href })));
+      setLoading(false);
+    })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fotografo]);
 
-  const setBarra = (qual: "header" | "rodape", patch: Partial<BarraConfig>) =>
-    setDesign((d) => qual === "header"
-      ? { ...d, header: { ...d.header, ...patch } }
-      : { ...d, rodape: { ...d.rodape, ...patch } });
+  const setHeader = (patch: Partial<HeaderConfig>) => setDesign((d) => ({ ...d, header: { ...d.header, ...patch } }));
+  const setRodape = (patch: Partial<BarraConfig>) => setDesign((d) => ({ ...d, rodape: { ...d.rodape, ...patch } }));
+  const setBloco = (key: HomeBlocoKey, patch: Partial<HomeBloco>) => setDesign((d) => ({ ...d, blocos: d.blocos.map((bl) => bl.key === key ? { ...bl, ...patch } : bl) }));
+  const toggle = (k: string) => setAberto((a) => ({ ...a, [k]: !a[k] }));
+
+  function soltar(destino: number) {
+    const from = dragIdx.current;
+    if (from === null || from === destino) return;
+    setDesign((d) => { const arr = [...d.blocos]; const [m] = arr.splice(from, 1); arr.splice(destino, 0, m); return { ...d, blocos: arr }; });
+  }
 
   async function enviarLogo(files: FileList | null) {
     if (!files || !files[0] || !fotografo) return;
-    setEnviandoLogo(true);
-    setMsg(null);
+    setEnviandoLogo(true); setMsg(null);
     try {
       const ext = (files[0].name.split(".").pop() || "png").toLowerCase().replace(/[^a-z0-9]/g, "") || "png";
       const path = `site/${fotografo.id}/logo/logo-${crypto.randomUUID().slice(0, 6)}.${ext}`;
       const { url_publica } = await uploadFileClient(path, files[0], files[0].type || "image/png");
       setDesign((d) => ({ ...d, logo_url: url_publica }));
-    } catch (e) {
-      setMsg("Erro no upload da logo: " + (e instanceof Error ? e.message : ""));
-    }
+    } catch (e) { setMsg("Erro no upload da logo: " + (e instanceof Error ? e.message : "")); }
     setEnviandoLogo(false);
     if (inputLogo.current) inputLogo.current.value = "";
   }
 
   async function salvar(): Promise<boolean> {
     if (!fotografo) return false;
-    setSalvando(true);
-    setMsg(null);
-    const { error } = await createClient().from("site_config").upsert(
-      { fotografo_id: fotografo.id, design, updated_at: new Date().toISOString() },
-      { onConflict: "fotografo_id" },
-    );
+    setSalvando(true); setMsg(null);
+    const { error } = await createClient().from("site_config").upsert({ fotografo_id: fotografo.id, design, updated_at: new Date().toISOString() }, { onConflict: "fotografo_id" });
     setSalvando(false);
     if (error) { setMsg("Erro: " + error.message); return false; }
     estado.marcarSalvo(JSON.stringify(design));
@@ -174,88 +302,100 @@ export default function AparenciaPage() {
   }
 
   const tema = getTema(temaId);
-  const par = getPar(design.par);
-  const fTitulo = `'${FONTE_NOME[par.titulo]}', Georgia, serif`;
-  const fTexto = `'${FONTE_NOME[par.texto]}', Georgia, serif`;
   const logo = design.logo_url ?? fotografo?.logo_url ?? null;
   const logoProprio = !!design.logo_url;
   const nome = fotografo?.nome_empresa || "Seu Estúdio";
-  const corBarra = (b: BarraConfig, base: string) => `color-mix(in srgb, ${b.cor ?? base} ${b.opacidade}%, transparent)`;
 
-  // Bolinhas de cor: presets + "tema" (auto) + personalizada (abre o SeletorCor ancorado).
-  function paleta(b: BarraConfig, qual: "header" | "rodape") {
-    const set = (patch: Partial<BarraConfig>) => setBarra(qual, patch);
-    const atual = b.cor;
-    const ehPreset = atual !== null && PALETA.some((c) => c.toLowerCase() === atual.toLowerCase());
-    const ehCustom = atual !== null && !ehPreset;
-    const aberto = picker === qual;
-    const anel = (on: boolean): React.CSSProperties => on
-      ? { boxShadow: "0 0 0 2px var(--color-background-primary), 0 0 0 4px #2563EB" } : {};
-    const circ: React.CSSProperties = { width: 26, height: 26, borderRadius: "50%", cursor: "pointer", border: "1px solid rgba(0,0,0,0.18)", padding: 0, flex: "0 0 auto" };
-    return (
-      <div style={{ display: "flex", alignItems: "center", gap: 9, flexWrap: "wrap" }}>
-        <button type="button" title="Usar a cor do tema" onClick={() => { set({ cor: null }); setPicker(null); }}
-          style={{ ...circ, background: tema.cores.fundo, borderStyle: "dashed", borderColor: "#9ca3af", ...anel(atual === null) }} />
-        {PALETA.map((c) => (
-          <button key={c} type="button" title={c} onClick={() => { set({ cor: c }); setPicker(null); }}
-            style={{ ...circ, background: c, ...anel(ehPreset && atual!.toLowerCase() === c.toLowerCase()) }} />
-        ))}
-        <div style={{ position: "relative" }}>
-          <button type="button" title="Cor personalizada" onClick={() => setPicker(aberto ? null : qual)}
-            style={{ ...circ, background: ehCustom ? atual! : "conic-gradient(from 0deg, #f43f5e, #f59e0b, #10b981, #3b82f6, #a855f7, #f43f5e)", ...anel(ehCustom || aberto) }} />
-          {aberto && (
-            <>
-              <div onClick={() => setPicker(null)} style={{ position: "fixed", inset: 0, zIndex: 29 }} />
-              <SeletorCor valor={atual ?? "#5E6E5F"} onChange={(hex) => set({ cor: hex })} />
-            </>
-          )}
-        </div>
-      </div>
-    );
-  }
+  const campo = (titulo: string, node: React.ReactNode) => (
+    <div style={{ marginBottom: 14 }}>
+      <div style={{ ...mini, marginBottom: 6, fontWeight: 600 }}>{titulo}</div>
+      {node}
+    </div>
+  );
+  const linhaChave = (label: string, on: boolean, onChange: (v: boolean) => void) => (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "5px 0" }}>
+      <span style={mini}>{label}</span>
+      <Chave on={on} onChange={onChange} />
+    </div>
+  );
 
-  function barraUI(qual: "header" | "rodape", titulo: string) {
-    const b = design[qual];
-    const set = (patch: Partial<BarraConfig>) => setBarra(qual, patch);
-    return (
-      <div style={card}>
-        <label style={lbl}>{titulo}</label>
-        <div style={{ ...mini, marginBottom: 6 }}>Cor</div>
-        {paleta(b, qual)}
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 22, marginTop: 14 }}>
-          <div>
-            <div style={{ ...mini, marginBottom: 4 }}>Transparência <strong>{100 - b.opacidade}%</strong></div>
-            <input type="range" min={40} max={100} value={b.opacidade} onChange={(e) => set({ opacidade: Number(e.target.value) })} style={{ width: 150, accentColor: "#2563EB" }} />
-          </div>
-          <div>
-            <div style={{ ...mini, marginBottom: 4 }}>Altura <strong>{b.altura}px</strong></div>
-            <input type="range" min={qual === "header" ? 8 : 16} max={qual === "header" ? 48 : 96} value={b.altura} onChange={(e) => set({ altura: Number(e.target.value) })} style={{ width: 150, accentColor: "#2563EB" }} />
-          </div>
-        </div>
-      </div>
-    );
+  // Controles de cada bloco (por chave).
+  function camposBloco(b: HomeBloco): React.ReactNode {
+    switch (b.key) {
+      case "banner": {
+        const rotativo = (b.tipo ?? "deslizante") !== "grid";
+        return (
+          <>
+            {campo("Tipo", <Seg value={b.tipo ?? "deslizante"} options={[{ v: "foto_unica", l: "Foto única" }, { v: "deslizante", l: "Deslizante" }, { v: "grid", l: "Grade" }] as const} onChange={(v) => setBloco("banner", { tipo: v })} />)}
+            {b.tipo === "foto_unica" && campo("Ajuste da imagem", <Seg value={b.ajuste ?? "manter_proporcao"} options={[{ v: "manter_proporcao", l: "Manter proporção" }, { v: "preencher", l: "Preencher" }] as const} onChange={(v) => setBloco("banner", { ajuste: v })} />)}
+            {campo("Tamanho (altura)", <Range label="Altura" value={b.altura ?? 300} min={120} max={720} unidade="px" onChange={(v) => setBloco("banner", { altura: v })} />)}
+            {rotativo && campo("Passagem automática", <Range label="Velocidade" value={b.velocidade ?? 4} min={1} max={15} unidade="s" onChange={(v) => setBloco("banner", { velocidade: v })} />)}
+            {b.tipo === "grid" && campo("Colunas", <Range label="Colunas" value={b.colunas ?? 3} min={2} max={6} onChange={(v) => setBloco("banner", { colunas: v })} />)}
+          </>
+        );
+      }
+      case "trabalhos":
+        return (
+          <>
+            {campo("Colunas do grid", <Range label="Colunas" value={b.colunas ?? 3} min={1} max={6} onChange={(v) => setBloco("trabalhos", { colunas: v })} />)}
+            {campo("Proporção da capa", <Seg value={b.proporcao ?? "horizontal_3x2"} options={PROP_OPTS} onChange={(v) => setBloco("trabalhos", { proporcao: v })} />)}
+            {campo("Posição do título", <Seg value={b.titulo_pos ?? "abaixo"} options={POS_OPTS} onChange={(v) => setBloco("trabalhos", { titulo_pos: v })} />)}
+            {campo("Texto do card", <Seg value={b.texto_card ?? "titulo_subtitulo"} options={[{ v: "titulo_subtitulo", l: "Título + subtítulo" }, { v: "so_titulo", l: "Só título" }] as const} onChange={(v) => setBloco("trabalhos", { texto_card: v })} />)}
+          </>
+        );
+      case "blog": {
+        const capaTopo = (b.layout ?? "capa_esquerda") !== "capa_esquerda";
+        return (
+          <>
+            {campo("Layout", <Seg value={(b.layout ?? "capa_esquerda") as BlogLayout} options={[{ v: "capa_esquerda", l: "Capa à esquerda" }, { v: "capa_em_cima", l: "Capa em cima" }, { v: "horizontal_deslizante", l: "Horizontal" }] as const} onChange={(v) => setBloco("blog", { layout: v })} />)}
+            {b.layout === "capa_em_cima" && campo("Colunas do grid", <Range label="Colunas" value={b.colunas ?? 3} min={1} max={4} onChange={(v) => setBloco("blog", { colunas: v })} />)}
+            {campo("Proporção da capa", <Seg value={b.proporcao ?? "horizontal_3x2"} options={PROP_OPTS} onChange={(v) => setBloco("blog", { proporcao: v })} />)}
+            {capaTopo && campo("Posição do título", <Seg value={b.titulo_pos ?? "abaixo"} options={POS_OPTS} onChange={(v) => setBloco("blog", { titulo_pos: v })} />)}
+            {campo("Descrição", linhaChave("Mostrar o início do post", b.descricao !== false, (v) => setBloco("blog", { descricao: v })))}
+          </>
+        );
+      }
+      case "depoimentos":
+        return (
+          <>
+            {campo("Layout", <Seg value={(b.layout ?? "lista_vertical") as DepoLayout} options={[{ v: "lista_vertical", l: "Lista vertical" }, { v: "horizontal", l: "Horizontal" }, { v: "grade", l: "Grade" }] as const} onChange={(v) => setBloco("depoimentos", { layout: v })} />)}
+            {b.layout === "grade" && campo("Colunas", <Range label="Colunas" value={b.colunas ?? 3} min={2} max={5} onChange={(v) => setBloco("depoimentos", { colunas: v })} />)}
+            {campo("Exibir", <div>
+              {linhaChave("Foto", b.mostrar_foto !== false, (v) => setBloco("depoimentos", { mostrar_foto: v }))}
+              {linhaChave("Nome", b.mostrar_nome !== false, (v) => setBloco("depoimentos", { mostrar_nome: v }))}
+              {linhaChave("Depoimento", b.mostrar_texto !== false, (v) => setBloco("depoimentos", { mostrar_texto: v }))}
+            </div>)}
+          </>
+        );
+      case "selos":
+        return (
+          <>
+            {campo("Título", linhaChave("Mostrar o título de cada selo", b.mostrar_titulo !== false, (v) => setBloco("selos", { mostrar_titulo: v })))}
+            <p style={{ ...mini, marginTop: 4 }}>Adicione os selos em <strong>Site → Selos</strong>.</p>
+          </>
+        );
+    }
   }
 
   return (
-    <div style={{ maxWidth: 1120, margin: "0 auto", padding: "32px 24px" }}>
+    <div style={{ maxWidth: 1180, margin: "0 auto", padding: "32px 24px" }}>
       <link rel="stylesheet" href={GOOGLE_HREF} />
 
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 4 }}>
         <h1 style={{ fontSize: 22, fontWeight: 800, color: "var(--color-text-primary)", margin: 0, letterSpacing: "-0.02em" }}>Aparência</h1>
         <SeloEstado temAlteracoes={estado.temAlteracoes} />
       </div>
-      <p style={{ ...mini, margin: "0 0 22px" }}>Fontes, logo e as barras do site. A prévia ao lado atualiza conforme você edita.</p>
+      <p style={{ ...mini, margin: "0 0 22px" }}>Monte a página inicial: escolha fontes, logo e as barras, ligue/desligue e reordene os blocos. A prévia ao lado atualiza ao vivo.</p>
 
       {loading ? (
         <div style={{ padding: 40, textAlign: "center", ...mini }}>Carregando…</div>
       ) : (
         <div className="aparencia-grid">
-          {/* ---------- COLUNA ESQUERDA: controles ---------- */}
+          {/* ── COLUNA ESQUERDA: controles ── */}
           <div>
-            {/* Fontes: cada linha é o exemplo escrito na própria fonte do par */}
-            <div style={card}>
-              <label style={lbl}>Fontes</label>
-              <div style={{ display: "flex", flexDirection: "column", gap: 4, maxHeight: 340, overflowY: "auto" }}>
+            {/* Fontes */}
+            <Card titulo="Fontes" aberto={!!aberto.fontes} onToggle={() => toggle("fontes")}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 4, maxHeight: 320, overflowY: "auto" }}>
                 {CATS.map((cat) => (
                   <div key={cat}>
                     <div style={{ fontSize: 10, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.06em", margin: "8px 0 4px" }}>{CATEGORIA_LABEL[cat]}</div>
@@ -265,10 +405,7 @@ export default function AparenciaPage() {
                       const fx = `'${FONTE_NOME[p.texto]}', Georgia, serif`;
                       return (
                         <button key={p.id} type="button" onClick={() => setDesign((d) => ({ ...d, par: p.id }))}
-                          style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", textAlign: "left", cursor: "pointer",
-                            padding: "8px 10px", borderRadius: 8, marginBottom: 2,
-                            background: sel ? "rgba(37,99,235,0.06)" : "transparent",
-                            border: sel ? "1.5px solid #2563EB" : "1px solid var(--color-border-tertiary)" }}>
+                          style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", textAlign: "left", cursor: "pointer", padding: "8px 10px", borderRadius: 8, marginBottom: 2, background: sel ? "rgba(37,99,235,0.06)" : "transparent", border: sel ? "1.5px solid #2563EB" : "1px solid var(--color-border-tertiary)" }}>
                           <span style={{ display: "flex", flexDirection: "column", gap: 1, minWidth: 0, flex: 1 }}>
                             <span style={{ fontFamily: ft, fontSize: 17, lineHeight: 1.1, color: "var(--color-text-primary)" }}>Ensaios que viram histórias</span>
                             <span style={{ fontFamily: fx, fontSize: 12.5, color: "var(--color-text-secondary)" }}>Um pequeno texto de exemplo do site.</span>
@@ -280,20 +417,16 @@ export default function AparenciaPage() {
                   </div>
                 ))}
               </div>
-            </div>
+            </Card>
 
             {/* Logo */}
-            <div style={card}>
-              <label style={lbl}>Logo do site</label>
+            <Card titulo="Logo do site" aberto={!!aberto.logo} onToggle={() => toggle("logo")}>
               <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
                 <div style={{ width: 118, height: 56, borderRadius: 8, border: "1px dashed var(--color-border-secondary)", display: "flex", alignItems: "center", justifyContent: "center", background: "repeating-conic-gradient(#0000000d 0% 25%, transparent 0% 50%) 50% / 14px 14px" }}>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  {logoProprio ? <img src={design.logo_url!} alt="" style={{ maxHeight: 44, maxWidth: 106, objectFit: "contain" }} />
-                    : <span style={{ fontSize: 10, color: "var(--color-text-secondary)" }}>{logo ? "logo da conta" : "sem logo"}</span>}
+                  {logoProprio ? <img src={design.logo_url!} alt="" style={{ maxHeight: 44, maxWidth: 106, objectFit: "contain" }} /> : <span style={{ fontSize: 10, color: "var(--color-text-secondary)" }}>{logo ? "logo da conta" : "sem logo"}</span>}
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                  <button onClick={() => inputLogo.current?.click()} disabled={enviandoLogo}
-                    style={{ padding: "8px 14px", borderRadius: 8, border: "1px solid var(--color-border-secondary)", background: "transparent", fontSize: 12, fontWeight: 600, color: "var(--color-text-primary)", cursor: "pointer" }}>
+                  <button onClick={() => inputLogo.current?.click()} disabled={enviandoLogo} style={{ padding: "8px 14px", borderRadius: 8, border: "1px solid var(--color-border-secondary)", background: "transparent", fontSize: 12, fontWeight: 600, color: "var(--color-text-primary)", cursor: "pointer" }}>
                     {enviandoLogo ? "Enviando…" : logoProprio ? "Trocar logo" : "Enviar logo (PNG)"}
                   </button>
                   {logoProprio && <button onClick={() => setDesign((d) => ({ ...d, logo_url: null }))} style={{ padding: 0, border: "none", background: "transparent", fontSize: 11, color: "#DC2626", cursor: "pointer", textAlign: "left" }}>Remover</button>}
@@ -301,47 +434,63 @@ export default function AparenciaPage() {
                 <input ref={inputLogo} type="file" accept="image/*" style={{ display: "none" }} onChange={(e) => enviarLogo(e.target.files)} />
               </div>
               <div style={{ marginTop: 14 }}>
-                <div style={{ ...mini, marginBottom: 4 }}>Tamanho da logo <strong>{design.logo_altura}px</strong></div>
-                <input type="range" min={24} max={120} value={design.logo_altura} onChange={(e) => setDesign((d) => ({ ...d, logo_altura: Number(e.target.value) }))} style={{ width: 220, accentColor: "#2563EB" }} />
+                <Range label="Tamanho da logo" value={design.logo_altura} min={24} max={120} unidade="px" onChange={(v) => setDesign((d) => ({ ...d, logo_altura: v }))} />
               </div>
-            </div>
+            </Card>
 
-            {barraUI("header", "Barra do topo (header)")}
-            {barraUI("rodape", "Barra do rodapé")}
+            {/* Header */}
+            <Card titulo="Header (barra do topo)" aberto={!!aberto.header} onToggle={() => toggle("header")}>
+              {campo("Orientação da barra", <Seg value={design.header.orientacao} options={[{ v: "topo", l: "No topo" }, { v: "lateral_esquerda", l: "Lateral esquerda" }] as const} onChange={(v) => setHeader({ orientacao: v })} />)}
+              {design.header.orientacao === "topo" && campo("Posição da logo", <Seg value={design.header.logo_pos} options={[{ v: "esquerda", l: "Esquerda" }, { v: "centro", l: "Centro" }, { v: "direita", l: "Direita" }] as const} onChange={(v) => setHeader({ logo_pos: v })} />)}
+              {campo("Cor de fundo", <PaletaCor valor={design.header.cor} onChange={(c) => setHeader({ cor: c })} corTema={tema.cores.fundo} />)}
+              {campo("Cor do texto do menu", <PaletaCor valor={design.header.cor_texto} onChange={(c) => setHeader({ cor_texto: c })} corTema={tema.cores.titulo} />)}
+              {campo("Transparência", <Range label="Transparência" value={100 - design.header.opacidade} min={0} max={60} unidade="%" onChange={(v) => setHeader({ opacidade: 100 - v })} />)}
+              {design.header.orientacao === "topo"
+                ? campo("Altura", <Range label="Altura" value={design.header.altura} min={8} max={48} unidade="px" onChange={(v) => setHeader({ altura: v })} />)
+                : campo("Largura", <Range label="Largura" value={design.header.largura} min={140} max={320} unidade="px" onChange={(v) => setHeader({ largura: v })} />)}
+            </Card>
 
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, alignItems: "center" }}>
+            {/* Blocos reordenáveis */}
+            <div style={{ ...lbl, margin: "18px 0 8px", color: "var(--color-text-tertiary)" }}>Blocos da página (arraste para reordenar)</div>
+            {design.blocos.map((b, idx) => (
+              <Card key={b.key} titulo={BLOCO_LABEL[b.key]} aberto={!!aberto[b.key]} onToggle={() => toggle(b.key)} destaque={sobreIdx === idx}
+                alca={<span onClick={(e) => e.stopPropagation()} title="Arraste para reordenar" style={{ cursor: "grab", color: "var(--color-text-secondary)", fontSize: 15, lineHeight: 1 }}>⠿</span>}
+                chave={<Chave on={b.on} onChange={(v) => setBloco(b.key, { on: v })} titulo={b.on ? "Ocultar bloco" : "Mostrar bloco"} />}
+                rootProps={{
+                  draggable: !aberto[b.key],
+                  onDragStart: () => { dragIdx.current = idx; },
+                  onDragOver: (e) => { e.preventDefault(); if (sobreIdx !== idx) setSobreIdx(idx); },
+                  onDragLeave: () => { if (sobreIdx === idx) setSobreIdx(null); },
+                  onDrop: (e) => { e.preventDefault(); soltar(idx); setSobreIdx(null); },
+                  onDragEnd: () => { dragIdx.current = null; setSobreIdx(null); },
+                  style: { cursor: aberto[b.key] ? "default" : "grab", opacity: b.on ? 1 : 0.55 },
+                }}>
+                {camposBloco(b)}
+              </Card>
+            ))}
+
+            {/* Rodapé */}
+            <Card titulo="Rodapé" aberto={!!aberto.rodape} onToggle={() => toggle("rodape")}>
+              {campo("Cor", <PaletaCor valor={design.rodape.cor} onChange={(c) => setRodape({ cor: c })} corTema={tema.cores.superficie} />)}
+              {campo("Transparência", <Range label="Transparência" value={100 - design.rodape.opacidade} min={0} max={60} unidade="%" onChange={(v) => setRodape({ opacidade: 100 - v })} />)}
+              {campo("Altura", <Range label="Altura" value={design.rodape.altura} min={16} max={96} unidade="px" onChange={(v) => setRodape({ altura: v })} />)}
+            </Card>
+
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, alignItems: "center", marginTop: 4 }}>
               {msg && <span style={{ fontSize: 12, fontWeight: 600, color: msg.startsWith("Erro") ? "#DC2626" : "#059669" }}>{msg}</span>}
               <BotaoSalvarEstado temAlteracoes={estado.temAlteracoes} salvando={salvando} onClick={() => salvar()} />
             </div>
           </div>
 
-          {/* ---------- COLUNA DIREITA: preview ao vivo ---------- */}
+          {/* ── COLUNA DIREITA: preview ao vivo ── */}
           <div className="aparencia-preview-wrap">
-            <div style={{ ...lbl, marginBottom: 8 }}>Prévia</div>
-            <div style={{ borderRadius: 14, overflow: "hidden", border: "1px solid var(--color-border-secondary)", boxShadow: "0 8px 30px rgba(0,0,0,0.10)", background: tema.cores.fundo }}>
-              {/* header */}
-              <div style={{ background: corBarra(design.header, tema.cores.fundo), backdropFilter: "blur(4px)", borderBottom: `1px solid ${tema.cores.borda}`, padding: `${Math.round(design.header.altura * 0.7)}px 16px`, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                {logo ? <img src={logo} alt="" style={{ height: Math.round(design.logo_altura * 0.62), width: "auto", maxWidth: 150, objectFit: "contain" }} />
-                  : <span style={{ fontFamily: fTitulo, fontSize: 18, letterSpacing: "0.04em", color: tema.cores.titulo }}>{nome}</span>}
-                <span style={{ fontFamily: fTexto, fontSize: 10, letterSpacing: "0.12em", textTransform: "uppercase", color: tema.cores.titulo }}>Portfólio · Contato</span>
-              </div>
-              {/* corpo */}
-              <div style={{ padding: "30px 22px 34px", color: tema.cores.texto }}>
-                <div style={{ fontFamily: fTexto, fontSize: 10, letterSpacing: "0.16em", textTransform: "uppercase", color: tema.cores.suave, marginBottom: 10 }}>Casamentos</div>
-                <div style={{ fontFamily: fTitulo, fontWeight: 500, fontSize: 30, lineHeight: 1.15, color: tema.cores.titulo, marginBottom: 12 }}>Ensaios que viram histórias</div>
-                <p style={{ fontFamily: fTexto, fontSize: 14, lineHeight: 1.7, margin: "0 0 18px" }}>
-                  Cada casamento tem um ritmo próprio. Registro os detalhes, os gestos e a emoção do dia — com leveza e sem interferir no que é real.
-                </p>
-                <span style={{ display: "inline-block", fontFamily: fTexto, fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", color: tema.cores.titulo, border: `1px solid ${tema.cores.titulo}`, borderRadius: 4, padding: "9px 20px" }}>Ver portfólio</span>
-              </div>
-              {/* rodapé */}
-              <div style={{ background: corBarra(design.rodape, tema.cores.superficie), borderTop: `1px solid ${tema.cores.borda}`, padding: `${Math.round(design.rodape.altura * 0.7)}px 20px`, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-                <span style={{ fontFamily: fTitulo, fontSize: 15, color: tema.cores.titulo }}>{nome}</span>
-                <span style={{ fontFamily: fTexto, fontSize: 10, letterSpacing: "0.12em", textTransform: "uppercase", color: tema.cores.titulo }}>Instagram</span>
-              </div>
+            <div style={{ display: "flex", gap: 6, justifyContent: "center", marginBottom: 10 }}>
+              {([["pc", "🖥 Computador"], ["tablet", "▭ Tablet"], ["celular", "▢ Celular"]] as const).map(([k, l]) => (
+                <button key={k} onClick={() => setDisp(k)} style={{ padding: "6px 12px", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer", border: disp === k ? "1.5px solid #2563EB" : "1px solid var(--color-border-tertiary)", background: disp === k ? "rgba(37,99,235,0.06)" : "transparent", color: disp === k ? "#2563EB" : "var(--color-text-primary)" }}>{l}</button>
+              ))}
             </div>
-            <div style={{ ...mini, marginTop: 8, textAlign: "center" }}>Exemplo — o site real segue estas escolhas.</div>
+            <Preview design={design} dados={dados} menu={menu} nome={nome} logoUrl={logo} disp={disp} tema={tema} />
+            <div style={{ ...mini, marginTop: 8, textAlign: "center" }}>Prévia ao vivo — o site real segue estas escolhas.</div>
           </div>
         </div>
       )}
