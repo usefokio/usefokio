@@ -9,8 +9,8 @@ import type { SiteTrabalho } from "@/lib/supabase/types";
 export async function generateMetadata({ params }: { params: Promise<{ fid: string }> }): Promise<Metadata> {
   const { fid } = await params;
   const { fotografo, config } = await carregarSite(fid);
-  const nome = config?.titulo_site ?? fotografo?.nome_empresa ?? "Portfólio";
-  return { title: `Portfólio — ${nome}`, description: `Conheça os trabalhos de ${nome}.` };
+  const nome = config?.titulo_site ?? fotografo?.nome_empresa ?? "Trabalhos";
+  return { title: `Trabalhos — ${nome}`, description: `Conheça os trabalhos de ${nome}.` };
 }
 
 export default async function PortfolioPage({ params }: { params: Promise<{ fid: string }> }) {
@@ -29,7 +29,7 @@ export default async function PortfolioPage({ params }: { params: Promise<{ fid:
 
   return (
     <div style={{ maxWidth: 1180, margin: "0 auto", padding: "48px 24px" }}>
-      <h1 className="site-secao-titulo" style={{ fontSize: 30, textAlign: "center", margin: "0 0 24px" }}>Portfólio</h1>
+      <h1 className="site-secao-titulo" style={{ fontSize: 30, textAlign: "center", margin: "0 0 24px" }}>Trabalhos</h1>
       <PortfolioNav base={b} categorias={categorias} ativa={null} catMap={info.map} />
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 34 }}>
         {lista.map((t) => (

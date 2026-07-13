@@ -1,5 +1,7 @@
 // Cria o ESQUELETO do site para uma conta nova (idempotente): páginas Sobre + Contato
-// (vazias, prontas pra editar) + menu inicial real (Início, Portfólio, Sobre, Contato).
+// (vazias, prontas pra editar) + menu inicial real (Início, Portfólio, Trabalhos, Sobre, Contato).
+// "Portfólio" (/galeria) lista as coleções best-of; "Trabalhos" (/portfolio) lista os posts de
+// evento — conceitos SEPARADOS (ver memória project_site_portfolio_vs_trabalho).
 // Roda no primeiro acesso ao módulo Site. A flag site_config.site_inicializado garante
 // que só acontece uma vez (não re-seeda após o fotógrafo excluir itens de propósito).
 import { NextResponse } from "next/server";
@@ -25,9 +27,10 @@ export async function POST() {
   // Menu inicial (itens reais, editáveis). Ordem = ordem no topo do site.
   await admin.from("site_menu").upsert([
     { fotografo_id: fotografoId, label: "Início",    href: "/",          tipo: "secao",  ordem: 0, visivel: true },
-    { fotografo_id: fotografoId, label: "Portfólio", href: "/portfolio", tipo: "secao",  ordem: 1, visivel: true },
-    { fotografo_id: fotografoId, label: "Sobre",     href: "/sobre",     tipo: "pagina", ordem: 2, visivel: true },
-    { fotografo_id: fotografoId, label: "Contato",   href: "/contato",   tipo: "pagina", ordem: 3, visivel: true },
+    { fotografo_id: fotografoId, label: "Portfólio", href: "/galeria",   tipo: "secao",  ordem: 1, visivel: true },
+    { fotografo_id: fotografoId, label: "Trabalhos", href: "/portfolio", tipo: "secao",  ordem: 2, visivel: true },
+    { fotografo_id: fotografoId, label: "Sobre",     href: "/sobre",     tipo: "pagina", ordem: 3, visivel: true },
+    { fotografo_id: fotografoId, label: "Contato",   href: "/contato",   tipo: "pagina", ordem: 4, visivel: true },
   ]);
 
   await admin.from("site_config").upsert(
