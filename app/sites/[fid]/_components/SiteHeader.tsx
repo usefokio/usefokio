@@ -28,9 +28,10 @@ export function SiteHeader({
   );
 
   const linkStyle: React.CSSProperties = { padding: "8px 12px", fontSize: 13, letterSpacing: "0.14em", textTransform: "uppercase", color: cor, textDecoration: "none", whiteSpace: "nowrap" };
-  const link = (it: Item) => (
-    <Link key={it.id} href={it.href === "/" ? (base || "/") : `${base}${it.href}`} style={linkStyle}>{it.label}</Link>
-  );
+  const ehExterno = (h: string) => /^https?:\/\//.test(h);
+  const link = (it: Item) => ehExterno(it.href)
+    ? <a key={it.id} href={it.href} target="_blank" rel="noopener noreferrer" style={linkStyle}>{it.label}</a>
+    : <Link key={it.id} href={it.href === "/" ? (base || "/") : `${base}${it.href}`} style={linkStyle}>{it.label}</Link>;
 
   // ── Barra lateral esquerda ──
   if (orientacao === "lateral_esquerda") {

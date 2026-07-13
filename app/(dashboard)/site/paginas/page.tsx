@@ -77,10 +77,10 @@ function PaginasConteudo() {
     setMsg(null);
   }
 
-  // Estado de edição guiado pela URL (?editar=<id>): clicar de novo em "Páginas" no menu
-  // volta o URL para /site/paginas e fecha o editor (o React não remonta na mesma rota).
+  // Esta rota é o EDITOR DE CONTEÚDO de uma página, aberto pela lista unificada
+  // (Site → Páginas e Menu) via ?editar=<id>. Sem ?editar, volta para a lista unificada.
   useEffect(() => {
-    if (!editarId) { if (editando) { setEditando(null); estado.inicializar("idle"); } return; }
+    if (!editarId) { router.replace("/site/menu"); return; }
     if (editando?.id === editarId) return;
     const p = paginas.find((x) => x.id === editarId);
     if (p) abrirLocal(p);
@@ -89,7 +89,7 @@ function PaginasConteudo() {
 
   function voltarParaLista() {
     if (estado.temAlteracoes && !confirm("Há alterações não salvas nesta página. Sair sem salvar?")) return;
-    router.push("/site/paginas");
+    router.push("/site/menu");
   }
 
   async function trocarFoto(files: FileList | null) {
@@ -153,28 +153,8 @@ function PaginasConteudo() {
       <h1 style={{ fontSize: 22, fontWeight: 800, color: "var(--color-text-primary)", margin: "0 0 6px", letterSpacing: "-0.02em" }}>Páginas</h1>
       <p style={{ fontSize: 13, color: "var(--color-text-secondary)", margin: "0 0 24px" }}>Conteúdo das páginas institucionais do site (Sobre, Contato).</p>
 
-      {loading ? (
+      {loading || !editando ? (
         <div style={{ padding: 40, textAlign: "center", fontSize: 13, color: "var(--color-text-secondary)" }}>Carregando…</div>
-      ) : !editando ? (
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {paginas.map((p) => (
-            <div key={p.id} onClick={() => router.push(`/site/paginas?editar=${p.id}`)}
-              style={{ border: "1px solid var(--color-border-tertiary)", borderRadius: 10, padding: "13px 16px", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}
-              onMouseEnter={(e) => { e.currentTarget.style.background = "var(--color-background-secondary)"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}>
-              <div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: "var(--color-text-primary)" }}>{p.titulo}</div>
-                <div style={{ fontSize: 11, color: "var(--color-text-secondary)", fontFamily: "monospace" }}>/{p.slug}</div>
-              </div>
-              <span style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>Editar →</span>
-            </div>
-          ))}
-          {paginas.length === 0 && (
-            <div style={{ padding: "40px 20px", borderRadius: 12, border: "1px dashed var(--color-border-secondary)", textAlign: "center", fontSize: 13, color: "var(--color-text-secondary)", background: "var(--color-background-secondary)" }}>
-              Nenhuma página ainda.
-            </div>
-          )}
-        </div>
       ) : (
         <div>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 14 }}>

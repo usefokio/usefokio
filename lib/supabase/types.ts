@@ -385,6 +385,8 @@ export type SiteConfig = {
   dominio_ssl_status: string | null;
   dominio_erro: string | null;
   dominio_checado_em: string | null;
+  // Esqueleto do site (Sobre/Contato + menu inicial) já criado — evita re-seed
+  site_inicializado: boolean;
   created_at: string;
   updated_at: string;
 };
@@ -610,11 +612,17 @@ export type SiteSelo = {
   created_at: string;
 };
 
+// Item da navegação/lista do site (unificação Páginas+Menu):
+//  - pagina: aponta para uma site_paginas (href = /{slug}); conteúdo editável
+//  - secao: seção embutida (/, /portfolio, /blog); conteúdo vem de Galerias/Blog
+//  - link: endereço externo (http...)
+export type SiteMenuTipo = "pagina" | "secao" | "link";
 export type SiteMenuItem = {
   id: string;
   fotografo_id: string;
   label: string;
   href: string;
+  tipo: SiteMenuTipo;
   ordem: number;
   visivel: boolean;
   created_at: string;

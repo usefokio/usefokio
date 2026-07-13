@@ -12,8 +12,11 @@ export default function SiteDashboardPage() {
 
   useEffect(() => {
     if (!fotografo) return;
-    createClient().from("site_config").select("subdominio, dominio_customizado, publicado").eq("fotografo_id", fotografo.id).maybeSingle()
-      .then(({ data }) => { setCfg((data as ConfigUrl) ?? null); setCarregado(true); });
+    // Primeiro acesso ao Site: garante o esqueleto (Sobre/Contato + menu inicial) — idempotente.
+    fetch("/api/site/inicializar", { method: "POST" }).catch(() => {}).finally(() => {
+      createClient().from("site_config").select("subdominio, dominio_customizado, publicado").eq("fotografo_id", fotografo.id).maybeSingle()
+        .then(({ data }) => { setCfg((data as ConfigUrl) ?? null); setCarregado(true); });
+    });
   }, [fotografo]);
 
   const fid = fotografo?.id ?? "";
