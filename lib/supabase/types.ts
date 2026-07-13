@@ -600,6 +600,16 @@ export type SiteBanner = {
   created_at: string;
 };
 
+export type SiteCategoria = {
+  id: string;
+  fotografo_id: string;
+  slug: string;
+  nome: string;
+  ordem: number;
+  ativo: boolean;
+  created_at: string;
+};
+
 export type SiteSelo = {
   id: string;
   fotografo_id: string;

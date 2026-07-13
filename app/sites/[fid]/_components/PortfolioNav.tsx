@@ -1,9 +1,9 @@
 // Barra de categorias do portfólio — sempre mostra TODAS as categorias; a ativa fica destacada.
 // Usada na lista geral (/portfolio) e na página de cada categoria (/portfolio/[categoria]).
 import Link from "next/link";
-import { CATEGORIA_LABEL } from "@/lib/site/publico";
+import { nomeCategoria } from "@/lib/site/publico";
 
-export function PortfolioNav({ base, categorias, ativa }: { base: string; categorias: string[]; ativa: string | null }) {
+export function PortfolioNav({ base, categorias, ativa, catMap }: { base: string; categorias: string[]; ativa: string | null; catMap?: Record<string, string> }) {
   const item = (label: string, href: string, on: boolean) => (
     <Link
       key={href}
@@ -25,7 +25,7 @@ export function PortfolioNav({ base, categorias, ativa }: { base: string; catego
   return (
     <nav style={{ display: "flex", gap: 6, justifyContent: "center", flexWrap: "wrap", marginBottom: 44 }}>
       {item("Todos", `${base}/portfolio`, ativa === null)}
-      {categorias.map((c) => item(CATEGORIA_LABEL[c] ?? c, `${base}/portfolio/${c}`, ativa === c))}
+      {categorias.map((c) => item(nomeCategoria(c, catMap), `${base}/portfolio/${c}`, ativa === c))}
     </nav>
   );
 }

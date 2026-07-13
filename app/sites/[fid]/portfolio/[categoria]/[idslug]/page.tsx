@@ -4,7 +4,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { baseLinks, CATEGORIA_LABEL, legacyDoSlug } from "@/lib/site/publico";
+import { baseLinks, infoCategorias, nomeCategoria, legacyDoSlug } from "@/lib/site/publico";
 import { resolverMetaPagina } from "@/lib/site/seo";
 import { FotosTrabalho } from "../../../_components/FotosTrabalho";
 import { JsonLd } from "../../../_components/JsonLd";
@@ -42,7 +42,11 @@ export default async function TrabalhoPage({ params }: { params: Promise<{ fid: 
   if (!t) notFound();
 
   const admin = createAdminClient();
-  const { data: fotosRaw } = await admin.from("site_trabalho_fotos").select("*").eq("trabalho_id", t.id).order("ordem");
+  const [{ data: fotosRaw }, info] = await Promise.all([
+    admin.from("site_trabalho_fotos").select("*").eq("trabalho_id", t.id).order("ordem"),
+    infoCategorias(fid),
+  ]);
+  const catLabel = nomeCategoria(t.categoria, info.map);
   const b = await baseLinks(fid);
   const dataFmt = t.data_evento && t.mostrar_data
     ? new Date(t.data_evento + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" })
@@ -70,7 +74,7 @@ export default async function TrabalhoPage({ params }: { params: Promise<{ fid: 
       <header style={{ textAlign: "center", marginBottom: 28 }}>
         <h1 style={{ fontSize: 30, fontWeight: 700, margin: "0 0 12px", lineHeight: 1.3 }}>{t.titulo}</h1>
         <div style={{ display: "flex", gap: 18, justifyContent: "center", flexWrap: "wrap", fontSize: 12, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em" }}>
-          <Link href={`${b}/portfolio/${t.categoria}`} style={{ color: "#888" }}>{CATEGORIA_LABEL[t.categoria] ?? t.categoria}</Link>
+          <Link href={`${b}/portfolio/${t.categoria}`} style={{ color: "#888" }}>{catLabel}</Link>
           {t.local && <span>{t.local}</span>}
           {dataFmt && <span>{dataFmt}</span>}
         </div>
@@ -102,7 +106,7 @@ export default async function TrabalhoPage({ params }: { params: Promise<{ fid: 
 
       <footer style={{ textAlign: "center", marginTop: 40 }}>
         <Link href={`${b}/portfolio/${t.categoria}`} style={{ display: "inline-block", padding: "11px 28px", border: "1px solid #222", color: "#222", fontSize: 12, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", textDecoration: "none", borderRadius: 4 }}>
-          Ver mais {CATEGORIA_LABEL[t.categoria] ?? t.categoria}
+          Ver mais {catLabel}
         </Link>
       </footer>
       </div>

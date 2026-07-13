@@ -1,9 +1,9 @@
 // Card de trabalho do tema Editorial — usado na home e nas listagens do portfólio.
 import Link from "next/link";
-import { CATEGORIA_LABEL } from "@/lib/site/publico";
+import { nomeCategoria } from "@/lib/site/publico";
 import type { SiteTrabalho } from "@/lib/supabase/types";
 
-export function CardTrabalho({ t, href }: { t: SiteTrabalho; href: string }) {
+export function CardTrabalho({ t, href, catMap }: { t: SiteTrabalho; href: string; catMap?: Record<string, string> }) {
   return (
     <Link href={href} style={{ textDecoration: "none", color: "var(--site-texto)" }}>
       <div style={{ position: "relative", overflow: "hidden", background: "var(--site-superficie)", aspectRatio: "4/3" }}>
@@ -15,7 +15,7 @@ export function CardTrabalho({ t, href }: { t: SiteTrabalho; href: string }) {
       </div>
       <div style={{ padding: "16px 8px 0", textAlign: "center" }}>
         <div style={{ fontFamily: "var(--site-fonte-titulo), Georgia, serif", fontSize: 20, color: "var(--site-titulo)", lineHeight: 1.25, textTransform: "uppercase", letterSpacing: "0.03em" }}>{t.titulo}</div>
-        <div style={{ fontSize: 12, textTransform: "uppercase", letterSpacing: "0.12em", color: "var(--site-suave)", marginTop: 8 }}>{CATEGORIA_LABEL[t.categoria] ?? t.categoria}</div>
+        <div style={{ fontSize: 12, textTransform: "uppercase", letterSpacing: "0.12em", color: "var(--site-suave)", marginTop: 8 }}>{nomeCategoria(t.categoria, catMap)}</div>
         {t.local && <div style={{ fontSize: 12, textTransform: "uppercase", letterSpacing: "0.1em", color: "var(--site-suave)", marginTop: 3 }}>{t.local}</div>}
       </div>
     </Link>

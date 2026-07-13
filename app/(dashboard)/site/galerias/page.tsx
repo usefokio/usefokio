@@ -5,16 +5,8 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { fetchAllRows } from "@/lib/supabase/fetchAll";
 import { useFotografo } from "@/lib/context/FotografoContext";
-import type { SitePortfolio, SiteTrabalho } from "@/lib/supabase/types";
-
-const CATEGORIA_LABEL: Record<string, string> = {
-  "casamentos": "Casamentos",
-  "pre-casamento": "Pré-wedding",
-  "gestantes": "Gestantes",
-  "aniversarios": "Aniversários Infantis",
-  "familia": "Família",
-  "still-gastronomia": "Still Gastronomia",
-};
+import { nomeCategoria } from "@/lib/site/categorias";
+import type { SitePortfolio, SiteTrabalho, SiteCategoria } from "@/lib/supabase/types";
 
 type SortKey = "legacy_id" | "titulo" | "categoria" | "views" | "likes";
 
@@ -77,6 +69,7 @@ export default function GaleriasPage() {
   const [aba, setAba] = useState<"trabalhos" | "portfolios">("trabalhos");
   const [trabalhos, setTrabalhos] = useState<SiteTrabalho[]>([]);
   const [portfolios, setPortfolios] = useState<SitePortfolio[]>([]);
+  const [cats, setCats] = useState<SiteCategoria[]>([]);
   const [loading, setLoading] = useState(true);
   const [busca, setBusca] = useState("");
   const [catFiltro, setCatFiltro] = useState<string>("todas");
@@ -87,7 +80,7 @@ export default function GaleriasPage() {
     if (!fotografo) return;
     const supabase = createClient();
     async function carregar() {
-      const [trab, ports] = await Promise.all([
+      const [trab, ports, { data: categorias }] = await Promise.all([
         fetchAllRows<SiteTrabalho>(
           (sb, from, to) => sb.from("site_trabalhos").select("*").eq("fotografo_id", fotografo!.id).range(from, to),
           supabase,
@@ -96,13 +89,18 @@ export default function GaleriasPage() {
           (sb, from, to) => sb.from("site_portfolios").select("*").eq("fotografo_id", fotografo!.id).order("ordem").range(from, to),
           supabase,
         ),
+        supabase.from("site_categorias").select("*").eq("fotografo_id", fotografo!.id).order("ordem"),
       ]);
       setTrabalhos(trab ?? []);
       setPortfolios(ports ?? []);
+      setCats((categorias as SiteCategoria[]) ?? []);
       setLoading(false);
     }
     carregar();
   }, [fotografo]);
+
+  // Mapa slug→nome das categorias da conta (nome de exibição vem daqui; fallback amigável no helper).
+  const catMap = useMemo(() => Object.fromEntries(cats.map((c) => [c.slug, c.nome])), [cats]);
 
   const categorias = useMemo(() => {
     const set = new Map<string, number>();
@@ -140,12 +138,20 @@ export default function GaleriasPage() {
     <div style={{ maxWidth: 1100, margin: "0 auto", padding: "40px 24px" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
         <h1 style={{ fontSize: 22, fontWeight: 800, color: "var(--color-text-primary)", margin: 0, letterSpacing: "-0.02em" }}>Galerias</h1>
-        <button
-          onClick={() => router.push("/site/galerias/trabalho/novo")}
-          style={{ padding: "9px 18px", borderRadius: 9, border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", fontSize: 13, fontWeight: 700, cursor: "pointer" }}
-        >
-          + Novo trabalho
-        </button>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <button
+            onClick={() => router.push("/site/galerias/categorias")}
+            style={{ padding: "8px 14px", borderRadius: 9, border: "1px solid var(--color-border-secondary)", background: "transparent", fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)", cursor: "pointer" }}
+          >
+            🏷️ Categorias
+          </button>
+          <button
+            onClick={() => router.push("/site/galerias/trabalho/novo")}
+            style={{ padding: "9px 18px", borderRadius: 9, border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", fontSize: 13, fontWeight: 700, cursor: "pointer" }}
+          >
+            + Novo trabalho
+          </button>
+        </div>
       </div>
       <p style={{ fontSize: 13, color: "var(--color-text-secondary)", margin: "0 0 20px", lineHeight: 1.6 }}>
         <strong>Trabalhos</strong> são os posts de cada evento. <strong>Portfólios</strong> são as páginas best-of por categoria.
@@ -169,7 +175,7 @@ export default function GaleriasPage() {
             <select value={catFiltro} onChange={(e) => setCatFiltro(e.target.value)} style={inputCtrl}>
               <option value="todas">Todas as categorias ({trabalhos.length})</option>
               {categorias.map(([cat, qtd]) => (
-                <option key={cat} value={cat}>{CATEGORIA_LABEL[cat] ?? cat} ({qtd})</option>
+                <option key={cat} value={cat}>{nomeCategoria(cat, catMap)} ({qtd})</option>
               ))}
             </select>
             <div style={{ display: "flex", gap: 4, marginLeft: "auto", alignItems: "center" }}>
@@ -195,7 +201,7 @@ export default function GaleriasPage() {
                   key={t.id}
                   capa={t.capa_url}
                   titulo={t.titulo}
-                  categoria={CATEGORIA_LABEL[t.categoria] ?? t.categoria}
+                  categoria={nomeCategoria(t.categoria, catMap)}
                   publicado={t.publicado}
                   views={t.views}
                   likes={t.likes}
@@ -215,7 +221,7 @@ export default function GaleriasPage() {
                 key={p.id}
                 capa={p.capa_url}
                 titulo={p.titulo}
-                categoria={CATEGORIA_LABEL[p.categoria] ?? p.categoria}
+                categoria={nomeCategoria(p.categoria, catMap)}
                 publicado={p.publicado}
                 onClick={() => router.push(`/site/galerias/portfolio/${p.id}`)}
               />

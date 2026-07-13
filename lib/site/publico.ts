@@ -4,15 +4,9 @@
 // (Não usar prefixo "_" na pasta: no App Router, _pasta é privada e sai do roteamento.)
 import { createAdminClient } from "@/lib/supabase/admin";
 
-export const CATEGORIA_LABEL: Record<string, string> = {
-  "casamentos": "Casamentos",
-  "pre-casamento": "Pré-wedding",
-  "gestantes": "Gestantes",
-  "aniversarios": "Aniversários Infantis",
-  "familia": "Família",
-  "still-gastronomia": "Still Gastronomia",
-  "sem-categoria": "Outros",
-};
+// Categorias por fotógrafo: nomes/helpers em lib/site/categorias.ts (client-safe).
+// Re-exporta CATEGORIA_LABEL para não quebrar os imports existentes.
+export { CATEGORIA_LABEL, nomeCategoria, tituloDeSlug } from "./categorias";
 
 export function base(fid: string) {
   return `/sites/${fid}`;
@@ -98,6 +92,36 @@ export function siteBaseUrl(host: string, fid: string): string {
   const ehLocal = h === "localhost" || h === "127.0.0.1" || h.endsWith(".localhost");
   const proto = ehLocal ? "http" : "https";
   return ehAppHost(host) ? `${proto}://${host}/sites/${fid}` : `${proto}://${host}`;
+}
+
+// Categorias da conta (nome de exibição, ordem e ocultas) para o site público.
+// O nome vem da conta (o fotógrafo renomeia na tela de gestão); a ordem também.
+// "ocultas" (ativo=false) saem da barra de navegação — a página da categoria
+// continua acessível (sem 404), então não há prejuízo de SEO. `ordemDe` põe as
+// categorias sem registro no fim (categorias herdadas antes da tela de gestão).
+export type InfoCategorias = {
+  map: Record<string, string>;
+  ordemDe: (slug: string) => number;
+  ocultas: Set<string>;
+};
+
+export async function infoCategorias(fid: string): Promise<InfoCategorias> {
+  const admin = createAdminClient();
+  const { data } = await admin.from("site_categorias").select("slug, nome, ordem, ativo").eq("fotografo_id", fid).order("ordem");
+  const cats = (data ?? []) as { slug: string; nome: string; ordem: number; ativo: boolean }[];
+  const map: Record<string, string> = {};
+  const ordem: Record<string, number> = {};
+  const ocultas = new Set<string>();
+  cats.forEach((c, i) => { map[c.slug] = c.nome; ordem[c.slug] = c.ordem ?? i; if (c.ativo === false) ocultas.add(c.slug); });
+  return { map, ordemDe: (s) => (s in ordem ? ordem[s] : 9999), ocultas };
+}
+
+// Lista de categorias para a barra de navegação: remove as ocultas (mantendo a ativa,
+// se o fotógrafo ocultou a categoria mas o visitante está nela) e ordena pela conta.
+export function categoriasParaNav(todas: string[], info: InfoCategorias, ativa: string | null): string[] {
+  return todas
+    .filter((c) => !info.ocultas.has(c) || c === ativa)
+    .sort((a, b) => info.ordemDe(a) - info.ordemDe(b));
 }
 
 export async function carregarSite(fid: string) {

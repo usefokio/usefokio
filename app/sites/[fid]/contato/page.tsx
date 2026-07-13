@@ -1,7 +1,7 @@
 // Página de contato: canais do fotógrafo + texto editável + formulário de orçamento personalizável.
 import type { Metadata } from "next";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { carregarSite, CATEGORIA_LABEL } from "@/lib/site/publico";
+import { carregarSite, infoCategorias, categoriasParaNav, nomeCategoria } from "@/lib/site/publico";
 import { normalizarConfig } from "@/lib/site/formulario";
 import { resolverMetaPagina, type CfgSeoOg } from "@/lib/site/seo";
 import { ContatoForm } from "../_components/ContatoForm";
@@ -32,10 +32,11 @@ export async function generateMetadata({ params }: { params: Promise<{ fid: stri
 export default async function ContatoPage({ params }: { params: Promise<{ fid: string }> }) {
   const { fid } = await params;
   const admin = createAdminClient();
-  const [{ data: pagina }, { data: trabalhos }, site] = await Promise.all([
+  const [{ data: pagina }, { data: trabalhos }, site, info] = await Promise.all([
     admin.from("site_paginas").select("*").eq("fotografo_id", fid).eq("slug", "contato").maybeSingle(),
     admin.from("site_trabalhos").select("categoria").eq("fotografo_id", fid).eq("publicado", true),
     carregarSite(fid),
+    infoCategorias(fid),
   ]);
 
   const p = pagina as SitePagina | null;
@@ -44,9 +45,10 @@ export default async function ContatoPage({ params }: { params: Promise<{ fid: s
   const titulo = p?.titulo || "Solicite seu orçamento";
   const imagem = Array.isArray(conteudo.imagens) ? conteudo.imagens[0] : undefined;
 
-  // "Tipo do evento" = categorias distintas dos trabalhos publicados do fotógrafo.
-  const cats = [...new Set(((trabalhos ?? []) as { categoria: string }[]).map((t) => t.categoria))];
-  const categorias = cats.map((c) => ({ valor: c, label: CATEGORIA_LABEL[c] ?? c }));
+  // "Tipo do evento" = categorias distintas dos trabalhos publicados do fotógrafo
+  // (nome/ordem/visibilidade da conta; oculta sai da lista do formulário também).
+  const cats = categoriasParaNav([...new Set(((trabalhos ?? []) as { categoria: string }[]).map((t) => t.categoria))], info, null);
+  const categorias = cats.map((c) => ({ valor: c, label: nomeCategoria(c, info.map) }));
 
   const fot = site.fotografo as { email: string | null; telefone: string | null; whatsapp: string | null } | null;
   const redes = ((site.config as { redes?: { instagram?: string; facebook?: string; youtube?: string } } | null)?.redes) ?? {};

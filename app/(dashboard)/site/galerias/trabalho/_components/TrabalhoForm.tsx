@@ -14,17 +14,8 @@ import { useEditorEstado, SeloEstado, BotaoSalvarEstado, ModalNaoSalvo } from "@
 import { ConfigPaginaModal } from "@/app/(dashboard)/site/_components/ConfigPaginaModal";
 import type { ConfigPaginaValores } from "@/lib/site/seo";
 import { urlPublicaSite, type ConfigUrl } from "@/lib/site/urlPublica";
-import type { SiteTrabalho, SiteTrabalhoFoto } from "@/lib/supabase/types";
-
-const CATEGORIAS_BASE = [
-  ["casamentos", "Casamentos"],
-  ["pre-casamento", "Pré-wedding"],
-  ["gestantes", "Gestantes"],
-  ["aniversarios", "Aniversários Infantis"],
-  ["familia", "Família"],
-  ["still-gastronomia", "Still Gastronomia"],
-  ["sem-categoria", "Sem categoria"],
-] as const;
+import { nomeCategoria } from "@/lib/site/categorias";
+import type { SiteTrabalho, SiteTrabalhoFoto, SiteCategoria } from "@/lib/supabase/types";
 
 function slugify(texto: string): string {
   // NFD separa a letra da marca de acento; o filtro ASCII descarta as marcas.
@@ -54,7 +45,8 @@ export function TrabalhoForm({ trabalhoId }: { trabalhoId?: string }) {
   const [msg, setMsg]               = useState<{ tipo: "ok" | "erro"; texto: string } | null>(null);
 
   const [titulo, setTitulo]         = useState("");
-  const [categoria, setCategoria]   = useState("casamentos");
+  const [catNome, setCatNome]       = useState("");                 // nome digitado/escolhido (combobox)
+  const [cats, setCats]             = useState<SiteCategoria[]>([]); // categorias da conta
   const [slug, setSlug]             = useState("");
   const [slugTocado, setSlugTocado] = useState(false);
   const [descricao, setDescricao]   = useState("");
@@ -82,13 +74,27 @@ export function TrabalhoForm({ trabalhoId }: { trabalhoId?: string }) {
   const inputFileRef                = useRef<HTMLInputElement>(null);
 
   // Estado de salvamento claro (regra de sistema) — fotos ficam de fora (persistem na hora)
-  const snapshotAtual = JSON.stringify([titulo, categoria, slug, descricao, localEvento, dataEvento, publicado, destaqueHome, seoTitle, seoDesc, seoKeywords, seoNoindex, ogTitle, ogDesc, ogImage, mostrarData, modoExibicao]);
+  const snapshotAtual = JSON.stringify([titulo, catNome, slug, descricao, localEvento, dataEvento, publicado, destaqueHome, seoTitle, seoDesc, seoKeywords, seoNoindex, ogTitle, ogDesc, ogImage, mostrarData, modoExibicao]);
   const estado = useEditorEstado(snapshotAtual, "/site/galerias");
+
+  // Categorias da conta (para o combobox). Conta nova nasce vazia — cria a 1ª ao salvar o trabalho.
+  useEffect(() => {
+    if (!fotografo) return;
+    createClient().from("site_categorias").select("*").eq("fotografo_id", fotografo.id).order("ordem")
+      .then(({ data }) => setCats((data as SiteCategoria[]) ?? []));
+  }, [fotografo]);
+
+  // slug da categoria: se o nome bate com uma existente, usa o slug dela; senão, gera do nome.
+  const categoriaSlug = useMemo(() => {
+    const t = catNome.trim();
+    const ex = cats.find((c) => c.nome.toLowerCase() === t.toLowerCase());
+    return ex ? ex.slug : slugify(t);
+  }, [catNome, cats]);
 
   useEffect(() => {
     if (!editando) {
       // Novo trabalho: baseline = formulário vazio (dirty quando algo for preenchido)
-      estado.inicializar(JSON.stringify(["", "casamentos", "", "", "", "", true, false, "", "", "", false, "", "", null, true, "lista"]));
+      estado.inicializar(JSON.stringify(["", "", "", "", "", "", true, false, "", "", "", false, "", "", null, true, "lista"]));
       return;
     }
     if (!fotografo) return;
@@ -97,7 +103,7 @@ export function TrabalhoForm({ trabalhoId }: { trabalhoId?: string }) {
       const { data: t } = await supabase.from("site_trabalhos").select("*").eq("id", trabalhoId!).maybeSingle();
       if (!t) { setMsg({ tipo: "erro", texto: "Trabalho não encontrado." }); setCarregando(false); return; }
       const trab = t as SiteTrabalho;
-      setTitulo(trab.titulo); setCategoria(trab.categoria); setSlug(trab.slug); setSlugTocado(true);
+      setTitulo(trab.titulo); setCatNome(nomeCategoria(trab.categoria)); setSlug(trab.slug); setSlugTocado(true);
       setDescricao(trab.descricao ?? ""); setLocalEvento(trab.local ?? ""); setDataEvento(trab.data_evento ?? "");
       setPublicado(trab.publicado); setDestaqueHome(trab.destaque_home);
       setSeoTitle(trab.seo_title ?? ""); setSeoDesc(trab.seo_description ?? "");
@@ -111,7 +117,7 @@ export function TrabalhoForm({ trabalhoId }: { trabalhoId?: string }) {
       const { data: fts } = await supabase.from("site_trabalho_fotos").select("*").eq("trabalho_id", trabalhoId!).order("ordem");
       setFotos((fts as SiteTrabalhoFoto[]) ?? []);
       estado.inicializar(JSON.stringify([
-        trab.titulo, trab.categoria, trab.slug, trab.descricao ?? "", trab.local ?? "", trab.data_evento ?? "",
+        trab.titulo, nomeCategoria(trab.categoria), trab.slug, trab.descricao ?? "", trab.local ?? "", trab.data_evento ?? "",
         trab.publicado, trab.destaque_home, trab.seo_title ?? "", trab.seo_description ?? "",
         trab.seo_keywords ?? "", trab.seo_noindex, trab.og_title ?? "", trab.og_description ?? "", trab.og_image_url,
         trab.mostrar_data, trab.modo_exibicao || "lista",
@@ -124,8 +130,8 @@ export function TrabalhoForm({ trabalhoId }: { trabalhoId?: string }) {
 
   const urlPublica = useMemo(() => {
     const idPart = legacyId ? `${legacyId}-` : "";
-    return `/portfolio/${categoria}/${idPart}${slug || slugify(titulo)}`;
-  }, [categoria, legacyId, slug, titulo]);
+    return `/portfolio/${categoriaSlug || "sem-categoria"}/${idPart}${slug || slugify(titulo)}`;
+  }, [categoriaSlug, legacyId, slug, titulo]);
 
   // Ponte para o modal de Configurações (SEO/redes/exibição): objeto controlado + despacho por campo.
   const valores: ConfigPaginaValores = {
@@ -151,11 +157,20 @@ export function TrabalhoForm({ trabalhoId }: { trabalhoId?: string }) {
     if (!titulo.trim()) { setMsg({ tipo: "erro", texto: "Informe o título." }); return false; }
     const slugFinal = (slug || slugify(titulo)).trim();
     if (!slugFinal) { setMsg({ tipo: "erro", texto: "Slug inválido." }); return false; }
+    const nomeCat = catNome.trim();
+    if (!nomeCat) { setMsg({ tipo: "erro", texto: "Informe a categoria (ex.: Casamentos)." }); return false; }
     setSalvando(true); setMsg(null);
     const supabase = createClient();
+    // Cria a categoria na hora se for nova (conta nova nasce sem categorias)
+    const slugCat = categoriaSlug;
+    if (slugCat && !cats.some((c) => c.slug === slugCat)) {
+      const ordem = cats.length > 0 ? Math.max(...cats.map((c) => c.ordem)) + 1 : 0;
+      const { data: nova } = await supabase.from("site_categorias").insert({ fotografo_id: fotografo.id, slug: slugCat, nome: nomeCat, ordem }).select("*").single();
+      if (nova) setCats((prev) => [...prev, nova as SiteCategoria]);
+    }
     const descLimpa = descricao.replace(/<p>\s*<\/p>/g, "").trim();
     const campos = {
-      titulo: titulo.trim(), categoria, slug: slugFinal,
+      titulo: titulo.trim(), categoria: slugCat, slug: slugFinal,
       descricao: descLimpa || null, local: localEvento.trim() || null, data_evento: dataEvento || null,
       publicado, destaque_home: destaqueHome,
       seo_title: seoTitle.trim() || null, seo_description: seoDesc.trim() || null,
@@ -295,10 +310,15 @@ export function TrabalhoForm({ trabalhoId }: { trabalhoId?: string }) {
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
           <div>
-            <label style={labelStyle}>Categoria</label>
-            <select value={categoria} onChange={(e) => setCategoria(e.target.value)} style={inputStyle}>
-              {CATEGORIAS_BASE.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-            </select>
+            <label style={labelStyle}>Categoria *</label>
+            <input list="lista-categorias" value={catNome} onChange={(e) => setCatNome(e.target.value)} style={inputStyle}
+              placeholder="Ex.: Casamentos" autoComplete="off" />
+            <datalist id="lista-categorias">
+              {cats.map((c) => <option key={c.id} value={c.nome} />)}
+            </datalist>
+            <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: "4px 0 0" }}>
+              Escolha uma existente ou digite uma nova — ela é criada ao salvar.
+            </p>
           </div>
           <div>
             <label style={labelStyle}>Local</label>

@@ -8,4 +8,5 @@ export type DadosHome = {
   posts: SitePost[];
   depoimentos: SiteDepoimento[];
   selos: SiteSelo[];
+  catMap?: Record<string, string>; // slug→nome das categorias da conta (rótulo do card)
 };

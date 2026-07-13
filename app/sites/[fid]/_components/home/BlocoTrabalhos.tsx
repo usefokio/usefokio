@@ -2,12 +2,12 @@
 // proporção da capa (mantida em qualquer nº de colunas — sem altura fixa),
 // posição do título (acima / sobre a capa / abaixo) e texto (título+subtítulo / só título).
 import Link from "next/link";
-import { CATEGORIA_LABEL } from "@/lib/site/publico";
+import { nomeCategoria } from "@/lib/site/publico";
 import { ASPECT, type HomeBloco } from "@/lib/site/design";
 import { gradPlaceholder } from "./placeholder";
 import type { SiteTrabalho } from "@/lib/supabase/types";
 
-export function BlocoTrabalhos({ config, trabalhos, base }: { config: HomeBloco; trabalhos: SiteTrabalho[]; base: string }) {
+export function BlocoTrabalhos({ config, trabalhos, base, catMap }: { config: HomeBloco; trabalhos: SiteTrabalho[]; base: string; catMap?: Record<string, string> }) {
   if (trabalhos.length === 0) return null;
   const cols = config.colunas ?? 3;
   const aspect = ASPECT[config.proporcao ?? "horizontal_3x2"];
@@ -22,7 +22,7 @@ export function BlocoTrabalhos({ config, trabalhos, base }: { config: HomeBloco;
       <div style={{ fontFamily: "var(--site-fonte-titulo), Georgia, serif", fontSize: 20, color: sobre ? "#fff" : "var(--site-titulo)", lineHeight: 1.25, textTransform: "uppercase", letterSpacing: "0.03em" }}>{t.titulo}</div>
       {comSub && (t.local || t.categoria) && (
         <div style={{ fontSize: 12, textTransform: "uppercase", letterSpacing: "0.12em", color: sobre ? "rgba(255,255,255,0.85)" : "var(--site-suave)", marginTop: 8 }}>
-          {t.local || CATEGORIA_LABEL[t.categoria] || t.categoria}
+          {t.local || nomeCategoria(t.categoria, catMap)}
         </div>
       )}
     </div>

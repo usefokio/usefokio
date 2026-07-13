@@ -15,7 +15,7 @@ export function HomeBlocos({ blocos, dados, base }: { blocos: HomeBloco[]; dados
       {blocos.filter((b) => b.on).map((b) => {
         switch (b.key) {
           case "banner": return <BlocoBanner key="banner" config={b} banners={dados.banners} base={base} />;
-          case "trabalhos": return <BlocoTrabalhos key="trabalhos" config={b} trabalhos={dados.trabalhos} base={base} />;
+          case "trabalhos": return <BlocoTrabalhos key="trabalhos" config={b} trabalhos={dados.trabalhos} base={base} catMap={dados.catMap} />;
           case "blog": return <BlocoBlog key="blog" config={b} posts={dados.posts} base={base} />;
           case "depoimentos": return <BlocoDepoimentos key="depoimentos" config={b} depoimentos={dados.depoimentos} />;
           case "selos": return <BlocoSelos key="selos" config={b} selos={dados.selos} />;

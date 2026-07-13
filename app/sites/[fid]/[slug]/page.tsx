@@ -4,7 +4,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { baseLinks, CATEGORIA_LABEL } from "@/lib/site/publico";
+import { baseLinks, infoCategorias, categoriasParaNav, nomeCategoria } from "@/lib/site/publico";
 import { dadosParaBlocos } from "@/lib/site/blocos";
 import { RenderBlocos } from "../_components/RenderBlocos";
 import type { SiteLandingPage, SiteLandingDados, SiteDepoimento } from "@/lib/supabase/types";
@@ -34,17 +34,19 @@ export default async function LandingPage({ params }: { params: Promise<{ fid: s
   if (!lp) notFound();
 
   const admin = createAdminClient();
-  const [{ data: fotografo }, { data: depoimentos }, { data: trabalhos }] = await Promise.all([
+  const [{ data: fotografo }, { data: depoimentos }, { data: trabalhos }, info] = await Promise.all([
     admin.from("fotografos").select("whatsapp").eq("id", fid).maybeSingle(),
     admin.from("site_depoimentos").select("*").eq("fotografo_id", fid).eq("publicado", true).order("ordem").limit(4),
     admin.from("site_trabalhos").select("categoria").eq("fotografo_id", fid).eq("publicado", true),
+    infoCategorias(fid),
   ]);
   const b = await baseLinks(fid);
   const d = (lp.dados ?? {}) as SiteLandingDados;
 
-  // "Tipo do evento" do bloco formulário = categorias distintas dos trabalhos publicados.
-  const categorias = [...new Set(((trabalhos ?? []) as { categoria: string }[]).map((t) => t.categoria))]
-    .map((c) => ({ valor: c, label: CATEGORIA_LABEL[c] ?? c }));
+  // "Tipo do evento" do bloco formulário = categorias distintas dos trabalhos publicados
+  // (nome/ordem/visibilidade da conta).
+  const categorias = categoriasParaNav([...new Set(((trabalhos ?? []) as { categoria: string }[]).map((t) => t.categoria))], info, null)
+    .map((c) => ({ valor: c, label: nomeCategoria(c, info.map) }));
 
   // Motor de blocos: usa a lista salva; landings do formato antigo são convertidas na hora.
   const blocos = d.blocos && d.blocos.length > 0 ? d.blocos : dadosParaBlocos(d);

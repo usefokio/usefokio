@@ -5,12 +5,13 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { fetchAllRows } from "@/lib/supabase/fetchAll";
 import { useFotografo } from "@/lib/context/FotografoContext";
-import { CATEGORIA_LABEL } from "@/lib/site/publico";
-import type { SiteLead } from "@/lib/supabase/types";
+import { nomeCategoria } from "@/lib/site/categorias";
+import type { SiteLead, SiteCategoria } from "@/lib/supabase/types";
 
 export default function InboxPage() {
   const { fotografo } = useFotografo();
   const [leads, setLeads] = useState<SiteLead[]>([]);
+  const [catMap, setCatMap] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [aberto, setAberto] = useState<string | null>(null);
 
@@ -18,11 +19,15 @@ export default function InboxPage() {
     if (!fotografo) return;
     const supabase = createClient();
     async function carregar() {
-      const rows = await fetchAllRows<SiteLead>(
-        (sb, from, to) => sb.from("site_leads").select("*").eq("fotografo_id", fotografo!.id).order("created_at", { ascending: false }).range(from, to),
-        supabase,
-      );
+      const [rows, { data: cats }] = await Promise.all([
+        fetchAllRows<SiteLead>(
+          (sb, from, to) => sb.from("site_leads").select("*").eq("fotografo_id", fotografo!.id).order("created_at", { ascending: false }).range(from, to),
+          supabase,
+        ),
+        supabase.from("site_categorias").select("slug, nome").eq("fotografo_id", fotografo!.id),
+      ]);
       setLeads(rows ?? []);
+      setCatMap(Object.fromEntries(((cats ?? []) as Pick<SiteCategoria, "slug" | "nome">[]).map((c) => [c.slug, c.nome])));
       setLoading(false);
     }
     carregar();
@@ -73,7 +78,7 @@ export default function InboxPage() {
                     <div style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12, color: "var(--color-text-secondary)", marginBottom: 10, paddingBottom: 10, borderBottom: "0.5px solid var(--color-border-tertiary)" }}>
                       {l.telefone && <div>📞 {l.telefone}</div>}
                       {l.data_evento && <div>📅 Data do evento: {new Date(l.data_evento + "T12:00:00").toLocaleDateString("pt-BR")}</div>}
-                      {l.tipo_evento && <div>🏷️ Tipo do evento: {CATEGORIA_LABEL[l.tipo_evento] ?? l.tipo_evento}</div>}
+                      {l.tipo_evento && <div>🏷️ Tipo do evento: {nomeCategoria(l.tipo_evento, catMap)}</div>}
                       {l.dados && Object.entries(l.dados).map(([k, v]) => <div key={k}><strong style={{ fontWeight: 600 }}>{k}:</strong> {v}</div>)}
                     </div>
                   )}
@@ -87,7 +92,7 @@ export default function InboxPage() {
                 </div>
               ) : (
                 <div style={{ marginTop: 4, fontSize: 12, color: "var(--color-text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {l.mensagem || [l.tipo_evento && (CATEGORIA_LABEL[l.tipo_evento] ?? l.tipo_evento), l.data_evento && new Date(l.data_evento + "T12:00:00").toLocaleDateString("pt-BR")].filter(Boolean).join(" · ") || "(sem mensagem)"}
+                  {l.mensagem || [l.tipo_evento && nomeCategoria(l.tipo_evento, catMap), l.data_evento && new Date(l.data_evento + "T12:00:00").toLocaleDateString("pt-BR")].filter(Boolean).join(" · ") || "(sem mensagem)"}
                 </div>
               )}
             </div>
