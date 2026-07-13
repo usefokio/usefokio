@@ -75,6 +75,9 @@ export default function GaleriasPage() {
   const [catFiltro, setCatFiltro] = useState<string>("todas");
   const [sortKey, setSortKey] = useState<SortKey>("legacy_id");
   const [sortAsc, setSortAsc] = useState(false);
+  const [criarPortAberto, setCriarPortAberto] = useState(false);
+  const [criandoPort, setCriandoPort] = useState(false);
+  const [msgPort, setMsgPort] = useState<string | null>(null);
 
   useEffect(() => {
     if (!fotografo) return;
@@ -101,6 +104,25 @@ export default function GaleriasPage() {
 
   // Mapa slug→nome das categorias da conta (nome de exibição vem daqui; fallback amigável no helper).
   const catMap = useMemo(() => Object.fromEntries(cats.map((c) => [c.slug, c.nome])), [cats]);
+
+  // Portfólio é 1 por categoria — só oferece criar as que ainda não têm um.
+  const catsSemPortfolio = useMemo(() => {
+    const jaTem = new Set(portfolios.map((p) => p.categoria));
+    return cats.filter((c) => !jaTem.has(c.slug));
+  }, [cats, portfolios]);
+
+  async function criarPortfolio(cat: SiteCategoria) {
+    if (!fotografo || criandoPort) return;
+    setCriandoPort(true); setMsgPort(null);
+    const sb = createClient();
+    const ordem = portfolios.length > 0 ? Math.max(...portfolios.map((p) => p.ordem)) + 1 : 0;
+    const { data, error } = await sb.from("site_portfolios")
+      .insert({ fotografo_id: fotografo.id, categoria: cat.slug, titulo: cat.nome, slug: cat.slug, modo_exibicao: "grid", publicado: true, ordem })
+      .select("id").single();
+    setCriandoPort(false);
+    if (error || !data) { setMsgPort(error?.code === "23505" ? "Já existe um portfólio para essa categoria." : ("Erro ao criar: " + (error?.message ?? ""))); return; }
+    router.push(`/site/galerias/portfolio/${data.id}`);
+  }
 
   const categorias = useMemo(() => {
     const set = new Map<string, number>();
@@ -212,22 +234,61 @@ export default function GaleriasPage() {
           )}
         </>
       ) : (
-        portfolios.length === 0 ? (
-          <div style={{ padding: 40, textAlign: "center", fontSize: 13, color: "var(--color-text-secondary)", border: "1px dashed var(--color-border-secondary)", borderRadius: 12 }}>Nenhum portfólio ainda.</div>
-        ) : (
-          <div style={GRID}>
-            {portfolios.map((p) => (
-              <CardGaleria
-                key={p.id}
-                capa={p.capa_url}
-                titulo={p.titulo}
-                categoria={nomeCategoria(p.categoria, catMap)}
-                publicado={p.publicado}
-                onClick={() => router.push(`/site/galerias/portfolio/${p.id}`)}
-              />
-            ))}
+        <>
+          <div style={{ marginBottom: 16 }}>
+            {!criarPortAberto ? (
+              <button onClick={() => { setCriarPortAberto(true); setMsgPort(null); }}
+                style={{ padding: "8px 14px", borderRadius: 9, border: "1px solid var(--color-border-secondary)", background: "transparent", fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)", cursor: "pointer" }}>
+                + Novo portfólio
+              </button>
+            ) : (
+              <div style={{ border: "1px solid var(--color-border-tertiary)", borderRadius: 12, padding: 16, background: "var(--color-background-secondary)" }}>
+                <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--color-text-primary)", marginBottom: 4 }}>Criar portfólio (best-of de uma categoria)</div>
+                <p style={{ fontSize: 12, color: "var(--color-text-secondary)", margin: "0 0 12px", lineHeight: 1.5 }}>
+                  Escolha a categoria. Depois você sobe fotos ou puxa os destaques (⭐) dos trabalhos dela.
+                </p>
+                {catsSemPortfolio.length === 0 ? (
+                  <p style={{ fontSize: 12.5, color: "var(--color-text-secondary)", margin: 0 }}>
+                    {cats.length === 0 ? "Você ainda não tem categorias — crie um trabalho primeiro." : "Todas as categorias já têm um portfólio."}
+                  </p>
+                ) : (
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    {catsSemPortfolio.map((c) => (
+                      <button key={c.id} onClick={() => criarPortfolio(c)} disabled={criandoPort}
+                        style={{ padding: "8px 14px", borderRadius: 8, border: "1px solid var(--color-border-secondary)", background: "var(--color-background-primary)", fontSize: 12.5, fontWeight: 600, color: "var(--color-text-primary)", cursor: criandoPort ? "default" : "pointer", opacity: criandoPort ? 0.6 : 1 }}>
+                        {c.nome}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {msgPort && <div style={{ marginTop: 10, fontSize: 12.5, fontWeight: 600, color: "#DC2626" }}>{msgPort}</div>}
+                <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 12 }}>
+                  <button onClick={() => setCriarPortAberto(false)}
+                    style={{ padding: "8px 14px", borderRadius: 8, border: "1px solid var(--color-border-secondary)", background: "transparent", fontSize: 12.5, fontWeight: 600, color: "var(--color-text-primary)", cursor: "pointer" }}>
+                    Fechar
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
-        )
+
+          {portfolios.length === 0 ? (
+            <div style={{ padding: 40, textAlign: "center", fontSize: 13, color: "var(--color-text-secondary)", border: "1px dashed var(--color-border-secondary)", borderRadius: 12 }}>Nenhum portfólio ainda. Use “+ Novo portfólio”.</div>
+          ) : (
+            <div style={GRID}>
+              {portfolios.map((p) => (
+                <CardGaleria
+                  key={p.id}
+                  capa={p.capa_url}
+                  titulo={p.titulo}
+                  categoria={nomeCategoria(p.categoria, catMap)}
+                  publicado={p.publicado}
+                  onClick={() => router.push(`/site/galerias/portfolio/${p.id}`)}
+                />
+              ))}
+            </div>
+          )}
+        </>
       )}
     </div>
   );

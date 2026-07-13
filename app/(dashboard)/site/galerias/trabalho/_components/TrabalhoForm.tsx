@@ -3,7 +3,6 @@
 // Form de criar/editar Trabalho do Site + gestão de fotos (upload em fila, capa, destaque).
 // Fotos só aparecem no modo edição (o trabalho precisa existir para receber uploads).
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { uploadFileClient } from "@/lib/storage/uploadClient";
@@ -36,9 +35,10 @@ const labelStyle: React.CSSProperties = {
 };
 
 export function TrabalhoForm({ trabalhoId }: { trabalhoId?: string }) {
-  const router = useRouter();
   const { fotografo } = useFotografo();
-  const editando = !!trabalhoId;
+  const editando = !!trabalhoId;                                  // abriu para editar um existente (carrega do banco)
+  const [idAtual, setIdAtual] = useState<string | undefined>(trabalhoId); // id do registro (recebido OU criado na hora)
+  const existe = !!idAtual;                                       // já existe no banco → mostra fotos, configurações etc.
 
   const [carregando, setCarregando] = useState(editando);
   const [salvando, setSalvando]     = useState(false);
@@ -152,25 +152,29 @@ export function TrabalhoForm({ trabalhoId }: { trabalhoId?: string }) {
     if (patch.og_image_url !== undefined) setOgImage(patch.og_image_url);
   };
 
-  async function salvar(): Promise<boolean> {
-    if (!fotografo) return false;
+  // Validação mínima compartilhada (criar e salvar): título, slug e categoria.
+  function validar(): boolean {
     if (!titulo.trim()) { setMsg({ tipo: "erro", texto: "Informe o título." }); return false; }
-    const slugFinal = (slug || slugify(titulo)).trim();
-    if (!slugFinal) { setMsg({ tipo: "erro", texto: "Slug inválido." }); return false; }
-    const nomeCat = catNome.trim();
-    if (!nomeCat) { setMsg({ tipo: "erro", texto: "Informe a categoria (ex.: Casamentos)." }); return false; }
-    setSalvando(true); setMsg(null);
-    const supabase = createClient();
-    // Cria a categoria na hora se for nova (conta nova nasce sem categorias)
+    if (!(slug || slugify(titulo)).trim()) { setMsg({ tipo: "erro", texto: "Slug inválido." }); return false; }
+    if (!catNome.trim()) { setMsg({ tipo: "erro", texto: "Informe a categoria (ex.: Casamentos)." }); return false; }
+    return true;
+  }
+
+  // Garante que a categoria digitada existe (conta nova nasce sem categorias) e devolve o slug dela.
+  async function garantirCategoria(supabase: ReturnType<typeof createClient>): Promise<string> {
     const slugCat = categoriaSlug;
-    if (slugCat && !cats.some((c) => c.slug === slugCat)) {
+    if (slugCat && fotografo && !cats.some((c) => c.slug === slugCat)) {
       const ordem = cats.length > 0 ? Math.max(...cats.map((c) => c.ordem)) + 1 : 0;
-      const { data: nova } = await supabase.from("site_categorias").insert({ fotografo_id: fotografo.id, slug: slugCat, nome: nomeCat, ordem }).select("*").single();
+      const { data: nova } = await supabase.from("site_categorias").insert({ fotografo_id: fotografo.id, slug: slugCat, nome: catNome.trim(), ordem }).select("*").single();
       if (nova) setCats((prev) => [...prev, nova as SiteCategoria]);
     }
+    return slugCat;
+  }
+
+  function montarCampos(slugCat: string) {
     const descLimpa = descricao.replace(/<p>\s*<\/p>/g, "").trim();
-    const campos = {
-      titulo: titulo.trim(), categoria: slugCat, slug: slugFinal,
+    return {
+      titulo: titulo.trim(), categoria: slugCat, slug: (slug || slugify(titulo)).trim(),
       descricao: descLimpa || null, local: localEvento.trim() || null, data_evento: dataEvento || null,
       publicado, destaque_home: destaqueHome,
       seo_title: seoTitle.trim() || null, seo_description: seoDesc.trim() || null,
@@ -179,46 +183,70 @@ export function TrabalhoForm({ trabalhoId }: { trabalhoId?: string }) {
       mostrar_data: mostrarData, modo_exibicao: modoExibicao,
       updated_at: new Date().toISOString(),
     };
-    if (editando) {
-      const { error } = await supabase.from("site_trabalhos").update(campos).eq("id", trabalhoId!);
-      setSalvando(false);
-      if (error) { setMsg({ tipo: "erro", texto: error.message }); return false; }
-      estado.marcarSalvo(snapshotAtual);
-      setMsg({ tipo: "ok", texto: "Trabalho salvo!" });
-      return true;
-    } else {
-      const { data, error } = await supabase.from("site_trabalhos")
-        .insert({ ...campos, fotografo_id: fotografo.id })
-        .select("id").single();
-      setSalvando(false);
-      if (error || !data) { setMsg({ tipo: "erro", texto: error?.message ?? "Erro ao criar." }); return false; }
-      estado.marcarSaiu();
-      router.replace(`/site/galerias/trabalho/${data.id}`);
-      return true;
-    }
+  }
+
+  // Cria o registro do trabalho (usado ao clicar "Criar trabalho" OU ao enviar a 1ª foto).
+  // Fica na MESMA tela (sem navegar): troca a URL para a de edição e libera o bloco de fotos.
+  async function criarRegistro(): Promise<string | null> {
+    if (!fotografo || !validar()) return null;
+    setSalvando(true); setMsg(null);
+    const supabase = createClient();
+    const slugCat = await garantirCategoria(supabase);
+    const { data, error } = await supabase.from("site_trabalhos")
+      .insert({ ...montarCampos(slugCat), fotografo_id: fotografo.id })
+      .select("id").single();
+    setSalvando(false);
+    if (error || !data) { setMsg({ tipo: "erro", texto: error?.message ?? "Erro ao criar." }); return null; }
+    setIdAtual(data.id);
+    // Reflete a URL de edição sem remontar o componente (mantém o upload em andamento).
+    window.history.replaceState(null, "", `/site/galerias/trabalho/${data.id}`);
+    estado.marcarSalvo(snapshotAtual);
+    setMsg({ tipo: "ok", texto: "Trabalho criado! Agora adicione as fotos abaixo." });
+    return data.id;
+  }
+
+  async function salvar(): Promise<boolean> {
+    if (!fotografo || !validar()) return false;
+    if (!idAtual) return !!(await criarRegistro());
+    setSalvando(true); setMsg(null);
+    const supabase = createClient();
+    const slugCat = await garantirCategoria(supabase);
+    const { error } = await supabase.from("site_trabalhos").update(montarCampos(slugCat)).eq("id", idAtual);
+    setSalvando(false);
+    if (error) { setMsg({ tipo: "erro", texto: error.message }); return false; }
+    estado.marcarSalvo(snapshotAtual);
+    setMsg({ tipo: "ok", texto: "Trabalho salvo!" });
+    return true;
   }
 
   async function enviarFotos(files: FileList | null) {
-    if (!files || files.length === 0 || !fotografo || !trabalhoId) return;
+    if (!files || files.length === 0 || !fotografo) return;
+    // Se o trabalho ainda não existe (Novo trabalho), cria na hora com o que já está preenchido.
+    const tid = idAtual ?? await criarRegistro();
+    if (!tid) return; // criação falhou (faltou título/categoria) — mensagem já exibida
     const supabase = createClient();
     const lista = Array.from(files).filter((f) => f.type.startsWith("image/"));
     setFila({ total: lista.length, feitas: 0 });
     let ordem = fotos.length > 0 ? Math.max(...fotos.map((f) => f.ordem)) + 1 : 0;
+    // Flag local: capaUrl é uma closure fixa do render; sem ela, "!capaUrl" seria true em
+    // toda a iteração e a capa acabaria sendo a ÚLTIMA foto. A capa deve ser a PRIMEIRA.
+    let capaDefinida = !!capaUrl;
     for (const file of lista) {
       try {
         const { blob, largura, altura } = await processarImagemEntrega(file, 1800, 0.85);
         // Preserva o nome original do arquivo (descritivo = melhor pra SEO de imagem);
         // sufixo curto evita colisão entre arquivos de mesmo nome.
         const base = slugify(file.name.replace(/\.[a-z0-9]+$/i, "")) || "foto";
-        const path = `site/${fotografo.id}/trabalhos/${trabalhoId}/${base}-${crypto.randomUUID().slice(0, 6)}.jpg`;
+        const path = `site/${fotografo.id}/trabalhos/${tid}/${base}-${crypto.randomUUID().slice(0, 6)}.jpg`;
         const { storage_path, url_publica } = await uploadFileClient(path, blob);
         const { data } = await supabase.from("site_trabalho_fotos")
-          .insert({ trabalho_id: trabalhoId, storage_path, url_publica, ordem: ordem++, largura, altura })
+          .insert({ trabalho_id: tid, storage_path, url_publica, ordem: ordem++, largura, altura })
           .select("*").single();
         if (data) setFotos((prev) => [...prev, data as SiteTrabalhoFoto]);
-        if (!capaUrl) {
+        if (!capaDefinida) {
+          capaDefinida = true;
           setCapaUrl(url_publica);
-          await supabase.from("site_trabalhos").update({ capa_url: url_publica }).eq("id", trabalhoId);
+          await supabase.from("site_trabalhos").update({ capa_url: url_publica }).eq("id", tid);
         }
       } catch (e) {
         console.error("[site] upload falhou:", e instanceof Error ? e.message : e);
@@ -230,9 +258,10 @@ export function TrabalhoForm({ trabalhoId }: { trabalhoId?: string }) {
   }
 
   async function definirCapa(foto: SiteTrabalhoFoto) {
+    if (!idAtual) return;
     const supabase = createClient();
     setCapaUrl(foto.url_publica);
-    await supabase.from("site_trabalhos").update({ capa_url: foto.url_publica }).eq("id", trabalhoId!);
+    await supabase.from("site_trabalhos").update({ capa_url: foto.url_publica }).eq("id", idAtual);
   }
 
   async function alternarDestaque(foto: SiteTrabalhoFoto) {
@@ -256,7 +285,7 @@ export function TrabalhoForm({ trabalhoId }: { trabalhoId?: string }) {
     setFotos((prev) => prev.filter((f) => f.id !== foto.id));
     if (capaUrl === foto.url_publica) {
       setCapaUrl(null);
-      await supabase.from("site_trabalhos").update({ capa_url: null }).eq("id", trabalhoId!);
+      await supabase.from("site_trabalhos").update({ capa_url: null }).eq("id", idAtual!);
     }
   }
 
@@ -264,7 +293,7 @@ export function TrabalhoForm({ trabalhoId }: { trabalhoId?: string }) {
     <div style={{ padding: 60, textAlign: "center", fontSize: 13, color: "var(--color-text-secondary)" }}>Carregando…</div>
   );
 
-  const btnSalvar = editando
+  const btnSalvar = existe
     ? <BotaoSalvarEstado temAlteracoes={estado.temAlteracoes} salvando={salvando} onClick={() => salvar()} />
     : (
       <button
@@ -279,22 +308,22 @@ export function TrabalhoForm({ trabalhoId }: { trabalhoId?: string }) {
     <div style={{ maxWidth: 900, margin: "0 auto", padding: "40px 24px" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4, gap: 10, flexWrap: "wrap" }}>
         <h1 style={{ fontSize: 22, fontWeight: 800, color: "var(--color-text-primary)", margin: 0, letterSpacing: "-0.02em" }}>
-          {editando ? "Editar trabalho" : "Novo trabalho"}
+          {existe ? "Editar trabalho" : "Novo trabalho"}
         </h1>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          {editando && (
+          {existe && (
             <a href={urlPublicaSite(cfgSite, fotografo?.id ?? "", urlPublica)} target="_blank" rel="noopener noreferrer" title="Abrir esta página no site (nova aba)"
               style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 8, border: "1px solid var(--color-border-secondary)", background: "transparent", fontSize: 12, fontWeight: 600, color: "var(--color-text-primary)", cursor: "pointer", textDecoration: "none" }}>
               Ver no site ↗
             </a>
           )}
-          {editando && (
+          {existe && (
             <button onClick={() => setConfigAberto(true)} title="Configurações da página (URL, SEO, redes sociais, exibição)"
               style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 8, border: "1px solid var(--color-border-secondary)", background: "transparent", fontSize: 12, fontWeight: 600, color: "var(--color-text-primary)", cursor: "pointer" }}>
               ⚙ Configurações
             </button>
           )}
-          {editando && <SeloEstado temAlteracoes={estado.temAlteracoes} />}
+          {existe && <SeloEstado temAlteracoes={estado.temAlteracoes} />}
           {btnSalvar}
         </div>
       </div>
@@ -349,8 +378,7 @@ export function TrabalhoForm({ trabalhoId }: { trabalhoId?: string }) {
 
       </div>
 
-      {editando && (
-        <div style={{ marginTop: 30 }}>
+      <div style={{ marginTop: 30 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
             <h2 style={{ fontSize: 15, fontWeight: 700, color: "var(--color-text-primary)", margin: 0 }}>
               Fotos ({fotos.length})
@@ -364,7 +392,9 @@ export function TrabalhoForm({ trabalhoId }: { trabalhoId?: string }) {
             <input ref={inputFileRef} type="file" accept="image/*" multiple style={{ display: "none" }} onChange={(e) => enviarFotos(e.target.files)} />
           </div>
           <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginBottom: 12 }}>
-            ⭐ = destaque (entra no portfólio da categoria) · a primeira foto vira capa automaticamente
+            {existe
+              ? "⭐ = destaque (entra no portfólio da categoria) · a primeira foto vira capa automaticamente"
+              : "Ao adicionar a primeira foto, o trabalho é criado automaticamente (preencha Título e Categoria acima)."}
           </div>
 
           {fotos.length === 0 && !fila && (
@@ -398,7 +428,6 @@ export function TrabalhoForm({ trabalhoId }: { trabalhoId?: string }) {
             })}
           </div>
         </div>
-      )}
 
       {msg && (
         <div style={{ marginTop: 16, fontSize: 13, fontWeight: 600, color: msg.tipo === "ok" ? "#059669" : "#DC2626" }}>{msg.texto}</div>
@@ -408,7 +437,7 @@ export function TrabalhoForm({ trabalhoId }: { trabalhoId?: string }) {
       {configAberto && fotografo && (
         <ConfigPaginaModal
           onFechar={() => setConfigAberto(false)}
-          onSalvar={async () => { if (await salvar() && editando) setConfigAberto(false); }}
+          onSalvar={async () => { if (await salvar()) setConfigAberto(false); }}
           valores={valores}
           onChange={setValores}
           recursos={{ url: true, data: true, exibicao: true }}
@@ -425,7 +454,7 @@ export function TrabalhoForm({ trabalhoId }: { trabalhoId?: string }) {
       <ModalNaoSalvo
         aberto={estado.modalAberto}
         salvando={salvando}
-        onSalvarESair={async () => { if (await salvar() && editando) estado.sairAgora(); }}
+        onSalvarESair={async () => { if (await salvar()) estado.sairAgora(); else estado.fecharModal(); }}
         onSairSemSalvar={estado.sairAgora}
         onContinuar={estado.fecharModal}
       />

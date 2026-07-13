@@ -189,7 +189,10 @@ export default function PortfolioEditorPage({ params }: { params: Promise<{ id: 
   }
 
   // Ponte para o modal de Configurações (portfólio: modo de exibição + SEO + redes; sem URL/data).
-  const urlPublica = `/gallery.php?id=${portfolio?.legacy_id ?? ""}`;
+  // Importados preservam a URL legada; os novos usam a URL limpa /galeria/{slug}.
+  const urlPublica = portfolio?.legacy_id
+    ? `/gallery.php?id=${portfolio.legacy_id}`
+    : (portfolio?.slug ? `/galeria/${portfolio.slug}` : "");
   const valores: ConfigPaginaValores = {
     slug: "", mostrar_data: false, modo_exibicao: modoExibicao,
     seo_title: seoTitle, seo_description: seoDesc, seo_keywords: seoKw, seo_noindex: seoNoindex,
@@ -233,11 +236,15 @@ export default function PortfolioEditorPage({ params }: { params: Promise<{ id: 
         <div>
           <label style={labelStyle}>Título *</label>
           <input value={titulo} onChange={(e) => setTitulo(e.target.value)} style={inputStyle} />
-          {portfolio?.legacy_id && (
+          {portfolio?.legacy_id ? (
             <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 4, fontFamily: "monospace" }}>
               URL preservada: /gallery.php?id={portfolio.legacy_id}
             </div>
-          )}
+          ) : portfolio?.slug ? (
+            <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 4, fontFamily: "monospace" }}>
+              Endereço no site: /galeria/{portfolio.slug}
+            </div>
+          ) : null}
         </div>
         <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--color-text-primary)", cursor: "pointer" }}>
           <input type="checkbox" checked={publicado} onChange={(e) => setPublicado(e.target.checked)} style={{ width: 15, height: 15 }} />
