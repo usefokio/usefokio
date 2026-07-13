@@ -50,6 +50,7 @@ export default function PortfolioEditorPage({ params }: { params: Promise<{ id: 
   const [cfgSite, setCfgSite] = useState<ConfigUrl | null>(null);
 
   const [fotos, setFotos] = useState<SitePortfolioFoto[]>([]);
+  const [capaUrl, setCapaUrl] = useState<string | null>(null);
   const [fila, setFila] = useState<{ total: number; feitas: number } | null>(null);
   const [puxando, setPuxando] = useState(false);
   const inputFileRef = useRef<HTMLInputElement>(null);
@@ -71,6 +72,7 @@ export default function PortfolioEditorPage({ params }: { params: Promise<{ id: 
       setSeoTitle(port.seo_title ?? ""); setSeoDesc(port.seo_description ?? ""); setSeoKw(port.seo_keywords ?? "");
       setSeoNoindex(port.seo_noindex); setOgTitle(port.og_title ?? ""); setOgDesc(port.og_description ?? ""); setOgImage(port.og_image_url);
       setModoExibicao(port.modo_exibicao || "lista");
+      setCapaUrl(port.capa_url);
       const { data: cfg } = await supabase.from("site_config").select("subdominio, dominio_customizado, publicado").eq("fotografo_id", fotografo!.id).maybeSingle();
       if (cfg) { setDominio(cfg.dominio_customizado || (cfg.subdominio ? `${cfg.subdominio}.usefokio.com.br` : "seusite.usefokio.com.br")); setCfgSite(cfg as ConfigUrl); }
       const { data: fts } = await supabase.from("site_portfolio_fotos").select("*").eq("portfolio_id", id).order("ordem");
@@ -116,11 +118,17 @@ export default function PortfolioEditorPage({ params }: { params: Promise<{ id: 
     const novas = ((destaques ?? []) as { id: string; url_publica: string; storage_path: string | null; descricao: string | null }[])
       .filter((d) => !jaTem.has(d.id));
     let ordem = fotos.length > 0 ? Math.max(...fotos.map((f) => f.ordem)) + 1 : 0;
+    let capaDefinida = !!capaUrl;
     for (const d of novas) {
       const { data } = await supabase.from("site_portfolio_fotos")
         .insert({ portfolio_id: id, trabalho_foto_id: d.id, url_publica: d.url_publica, storage_path: d.storage_path, descricao: d.descricao, ordem: ordem++ })
         .select("*").single();
       if (data) setFotos((prev) => [...prev, data as SitePortfolioFoto]);
+      if (!capaDefinida && d.url_publica) {
+        capaDefinida = true;
+        setCapaUrl(d.url_publica);
+        await supabase.from("site_portfolios").update({ capa_url: d.url_publica }).eq("id", id);
+      }
     }
     setPuxando(false);
     setMsg({ tipo: "ok", texto: novas.length > 0 ? `${novas.length} foto(s) de destaque adicionada(s).` : "Nenhuma foto de destaque nova (marque ⭐ nas fotos dos trabalhos)." });
@@ -132,6 +140,8 @@ export default function PortfolioEditorPage({ params }: { params: Promise<{ id: 
     const lista = Array.from(files).filter((f) => f.type.startsWith("image/"));
     setFila({ total: lista.length, feitas: 0 });
     let ordem = fotos.length > 0 ? Math.max(...fotos.map((f) => f.ordem)) + 1 : 0;
+    // Flag local: sem ela, "!capaUrl" (closure fixa) seria true em toda iteração → capa viraria a última.
+    let capaDefinida = !!capaUrl;
     for (const file of lista) {
       try {
         const { blob } = await processarImagemEntrega(file, 1800, 0.85);
@@ -142,6 +152,11 @@ export default function PortfolioEditorPage({ params }: { params: Promise<{ id: 
           .insert({ portfolio_id: id, storage_path, url_publica, ordem: ordem++ })
           .select("*").single();
         if (data) setFotos((prev) => [...prev, data as SitePortfolioFoto]);
+        if (!capaDefinida) {
+          capaDefinida = true;
+          setCapaUrl(url_publica);
+          await supabase.from("site_portfolios").update({ capa_url: url_publica }).eq("id", id);
+        }
       } catch (e) {
         console.error("[site] upload portfólio falhou:", e instanceof Error ? e.message : e);
       }
@@ -159,7 +174,20 @@ export default function PortfolioEditorPage({ params }: { params: Promise<{ id: 
     if (!foto.trabalho_foto_id && foto.storage_path) {
       await deleteFilesClient([{ storage_path: foto.storage_path, url_publica: foto.url_publica }]);
     }
-    setFotos((prev) => prev.filter((f) => f.id !== foto.id));
+    const restantes = fotos.filter((f) => f.id !== foto.id);
+    setFotos(restantes);
+    // Se removeu a capa, promove a próxima foto disponível (ou limpa).
+    if (capaUrl === foto.url_publica) {
+      const novaCapa = restantes.find((f) => f.url_publica)?.url_publica ?? null;
+      setCapaUrl(novaCapa);
+      await supabase.from("site_portfolios").update({ capa_url: novaCapa }).eq("id", id);
+    }
+  }
+
+  async function definirCapa(foto: SitePortfolioFoto) {
+    if (!foto.url_publica) return;
+    setCapaUrl(foto.url_publica);
+    await createClient().from("site_portfolios").update({ capa_url: foto.url_publica }).eq("id", id);
   }
 
   // Legenda (alt/SEO) e tags por foto — salvam na hora.
@@ -269,7 +297,7 @@ export default function PortfolioEditorPage({ params }: { params: Promise<{ id: 
         </div>
 
         <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginBottom: 8 }}>
-          Arraste as fotos para reordenar — a ordem aqui é a ordem no site.
+          Arraste as fotos para reordenar — a ordem aqui é a ordem no site. A <strong>capa</strong> vira o banner no topo da página; a 1ª foto é capa automaticamente, e você pode trocar clicando em “definir capa”.
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 10 }}>
           {fotos.map((f, idx) => (
@@ -282,14 +310,20 @@ export default function PortfolioEditorPage({ params }: { params: Promise<{ id: 
               onDrop={(e) => { e.preventDefault(); soltar(idx); }}
               onDragEnd={() => { dragIdx.current = null; setSobreIdx(null); }}
               style={{
+                position: "relative",
                 borderRadius: 10, overflow: "hidden", cursor: "grab",
                 border: sobreIdx === idx ? "2px solid #2563EB" : "1px solid var(--color-border-tertiary)",
                 background: "var(--color-background-secondary)",
               }}
             >
               {f.url_publica && <img src={f.url_publica} alt="" style={{ width: "100%", aspectRatio: "3/2", objectFit: "cover", display: "block", pointerEvents: "none" }} loading="lazy" />}
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 8px" }}>
+              {capaUrl === f.url_publica && <span style={{ position: "absolute", top: 6, left: 6, fontSize: 10, fontWeight: 700, background: "#2563EB", color: "#fff", padding: "2px 7px", borderRadius: 6 }}>Capa</span>}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 8px", gap: 4 }}>
                 <span style={{ fontSize: 11, color: "var(--color-text-secondary)" }}>#{idx + 1}</span>
+                <button title={capaUrl === f.url_publica ? "Esta é a capa do portfólio" : "Definir como capa"} onClick={() => definirCapa(f)}
+                  style={{ border: "none", background: "transparent", cursor: "pointer", fontSize: 11, fontWeight: 700, color: capaUrl === f.url_publica ? "#2563EB" : "var(--color-text-secondary)" }}>
+                  {capaUrl === f.url_publica ? "★ capa" : "definir capa"}
+                </button>
                 {f.trabalho_foto_id && <span title="Veio de um trabalho (destaque)" style={{ fontSize: 11 }}>⭐</span>}
                 <button title="Remover" onClick={() => removerFoto(f)} style={{ border: "none", background: "transparent", cursor: "pointer", fontSize: 13, color: "#DC2626" }}>🗑</button>
               </div>
