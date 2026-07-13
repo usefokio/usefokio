@@ -8,6 +8,10 @@ import { useFotografo } from "@/lib/context/FotografoContext";
 import { nomeCategoria } from "@/lib/site/categorias";
 import type { SitePortfolio, SiteTrabalho, SiteCategoria } from "@/lib/supabase/types";
 
+function slugify(v: string): string {
+  return v.normalize("NFD").replace(/[^\x20-\x7E]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60);
+}
+
 type SortKey = "legacy_id" | "titulo" | "categoria" | "views" | "likes";
 
 const SORT_LABEL: Record<SortKey, string> = {
@@ -76,6 +80,7 @@ export default function GaleriasPage() {
   const [sortKey, setSortKey] = useState<SortKey>("legacy_id");
   const [sortAsc, setSortAsc] = useState(false);
   const [criarPortAberto, setCriarPortAberto] = useState(false);
+  const [novoPortTitulo, setNovoPortTitulo] = useState("");
   const [criandoPort, setCriandoPort] = useState(false);
   const [msgPort, setMsgPort] = useState<string | null>(null);
 
@@ -105,22 +110,24 @@ export default function GaleriasPage() {
   // Mapa slug→nome das categorias da conta (nome de exibição vem daqui; fallback amigável no helper).
   const catMap = useMemo(() => Object.fromEntries(cats.map((c) => [c.slug, c.nome])), [cats]);
 
-  // Portfólio é 1 por categoria — só oferece criar as que ainda não têm um.
-  const catsSemPortfolio = useMemo(() => {
-    const jaTem = new Set(portfolios.map((p) => p.categoria));
-    return cats.filter((c) => !jaTem.has(c.slug));
-  }, [cats, portfolios]);
-
-  async function criarPortfolio(cat: SiteCategoria) {
-    if (!fotografo || criandoPort) return;
+  // Cria um portfólio DIRETO: dá um nome e já vai pro editor subir as fotos (sem depender de
+  // categoria/trabalho). Gera um slug único (a URL /galeria/{slug} é fixa; a coluna `categoria`
+  // recebe o próprio slug só para satisfazer o schema — não vira categoria do portfólio de trabalhos).
+  async function criarPortfolio() {
+    const titulo = novoPortTitulo.trim();
+    if (!fotografo || !titulo || criandoPort) return;
     setCriandoPort(true); setMsgPort(null);
+    const usados = new Set(portfolios.flatMap((p) => [p.categoria, p.slug].filter(Boolean) as string[]));
+    const base = slugify(titulo) || "portfolio";
+    let slug = base;
+    for (let n = 2; usados.has(slug); n++) slug = `${base}-${n}`;
     const sb = createClient();
     const ordem = portfolios.length > 0 ? Math.max(...portfolios.map((p) => p.ordem)) + 1 : 0;
     const { data, error } = await sb.from("site_portfolios")
-      .insert({ fotografo_id: fotografo.id, categoria: cat.slug, titulo: cat.nome, slug: cat.slug, modo_exibicao: "grid", publicado: true, ordem })
+      .insert({ fotografo_id: fotografo.id, categoria: slug, titulo, slug, modo_exibicao: "grid", publicado: true, ordem })
       .select("id").single();
     setCriandoPort(false);
-    if (error || !data) { setMsgPort(error?.code === "23505" ? "Já existe um portfólio para essa categoria." : ("Erro ao criar: " + (error?.message ?? ""))); return; }
+    if (error || !data) { setMsgPort(error?.code === "23505" ? "Já existe um portfólio com esse nome — troque o nome." : ("Erro ao criar: " + (error?.message ?? ""))); return; }
     router.push(`/site/galerias/portfolio/${data.id}`);
   }
 
@@ -161,22 +168,33 @@ export default function GaleriasPage() {
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
         <h1 style={{ fontSize: 22, fontWeight: 800, color: "var(--color-text-primary)", margin: 0, letterSpacing: "-0.02em" }}>Galerias</h1>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <button
-            onClick={() => router.push("/site/galerias/categorias")}
-            style={{ padding: "8px 14px", borderRadius: 9, border: "1px solid var(--color-border-secondary)", background: "transparent", fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)", cursor: "pointer" }}
-          >
-            🏷️ Categorias
-          </button>
-          <button
-            onClick={() => router.push("/site/galerias/trabalho/novo")}
-            style={{ padding: "9px 18px", borderRadius: 9, border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", fontSize: 13, fontWeight: 700, cursor: "pointer" }}
-          >
-            + Novo trabalho
-          </button>
+          {aba === "trabalhos" ? (
+            <>
+              <button
+                onClick={() => router.push("/site/galerias/categorias")}
+                style={{ padding: "8px 14px", borderRadius: 9, border: "1px solid var(--color-border-secondary)", background: "transparent", fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)", cursor: "pointer" }}
+              >
+                🏷️ Categorias
+              </button>
+              <button
+                onClick={() => router.push("/site/galerias/trabalho/novo")}
+                style={{ padding: "9px 18px", borderRadius: 9, border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", fontSize: 13, fontWeight: 700, cursor: "pointer" }}
+              >
+                + Novo trabalho
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={() => { setCriarPortAberto(true); setMsgPort(null); }}
+              style={{ padding: "9px 18px", borderRadius: 9, border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", fontSize: 13, fontWeight: 700, cursor: "pointer" }}
+            >
+              + Novo portfólio
+            </button>
+          )}
         </div>
       </div>
       <p style={{ fontSize: 13, color: "var(--color-text-secondary)", margin: "0 0 20px", lineHeight: 1.6 }}>
-        <strong>Trabalhos</strong> são os posts de cada evento. <strong>Portfólios</strong> são as páginas best-of por categoria.
+        <strong>Trabalhos</strong> são os posts de cada evento. <strong>Portfólios</strong> são páginas de galeria (best-of) que você cria e enche com as fotos que quiser.
       </p>
 
       <div style={{ display: "flex", gap: 4, borderBottom: "1px solid var(--color-border-tertiary)", marginBottom: 18 }}>
@@ -235,42 +253,28 @@ export default function GaleriasPage() {
         </>
       ) : (
         <>
-          <div style={{ marginBottom: 16 }}>
-            {!criarPortAberto ? (
-              <button onClick={() => { setCriarPortAberto(true); setMsgPort(null); }}
-                style={{ padding: "8px 14px", borderRadius: 9, border: "1px solid var(--color-border-secondary)", background: "transparent", fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)", cursor: "pointer" }}>
-                + Novo portfólio
-              </button>
-            ) : (
-              <div style={{ border: "1px solid var(--color-border-tertiary)", borderRadius: 12, padding: 16, background: "var(--color-background-secondary)" }}>
-                <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--color-text-primary)", marginBottom: 4 }}>Criar portfólio (best-of de uma categoria)</div>
-                <p style={{ fontSize: 12, color: "var(--color-text-secondary)", margin: "0 0 12px", lineHeight: 1.5 }}>
-                  Escolha a categoria. Depois você sobe fotos ou puxa os destaques (⭐) dos trabalhos dela.
-                </p>
-                {catsSemPortfolio.length === 0 ? (
-                  <p style={{ fontSize: 12.5, color: "var(--color-text-secondary)", margin: 0 }}>
-                    {cats.length === 0 ? "Você ainda não tem categorias — crie um trabalho primeiro." : "Todas as categorias já têm um portfólio."}
-                  </p>
-                ) : (
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    {catsSemPortfolio.map((c) => (
-                      <button key={c.id} onClick={() => criarPortfolio(c)} disabled={criandoPort}
-                        style={{ padding: "8px 14px", borderRadius: 8, border: "1px solid var(--color-border-secondary)", background: "var(--color-background-primary)", fontSize: 12.5, fontWeight: 600, color: "var(--color-text-primary)", cursor: criandoPort ? "default" : "pointer", opacity: criandoPort ? 0.6 : 1 }}>
-                        {c.nome}
-                      </button>
-                    ))}
-                  </div>
-                )}
-                {msgPort && <div style={{ marginTop: 10, fontSize: 12.5, fontWeight: 600, color: "#DC2626" }}>{msgPort}</div>}
-                <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 12 }}>
-                  <button onClick={() => setCriarPortAberto(false)}
-                    style={{ padding: "8px 14px", borderRadius: 8, border: "1px solid var(--color-border-secondary)", background: "transparent", fontSize: 12.5, fontWeight: 600, color: "var(--color-text-primary)", cursor: "pointer" }}>
-                    Fechar
-                  </button>
-                </div>
+          {criarPortAberto && (
+            <div style={{ marginBottom: 16, border: "1px solid var(--color-border-tertiary)", borderRadius: 12, padding: 16, background: "var(--color-background-secondary)" }}>
+              <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--color-text-primary)", marginBottom: 4 }}>Novo portfólio</div>
+              <p style={{ fontSize: 12, color: "var(--color-text-secondary)", margin: "0 0 10px", lineHeight: 1.5 }}>
+                Dê um nome ao portfólio. Depois é só subir as fotos direto nele (ou, se quiser, puxar os destaques ⭐ dos trabalhos).
+              </p>
+              <input autoFocus value={novoPortTitulo} onChange={(e) => setNovoPortTitulo(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") criarPortfolio(); if (e.key === "Escape") setCriarPortAberto(false); }}
+                placeholder="Ex.: Melhores casamentos 2026" style={{ ...inputCtrl, width: "100%", boxSizing: "border-box" }} />
+              {msgPort && <div style={{ marginTop: 10, fontSize: 12.5, fontWeight: 600, color: "#DC2626" }}>{msgPort}</div>}
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 12 }}>
+                <button onClick={() => { setCriarPortAberto(false); setMsgPort(null); }}
+                  style={{ padding: "8px 14px", borderRadius: 8, border: "1px solid var(--color-border-secondary)", background: "transparent", fontSize: 12.5, fontWeight: 600, color: "var(--color-text-primary)", cursor: "pointer" }}>
+                  Cancelar
+                </button>
+                <button onClick={() => criarPortfolio()} disabled={!novoPortTitulo.trim() || criandoPort}
+                  style={{ padding: "8px 16px", borderRadius: 8, border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", fontSize: 12.5, fontWeight: 700, cursor: (!novoPortTitulo.trim() || criandoPort) ? "default" : "pointer", opacity: (!novoPortTitulo.trim() || criandoPort) ? 0.6 : 1 }}>
+                  {criandoPort ? "Criando…" : "Criar e adicionar fotos"}
+                </button>
               </div>
-            )}
-          </div>
+            </div>
+          )}
 
           {portfolios.length === 0 ? (
             <div style={{ padding: 40, textAlign: "center", fontSize: 13, color: "var(--color-text-secondary)", border: "1px dashed var(--color-border-secondary)", borderRadius: 12 }}>Nenhum portfólio ainda. Use “+ Novo portfólio”.</div>
