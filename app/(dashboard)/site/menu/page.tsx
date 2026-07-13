@@ -8,19 +8,13 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
-import type { SiteMenuItem, SiteMenuTipo, SitePagina } from "@/lib/supabase/types";
+import type { SiteMenuItem, SitePagina } from "@/lib/supabase/types";
 
 const SECOES = [
   { href: "/", label: "Início" },
   { href: "/portfolio", label: "Portfólio" },
   { href: "/blog", label: "Blog" },
 ] as const;
-
-const TAG: Record<SiteMenuTipo, { icone: string; nome: string; cor: string; fundo: string }> = {
-  pagina: { icone: "📄", nome: "Página", cor: "#1D4ED8", fundo: "rgba(37,99,235,0.10)" },
-  secao:  { icone: "🗂", nome: "Seção",  cor: "#7C3AED", fundo: "rgba(124,58,237,0.10)" },
-  link:   { icone: "🔗", nome: "Link",   cor: "#059669", fundo: "rgba(16,185,129,0.10)" },
-};
 
 function slugify(v: string) {
   return v.normalize("NFD").replace(/[^\x20-\x7E]/g, "").toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60);
@@ -45,6 +39,9 @@ export default function PaginasMenuPage() {
   const [novoSlug, setNovoSlug] = useState("");
   const [novoUrl, setNovoUrl] = useState("");
   const [msg, setMsg] = useState<string | null>(null);
+  const [editando, setEditando] = useState<string | null>(null); // id do item em edição inline
+  const [edNome, setEdNome] = useState("");
+  const [edUrl, setEdUrl] = useState("");
   const dragIdx = useRef<number | null>(null);
   const [sobreIdx, setSobreIdx] = useState<number | null>(null);
 
@@ -72,6 +69,24 @@ export default function PaginasMenuPage() {
     const novo = !it.visivel;
     setItens((prev) => prev.map((i) => i.id === it.id ? { ...i, visivel: novo } : i));
     await salvarCampo(it.id, { visivel: novo });
+  }
+
+  function iniciarEdicao(it: SiteMenuItem) {
+    setEditando(it.id); setEdNome(it.label); setEdUrl(it.tipo === "link" ? it.href : "");
+  }
+  async function salvarEdicao(it: SiteMenuItem) {
+    const nome = edNome.trim() || it.label;
+    const patch: Partial<SiteMenuItem> = { label: nome };
+    if (it.tipo === "link") { let u = edUrl.trim(); if (u && !/^https?:\/\//.test(u)) u = "https://" + u; patch.href = u || it.href; }
+    setItens((prev) => prev.map((i) => i.id === it.id ? { ...i, ...patch } : i));
+    const sb = createClient();
+    await sb.from("site_menu").update(patch).eq("id", it.id);
+    // Numa página, o nome do item = título da página (mantém sincronizado)
+    if (it.tipo === "pagina") {
+      const pg = paginaDoItem(it);
+      if (pg) { await sb.from("site_paginas").update({ titulo: nome }).eq("id", pg.id); setPaginas((prev) => prev.map((p) => p.id === pg.id ? { ...p, titulo: nome } : p)); }
+    }
+    setEditando(null);
   }
 
   async function remover(it: SiteMenuItem) {
@@ -195,37 +210,41 @@ export default function PaginasMenuPage() {
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           {itens.map((it, idx) => {
-            const tag = TAG[it.tipo];
             const pg = it.tipo === "pagina" ? paginaDoItem(it) : null;
+            const emEdicao = editando === it.id;
+            const acao: React.CSSProperties = { border: "none", background: "transparent", cursor: "pointer", flex: "0 0 auto", width: 30, height: 30, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, borderRadius: 7 };
             return (
-              <div key={it.id} draggable
-                onDragStart={() => { dragIdx.current = idx; }}
+              <div key={it.id} draggable={!emEdicao}
+                onDragStart={() => { if (!emEdicao) dragIdx.current = idx; }}
                 onDragOver={(e) => { e.preventDefault(); if (sobreIdx !== idx) setSobreIdx(idx); }}
                 onDragLeave={() => { if (sobreIdx === idx) setSobreIdx(null); }}
                 onDrop={(e) => { e.preventDefault(); soltar(idx); }}
                 onDragEnd={() => { dragIdx.current = null; setSobreIdx(null); }}
-                style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, cursor: "grab",
+                style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px 8px 12px", borderRadius: 10, cursor: emEdicao ? "default" : "grab",
                   border: sobreIdx === idx ? "2px solid #2563EB" : "1px solid var(--color-border-tertiary)",
-                  background: "var(--color-background-primary)", opacity: it.visivel ? 1 : 0.55 }}>
-                <span style={{ color: "var(--color-text-secondary)", fontSize: 14 }}>⠿</span>
-                <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 8, color: tag.cor, background: tag.fundo, flex: "0 0 auto" }}>{tag.icone} {tag.nome}</span>
-                <input value={it.label}
-                  onChange={(e) => setItens((prev) => prev.map((i) => i.id === it.id ? { ...i, label: e.target.value } : i))}
-                  onBlur={(e) => salvarCampo(it.id, { label: e.target.value })}
-                  style={{ ...inputStyle, flex: 1, minWidth: 100, fontWeight: 600 }} />
-                {it.tipo === "link" ? (
-                  <input value={it.href}
-                    onChange={(e) => setItens((prev) => prev.map((i) => i.id === it.id ? { ...i, href: e.target.value } : i))}
-                    onBlur={(e) => { let u = e.target.value.trim(); if (u && !/^https?:\/\//.test(u)) u = "https://" + u; salvarCampo(it.id, { href: u }); }}
-                    style={{ ...inputStyle, flex: 1, minWidth: 120, fontFamily: "monospace", fontSize: 12 }} />
+                  background: "var(--color-background-primary)", opacity: it.visivel || emEdicao ? 1 : 0.55 }}>
+                {emEdicao ? (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8, width: "100%" }}>
+                    <input autoFocus value={edNome} onChange={(e) => setEdNome(e.target.value)} placeholder="Nome do item (aparece no menu)" style={{ ...inputStyle, fontWeight: 600 }} />
+                    {it.tipo === "link" && <input value={edUrl} onChange={(e) => setEdUrl(e.target.value)} placeholder="https://…" style={{ ...inputStyle, fontFamily: "monospace", fontSize: 12 }} />}
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                      {pg && <button onClick={() => router.push(`/site/paginas?editar=${pg.id}`)} style={{ ...btnSec, padding: "6px 11px", fontSize: 12 }}>Editar conteúdo da página →</button>}
+                      <div style={{ display: "flex", gap: 8, marginLeft: "auto" }}>
+                        <button onClick={() => setEditando(null)} style={btnSec}>Cancelar</button>
+                        <button onClick={() => salvarEdicao(it)} style={{ ...btnPri, padding: "8px 16px" }}>Salvar</button>
+                      </div>
+                    </div>
+                  </div>
                 ) : (
-                  <span style={{ fontSize: 12, color: "var(--color-text-secondary)", fontFamily: "monospace", flex: "0 0 auto" }}>{it.href}</span>
+                  <>
+                    <span style={{ color: "var(--color-text-tertiary)", fontSize: 14, flex: "0 0 auto", width: 14 }}>⠿</span>
+                    <span style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 600, color: "var(--color-text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{it.label}</span>
+                    <span style={{ fontSize: 12, color: "var(--color-text-secondary)", fontFamily: "monospace", flex: "0 1 auto", maxWidth: 240, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{it.href}</span>
+                    <button onClick={() => alternarVisivel(it)} title={it.visivel ? "Ocultar do menu do topo" : "Mostrar no menu do topo"} style={acao}>{it.visivel ? "👁" : "🚫"}</button>
+                    <button onClick={() => iniciarEdicao(it)} title="Editar" style={acao}>✏️</button>
+                    <button onClick={() => remover(it)} title={it.tipo === "pagina" ? "Excluir página" : "Remover do menu"} style={{ ...acao, fontSize: 13, color: "#DC2626" }}>🗑</button>
+                  </>
                 )}
-                {it.tipo === "pagina" && pg && (
-                  <button onClick={() => router.push(`/site/paginas?editar=${pg.id}`)} style={{ ...btnSec, padding: "6px 11px", fontSize: 12, flex: "0 0 auto" }}>Editar conteúdo →</button>
-                )}
-                <button onClick={() => alternarVisivel(it)} title={it.visivel ? "Ocultar do menu do topo" : "Mostrar no menu do topo"} style={{ border: "none", background: "transparent", cursor: "pointer", fontSize: 14, flex: "0 0 auto" }}>{it.visivel ? "👁" : "🚫"}</button>
-                <button onClick={() => remover(it)} title={it.tipo === "pagina" ? "Excluir página" : "Remover do menu"} style={{ border: "none", background: "transparent", cursor: "pointer", fontSize: 13, color: "#DC2626", flex: "0 0 auto" }}>🗑</button>
               </div>
             );
           })}

@@ -126,6 +126,9 @@ function PaginasConteudo() {
     }).eq("id", editando.id);
     setSalvando(false);
     if (error) { setMsg("Erro: " + error.message); return false; }
+    // Mantém o nome no menu ("Páginas e Menu") igual ao título da página
+    if (fotografo) await supabase.from("site_menu").update({ label: titulo.trim() || editando.titulo })
+      .eq("fotografo_id", fotografo.id).eq("href", `/${editando.slug}`);
     setPaginas((prev) => prev.map((p) => p.id === editando.id ? { ...p, titulo, conteudo: novoConteudo, ...camposSeo } : p));
     estado.marcarSalvo(snapshotAtual);
     setMsg("Página salva!");
