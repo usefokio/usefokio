@@ -8,7 +8,7 @@ import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { useEditorEstado, SeloEstado, BotaoSalvarEstado, ModalNaoSalvo } from "@/app/(dashboard)/_components/EditorEstado";
-import { REGEX_SUBDOMINIO, SUBDOMINIOS_RESERVADOS, slugSub, normalizarHost, CNAME_TARGET_DOMINIO } from "@/lib/site/publico";
+import { REGEX_SUBDOMINIO, SUBDOMINIOS_RESERVADOS, slugSub, normalizarHost } from "@/lib/site/publico";
 import { urlPublicaSite } from "@/lib/site/urlPublica";
 import { TutorialDominioModal } from "./_components/TutorialDominioModal";
 import type { RegistroDns } from "@/lib/supabase/types";
@@ -132,9 +132,6 @@ export default function SiteDominioPage() {
     return true;
   }
 
-  // Rótulo do CNAME no painel do provedor: "www" quando o host começa com www; senão o host completo.
-  const rotuloCname = (host: string) => (host.startsWith("www.") ? "www" : host);
-
   async function conectarDominio() {
     if (!fotografo) return;
     // TRAVA DE SEO (regra de sistema): a pergunta é obrigatória. Domínio que JÁ tem site
@@ -146,30 +143,19 @@ export default function SiteDominioPage() {
     if (host.endsWith(".usefokio.com.br") || host === "usefokio.com.br") { setMsg("Erro: este campo é para o SEU domínio — o subdomínio UseFokio é configurado acima."); return; }
     setConectando(true); setMsg(null);
     try {
-      const r = await fetch(`/api/site/endereco/disponibilidade?tipo=dominio&valor=${encodeURIComponent(host)}`);
+      // Server-side: aplica a trava de SEO e cria o Custom Hostname no Cloudflare (emite o cert).
+      const r = await fetch("/api/site/dominio/conectar", {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ dominio: host, jaTemSite }),
+      });
       const j = await r.json();
-      if (!j.disponivel) { setMsg(`Erro: o domínio "${host}" já está conectado a outro site.`); setConectando(false); return; }
-    } catch { /* segue — o UNIQUE do banco é a barreira final */ }
-    const assistido = jaTemSite === "sim";
-    const novosRegistros: RegistroDns[] = assistido ? [] : [
-      { tipo: "CNAME", nome: rotuloCname(host), valor: CNAME_TARGET_DOMINIO, papel: "roteamento" },
-    ];
-    const { error } = await createClient().from("site_config").upsert({
-      fotografo_id: fotografo.id,
-      dominio_customizado: host,
-      dominio_status: assistido ? "aguardando_seo" : "pendente_dns",
-      dominio_verificacao: assistido ? null : novosRegistros,
-      dominio_erro: null,
-      dominio_checado_em: null,
-      updated_at: new Date().toISOString(),
-    }, { onConflict: "fotografo_id" });
-    setConectando(false);
-    if (error) {
-      setMsg(error.code === "23505" ? `Erro: o domínio "${host}" já está conectado a outro site.` : "Erro: " + error.message);
-      return;
+      if (!r.ok) { setMsg("Erro: " + (j?.erro ?? "falha ao conectar.")); setConectando(false); return; }
+      setDominio(host); setStatus(j.status as DominioStatus); setRegistros((j.registros as RegistroDns[]) ?? []);
+      setErroDominio(null); setChecadoEm(null); setDominioInput(""); setJaTemSite(null);
+    } catch (e) {
+      setMsg("Erro: " + (e instanceof Error ? e.message : "falha de rede."));
     }
-    setDominio(host); setStatus(assistido ? "aguardando_seo" : "pendente_dns"); setRegistros(novosRegistros); setErroDominio(null); setChecadoEm(null);
-    setDominioInput(""); setJaTemSite(null);
+    setConectando(false);
   }
 
   async function desconectarDominio() {
