@@ -3,6 +3,7 @@
 // do fotógrafo via rewrite por host no proxy; em dev acessa-se direto pela URL.
 // (Não usar prefixo "_" na pasta: no App Router, _pasta é privada e sai do roteamento.)
 import { createAdminClient } from "@/lib/supabase/admin";
+import { nomeCategoria } from "./categorias";
 
 // Categorias por fotógrafo: nomes/helpers em lib/site/categorias.ts (client-safe).
 // Re-exporta CATEGORIA_LABEL para não quebrar os imports existentes.
@@ -125,6 +126,26 @@ export function categoriasParaNav(todas: string[], info: InfoCategorias, ativa: 
   return todas
     .filter((c) => !info.ocultas.has(c) || c === ativa)
     .sort((a, b) => info.ordemDe(a) - info.ordemDe(b));
+}
+
+// Contexto do motor de blocos (RenderBlocos) para páginas do site — o mesmo conjunto
+// que a landing pública monta: depoimentos, whatsapp de fallback e categorias do formulário.
+export async function contextoBlocos(fid: string): Promise<import("@/app/sites/[fid]/_components/RenderBlocos").ContextoBlocos> {
+  const admin = createAdminClient();
+  const [{ data: fotografo }, { data: depoimentos }, { data: trabalhos }, info, base] = await Promise.all([
+    admin.from("fotografos").select("whatsapp").eq("id", fid).maybeSingle(),
+    admin.from("site_depoimentos").select("*").eq("fotografo_id", fid).eq("publicado", true).order("ordem").limit(4),
+    admin.from("site_trabalhos").select("categoria").eq("fotografo_id", fid).eq("publicado", true),
+    infoCategorias(fid),
+    baseLinks(fid),
+  ]);
+  const categorias = categoriasParaNav([...new Set(((trabalhos ?? []) as { categoria: string }[]).map((t) => t.categoria))], info, null)
+    .map((c) => ({ valor: c, label: nomeCategoria(c, info.map) }));
+  return {
+    base, fid, categorias,
+    depoimentos: (depoimentos ?? []) as import("@/lib/supabase/types").SiteDepoimento[],
+    whatsappFallback: (fotografo as { whatsapp?: string | null } | null)?.whatsapp ?? null,
+  };
 }
 
 export async function carregarSite(fid: string) {

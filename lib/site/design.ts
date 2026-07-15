@@ -68,7 +68,7 @@ export type HomeBlocoKey = "banner" | "trabalhos" | "blog" | "depoimentos" | "se
 
 export type BannerTipo = "foto_unica" | "deslizante" | "grid";
 export type BannerAjuste = "manter_proporcao" | "preencher";
-export type ProporcaoCapa = "horizontal_3x2" | "vertical_2x3" | "quadrado_1x1";
+export type ProporcaoCapa = "horizontal_3x2" | "horizontal_4x3" | "vertical_2x3" | "quadrado_1x1";
 export type PosicaoTitulo = "acima" | "centro" | "abaixo";
 export type TextoCard = "titulo_subtitulo" | "so_titulo";
 export type BlogLayout = "capa_esquerda" | "capa_em_cima" | "horizontal_deslizante";
@@ -104,12 +104,13 @@ export type HomeBloco = {
   cta_botao?: string;
 };
 
-export const PROPORCOES: readonly ProporcaoCapa[] = ["horizontal_3x2", "vertical_2x3", "quadrado_1x1"];
+export const PROPORCOES: readonly ProporcaoCapa[] = ["horizontal_3x2", "horizontal_4x3", "vertical_2x3", "quadrado_1x1"];
 export const POS_TITULO: readonly PosicaoTitulo[] = ["acima", "centro", "abaixo"];
 
 // Aspect-ratio CSS por proporção da capa (a capa mantém a proporção — sem altura fixa).
 export const ASPECT: Record<ProporcaoCapa, string> = {
   horizontal_3x2: "3 / 2",
+  horizontal_4x3: "4 / 3",
   vertical_2x3: "2 / 3",
   quadrado_1x1: "1 / 1",
 };
@@ -136,6 +137,21 @@ export const BLOCO_LABEL: Record<HomeBlocoKey, string> = {
   cta: "Chamada (orçamento)",
 };
 
+// ── Grades das páginas de listagem (Portfólio /colecoes e Trabalhos /portfolio) ──
+// Config de exibição das grades públicas, editada na Aparência. Espelha os campos
+// do bloco "trabalhos" da home. Default = visual atual das páginas (sem regressão).
+export type GradeConfig = {
+  colunas: number;
+  proporcao: ProporcaoCapa;
+  titulo_pos: PosicaoTitulo;
+  texto_card: TextoCard;
+};
+export type GradesConfig = { portfolio: GradeConfig; trabalhos: GradeConfig };
+
+export const GRADE_PADRAO: GradeConfig = {
+  colunas: 3, proporcao: "horizontal_4x3", titulo_pos: "abaixo", texto_card: "titulo_subtitulo",
+};
+
 export type ConfigDesign = {
   par: string;              // id do par de fontes
   logo_url: string | null;  // logo próprio do site (null = usa o logo global do fotógrafo)
@@ -143,6 +159,7 @@ export type ConfigDesign = {
   header: HeaderConfig;
   rodape: BarraConfig;
   blocos: HomeBloco[];      // ordem = ordem de render na home
+  grades: GradesConfig;     // exibição das listagens públicas (Portfólio/Trabalhos)
 };
 
 export const DESIGN_PADRAO: ConfigDesign = {
@@ -152,6 +169,7 @@ export const DESIGN_PADRAO: ConfigDesign = {
   header: { cor: null, opacidade: 97, altura: 18, orientacao: "topo", logo_pos: "esquerda", cor_texto: null, largura: 200 },
   rodape: { cor: null, opacidade: 100, altura: 44 },
   blocos: BLOCOS_PADRAO,
+  grades: { portfolio: { ...GRADE_PADRAO }, trabalhos: { ...GRADE_PADRAO } },
 };
 
 function num(v: unknown, def: number, min: number, max: number): number {
@@ -251,9 +269,21 @@ function normalizarBlocos(raw: unknown): HomeBloco[] {
   return out;
 }
 
+// Normaliza uma config de grade (parcial/ausente) para o shape completo.
+function normalizarGrade(raw: unknown): GradeConfig {
+  const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  return {
+    colunas: num(r.colunas, GRADE_PADRAO.colunas, 1, 6),
+    proporcao: umDe(r.proporcao, PROPORCOES, GRADE_PADRAO.proporcao),
+    titulo_pos: umDe(r.titulo_pos, POS_TITULO, GRADE_PADRAO.titulo_pos),
+    texto_card: umDe(r.texto_card, ["titulo_subtitulo", "so_titulo"] as const, GRADE_PADRAO.texto_card),
+  };
+}
+
 // Normaliza a config vinda do banco (pode estar parcial/antiga) para o shape completo.
 export function normalizarDesign(raw: unknown): ConfigDesign {
   const d = (raw && typeof raw === "object" ? raw : {}) as Partial<ConfigDesign>;
+  const grades = (d.grades && typeof d.grades === "object" ? d.grades : {}) as Partial<GradesConfig>;
   return {
     par: PARES_FONTE.some((p) => p.id === d.par) ? (d.par as string) : PAR_PADRAO,
     logo_url: typeof d.logo_url === "string" && d.logo_url.trim() ? d.logo_url.trim() : null,
@@ -261,5 +291,6 @@ export function normalizarDesign(raw: unknown): ConfigDesign {
     header: normalizarHeader(d.header),
     rodape: normalizarBarra(d.rodape, DESIGN_PADRAO.rodape),
     blocos: normalizarBlocos(d.blocos),
+    grades: { portfolio: normalizarGrade(grades.portfolio), trabalhos: normalizarGrade(grades.trabalhos) },
   };
 }

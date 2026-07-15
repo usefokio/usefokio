@@ -87,6 +87,21 @@ export function novoBloco(tipo: TipoBloco): SiteBloco {
   return base;
 }
 
+// Converte o conteúdo legado de uma página institucional (site_paginas.conteudo =
+// {html, imagens, formulario}) para blocos — seed do editor e fallback de render.
+// O TÍTULO fica fora (é o H1 fixo da rota pública — preserva o SEO indexado).
+export function conteudoParaBlocos(conteudo: unknown, comFormulario = false): SiteBloco[] {
+  const c = (conteudo && typeof conteudo === "object" ? conteudo : {}) as { html?: string | null; imagens?: string[]; formulario?: ConfigFormulario };
+  const blocos: SiteBloco[] = [];
+  const id = () => crypto.randomUUID();
+  const img = Array.isArray(c.imagens) ? c.imagens[0] : null;
+  if (img && c.html) blocos.push({ id: id(), tipo: "duas_colunas", dados: { html: c.html, imagem_url: img } });
+  else if (c.html) blocos.push({ id: id(), tipo: "texto", dados: { html: c.html } });
+  else if (img) blocos.push({ id: id(), tipo: "imagem", dados: { url: img } });
+  if (comFormulario || c.formulario) blocos.push({ id: id(), tipo: "formulario", dados: { formulario: c.formulario } });
+  return blocos;
+}
+
 // Converte a landing do formato antigo (template fixo) para blocos — SEM perder nada.
 // Usado quando a landing ainda não tem dados.blocos (compatibilidade retroativa).
 export function dadosParaBlocos(d: SiteLandingDados): SiteBloco[] {

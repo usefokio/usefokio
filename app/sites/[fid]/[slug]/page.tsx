@@ -1,13 +1,15 @@
-// Landing page pública — renderizada pelo MOTOR DE BLOCOS (URL: /{slug} no host do fotógrafo).
-// Landings antigas (template fixo) são convertidas para blocos em tempo de render, sem perder nada.
-// Rota dinâmica de 1 nível: as rotas estáticas (portfolio, blog, sobre, contato…) têm precedência.
+// Rota dinâmica de 1 nível no host do fotógrafo (/{slug}) — as rotas estáticas
+// (portfolio, blog, sobre, contato…) têm precedência. Resolve, nesta ordem:
+// 1) LANDING PAGE (site_landing_pages) — motor de blocos, noindex (campanha/orçamento);
+// 2) PÁGINA CUSTOM (site_paginas) — motor de blocos, INDEXÁVEL (página institucional).
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { baseLinks, infoCategorias, categoriasParaNav, nomeCategoria } from "@/lib/site/publico";
-import { dadosParaBlocos } from "@/lib/site/blocos";
+import { baseLinks, infoCategorias, categoriasParaNav, nomeCategoria, contextoBlocos } from "@/lib/site/publico";
+import { dadosParaBlocos, conteudoParaBlocos, type SiteBloco } from "@/lib/site/blocos";
+import { resolverMetaPagina } from "@/lib/site/seo";
 import { RenderBlocos } from "../_components/RenderBlocos";
-import type { SiteLandingPage, SiteLandingDados, SiteDepoimento } from "@/lib/supabase/types";
+import type { SiteLandingPage, SiteLandingDados, SiteDepoimento, SitePagina } from "@/lib/supabase/types";
 
 async function buscarLanding(fid: string, slug: string): Promise<SiteLandingPage | null> {
   const admin = createAdminClient();
@@ -16,22 +18,58 @@ async function buscarLanding(fid: string, slug: string): Promise<SiteLandingPage
   return (data as SiteLandingPage) ?? null;
 }
 
+async function buscarPaginaCustom(fid: string, slug: string): Promise<SitePagina | null> {
+  const admin = createAdminClient();
+  const { data } = await admin.from("site_paginas").select("*")
+    .eq("fotografo_id", fid).eq("slug", slug).eq("publicado", true).maybeSingle();
+  return (data as SitePagina) ?? null;
+}
+
 export async function generateMetadata({ params }: { params: Promise<{ fid: string; slug: string }> }): Promise<Metadata> {
   const { fid, slug } = await params;
   const lp = await buscarLanding(fid, slug);
-  if (!lp) return {};
-  // Landing tem finalidade específica (campanha/orçamento) → noindex por padrão (sobrepõe o robots do layout).
+  if (lp) {
+    // Landing tem finalidade específica (campanha/orçamento) → noindex por padrão (sobrepõe o robots do layout).
+    return {
+      title: lp.seo_title ?? lp.titulo,
+      description: lp.seo_description ?? undefined,
+      robots: { index: false, follow: true },
+    };
+  }
+  const pg = await buscarPaginaCustom(fid, slug);
+  if (!pg) return {};
+  // Página custom é institucional → INDEXÁVEL (não herda o noindex das landings).
+  const c = (pg.conteudo ?? {}) as { html?: string | null; imagens?: string[] };
+  const excerpt = (c.html ?? "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 200) || null;
+  const m = resolverMetaPagina(pg, { titulo: pg.titulo, descricao: excerpt, imagem: c.imagens?.[0] ?? null });
   return {
-    title: lp.seo_title ?? lp.titulo,
-    description: lp.seo_description ?? undefined,
-    robots: { index: false, follow: true },
+    title: m.title,
+    description: m.description,
+    keywords: m.keywords,
+    ...(m.noindex ? { robots: { index: false, follow: true } } : {}),
+    openGraph: { title: m.ogTitle, description: m.ogDescription, images: m.ogImage ? [m.ogImage] : undefined },
   };
 }
 
 export default async function LandingPage({ params }: { params: Promise<{ fid: string; slug: string }> }) {
   const { fid, slug } = await params;
   const lp = await buscarLanding(fid, slug);
-  if (!lp) notFound();
+  if (!lp) {
+    // Página custom (site_paginas): renderiza por blocos COM o header do site
+    // (é página institucional, não landing). Sem blocos salvos, converte o conteúdo legado.
+    const pg = await buscarPaginaCustom(fid, slug);
+    if (!pg) notFound();
+    const blocos = Array.isArray(pg.blocos) && pg.blocos.length > 0
+      ? (pg.blocos as SiteBloco[])
+      : conteudoParaBlocos(pg.conteudo);
+    const ctx = await contextoBlocos(fid);
+    return (
+      <div style={{ padding: "40px 0" }}>
+        <h1 style={{ fontSize: 28, fontWeight: 700, textAlign: "center", margin: "0 0 32px", padding: "0 24px" }}>{pg.titulo}</h1>
+        <RenderBlocos blocos={blocos} ctx={ctx} />
+      </div>
+    );
+  }
 
   const admin = createAdminClient();
   const [{ data: fotografo }, { data: depoimentos }, { data: trabalhos }, info] = await Promise.all([

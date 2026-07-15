@@ -1,10 +1,11 @@
 "use client";
 
-// Aparência do site — CONSTRUTOR por blocos. Coluna esquerda: cards de configuração
-// (Fontes/Logo/Header fixos no topo, blocos reordenáveis por arraste, Rodapé fixo no fim),
-// cada card minimizável. Coluna direita: PRÉVIA AO VIVO (sticky) usando os MESMOS componentes
-// do site real (HomeBlocos + SiteHeader), com barra de dispositivo PC/Tablet/Celular.
-// Salva em site_config.design (jsonb), com estado "não salvo" (useEditorEstado).
+// Aparência do site — HUB de personalização de TODAS as páginas. Seletor de página no topo:
+// Início (construtor de blocos da home), Sobre/Contato/custom (EditorBlocos — motor de blocos
+// genérico), Portfólio/Trabalhos (exibição da grade). Coluna esquerda: controles; coluna
+// direita: PRÉVIA AO VIVO (sticky) usando os MESMOS componentes do site real, com barra de
+// dispositivo PC/Tablet/Celular. Global (fontes/logo/header/rodapé) fica na aba Início.
+// Salva em site_config.design + site_paginas.blocos, com estado "não salvo" (useEditorEstado).
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { fetchAllRows } from "@/lib/supabase/fetchAll";
@@ -15,13 +16,17 @@ import { useEditorEstado, SeloEstado, BotaoSalvarEstado, ModalNaoSalvo } from "@
 import {
   PARES_FONTE, CATEGORIA_LABEL, FONTE_NOME, getPar, normalizarDesign, DESIGN_PADRAO, BLOCO_LABEL,
   type ConfigDesign, type BarraConfig, type HeaderConfig, type CategoriaFonte,
-  type HomeBloco, type HomeBlocoKey, type BlogLayout, type DepoLayout,
+  type HomeBloco, type HomeBlocoKey, type BlogLayout, type DepoLayout, type GradeConfig,
 } from "@/lib/site/design";
+import { conteudoParaBlocos, type SiteBloco } from "@/lib/site/blocos";
+import { EditorBlocos } from "@/app/(dashboard)/site/_components/EditorBlocos";
 import { SiteHeader } from "@/app/sites/[fid]/_components/SiteHeader";
 import { HomeBlocos } from "@/app/sites/[fid]/_components/home/HomeBlocos";
+import { RenderBlocos } from "@/app/sites/[fid]/_components/RenderBlocos";
+import { GradeCards, type ItemGrade } from "@/app/sites/[fid]/_components/GradeCards";
 import { DADOS_EXEMPLO } from "@/app/sites/[fid]/_components/home/exemplo";
 import type { DadosHome } from "@/app/sites/[fid]/_components/home/tipos";
-import type { SiteBanner, SiteDepoimento, SitePost, SiteSelo, SiteTrabalho } from "@/lib/supabase/types";
+import type { SiteBanner, SiteDepoimento, SitePagina, SitePortfolio, SitePost, SiteSelo, SiteTrabalho } from "@/lib/supabase/types";
 
 const CATS: CategoriaFonte[] = ["minimalista", "serifada", "elegante"];
 const FONTES_UNICAS = [...new Set(PARES_FONTE.flatMap((p) => [p.titulo, p.texto]))];
@@ -31,7 +36,7 @@ const PALETA = ["#FFFFFF", "#F8F7F4", "#F1EFEA", "#E8E2D6", "#5E6E5F", "#463F37"
 const HEX_RE = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i;
 const clamp01 = (n: number) => Math.min(1, Math.max(0, n));
 
-const PROP_OPTS = [{ v: "horizontal_3x2", l: "Horizontal 3:2" }, { v: "vertical_2x3", l: "Vertical 2:3" }, { v: "quadrado_1x1", l: "Quadrado" }] as const;
+const PROP_OPTS = [{ v: "horizontal_3x2", l: "Horizontal 3:2" }, { v: "horizontal_4x3", l: "Horizontal 4:3" }, { v: "vertical_2x3", l: "Vertical 2:3" }, { v: "quadrado_1x1", l: "Quadrado" }] as const;
 const POS_OPTS = [{ v: "acima", l: "Acima" }, { v: "centro", l: "Sobre a capa" }, { v: "abaixo", l: "Abaixo" }] as const;
 
 // ── Estilos base ──
@@ -166,10 +171,12 @@ function Card({ titulo, aberto, onToggle, alca, chave, destaque, rootProps, chil
   );
 }
 
-// ── Prévia ao vivo: renderiza o site real numa largura virtual (dispositivo), escalada p/ caber. ──
-function Preview({ design, dados, menu, nome, logoUrl, disp, tema }: {
-  design: ConfigDesign; dados: DadosHome; menu: { id: string; label: string; href: string }[];
+// ── Prévia ao vivo: renderiza o site real numa largura virtual (dispositivo), escalada p/ caber.
+// O MIOLO é o children (HomeBlocos, RenderBlocos ou grade) — o chassi (header/tema) é o mesmo. ──
+function Preview({ design, menu, nome, logoUrl, disp, tema, children }: {
+  design: ConfigDesign; menu: { id: string; label: string; href: string }[];
   nome: string; logoUrl: string | null; disp: "pc" | "tablet" | "celular"; tema: TemaSite;
+  children: React.ReactNode;
 }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const innerRef = useRef<HTMLDivElement>(null);
@@ -214,7 +221,7 @@ function Preview({ design, dados, menu, nome, logoUrl, disp, tema }: {
             orientacao={design.header.orientacao} logoPos={design.header.logo_pos} corTexto={design.header.cor_texto} largura={design.header.largura} />
           <div style={lateral ? { flex: 1, minWidth: 0 } : undefined}>
             <div className="site-main">
-              <HomeBlocos blocos={design.blocos} dados={dados} base="#" />
+              {children}
             </div>
           </div>
         </div>
@@ -241,7 +248,14 @@ export default function AparenciaPage() {
   const dragIdx = useRef<number | null>(null);
   const [sobreIdx, setSobreIdx] = useState<number | null>(null);
 
-  const snapshot = JSON.stringify(design);
+  // ── HUB: página selecionada + páginas por blocos (site_paginas) + coleções p/ prévia ──
+  const [pagina, setPagina] = useState<string>("inicio"); // "inicio" | "grade:portfolio" | "grade:trabalhos" | id de site_paginas
+  const [paginas, setPaginas] = useState<SitePagina[]>([]);
+  const [paginasBlocos, setPaginasBlocos] = useState<Record<string, SiteBloco[]>>({});
+  const paginasBase = useRef<Record<string, string>>({}); // baseline por página (o que está no banco/seed) — só salva o que mudou
+  const [portfolios, setPortfolios] = useState<SitePortfolio[]>([]);
+
+  const snapshot = JSON.stringify({ design, paginasBlocos });
   const estado = useEditorEstado(snapshot, "/site");
 
   useEffect(() => {
@@ -251,18 +265,30 @@ export default function AparenciaPage() {
       const { data: cfg } = await sb.from("site_config").select("design, tema").eq("fotografo_id", fotografo.id).maybeSingle();
       const row = cfg as { design?: unknown; tema?: string | null } | null;
       const d = normalizarDesign(row?.design);
-      setDesign(d); setTemaId(row?.tema ?? null); estado.inicializar(JSON.stringify(d));
+      setDesign(d); setTemaId(row?.tema ?? null);
       const fid = fotografo.id;
-      const [banners, trabalhos, posts, depoimentos, selos, menuRows] = await Promise.all([
+      const [banners, trabalhos, posts, depoimentos, selos, menuRows, paginasRows, portfoliosRows] = await Promise.all([
         fetchAllRows<SiteBanner>((s, f, t) => s.from("site_banners").select("*").eq("fotografo_id", fid).eq("publicado", true).order("ordem").range(f, t), sb),
         fetchAllRows<SiteTrabalho>((s, f, t) => s.from("site_trabalhos").select("*").eq("fotografo_id", fid).eq("publicado", true).order("data_evento", { ascending: false }).range(f, t), sb),
         fetchAllRows<SitePost>((s, f, t) => s.from("site_posts").select("*").eq("fotografo_id", fid).eq("publicado", true).order("ordem").range(f, t), sb),
         fetchAllRows<SiteDepoimento>((s, f, t) => s.from("site_depoimentos").select("*").eq("fotografo_id", fid).eq("publicado", true).order("ordem").range(f, t), sb),
         fetchAllRows<SiteSelo>((s, f, t) => s.from("site_selos").select("*").eq("fotografo_id", fid).eq("publicado", true).order("ordem").range(f, t), sb),
         fetchAllRows<{ id: string; label: string; href: string; visivel: boolean }>((s, f, t) => s.from("site_menu").select("id,label,href,visivel").eq("fotografo_id", fid).order("ordem").range(f, t), sb),
+        fetchAllRows<SitePagina>((s, f, t) => s.from("site_paginas").select("*").eq("fotografo_id", fid).order("created_at").range(f, t), sb),
+        fetchAllRows<SitePortfolio>((s, f, t) => s.from("site_portfolios").select("*").eq("fotografo_id", fid).eq("publicado", true).order("ordem").range(f, t), sb),
       ]);
       setDados({ banners, trabalhos: trabalhos.slice(0, 9), posts: posts.slice(0, 6), depoimentos, selos });
       setMenu(menuRows.filter((m) => m.visivel !== false).map((m) => ({ id: String(m.id), label: m.label, href: m.href })));
+      // Seed dos blocos por página: usa os salvos; sem salvos, converte o conteúdo legado
+      // (o público só muda quando o fotógrafo SALVAR — o baseline registra o seed).
+      const seeds: Record<string, SiteBloco[]> = {};
+      paginasRows.forEach((p) => {
+        const salvos = Array.isArray(p.blocos) && (p.blocos as SiteBloco[]).length > 0 ? (p.blocos as SiteBloco[]) : null;
+        seeds[p.id] = salvos ?? conteudoParaBlocos(p.conteudo, p.slug === "contato");
+        paginasBase.current[p.id] = JSON.stringify(seeds[p.id]);
+      });
+      setPaginas(paginasRows); setPaginasBlocos(seeds); setPortfolios(portfoliosRows);
+      estado.inicializar(JSON.stringify({ design: d, paginasBlocos: seeds }));
       setLoading(false);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -271,6 +297,7 @@ export default function AparenciaPage() {
   const setHeader = (patch: Partial<HeaderConfig>) => setDesign((d) => ({ ...d, header: { ...d.header, ...patch } }));
   const setRodape = (patch: Partial<BarraConfig>) => setDesign((d) => ({ ...d, rodape: { ...d.rodape, ...patch } }));
   const setBloco = (key: HomeBlocoKey, patch: Partial<HomeBloco>) => setDesign((d) => ({ ...d, blocos: d.blocos.map((bl) => bl.key === key ? { ...bl, ...patch } : bl) }));
+  const setGrade = (k: "portfolio" | "trabalhos", patch: Partial<GradeConfig>) => setDesign((d) => ({ ...d, grades: { ...d.grades, [k]: { ...d.grades[k], ...patch } } }));
   const toggle = (k: string) => setAberto((a) => ({ ...a, [k]: !a[k] }));
 
   function soltar(destino: number) {
@@ -295,10 +322,22 @@ export default function AparenciaPage() {
   async function salvar(): Promise<boolean> {
     if (!fotografo) return false;
     setSalvando(true); setMsg(null);
-    const { error } = await createClient().from("site_config").upsert({ fotografo_id: fotografo.id, design, updated_at: new Date().toISOString() }, { onConflict: "fotografo_id" });
+    const sb = createClient();
+    const { error } = await sb.from("site_config").upsert({ fotografo_id: fotografo.id, design, updated_at: new Date().toISOString() }, { onConflict: "fotografo_id" });
+    if (error) { setSalvando(false); setMsg("Erro: " + error.message); return false; }
+    // Páginas por blocos: grava SÓ as que mudaram em relação ao baseline (banco/seed) —
+    // página não tocada continua com o render legado no público.
+    for (const p of paginas) {
+      const atual = paginasBlocos[p.id];
+      if (!atual) continue;
+      const json = JSON.stringify(atual);
+      if (json === paginasBase.current[p.id]) continue;
+      const { error: e2 } = await sb.from("site_paginas").update({ blocos: atual, updated_at: new Date().toISOString() }).eq("id", p.id);
+      if (e2) { setSalvando(false); setMsg("Erro: " + e2.message); return false; }
+      paginasBase.current[p.id] = json;
+    }
     setSalvando(false);
-    if (error) { setMsg("Erro: " + error.message); return false; }
-    estado.marcarSalvo(JSON.stringify(design));
+    estado.marcarSalvo(JSON.stringify({ design, paginasBlocos }));
     setMsg("Aparência salva! Recarregue seu site para ver.");
     return true;
   }
@@ -317,6 +356,25 @@ export default function AparenciaPage() {
     depoimentos: dados.depoimentos.length ? dados.depoimentos : DADOS_EXEMPLO.depoimentos,
     selos: dados.selos.length ? dados.selos : DADOS_EXEMPLO.selos,
   };
+
+  // ── HUB: abas de página + dados da prévia das grades ──
+  const pgSel = paginas.find((p) => p.id === pagina) ?? null;
+  const institucionais = paginas.filter((p) => p.slug === "sobre" || p.slug === "contato");
+  const customs = paginas.filter((p) => p.slug !== "sobre" && p.slug !== "contato");
+  const abas: { id: string; label: string }[] = [
+    { id: "inicio", label: "Início" },
+    ...institucionais.map((p) => ({ id: p.id, label: p.titulo || p.slug })),
+    { id: "grade:portfolio", label: "Portfólio" },
+    { id: "grade:trabalhos", label: "Trabalhos" },
+    ...customs.map((p) => ({ id: p.id, label: p.titulo || p.slug })),
+  ];
+  const trabalhosPrev: ItemGrade[] = dadosPreview.trabalhos.map((t) => ({
+    id: t.id, href: "#", capa_url: t.capa_url, titulo: t.titulo, subtitulo: t.categoria, subtitulo2: t.local,
+    rodape: { views: t.views ?? 0, likes: t.likes ?? 0 },
+  }));
+  const portfoliosPrev: ItemGrade[] = portfolios.length
+    ? portfolios.map((p) => ({ id: p.id, href: "#", capa_url: p.capa_url, titulo: p.titulo }))
+    : DADOS_EXEMPLO.trabalhos.map((t) => ({ id: t.id, href: "#", capa_url: t.capa_url, titulo: t.titulo }));
 
   const campo = (titulo: string, node: React.ReactNode) => (
     <div style={{ marginBottom: 14 }}>
@@ -406,14 +464,26 @@ export default function AparenciaPage() {
         <h1 style={{ fontSize: 22, fontWeight: 800, color: "var(--color-text-primary)", margin: 0, letterSpacing: "-0.02em" }}>Aparência</h1>
         <SeloEstado temAlteracoes={estado.temAlteracoes} />
       </div>
-      <p style={{ ...mini, margin: "0 0 22px" }}>Monte a página inicial: escolha fontes, logo e as barras, ligue/desligue e reordene os blocos. A prévia ao lado atualiza ao vivo.</p>
+      <p style={{ ...mini, margin: "0 0 14px" }}>Personalize o site página a página. Fontes, logo, header e rodapé (aba Início) valem para o site inteiro. A prévia ao lado atualiza ao vivo.</p>
 
       {loading ? (
         <div style={{ padding: 40, textAlign: "center", ...mini }}>Carregando…</div>
       ) : (
+        <>
+        {/* Seletor de página do HUB */}
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 18 }}>
+          {abas.map((a) => (
+            <button key={a.id} onClick={() => setPagina(a.id)}
+              style={{ padding: "7px 14px", borderRadius: 999, fontSize: 12, fontWeight: 600, cursor: "pointer", border: pagina === a.id ? "1.5px solid #2563EB" : "1px solid var(--color-border-tertiary)", background: pagina === a.id ? "rgba(37,99,235,0.06)" : "transparent", color: pagina === a.id ? "#2563EB" : "var(--color-text-primary)" }}>
+              {a.label}
+            </button>
+          ))}
+        </div>
+
         <div className="aparencia-grid">
           {/* ── COLUNA ESQUERDA: controles ── */}
           <div>
+            {pagina === "inicio" && (<>
             {/* Fontes */}
             <Card titulo="Fontes" aberto={!!aberto.fontes} onToggle={() => toggle("fontes")}>
               <div style={{ display: "flex", flexDirection: "column", gap: 4, maxHeight: 320, overflowY: "auto" }}>
@@ -496,8 +566,44 @@ export default function AparenciaPage() {
               {campo("Transparência", <Range label="Transparência" value={100 - design.rodape.opacidade} min={0} max={60} unidade="%" onChange={(v) => setRodape({ opacidade: 100 - v })} />)}
               {campo("Altura", <Range label="Altura" value={design.rodape.altura} min={16} max={96} unidade="px" onChange={(v) => setRodape({ altura: v })} />)}
             </Card>
+            </>)}
 
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, alignItems: "center", marginTop: 4 }}>
+            {/* ── Exibição das grades (Portfólio /colecoes e Trabalhos /portfolio) ── */}
+            {(pagina === "grade:portfolio" || pagina === "grade:trabalhos") && (() => {
+              const k = pagina === "grade:portfolio" ? "portfolio" as const : "trabalhos" as const;
+              const g = design.grades[k];
+              return (
+                <Card titulo={k === "portfolio" ? "Exibição da grade do Portfólio" : "Exibição da grade de Trabalhos"} aberto onToggle={() => {}}>
+                  {campo("Colunas do grid", <Range label="Colunas" value={g.colunas} min={1} max={6} onChange={(v) => setGrade(k, { colunas: v })} />)}
+                  {campo("Proporção da capa", <Seg value={g.proporcao} options={PROP_OPTS} onChange={(v) => setGrade(k, { proporcao: v })} />)}
+                  {campo("Posição do título", <Seg value={g.titulo_pos} options={POS_OPTS} onChange={(v) => setGrade(k, { titulo_pos: v })} />)}
+                  {k === "trabalhos" && campo("Texto do card", <Seg value={g.texto_card} options={[{ v: "titulo_subtitulo", l: "Título + subtítulo" }, { v: "so_titulo", l: "Só título" }] as const} onChange={(v) => setGrade(k, { texto_card: v })} />)}
+                  <p style={{ ...mini, marginTop: 4 }}>
+                    {k === "portfolio"
+                      ? <>As coleções exibidas são as de <strong>Site → Galerias → Portfólio</strong>.</>
+                      : <>Os trabalhos exibidos são os de <strong>Site → Galerias → Trabalhos</strong>.</>}
+                  </p>
+                </Card>
+              );
+            })()}
+
+            {/* ── Página por blocos (Sobre/Contato/custom) — EditorBlocos compartilhado ── */}
+            {pgSel && fotografo && (
+              <>
+                <div style={{ ...lbl, margin: "2px 0 8px", color: "var(--color-text-tertiary)" }}>Conteúdo da página “{pgSel.titulo}”</div>
+                {pgSel.slug === "contato" && (
+                  <p style={{ ...mini, margin: "0 0 10px" }}>O título e os canais de contato (WhatsApp/e-mail) são fixos da página — os blocos montam o corpo.</p>
+                )}
+                <EditorBlocos
+                  blocos={paginasBlocos[pgSel.id] ?? []}
+                  onChange={(bl) => setPaginasBlocos((m) => ({ ...m, [pgSel.id]: bl }))}
+                  fotografoId={fotografo.id}
+                  pasta={`paginas/${pgSel.id}`}
+                />
+              </>
+            )}
+
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, alignItems: "center", marginTop: 12 }}>
               {msg && <span style={{ fontSize: 12, fontWeight: 600, color: msg.startsWith("Erro") ? "#DC2626" : "#059669" }}>{msg}</span>}
               <BotaoSalvarEstado temAlteracoes={estado.temAlteracoes} salvando={salvando} onClick={() => salvar()} />
             </div>
@@ -510,10 +616,34 @@ export default function AparenciaPage() {
                 <button key={k} onClick={() => setDisp(k)} style={{ padding: "6px 12px", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer", border: disp === k ? "1.5px solid #2563EB" : "1px solid var(--color-border-tertiary)", background: disp === k ? "rgba(37,99,235,0.06)" : "transparent", color: disp === k ? "#2563EB" : "var(--color-text-primary)" }}>{l}</button>
               ))}
             </div>
-            <Preview design={design} dados={dadosPreview} menu={menu} nome={nome} logoUrl={logo} disp={disp} tema={tema} />
+            <Preview design={design} menu={menu} nome={nome} logoUrl={logo} disp={disp} tema={tema}>
+              {pagina === "inicio" && <HomeBlocos blocos={design.blocos} dados={dadosPreview} base="#" />}
+              {pagina === "grade:portfolio" && (
+                <div style={{ maxWidth: 1180, margin: "0 auto", padding: "48px 24px" }}>
+                  <h1 className="site-secao-titulo" style={{ fontSize: 30, textAlign: "center", margin: "0 0 44px" }}>Portfólio</h1>
+                  <GradeCards config={design.grades.portfolio} itens={portfoliosPrev} />
+                </div>
+              )}
+              {pagina === "grade:trabalhos" && (
+                <div style={{ maxWidth: 1180, margin: "0 auto", padding: "48px 24px" }}>
+                  <h1 className="site-secao-titulo" style={{ fontSize: 30, textAlign: "center", margin: "0 0 44px" }}>Trabalhos</h1>
+                  <GradeCards config={design.grades.trabalhos} itens={trabalhosPrev} />
+                </div>
+              )}
+              {pgSel && (
+                <div style={{ padding: "40px 0" }}>
+                  <h1 style={{ fontSize: 28, fontWeight: 700, textAlign: "center", margin: "0 0 32px", padding: "0 24px" }}>{pgSel.titulo}</h1>
+                  <RenderBlocos
+                    blocos={paginasBlocos[pgSel.id] ?? []}
+                    ctx={{ base: "#", fid: fotografo?.id ?? "", depoimentos: dadosPreview.depoimentos, whatsappFallback: null, categorias: [] }}
+                  />
+                </div>
+              )}
+            </Preview>
             <div style={{ ...mini, marginTop: 8, textAlign: "center" }}>Prévia ao vivo — o site real segue estas escolhas.</div>
           </div>
         </div>
+        </>
       )}
 
       <ModalNaoSalvo

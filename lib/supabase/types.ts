@@ -564,6 +564,7 @@ export type SitePagina = {
   titulo: string;
   slug: string;
   conteudo: unknown | null;
+  blocos: unknown | null; // SiteBloco[] (motor de blocos) — null = usa o conteudo legado
   publicado: boolean;
   seo_title: string | null;
   seo_description: string | null;

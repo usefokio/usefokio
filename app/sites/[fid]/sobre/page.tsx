@@ -1,7 +1,12 @@
 // Página Sobre — conteúdo importado (site_paginas.tipo = 'sobre').
+// Com site_paginas.blocos preenchido, renderiza pelo motor de blocos (Aparência);
+// sem blocos, mantém o visual legado (html + foto) — zero regressão/SEO preservado.
 import type { Metadata } from "next";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { resolverMetaPagina } from "@/lib/site/seo";
+import { contextoBlocos } from "@/lib/site/publico";
+import type { SiteBloco } from "@/lib/site/blocos";
+import { RenderBlocos } from "../_components/RenderBlocos";
 import type { SitePagina } from "@/lib/supabase/types";
 
 async function buscarSobre(fid: string): Promise<SitePagina | null> {
@@ -30,6 +35,18 @@ export default async function SobrePage({ params }: { params: Promise<{ fid: str
   const { fid } = await params;
   const p = await buscarSobre(fid);
   const conteudo = (p?.conteudo ?? {}) as { html?: string | null; imagens?: string[] };
+
+  // Página montada por blocos (Aparência) — o H1 continua fixo (SEO preservado).
+  const blocos = Array.isArray(p?.blocos) && p.blocos.length > 0 ? (p.blocos as SiteBloco[]) : null;
+  if (blocos) {
+    const ctx = await contextoBlocos(fid);
+    return (
+      <div style={{ padding: "40px 0" }}>
+        <h1 style={{ fontSize: 28, fontWeight: 700, textAlign: "center", margin: "0 0 32px", padding: "0 24px" }}>{p?.titulo ?? "Sobre"}</h1>
+        <RenderBlocos blocos={blocos} ctx={ctx} />
+      </div>
+    );
+  }
 
   return (
     <div style={{ maxWidth: 900, margin: "0 auto", padding: "40px 24px" }}>

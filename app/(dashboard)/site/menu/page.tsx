@@ -125,10 +125,14 @@ export default function PaginasMenuPage() {
     if (data) setItens((prev) => [...prev, data as SiteMenuItem]);
     setAdd(null); setNovoTitulo(""); setNovoUrl("");
   }
+  // Slugs reservados: rotas fixas do site público (colisão deixaria a página inacessível).
+  const SLUGS_RESERVADOS = new Set(["sobre", "contato", "portfolio", "colecoes", "blog", "post", "galeria", "gallery.php", "sitemap.xml", "robots.txt"]);
+
   async function adicionarPagina() {
     if (!fotografo || !novoTitulo.trim()) return;
     const titulo = novoTitulo.trim();
     const slug = (novoSlug.trim() || slugify(titulo)) || "pagina";
+    if (SLUGS_RESERVADOS.has(slug)) { setMsg(`O endereço "/${slug}" é reservado do site — escolha outro.`); return; }
     setMsg(null);
     const sb = createClient();
     const { data: pg, error } = await sb.from("site_paginas").insert({ fotografo_id: fotografo.id, tipo: "custom", titulo, slug, conteudo: {}, publicado: true }).select("*").single();
