@@ -2,6 +2,7 @@
 // MODELOS fixos + campos, persistidos em site_paginas.conteudo (jsonb, sem DDL).
 // Blocos livres ficam SÓ nas landing pages. Client-safe (sem dependência de servidor).
 import type { ConfigFormulario } from "./formulario";
+import { ANCORAS, type AncoraFoto } from "./design";
 
 export type LayoutContato = "duas_colunas" | "banner_fundo" | "minimalista";
 export type LayoutSobre = "foto_bio" | "foto_fundo" | "minimalista";
@@ -11,6 +12,7 @@ export type CfgContato = {
   html: string | null;        // texto/biografia (conteudo.html)
   foto: string | null;        // conteudo.imagens[0]
   banner: string | null;      // conteudo.banner_url — topo (duas_colunas) ou fundo (banner_fundo)
+  ancora: AncoraFoto;         // alinhamento vertical do recorte das imagens da página
   formulario?: ConfigFormulario;
 };
 
@@ -19,6 +21,7 @@ export type CfgSobre = {
   html: string | null;
   foto: string | null;
   foto_largura: number;       // largura da foto em px (foto+bio) / largura máx. (minimalista)
+  ancora: AncoraFoto;         // alinhamento vertical do recorte das imagens da página
   fundo: string | null;       // conteudo.banner_url (imagem de fundo do modelo foto_fundo)
 };
 
@@ -40,6 +43,7 @@ const numPx = (v: unknown, def: number): number => {
   const n = typeof v === "number" ? v : Number(v);
   return Number.isFinite(n) ? Math.min(720, Math.max(160, n)) : def;
 };
+const ancoraDe = (v: unknown): AncoraFoto => (ANCORAS.includes(v as AncoraFoto) ? (v as AncoraFoto) : "centro");
 
 // Sem layout salvo, reproduz o visual legado: com foto → colunas; sem foto → minimalista.
 export function cfgContatoDe(conteudo: unknown): CfgContato {
@@ -48,7 +52,7 @@ export function cfgContatoDe(conteudo: unknown): CfgContato {
   const layout = LAYOUTS_CONTATO.some((o) => o.v === c.layout)
     ? (c.layout as LayoutContato)
     : (foto ? "duas_colunas" : "minimalista");
-  return { layout, html: str(c.html), foto, banner: str(c.banner_url), formulario: c.formulario as ConfigFormulario | undefined };
+  return { layout, html: str(c.html), foto, banner: str(c.banner_url), ancora: ancoraDe(c.ancora), formulario: c.formulario as ConfigFormulario | undefined };
 }
 
 export function cfgSobreDe(conteudo: unknown): CfgSobre {
@@ -57,7 +61,7 @@ export function cfgSobreDe(conteudo: unknown): CfgSobre {
   const layout = LAYOUTS_SOBRE.some((o) => o.v === c.layout)
     ? (c.layout as LayoutSobre)
     : (foto ? "foto_bio" : "minimalista");
-  return { layout, html: str(c.html), foto, foto_largura: numPx(c.foto_largura, 320), fundo: str(c.banner_url) };
+  return { layout, html: str(c.html), foto, foto_largura: numPx(c.foto_largura, 320), ancora: ancoraDe(c.ancora), fundo: str(c.banner_url) };
 }
 
 // Mescla a config de volta no conteudo (preserva chaves desconhecidas do jsonb).
@@ -69,6 +73,7 @@ export function conteudoComCfg(conteudoOriginal: unknown, cfg: CfgContato | CfgS
     html: cfg.html,
     imagens: cfg.foto ? [cfg.foto] : [],
     banner_url: "banner" in cfg ? cfg.banner : cfg.fundo,
+    ancora: cfg.ancora,
     ...("foto_largura" in cfg ? { foto_largura: cfg.foto_largura } : {}),
     ...("formulario" in cfg && cfg.formulario !== undefined ? { formulario: cfg.formulario } : {}),
   };

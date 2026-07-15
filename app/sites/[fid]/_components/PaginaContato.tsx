@@ -1,6 +1,7 @@
 // Página de CONTATO — 3 modelos fixos (padrão da Aparência da home): o mesmo componente
 // renderiza o site público e a prévia ao vivo do editor. O H1 e os canais são a moldura
 // fixa da página (SEO); o modelo define a disposição de foto/texto/formulário.
+import { OBJECT_POSITION } from "@/lib/site/design";
 import type { CfgContato } from "@/lib/site/paginaCfg";
 import { ContatoForm } from "./ContatoForm";
 
@@ -29,6 +30,7 @@ export function PaginaContato({ cfg, titulo, canais, fid, categorias }: {
   cfg: CfgContato; titulo: string; canais: CanalContato[]; fid: string;
   categorias: { valor: string; label: string }[];
 }) {
+  const objPos = OBJECT_POSITION[cfg.ancora]; // alinhamento vertical do recorte das imagens
   const form = <ContatoForm fid={fid} config={cfg.formulario} categorias={categorias} />;
   const textoEl = cfg.html
     ? <div className="site-conteudo" style={{ fontSize: 15, color: "var(--site-suave)", lineHeight: 1.8, margin: "0 0 20px" }} dangerouslySetInnerHTML={{ __html: cfg.html }} />
@@ -39,7 +41,7 @@ export function PaginaContato({ cfg, titulo, canais, fid, categorias }: {
     return (
       <>
         <section className="lp-hero" style={{ minHeight: "88vh" }}>
-          {cfg.banner && <img className="lp-hero-bg" src={cfg.banner} alt="" />}
+          {cfg.banner && <img className="lp-hero-bg" src={cfg.banner} alt="" style={{ objectPosition: objPos }} />}
           <div className="lp-hero-inner">
             <h1>{titulo}</h1>
             {cfg.html && <div className="lp-hero-texto site-conteudo" dangerouslySetInnerHTML={{ __html: cfg.html }} />}
@@ -76,14 +78,14 @@ export function PaginaContato({ cfg, titulo, canais, fid, categorias }: {
     <>
       {cfg.banner && (
         <div style={{ height: "38vh", maxHeight: 420, overflow: "hidden", background: "var(--site-superficie)" }}>
-          <img src={cfg.banner} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+          <img src={cfg.banner} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: objPos, display: "block" }} />
         </div>
       )}
       <div className="site-contato">
         <div>
           <h1 style={h1Style}>{titulo}</h1>
           <Canais canais={canais} />
-          {cfg.foto && <img src={cfg.foto} alt="" style={{ width: "100%", borderRadius: 12, display: "block", margin: "0 0 18px" }} />}
+          {cfg.foto && <img src={cfg.foto} alt="" style={{ width: "100%", aspectRatio: "3 / 4", objectFit: "cover", objectPosition: objPos, borderRadius: 12, display: "block", margin: "0 0 18px" }} />}
           {textoEl}
         </div>
         <div>{form}</div>

@@ -42,6 +42,7 @@ const clamp01 = (n: number) => Math.min(1, Math.max(0, n));
 
 const PROP_OPTS = [{ v: "horizontal_3x2", l: "Horizontal 3:2" }, { v: "horizontal_4x3", l: "Horizontal 4:3" }, { v: "vertical_2x3", l: "Vertical 2:3" }, { v: "quadrado_1x1", l: "Quadrado" }] as const;
 const POS_OPTS = [{ v: "acima", l: "Acima" }, { v: "centro", l: "Sobre a capa" }, { v: "abaixo", l: "Abaixo" }] as const;
+const ANC_OPTS = [{ v: "superior", l: "Superior" }, { v: "centro", l: "Central" }, { v: "inferior", l: "Inferior" }] as const;
 
 // ── Estilos base ──
 const lbl: React.CSSProperties = { fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em" };
@@ -657,7 +658,13 @@ export default function AparenciaPage() {
                       </button>
                       {cfgSobre.foto && <button onClick={() => setCfgSobre((c) => c ? { ...c, foto: null } : c)} style={{ border: "none", background: "transparent", fontSize: 11, color: "#DC2626", cursor: "pointer" }}>Remover</button>}
                     </div>
-                    {cfgSobre.foto && (
+                    {cfgSobre.foto && cfgSobre.layout === "foto_bio" && (
+                      <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 12 }}>
+                        <Range label="Tamanho da foto" value={cfgSobre.foto_largura} min={160} max={720} unidade="px" onChange={(v) => setCfgSobre((c) => c ? { ...c, foto_largura: v } : c)} />
+                        {campo("Alinhamento do recorte", <Seg value={cfgSobre.ancora} options={ANC_OPTS} onChange={(v) => setCfgSobre((c) => c ? { ...c, ancora: v } : c)} />)}
+                      </div>
+                    )}
+                    {cfgSobre.foto && cfgSobre.layout === "minimalista" && (
                       <div style={{ marginTop: 12 }}>
                         <Range label="Tamanho da foto" value={cfgSobre.foto_largura} min={160} max={720} unidade="px" onChange={(v) => setCfgSobre((c) => c ? { ...c, foto_largura: v } : c)} />
                       </div>
@@ -673,6 +680,7 @@ export default function AparenciaPage() {
                       </button>
                       {cfgSobre.fundo && <button onClick={() => setCfgSobre((c) => c ? { ...c, fundo: null } : c)} style={{ border: "none", background: "transparent", fontSize: 11, color: "#DC2626", cursor: "pointer" }}>Remover</button>}
                     </div>
+                    {cfgSobre.fundo && <div style={{ marginTop: 12 }}>{campo("Alinhamento do recorte", <Seg value={cfgSobre.ancora} options={ANC_OPTS} onChange={(v) => setCfgSobre((c) => c ? { ...c, ancora: v } : c)} />)}</div>}
                   </Card>
                 )}
                 <Card titulo="Texto de apresentação" aberto onToggle={() => {}}>
@@ -697,6 +705,7 @@ export default function AparenciaPage() {
                       </button>
                       {cfgContato.banner && <button onClick={() => setCfgContato((c) => c ? { ...c, banner: null } : c)} style={{ border: "none", background: "transparent", fontSize: 11, color: "#DC2626", cursor: "pointer" }}>Remover</button>}
                     </div>
+                    {cfgContato.banner && <div style={{ marginTop: 12 }}>{campo("Alinhamento do recorte", <Seg value={cfgContato.ancora} options={ANC_OPTS} onChange={(v) => setCfgContato((c) => c ? { ...c, ancora: v } : c)} />)}</div>}
                   </Card>
                 )}
                 {cfgContato.layout === "duas_colunas" && (
@@ -708,6 +717,7 @@ export default function AparenciaPage() {
                       </button>
                       {cfgContato.foto && <button onClick={() => setCfgContato((c) => c ? { ...c, foto: null } : c)} style={{ border: "none", background: "transparent", fontSize: 11, color: "#DC2626", cursor: "pointer" }}>Remover</button>}
                     </div>
+                    {cfgContato.foto && <div style={{ marginTop: 12 }}>{campo("Alinhamento do recorte", <Seg value={cfgContato.ancora} options={ANC_OPTS} onChange={(v) => setCfgContato((c) => c ? { ...c, ancora: v } : c)} />)}</div>}
                   </Card>
                 )}
                 <Card titulo={cfgContato.layout === "minimalista" ? "Texto (opcional)" : "Texto / biografia"} aberto onToggle={() => {}}>

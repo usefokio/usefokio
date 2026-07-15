@@ -38,9 +38,15 @@ export function BlocoBanner({ config, banners, base }: { config: HomeBloco; bann
     const cols = config.colunas ?? 3;
     const linhas = config.linhas ?? 0;
     const porPagina = linhas * cols;
-    const celula = (b: SiteBanner) => envolver(b, b.imagem_url
-      ? <img src={b.imagem_url} alt={b.titulo ?? ""} style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: objPos, display: "block", aspectRatio: aspect }} loading="lazy" />
-      : <div style={{ width: "100%", aspectRatio: aspect, background: gradPlaceholder(b.id) }} />);
+    // Wrapper com a proporção (aspectRatio) + overflow hidden define a "moldura"; a img
+    // preenche (cover) e o object-position ancora o recorte. Sem o wrapper, width+height:100%
+    // juntos anulam o aspectRatio e o object-position não faz efeito.
+    const celula = (b: SiteBanner) => envolver(b,
+      <div style={{ width: "100%", aspectRatio: aspect, overflow: "hidden" }}>
+        {b.imagem_url
+          ? <img src={b.imagem_url} alt={b.titulo ?? ""} style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: objPos, display: "block" }} loading="lazy" />
+          : <div style={{ width: "100%", height: "100%", background: gradPlaceholder(b.id) }} />}
+      </div>);
 
     // Com limite de linhas e mais fotos que a matriz comporta → a matriz inteira desliza em páginas.
     if (linhas > 0 && banners.length > porPagina) {
