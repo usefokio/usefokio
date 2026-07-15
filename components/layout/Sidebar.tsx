@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Avatar } from "@/components/ui/Avatar";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { PLANOS, pctUso, corBarra, limiteEfetivo, type PlanoId } from "@/lib/planos";
+import { temProdutoFotografia, temProdutoCRM, temProdutoSite } from "@/lib/recursos";
 
 const USEFOKIO_ITEMS = [
   {
@@ -478,6 +479,7 @@ export function Sidebar({ isMobile = false, mobileAberta = false, onFechar }: Si
         {(() => {
           const recursosPorRota: Record<string, keyof NonNullable<typeof fotografo>["recursos"]> = {
             "/selecao": "selecao", "/entrega": "entrega", "/album": "album", "/contatos": "contatos",
+            "/recebimentos": "pagamentos",
           };
 
           const inCRM  = pathname.startsWith("/crm");
@@ -627,22 +629,25 @@ export function Sidebar({ isMobile = false, mobileAberta = false, onFechar }: Si
             </>
           );
 
-          // Dev e prod: UseFokio + CRM + Site (se habilitados). Em dev o mock tem todos os recursos.
-          const crmHabilitado  = fotografo?.recursos?.crm !== false;
-          const siteHabilitado = fotografo?.recursos?.site === true; // opt-in: recurso novo, oculto até habilitar
+          // Dev e prod: cada módulo-mãe só aparece se o fotógrafo tem o produto
+          // (lib/recursos.ts — mesma regra do guard de rota). Em dev o mock tem todos.
+          const fotoHabilitado = temProdutoFotografia(fotografo?.recursos);
+          const crmHabilitado  = temProdutoCRM(fotografo?.recursos);
+          const siteHabilitado = temProdutoSite(fotografo?.recursos);
 
           return (
             <>
-              {renderModule("/dashboard", "UseFokio", icoUseFokio, usefokioChildren, !inCRM && !inSite, usefokioOpen, () => alternarModulo("usefokio"))}
+              {fotoHabilitado &&
+                renderModule("/dashboard", "UseFokio", icoUseFokio, usefokioChildren, !inCRM && !inSite, usefokioOpen, () => alternarModulo("usefokio"))}
               {crmHabilitado && (
                 <>
-                  <div style={{ margin: "4px 0", borderTop: "0.5px solid var(--color-border-tertiary)" }} />
+                  {fotoHabilitado && <div style={{ margin: "4px 0", borderTop: "0.5px solid var(--color-border-tertiary)" }} />}
                   {renderModule("/crm/agenda", "CRM", icoCRM, crmChildren, inCRM, crmOpen, () => alternarModulo("crm"))}
                 </>
               )}
               {siteHabilitado && (
                 <>
-                  <div style={{ margin: "4px 0", borderTop: "0.5px solid var(--color-border-tertiary)" }} />
+                  {(fotoHabilitado || crmHabilitado) && <div style={{ margin: "4px 0", borderTop: "0.5px solid var(--color-border-tertiary)" }} />}
                   {renderModule("/site", "Site", icoSite, siteChildren, inSite, siteOpen, () => alternarModulo("site"))}
                 </>
               )}

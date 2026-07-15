@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { createClient } from "@/lib/supabase/client";
+import { rotaPermitida, rotaInicialPermitida } from "@/lib/recursos";
 import { DoacaoDev } from "./DoacaoDev";
 
 const WEBMASTER_ID    = process.env.NEXT_PUBLIC_WEBMASTER_ID ?? "";
@@ -97,6 +98,13 @@ export function DashboardGuard({ children }: { children: React.ReactNode }) {
       return;
     }
 
+    // Bloqueio por recurso: rota de produto que o fotógrafo não tem → casa do 1º
+    // produto que ele tem (mesma regra do menu — lib/recursos.ts).
+    if (!rotaPermitida(fotografo.recursos, pathname)) {
+      router.replace(rotaInicialPermitida(fotografo.recursos));
+      return;
+    }
+
     const sb = createClient();
 
     // Verifica se já aceitou a versão atual dos termos
@@ -131,6 +139,11 @@ export function DashboardGuard({ children }: { children: React.ReactNode }) {
 
   const isWebmaster = (WEBMASTER_ID && fotografo?.id === WEBMASTER_ID) || (WEBMASTER_EMAIL && fotografo?.email === WEBMASTER_EMAIL);
   if (!fotografo || !fotografo.aprovado || isWebmaster) {
+    return <div style={spinStyle}><div style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>Redirecionando…</div></div>;
+  }
+
+  // Não renderizar conteúdo de produto negado enquanto o redirect do useEffect roda
+  if (process.env.NODE_ENV !== "development" && !rotaPermitida(fotografo.recursos, pathname)) {
     return <div style={spinStyle}><div style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>Redirecionando…</div></div>;
   }
 
