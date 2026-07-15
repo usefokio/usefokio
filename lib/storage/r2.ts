@@ -1,6 +1,17 @@
 import { S3Client } from "@aws-sdk/client-s3";
 
-const accountId       = (process.env.R2_ACCOUNT_ID       ?? "").trim();
+// Aceita R2_ACCOUNT_ID como o id puro (recomendado) OU o endpoint completo colado por
+// engano (https://<id>.r2.cloudflarestorage.com) — extrai só o id. Sem isso, um valor com
+// protocolo gera endpoint "https://https://…" e o host vira "https" (getaddrinfo ENOTFOUND).
+function contaR2(v: string): string {
+  return v.trim()
+    .replace(/^https?:\/\//i, "")
+    .replace(/\.r2\.cloudflarestorage\.com.*$/i, "")
+    .replace(/\/.*$/, "")
+    .trim();
+}
+
+const accountId       = contaR2(process.env.R2_ACCOUNT_ID ?? "");
 const accessKeyId     = (process.env.R2_ACCESS_KEY_ID     ?? "").trim();
 const secretAccessKey = (process.env.R2_SECRET_ACCESS_KEY ?? "").trim();
 
