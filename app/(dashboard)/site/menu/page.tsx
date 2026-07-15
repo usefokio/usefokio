@@ -12,7 +12,7 @@ import type { SiteMenuItem, SitePagina } from "@/lib/supabase/types";
 
 const SECOES = [
   { href: "/", label: "Início" },
-  { href: "/galeria", label: "Portfólio" },   // lista as coleções best-of (site_portfolios)
+  { href: "/colecoes", label: "Portfólio" },  // lista as coleções best-of (site_portfolios)
   { href: "/portfolio", label: "Trabalhos" }, // lista os posts de evento (site_trabalhos)
   { href: "/blog", label: "Blog" },
 ] as const;

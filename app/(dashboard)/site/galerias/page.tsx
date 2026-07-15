@@ -111,7 +111,7 @@ export default function GaleriasPage() {
   const catMap = useMemo(() => Object.fromEntries(cats.map((c) => [c.slug, c.nome])), [cats]);
 
   // Cria um portfólio DIRETO: dá um nome e já vai pro editor subir as fotos (sem depender de
-  // categoria/trabalho). Gera um slug único (a URL /galeria/{slug} é fixa; a coluna `categoria`
+  // categoria/trabalho). Gera um slug único (a URL /colecoes/{slug} é fixa; a coluna `categoria`
   // recebe o próprio slug só para satisfazer o schema — não vira categoria do portfólio de trabalhos).
   async function criarPortfolio() {
     const titulo = novoPortTitulo.trim();

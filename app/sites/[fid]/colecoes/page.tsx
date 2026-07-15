@@ -1,6 +1,7 @@
 // Página "Portfólio" pública — lista as COLEÇÕES best-of (site_portfolios) do fotógrafo.
 // Conceito SEPARADO de "Trabalhos" (/portfolio, posts de evento): ver memória
 // project_site_portfolio_vs_trabalho. Independe de haver trabalhos publicados.
+// (/galeria é reservado pro produto de galeria de cliente; por isso a coleção usa /colecoes.)
 import type { Metadata } from "next";
 import Link from "next/link";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -14,10 +15,10 @@ export async function generateMetadata({ params }: { params: Promise<{ fid: stri
   return { title: `Portfólio — ${nome}`, description: `Portfólio de ${nome}.` };
 }
 
-// URL pública da coleção: importada (legacy_id) preserva /gallery.php?id=; nova usa /galeria/{slug}.
+// URL pública da coleção: importada (legacy_id) preserva /gallery.php?id=; nova usa /colecoes/{slug}.
 function urlDoPortfolio(base: string, p: SitePortfolio): string | null {
   if (p.legacy_id) return `${base}/gallery.php?id=${p.legacy_id}`;
-  if (p.slug) return `${base}/galeria/${p.slug}`;
+  if (p.slug) return `${base}/colecoes/${p.slug}`;
   return null;
 }
 

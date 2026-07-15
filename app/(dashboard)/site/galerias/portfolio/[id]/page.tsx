@@ -217,10 +217,10 @@ export default function PortfolioEditorPage({ params }: { params: Promise<{ id: 
   }
 
   // Ponte para o modal de Configurações (portfólio: modo de exibição + SEO + redes; sem URL/data).
-  // Importados preservam a URL legada; os novos usam a URL limpa /galeria/{slug}.
+  // Importados preservam a URL legada; os novos usam a URL limpa /colecoes/{slug}.
   const urlPublica = portfolio?.legacy_id
     ? `/gallery.php?id=${portfolio.legacy_id}`
-    : (portfolio?.slug ? `/galeria/${portfolio.slug}` : "");
+    : (portfolio?.slug ? `/colecoes/${portfolio.slug}` : "");
   const valores: ConfigPaginaValores = {
     slug: "", mostrar_data: false, modo_exibicao: modoExibicao,
     seo_title: seoTitle, seo_description: seoDesc, seo_keywords: seoKw, seo_noindex: seoNoindex,
@@ -270,7 +270,7 @@ export default function PortfolioEditorPage({ params }: { params: Promise<{ id: 
             </div>
           ) : portfolio?.slug ? (
             <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 4, fontFamily: "monospace" }}>
-              Endereço no site: /galeria/{portfolio.slug}
+              Endereço no site: /colecoes/{portfolio.slug}
             </div>
           ) : null}
         </div>

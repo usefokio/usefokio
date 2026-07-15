@@ -467,7 +467,7 @@ export type SitePortfolio = {
   fotografo_id: string;
   categoria: string;
   titulo: string;
-  slug: string | null;      // URL dos portfólios novos (/galeria/{slug}); importados usam legacy_id
+  slug: string | null;      // URL dos portfólios novos (/colecoes/{slug}); importados usam legacy_id
   legacy_id: number | null;
   capa_url: string | null;
   descricao: string | null;

@@ -1,4 +1,5 @@
-// Página do PORTFÓLIO (best-of da categoria) para portfólios NOVOS — URL limpa /galeria/{slug}.
+// Página do PORTFÓLIO (coleção best-of) para portfólios NOVOS — URL limpa /colecoes/{slug}.
+// (/galeria é reservado pro produto de galeria de cliente; por isso a coleção usa /colecoes.)
 // Os importados do Alboom mantêm /gallery.php?id={legacy_id} (SEO preservado); os criados no painel usam esta.
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
@@ -32,7 +33,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
-export default async function GaleriaPortfolioPage({ params }: Props) {
+export default async function ColecaoPortfolioPage({ params }: Props) {
   const { fid, slug } = await params;
   const p = await buscarPortfolio(fid, slug);
   if (!p) notFound();
