@@ -11,8 +11,15 @@ export async function GET(request: NextRequest) {
   const type      = url.searchParams.get("type") as "email" | "recovery" | "invite" | "magiclink" | null;
   const next      = url.searchParams.get("next") ?? "/dashboard";
 
+  // Base pública para os redirects. Atrás de proxy reverso (Railway), request.url traz o
+  // host/proto INTERNOS (http://) — redirecionar pra http:// descarta o cookie de sessão
+  // Secure e derruba o login OAuth. Usar os headers x-forwarded (o Vercel normalizava sozinho).
+  const fwdHost  = request.headers.get("x-forwarded-host") ?? request.headers.get("host") ?? url.host;
+  const fwdProto = request.headers.get("x-forwarded-proto") ?? (fwdHost.startsWith("localhost") ? "http" : "https");
+  const base     = `${fwdProto}://${fwdHost}`;
+
   if (!code && !tokenHash) {
-    return NextResponse.redirect(new URL("/login?erro=link-invalido", request.url));
+    return NextResponse.redirect(new URL("/login?erro=link-invalido", base));
   }
 
   const cookieStore = await cookies();
@@ -36,21 +43,21 @@ export async function GET(request: NextRequest) {
   if (code) {
     const { data, error } = await supabase.auth.exchangeCodeForSession(code);
     if (error || !data.user) {
-      return NextResponse.redirect(new URL("/login?erro=link-invalido", request.url));
+      return NextResponse.redirect(new URL("/login?erro=link-invalido", base));
     }
     user = data.user;
   } else if (tokenHash && type) {
     const { data, error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type });
     if (error || !data.user) {
-      return NextResponse.redirect(new URL("/login?erro=link-invalido", request.url));
+      return NextResponse.redirect(new URL("/login?erro=link-invalido", base));
     }
     user = data.user;
   } else {
-    return NextResponse.redirect(new URL("/login?erro=link-invalido", request.url));
+    return NextResponse.redirect(new URL("/login?erro=link-invalido", base));
   }
 
   if (!user) {
-    return NextResponse.redirect(new URL("/login?erro=link-invalido", request.url));
+    return NextResponse.redirect(new URL("/login?erro=link-invalido", base));
   }
 
   // ── Garante que o perfil do fotógrafo existe ─────────────────────────────
@@ -96,7 +103,7 @@ export async function GET(request: NextRequest) {
 
     if (perfilError) {
       console.error("[auth/callback] Erro ao criar perfil do fotógrafo:", perfilError);
-      return NextResponse.redirect(new URL("/login?erro=perfil", request.url));
+      return NextResponse.redirect(new URL("/login?erro=perfil", base));
     }
 
   }
@@ -104,7 +111,7 @@ export async function GET(request: NextRequest) {
   // Notifica o webmaster sobre o novo cadastro (fire-and-forget, idempotente pela flag
   // notificado_webmaster no endpoint). Fica FORA do if(!perfil): o trigger
   // on_auth_user_created já cria o perfil no signup, então o bloco acima não roda no Google.
-  fetch(new URL("/api/email/novo-fotografo", request.url), {
+  fetch(new URL("/api/email/novo-fotografo", base), {
     method:  "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ fotografoId: user.id }),
@@ -118,7 +125,7 @@ export async function GET(request: NextRequest) {
     (WEBMASTER_EMAIL && user.email === WEBMASTER_EMAIL) ||
     (WEBMASTER_ID    && user.id    === WEBMASTER_ID)
   ) {
-    return NextResponse.redirect(new URL("/webmaster", request.url));
+    return NextResponse.redirect(new URL("/webmaster", base));
   }
 
   // Verifica se fotógrafo está aprovado
@@ -129,9 +136,9 @@ export async function GET(request: NextRequest) {
     .maybeSingle();
 
   if (statusPerfil && !statusPerfil.aprovado) {
-    return NextResponse.redirect(new URL("/aguardando-aprovacao", request.url));
+    return NextResponse.redirect(new URL("/aguardando-aprovacao", base));
   }
 
   // Aprovado → dashboard (ou rota solicitada)
-  return NextResponse.redirect(new URL(next, request.url));
+  return NextResponse.redirect(new URL(next, base));
 }
