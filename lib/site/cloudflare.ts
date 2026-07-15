@@ -5,8 +5,10 @@
 // Tudo gated por env vars — sem elas, o app cai no fluxo antigo (só checagem de CNAME).
 const API = "https://api.cloudflare.com/client/v4";
 
-// Origem de fallback: onde o Cloudflare entrega o tráfego dos domínios próprios (o Railway,
-// via o wildcard *.usefokio.com.br). O app lê x-forwarded-host pra rotear por tenant.
+// Fallback origin do Cloudflare for SaaS: registro AAAA 100:: proxied (originless). O tráfego
+// dos domínios próprios é interceptado pelo Worker "tenant-proxy" (Worker Route */*), que
+// reescreve o Host pro Railway e injeta X-Tenant-Host — nunca chega a este origin de fato.
+// Ver workers/tenant-proxy.js. O app resolve o tenant por x-tenant-host (lib/site/publico.ts).
 export const CF_FALLBACK_ORIGIN = "saas-origin.usefokio.com.br";
 
 function cfConfig(): { token: string; zone: string } | null {
