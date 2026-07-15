@@ -1,11 +1,10 @@
-// Conectar domínio próprio (server): valida, aplica a TRAVA DE SEO e — no self-service —
-// registra o domínio como Custom Hostname no Cloudflare (emite o cert). Precisa rodar no
-// servidor porque usa o token do Cloudflare (nunca no cliente).
+// Conectar domínio próprio (server): valida, aplica a TRAVA DE SEO e salva o domínio +
+// a instrução de CNAME. O registro no Cloudflare (Custom Hostname) é criado no "Verificar" —
+// assim o "Conectar" é rápido e nunca depende de uma chamada externa poder travar.
 import { NextResponse } from "next/server";
 import { fotografoIdAtual } from "@/lib/auth/fotografoAtual";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { CNAME_TARGET_DOMINIO, normalizarHost } from "@/lib/site/publico";
-import { cloudflareAtivo, garantirFallbackOrigin, criarCustomHostname, removerCustomHostname } from "@/lib/site/cloudflare";
 import type { RegistroDns } from "@/lib/supabase/types";
 
 export const runtime = "nodejs";
@@ -41,7 +40,7 @@ export async function POST(req: Request) {
 
     const agora = new Date().toISOString();
 
-    // TRAVA DE SEO: domínio já indexado → migração assistida (sem self-service, sem CF ainda).
+    // TRAVA DE SEO: domínio já indexado → migração assistida (sem self-service).
     if (jaTemSite === "sim") {
       const { error } = await admin.from("site_config").upsert({
         fotografo_id: fotografoId, dominio_customizado: host, dominio_status: "aguardando_seo",
@@ -52,31 +51,13 @@ export async function POST(req: Request) {
       return NextResponse.json({ status: "aguardando_seo", registros: [] });
     }
 
-    // Self-service: instrução de CNAME + (quando o Cloudflare está configurado) cria o Custom Hostname.
+    // Self-service: salva o domínio + instrução de CNAME. O Cloudflare é acionado no "Verificar".
     const registros: RegistroDns[] = [
       { tipo: "CNAME", nome: rotuloCname(host), valor: CNAME_TARGET_DOMINIO, papel: "roteamento" },
     ];
-    let cfHostnameId: string | null = null;
-    let sslStatus: string | null = null;
-
-    if (cloudflareAtivo()) {
-      try {
-        await garantirFallbackOrigin();
-        // Reconexão: remove o Custom Hostname anterior deste fotógrafo, se houver.
-        const { data: prev } = await admin.from("site_config").select("dominio_cf_hostname_id").eq("fotografo_id", fotografoId).maybeSingle();
-        if (prev?.dominio_cf_hostname_id) await removerCustomHostname(prev.dominio_cf_hostname_id);
-        const ch = await criarCustomHostname(host);
-        cfHostnameId = ch.id;
-        sslStatus = ch.ssl?.status ?? null;
-      } catch (e) {
-        console.error("[dominio/conectar] cloudflare:", e);
-        return NextResponse.json({ erro: "Falha ao registrar o domínio no Cloudflare: " + (e instanceof Error ? e.message : String(e)) }, { status: 502 });
-      }
-    }
-
     const { error } = await admin.from("site_config").upsert({
       fotografo_id: fotografoId, dominio_customizado: host, dominio_status: "pendente_dns",
-      dominio_verificacao: registros, dominio_cf_hostname_id: cfHostnameId, dominio_ssl_status: sslStatus,
+      dominio_verificacao: registros, dominio_cf_hostname_id: null, dominio_ssl_status: null,
       dominio_erro: null, dominio_checado_em: null, updated_at: agora,
     }, { onConflict: "fotografo_id" });
     if (error) {
