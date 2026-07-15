@@ -1,0 +1,93 @@
+// Página de CONTATO — 3 modelos fixos (padrão da Aparência da home): o mesmo componente
+// renderiza o site público e a prévia ao vivo do editor. O H1 e os canais são a moldura
+// fixa da página (SEO); o modelo define a disposição de foto/texto/formulário.
+import type { CfgContato } from "@/lib/site/paginaCfg";
+import { ContatoForm } from "./ContatoForm";
+
+export type CanalContato = { icon: string; label: string; href: string; texto: string };
+
+const h1Style: React.CSSProperties = {
+  fontFamily: "var(--site-fonte-titulo), Georgia, serif", fontSize: 32,
+  color: "var(--site-titulo)", margin: "0 0 14px", lineHeight: 1.15,
+};
+
+function Canais({ canais, claro }: { canais: CanalContato[]; claro?: boolean }) {
+  if (canais.length === 0) return null;
+  return (
+    <div style={{ display: "flex", flexWrap: "wrap", gap: "10px 22px", marginBottom: 22, justifyContent: "inherit" }}>
+      {canais.map((c) => (
+        <a key={c.label} href={c.href} target="_blank" rel="noopener noreferrer"
+          style={{ display: "inline-flex", alignItems: "center", gap: 7, textDecoration: "none", color: claro ? "rgba(255,255,255,0.92)" : "var(--site-texto)", fontSize: 14 }}>
+          <span style={{ fontSize: 16 }}>{c.icon}</span>{c.texto}
+        </a>
+      ))}
+    </div>
+  );
+}
+
+export function PaginaContato({ cfg, titulo, canais, fid, categorias }: {
+  cfg: CfgContato; titulo: string; canais: CanalContato[]; fid: string;
+  categorias: { valor: string; label: string }[];
+}) {
+  const form = <ContatoForm fid={fid} config={cfg.formulario} categorias={categorias} />;
+  const textoEl = cfg.html
+    ? <div className="site-conteudo" style={{ fontSize: 15, color: "var(--site-suave)", lineHeight: 1.8, margin: "0 0 20px" }} dangerouslySetInnerHTML={{ __html: cfg.html }} />
+    : null;
+
+  // ── Banner de fundo: título + texto + formulário sobrepostos à imagem ──
+  if (cfg.layout === "banner_fundo") {
+    return (
+      <>
+        <section className="lp-hero" style={{ minHeight: "88vh" }}>
+          {cfg.banner && <img className="lp-hero-bg" src={cfg.banner} alt="" />}
+          <div className="lp-hero-inner">
+            <h1>{titulo}</h1>
+            {cfg.html && <div className="lp-hero-texto site-conteudo" dangerouslySetInnerHTML={{ __html: cfg.html }} />}
+            <div className="lp-hero-form">{form}</div>
+          </div>
+        </section>
+        {canais.length > 0 && (
+          <div style={{ display: "flex", justifyContent: "center", padding: "26px 24px 0" }}>
+            <Canais canais={canais} />
+          </div>
+        )}
+      </>
+    );
+  }
+
+  // ── Minimalista: só o formulário + pequeno texto opcional (coluna única centrada) ──
+  if (cfg.layout === "minimalista") {
+    return (
+      <div className="site-contato-solo">
+        <h1 style={h1Style}>{titulo}</h1>
+        {textoEl ?? (
+          <p style={{ fontSize: 15, color: "var(--site-suave)", lineHeight: 1.8, margin: "0 0 20px" }}>
+            Conte um pouco sobre o seu evento — data, cidade e o que você está planejando. Retorno o mais rápido possível!
+          </p>
+        )}
+        <Canais canais={canais} />
+        {form}
+      </div>
+    );
+  }
+
+  // ── Duas colunas: banner opcional no topo; esquerda foto + biografia; direita o formulário ──
+  return (
+    <>
+      {cfg.banner && (
+        <div style={{ height: "38vh", maxHeight: 420, overflow: "hidden", background: "var(--site-superficie)" }}>
+          <img src={cfg.banner} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+        </div>
+      )}
+      <div className="site-contato">
+        <div>
+          <h1 style={h1Style}>{titulo}</h1>
+          <Canais canais={canais} />
+          {cfg.foto && <img src={cfg.foto} alt="" style={{ width: "100%", borderRadius: 12, display: "block", margin: "0 0 18px" }} />}
+          {textoEl}
+        </div>
+        <div>{form}</div>
+      </div>
+    </>
+  );
+}

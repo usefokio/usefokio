@@ -1,11 +1,11 @@
 "use client";
 
 // Aparência do site — HUB de personalização de TODAS as páginas. Seletor de página no topo:
-// Início (construtor de blocos da home), Sobre/Contato/custom (EditorBlocos — motor de blocos
-// genérico), Portfólio/Trabalhos (exibição da grade). Coluna esquerda: controles; coluna
-// direita: PRÉVIA AO VIVO (sticky) usando os MESMOS componentes do site real, com barra de
-// dispositivo PC/Tablet/Celular. Global (fontes/logo/header/rodapé) fica na aba Início.
-// Salva em site_config.design + site_paginas.blocos, com estado "não salvo" (useEditorEstado).
+// Início (construtor de blocos da home), Sobre/Contato (3 MODELOS fixos + campos — mesmo
+// padrão da home; blocos livres ficam SÓ nas landing pages), Portfólio/Trabalhos (exibição
+// da grade). Coluna esquerda: controles; coluna direita: PRÉVIA AO VIVO (sticky) usando os
+// MESMOS componentes do site real, com barra de dispositivo PC/Tablet/Celular.
+// Salva em site_config.design + site_paginas.conteudo, com estado "não salvo" (useEditorEstado).
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { fetchAllRows } from "@/lib/supabase/fetchAll";
@@ -18,12 +18,15 @@ import {
   type ConfigDesign, type BarraConfig, type HeaderConfig, type CategoriaFonte,
   type HomeBloco, type HomeBlocoKey, type BlogLayout, type DepoLayout, type GradeConfig,
 } from "@/lib/site/design";
-import { conteudoParaBlocos, SLUGS_RESERVADOS, type SiteBloco } from "@/lib/site/blocos";
-import { presetsDaPagina } from "@/lib/site/presets";
-import { EditorBlocos } from "@/app/(dashboard)/site/_components/EditorBlocos";
+import { cfgContatoDe, cfgSobreDe, conteudoComCfg, LAYOUTS_CONTATO, LAYOUTS_SOBRE, type CfgContato, type CfgSobre } from "@/lib/site/paginaCfg";
+import { normalizarConfig } from "@/lib/site/formulario";
+import { processarImagemEntrega } from "@/lib/imageResize";
+import { SiteRichEditor } from "@/app/(dashboard)/site/_components/SiteRichEditor";
+import { FormularioConfigEditor } from "@/app/(dashboard)/site/_components/FormularioConfigEditor";
 import { SiteHeader } from "@/app/sites/[fid]/_components/SiteHeader";
 import { HomeBlocos } from "@/app/sites/[fid]/_components/home/HomeBlocos";
-import { RenderBlocos } from "@/app/sites/[fid]/_components/RenderBlocos";
+import { PaginaContato, type CanalContato } from "@/app/sites/[fid]/_components/PaginaContato";
+import { PaginaSobre } from "@/app/sites/[fid]/_components/PaginaSobre";
 import { GradeCards, type ItemGrade } from "@/app/sites/[fid]/_components/GradeCards";
 import { DADOS_EXEMPLO } from "@/app/sites/[fid]/_components/home/exemplo";
 import type { DadosHome } from "@/app/sites/[fid]/_components/home/tipos";
@@ -251,14 +254,21 @@ export default function AparenciaPage() {
   const dragIdx = useRef<number | null>(null);
   const [sobreIdx, setSobreIdx] = useState<number | null>(null);
 
-  // ── HUB: página selecionada + páginas por blocos (site_paginas) + coleções p/ prévia ──
-  const [pagina, setPagina] = useState<string>("inicio"); // "inicio" | "grade:portfolio" | "grade:trabalhos" | id de site_paginas
-  const [paginas, setPaginas] = useState<SitePagina[]>([]);
-  const [paginasBlocos, setPaginasBlocos] = useState<Record<string, SiteBloco[]>>({});
-  const paginasBase = useRef<Record<string, string>>({}); // baseline por página (o que está no banco/seed) — só salva o que mudou
+  // ── HUB: página selecionada + config de Sobre/Contato (modelos fixos — padrão da home) ──
+  const [pagina, setPagina] = useState<string>("inicio"); // "inicio" | "pg:sobre" | "pg:contato" | "grade:portfolio" | "grade:trabalhos"
+  const [pgSobre, setPgSobre] = useState<SitePagina | null>(null);
+  const [pgContato, setPgContato] = useState<SitePagina | null>(null);
+  const [cfgSobre, setCfgSobre] = useState<CfgSobre | null>(null);
+  const [cfgContato, setCfgContato] = useState<CfgContato | null>(null);
+  const baseSobre = useRef("");   // baseline (JSON) — só grava a página se mudou
+  const baseContato = useRef("");
   const [portfolios, setPortfolios] = useState<SitePortfolio[]>([]);
+  // Upload de imagem das páginas (foto/banner/fundo)
+  const inputImgPagina = useRef<HTMLInputElement>(null);
+  const alvoImgPagina = useRef<{ qual: "sobre" | "contato"; campo: "foto" | "banner" | "fundo" } | null>(null);
+  const [enviandoImgPagina, setEnviandoImgPagina] = useState(false);
 
-  const snapshot = JSON.stringify({ design, paginasBlocos });
+  const snapshot = JSON.stringify({ design, cfgSobre, cfgContato });
   const estado = useEditorEstado(snapshot, "/site");
 
   useEffect(() => {
@@ -282,16 +292,15 @@ export default function AparenciaPage() {
       ]);
       setDados({ banners, trabalhos: trabalhos.slice(0, 9), posts: posts.slice(0, 6), depoimentos, selos });
       setMenu(menuRows.filter((m) => m.visivel !== false).map((m) => ({ id: String(m.id), label: m.label, href: m.href })));
-      // Seed dos blocos por página: usa os salvos; sem salvos, converte o conteúdo legado
-      // (o público só muda quando o fotógrafo SALVAR — o baseline registra o seed).
-      const seeds: Record<string, SiteBloco[]> = {};
-      paginasRows.forEach((p) => {
-        const salvos = Array.isArray(p.blocos) && (p.blocos as SiteBloco[]).length > 0 ? (p.blocos as SiteBloco[]) : null;
-        seeds[p.id] = salvos ?? conteudoParaBlocos(p.conteudo, p.slug === "contato");
-        paginasBase.current[p.id] = JSON.stringify(seeds[p.id]);
-      });
-      setPaginas(paginasRows); setPaginasBlocos(seeds); setPortfolios(portfoliosRows);
-      estado.inicializar(JSON.stringify({ design: d, paginasBlocos: seeds }));
+      // Sobre/Contato: config de modelo fixo derivada do conteudo (padrão da home — sem blocos).
+      const rSobre = paginasRows.find((p) => p.slug === "sobre") ?? null;
+      const rContato = paginasRows.find((p) => p.slug === "contato") ?? null;
+      const cS = rSobre ? cfgSobreDe(rSobre.conteudo) : null;
+      const cC = rContato ? cfgContatoDe(rContato.conteudo) : null;
+      setPgSobre(rSobre); setPgContato(rContato); setCfgSobre(cS); setCfgContato(cC);
+      baseSobre.current = JSON.stringify(cS); baseContato.current = JSON.stringify(cC);
+      setPortfolios(portfoliosRows);
+      estado.inicializar(JSON.stringify({ design: d, cfgSobre: cS, cfgContato: cC }));
       setLoading(false);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -328,21 +337,47 @@ export default function AparenciaPage() {
     const sb = createClient();
     const { error } = await sb.from("site_config").upsert({ fotografo_id: fotografo.id, design, updated_at: new Date().toISOString() }, { onConflict: "fotografo_id" });
     if (error) { setSalvando(false); setMsg("Erro: " + error.message); return false; }
-    // Páginas por blocos: grava SÓ as que mudaram em relação ao baseline (banco/seed) —
-    // página não tocada continua com o render legado no público.
-    for (const p of paginas) {
-      const atual = paginasBlocos[p.id];
-      if (!atual) continue;
-      const json = JSON.stringify(atual);
-      if (json === paginasBase.current[p.id]) continue;
-      const { error: e2 } = await sb.from("site_paginas").update({ blocos: atual, updated_at: new Date().toISOString() }).eq("id", p.id);
-      if (e2) { setSalvando(false); setMsg("Erro: " + e2.message); return false; }
-      paginasBase.current[p.id] = json;
+    // Sobre/Contato: grava a config no conteudo (jsonb) SÓ se mudou em relação ao baseline.
+    // blocos: null — as páginas institucionais deixaram de usar o motor de blocos (só landings).
+    const gravarPagina = async (row: SitePagina | null, cfg: CfgContato | CfgSobre | null, base: React.MutableRefObject<string>) => {
+      if (!row || !cfg) return true;
+      const json = JSON.stringify(cfg);
+      if (json === base.current) return true;
+      const { error: e2 } = await sb.from("site_paginas")
+        .update({ conteudo: conteudoComCfg(row.conteudo, cfg), blocos: null, updated_at: new Date().toISOString() })
+        .eq("id", row.id);
+      if (e2) { setMsg("Erro: " + e2.message); return false; }
+      base.current = json;
+      return true;
+    };
+    if (!(await gravarPagina(pgSobre, cfgSobre, baseSobre)) || !(await gravarPagina(pgContato, cfgContato, baseContato))) {
+      setSalvando(false);
+      return false;
     }
     setSalvando(false);
-    estado.marcarSalvo(JSON.stringify({ design, paginasBlocos }));
+    estado.marcarSalvo(JSON.stringify({ design, cfgSobre, cfgContato }));
     setMsg("Aparência salva! Recarregue seu site para ver.");
     return true;
+  }
+
+  // Upload das imagens de Sobre/Contato (foto/banner/fundo) — mesmo pipeline das fotos do site.
+  function pedirImagemPagina(qual: "sobre" | "contato", campo: "foto" | "banner" | "fundo") {
+    alvoImgPagina.current = { qual, campo };
+    inputImgPagina.current?.click();
+  }
+  async function enviarImagemPagina(files: FileList | null) {
+    const alvo = alvoImgPagina.current;
+    if (!files || !files[0] || !fotografo || !alvo) return;
+    setEnviandoImgPagina(true); setMsg(null);
+    try {
+      const { blob } = await processarImagemEntrega(files[0], 2400, 0.85);
+      const path = `site/${fotografo.id}/paginas/${alvo.qual}/${alvo.campo}-${crypto.randomUUID().slice(0, 6)}.jpg`;
+      const { url_publica } = await uploadFileClient(path, blob);
+      if (alvo.qual === "sobre") setCfgSobre((c) => c ? { ...c, [alvo.campo === "foto" ? "foto" : "fundo"]: url_publica } : c);
+      else setCfgContato((c) => c ? { ...c, [alvo.campo === "foto" ? "foto" : "banner"]: url_publica } : c);
+    } catch (e) { setMsg("Erro no upload: " + (e instanceof Error ? e.message : "")); }
+    setEnviandoImgPagina(false);
+    if (inputImgPagina.current) inputImgPagina.current.value = "";
   }
 
   const tema = getTema(temaId);
@@ -360,19 +395,20 @@ export default function AparenciaPage() {
     selos: dados.selos.length ? dados.selos : DADOS_EXEMPLO.selos,
   };
 
-  // ── HUB: abas de página + dados da prévia das grades ──
-  const pgSel = paginas.find((p) => p.id === pagina) ?? null;
-  const institucionais = paginas.filter((p) => p.slug === "sobre" || p.slug === "contato");
-  // Páginas custom com slug RESERVADO (ex.: /galeria, /portfolio) nunca são servidas no
-  // público (a rota fixa tem precedência) — ficam fora do HUB para não duplicar abas.
-  const customs = paginas.filter((p) => p.slug !== "sobre" && p.slug !== "contato" && !SLUGS_RESERVADOS.has(p.slug));
+  // ── HUB: abas de página + dados da prévia ──
   const abas: { id: string; label: string }[] = [
     { id: "inicio", label: "Início" },
-    ...institucionais.map((p) => ({ id: p.id, label: p.titulo || p.slug })),
+    ...(pgSobre ? [{ id: "pg:sobre", label: pgSobre.titulo || "Sobre" }] : []),
+    ...(pgContato ? [{ id: "pg:contato", label: pgContato.titulo || "Contato" }] : []),
     { id: "grade:portfolio", label: "Portfólio" },
     { id: "grade:trabalhos", label: "Trabalhos" },
-    ...customs.map((p) => ({ id: p.id, label: p.titulo || p.slug })),
   ];
+
+  // Canais exibidos na prévia do Contato (derivados do cadastro, como no site real)
+  const canaisPreview: CanalContato[] = [
+    fotografo?.whatsapp && { icon: "💬", label: "WhatsApp", href: "#", texto: fotografo.whatsapp },
+    fotografo?.email && { icon: "✉️", label: "E-mail", href: "#", texto: fotografo.email },
+  ].filter(Boolean) as CanalContato[];
   const trabalhosPrev: ItemGrade[] = dadosPreview.trabalhos.map((t) => ({
     id: t.id, href: "#", capa_url: t.capa_url, titulo: t.titulo, subtitulo: t.categoria, subtitulo2: t.local,
     rodape: { views: t.views ?? 0, likes: t.likes ?? 0 },
@@ -491,6 +527,8 @@ export default function AparenciaPage() {
           ))}
         </div>
 
+        <input ref={inputImgPagina} type="file" accept="image/*" style={{ display: "none" }} onChange={(e) => enviarImagemPagina(e.target.files)} />
+
         <div className="aparencia-grid">
           {/* ── COLUNA ESQUERDA: controles ── */}
           <div>
@@ -598,42 +636,77 @@ export default function AparenciaPage() {
               );
             })()}
 
-            {/* ── Página por blocos (Sobre/Contato/custom) — EditorBlocos compartilhado ── */}
-            {pgSel && fotografo && (
+            {/* ── SOBRE — modelo fixo + campos (padrão da home; prévia atualiza ao vivo) ── */}
+            {pagina === "pg:sobre" && cfgSobre && (
               <>
-                <div style={{ ...lbl, margin: "2px 0 8px", color: "var(--color-text-tertiary)" }}>Conteúdo da página “{pgSel.titulo}”</div>
-                {pgSel.slug === "contato" && (
-                  <p style={{ ...mini, margin: "0 0 10px" }}>O título e os canais de contato (WhatsApp/e-mail) são fixos da página — os blocos montam o corpo.</p>
-                )}
-                {(() => {
-                  const trio = presetsDaPagina(pgSel.slug);
-                  if (!trio) return null;
-                  return (
-                    <div style={{ marginBottom: 14 }}>
-                      <div style={{ ...mini, fontWeight: 600, marginBottom: 6 }}>Modelos prontos — um ponto de partida; depois ajuste os blocos como quiser</div>
-                      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8 }}>
-                        {trio.map((p) => (
-                          <button key={p.id} type="button"
-                            onClick={() => {
-                              const tem = (paginasBlocos[pgSel.id]?.length ?? 0) > 0;
-                              if (tem && !confirm(`Aplicar o modelo "${p.nome}"? Os blocos atuais desta página serão substituídos (nada muda no site até você Salvar).`)) return;
-                              setPaginasBlocos((m) => ({ ...m, [pgSel.id]: p.construir() }));
-                            }}
-                            style={{ textAlign: "left", padding: "10px 12px", borderRadius: 10, border: "1px solid var(--color-border-tertiary)", background: "var(--color-background-primary)", cursor: "pointer" }}>
-                            <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--color-text-primary)", marginBottom: 4 }}>{p.nome}</div>
-                            <div style={{ fontSize: 11, color: "var(--color-text-secondary)", lineHeight: 1.5 }}>{p.descricao}</div>
-                          </button>
-                        ))}
-                      </div>
+                <Card titulo="Modelo da página" aberto onToggle={() => {}}>
+                  {campo("Escolha o modelo", <Seg value={cfgSobre.layout} options={LAYOUTS_SOBRE} onChange={(v) => setCfgSobre((c) => c ? { ...c, layout: v } : c)} />)}
+                  <p style={{ ...mini, marginTop: 4 }}>A prévia ao lado mostra a página como ela fica no site.</p>
+                </Card>
+                {cfgSobre.layout !== "foto_fundo" && (
+                  <Card titulo={cfgSobre.layout === "minimalista" ? "Foto (opcional)" : "Foto"} aberto onToggle={() => {}}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                      {cfgSobre.foto && <img src={cfgSobre.foto} alt="" style={{ width: 96, height: 72, objectFit: "cover", borderRadius: 8 }} />}
+                      <button onClick={() => pedirImagemPagina("sobre", "foto")} disabled={enviandoImgPagina} style={{ padding: "8px 14px", borderRadius: 8, border: "1px solid var(--color-border-secondary)", background: "transparent", fontSize: 12, fontWeight: 600, color: "var(--color-text-primary)", cursor: "pointer" }}>
+                        {enviandoImgPagina ? "Enviando…" : cfgSobre.foto ? "Trocar foto" : "+ Enviar foto"}
+                      </button>
+                      {cfgSobre.foto && <button onClick={() => setCfgSobre((c) => c ? { ...c, foto: null } : c)} style={{ border: "none", background: "transparent", fontSize: 11, color: "#DC2626", cursor: "pointer" }}>Remover</button>}
                     </div>
-                  );
-                })()}
-                <EditorBlocos
-                  blocos={paginasBlocos[pgSel.id] ?? []}
-                  onChange={(bl) => setPaginasBlocos((m) => ({ ...m, [pgSel.id]: bl }))}
-                  fotografoId={fotografo.id}
-                  pasta={`paginas/${pgSel.id}`}
-                />
+                  </Card>
+                )}
+                {cfgSobre.layout === "foto_fundo" && (
+                  <Card titulo="Imagem de fundo" aberto onToggle={() => {}}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                      {cfgSobre.fundo && <img src={cfgSobre.fundo} alt="" style={{ width: 96, height: 72, objectFit: "cover", borderRadius: 8 }} />}
+                      <button onClick={() => pedirImagemPagina("sobre", "fundo")} disabled={enviandoImgPagina} style={{ padding: "8px 14px", borderRadius: 8, border: "1px solid var(--color-border-secondary)", background: "transparent", fontSize: 12, fontWeight: 600, color: "var(--color-text-primary)", cursor: "pointer" }}>
+                        {enviandoImgPagina ? "Enviando…" : cfgSobre.fundo ? "Trocar imagem" : "+ Enviar imagem"}
+                      </button>
+                      {cfgSobre.fundo && <button onClick={() => setCfgSobre((c) => c ? { ...c, fundo: null } : c)} style={{ border: "none", background: "transparent", fontSize: 11, color: "#DC2626", cursor: "pointer" }}>Remover</button>}
+                    </div>
+                  </Card>
+                )}
+                <Card titulo="Texto de apresentação" aberto onToggle={() => {}}>
+                  <SiteRichEditor value={cfgSobre.html ?? ""} onChange={(html) => setCfgSobre((c) => c ? { ...c, html } : c)} minHeight={160} pasta="paginas/sobre" />
+                </Card>
+              </>
+            )}
+
+            {/* ── CONTATO — modelo fixo + campos (padrão da home; prévia atualiza ao vivo) ── */}
+            {pagina === "pg:contato" && cfgContato && (
+              <>
+                <Card titulo="Modelo da página" aberto onToggle={() => {}}>
+                  {campo("Escolha o modelo", <Seg value={cfgContato.layout} options={LAYOUTS_CONTATO} onChange={(v) => setCfgContato((c) => c ? { ...c, layout: v } : c)} />)}
+                  <p style={{ ...mini, marginTop: 4 }}>O título e os canais (WhatsApp/e-mail do seu cadastro) aparecem em todos os modelos.</p>
+                </Card>
+                {cfgContato.layout !== "minimalista" && (
+                  <Card titulo={cfgContato.layout === "banner_fundo" ? "Imagem de fundo" : "Banner do topo (opcional)"} aberto onToggle={() => {}}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                      {cfgContato.banner && <img src={cfgContato.banner} alt="" style={{ width: 96, height: 72, objectFit: "cover", borderRadius: 8 }} />}
+                      <button onClick={() => pedirImagemPagina("contato", "banner")} disabled={enviandoImgPagina} style={{ padding: "8px 14px", borderRadius: 8, border: "1px solid var(--color-border-secondary)", background: "transparent", fontSize: 12, fontWeight: 600, color: "var(--color-text-primary)", cursor: "pointer" }}>
+                        {enviandoImgPagina ? "Enviando…" : cfgContato.banner ? "Trocar imagem" : "+ Enviar imagem"}
+                      </button>
+                      {cfgContato.banner && <button onClick={() => setCfgContato((c) => c ? { ...c, banner: null } : c)} style={{ border: "none", background: "transparent", fontSize: 11, color: "#DC2626", cursor: "pointer" }}>Remover</button>}
+                    </div>
+                  </Card>
+                )}
+                {cfgContato.layout === "duas_colunas" && (
+                  <Card titulo="Foto (coluna do texto)" aberto onToggle={() => {}}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                      {cfgContato.foto && <img src={cfgContato.foto} alt="" style={{ width: 96, height: 72, objectFit: "cover", borderRadius: 8 }} />}
+                      <button onClick={() => pedirImagemPagina("contato", "foto")} disabled={enviandoImgPagina} style={{ padding: "8px 14px", borderRadius: 8, border: "1px solid var(--color-border-secondary)", background: "transparent", fontSize: 12, fontWeight: 600, color: "var(--color-text-primary)", cursor: "pointer" }}>
+                        {enviandoImgPagina ? "Enviando…" : cfgContato.foto ? "Trocar foto" : "+ Enviar foto"}
+                      </button>
+                      {cfgContato.foto && <button onClick={() => setCfgContato((c) => c ? { ...c, foto: null } : c)} style={{ border: "none", background: "transparent", fontSize: 11, color: "#DC2626", cursor: "pointer" }}>Remover</button>}
+                    </div>
+                  </Card>
+                )}
+                <Card titulo={cfgContato.layout === "minimalista" ? "Texto (opcional)" : "Texto / biografia"} aberto onToggle={() => {}}>
+                  <SiteRichEditor value={cfgContato.html ?? ""} onChange={(html) => setCfgContato((c) => c ? { ...c, html } : c)} minHeight={140} pasta="paginas/contato" />
+                </Card>
+                <Card titulo="Formulário de orçamento" aberto={!!aberto.formContato} onToggle={() => toggle("formContato")}>
+                  <FormularioConfigEditor value={normalizarConfig(cfgContato.formulario)} onChange={(f) => setCfgContato((c) => c ? { ...c, formulario: f } : c)} />
+                  <p style={{ ...mini, marginTop: 8 }}>Os envios aparecem em <strong>Site → Inbox</strong>.</p>
+                </Card>
               </>
             )}
 
@@ -664,14 +737,11 @@ export default function AparenciaPage() {
                   <GradeCards config={design.grades.trabalhos} itens={trabalhosPrev} />
                 </div>
               )}
-              {pgSel && (
-                <div style={{ padding: "40px 0" }}>
-                  <h1 style={{ fontSize: 28, fontWeight: 700, textAlign: "center", margin: "0 0 32px", padding: "0 24px" }}>{pgSel.titulo}</h1>
-                  <RenderBlocos
-                    blocos={paginasBlocos[pgSel.id] ?? []}
-                    ctx={{ base: "#", fid: fotografo?.id ?? "", depoimentos: dadosPreview.depoimentos, whatsappFallback: null, categorias: [] }}
-                  />
-                </div>
+              {pagina === "pg:sobre" && cfgSobre && (
+                <PaginaSobre cfg={cfgSobre} titulo={pgSobre?.titulo ?? "Sobre"} />
+              )}
+              {pagina === "pg:contato" && cfgContato && (
+                <PaginaContato cfg={cfgContato} titulo={pgContato?.titulo ?? "Solicite seu orçamento"} canais={canaisPreview} fid={fotografo?.id ?? ""} categorias={[]} />
               )}
             </Preview>
             <div style={{ ...mini, marginTop: 8, textAlign: "center" }}>Prévia ao vivo — o site real segue estas escolhas.</div>

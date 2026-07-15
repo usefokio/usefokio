@@ -1,12 +1,11 @@
-// Página Sobre — conteúdo importado (site_paginas.tipo = 'sobre').
-// Com site_paginas.blocos preenchido, renderiza pelo motor de blocos (Aparência);
-// sem blocos, mantém o visual legado (html + foto) — zero regressão/SEO preservado.
+// Página Sobre — 3 MODELOS fixos configurados na Aparência (padrão da home):
+// foto+biografia / foto de fundo / minimalista (lib/site/paginaCfg.ts).
+// O mesmo componente PaginaSobre renderiza aqui e na prévia ao vivo do editor.
 import type { Metadata } from "next";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { resolverMetaPagina } from "@/lib/site/seo";
-import { contextoBlocos } from "@/lib/site/publico";
-import type { SiteBloco } from "@/lib/site/blocos";
-import { RenderBlocos } from "../_components/RenderBlocos";
+import { cfgSobreDe } from "@/lib/site/paginaCfg";
+import { PaginaSobre } from "../_components/PaginaSobre";
 import type { SitePagina } from "@/lib/supabase/types";
 
 async function buscarSobre(fid: string): Promise<SitePagina | null> {
@@ -34,30 +33,5 @@ export async function generateMetadata({ params }: { params: Promise<{ fid: stri
 export default async function SobrePage({ params }: { params: Promise<{ fid: string }> }) {
   const { fid } = await params;
   const p = await buscarSobre(fid);
-  const conteudo = (p?.conteudo ?? {}) as { html?: string | null; imagens?: string[] };
-
-  // Página montada por blocos (Aparência) — o H1 continua fixo (SEO preservado).
-  const blocos = Array.isArray(p?.blocos) && p.blocos.length > 0 ? (p.blocos as SiteBloco[]) : null;
-  if (blocos) {
-    const ctx = await contextoBlocos(fid);
-    return (
-      <div style={{ padding: "40px 0" }}>
-        <h1 style={{ fontSize: 28, fontWeight: 700, textAlign: "center", margin: "0 0 32px", padding: "0 24px" }}>{p?.titulo ?? "Sobre"}</h1>
-        <RenderBlocos blocos={blocos} ctx={ctx} />
-      </div>
-    );
-  }
-
-  return (
-    <div style={{ maxWidth: 900, margin: "0 auto", padding: "40px 24px" }}>
-      <h1 style={{ fontSize: 28, fontWeight: 700, textAlign: "center", margin: "0 0 32px" }}>{p?.titulo ?? "Sobre"}</h1>
-      <div style={{ display: "flex", gap: 32, alignItems: "flex-start", flexWrap: "wrap" }}>
-        {conteudo.imagens?.[0] && (
-          <img src={conteudo.imagens[0]} alt={p?.titulo ?? "Sobre"} style={{ width: 320, maxWidth: "100%", borderRadius: 12, display: "block" }} />
-        )}
-        <div className="site-conteudo" style={{ flex: 1, minWidth: 280, fontSize: 15, lineHeight: 1.9, color: "#333" }}
-          dangerouslySetInnerHTML={{ __html: conteudo.html ?? "<p>Em breve.</p>" }} />
-      </div>
-    </div>
-  );
+  return <PaginaSobre cfg={cfgSobreDe(p?.conteudo)} titulo={p?.titulo ?? "Sobre"} />;
 }
