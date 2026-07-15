@@ -9,6 +9,7 @@ import { processarImagemEntrega } from "@/lib/imageResize";
 import { SiteRichEditor } from "@/app/(dashboard)/site/_components/SiteRichEditor";
 import { FormularioConfigEditor } from "@/app/(dashboard)/site/_components/FormularioConfigEditor";
 import { normalizarConfig } from "@/lib/site/formulario";
+import { normalizarVideoUrl } from "@/lib/utils/youtube";
 import { CATALOGO_BLOCOS, novoBloco, type SiteBloco, type TipoBloco } from "@/lib/site/blocos";
 
 const inputStyle: React.CSSProperties = {
@@ -25,11 +26,6 @@ const btnPeq: React.CSSProperties = {
   background: "transparent", fontSize: 12, fontWeight: 600, color: "var(--color-text-primary)", cursor: "pointer",
 };
 
-// Aceita link normal do YouTube e converte para embed
-function normalizarVideo(url: string): string {
-  const id = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([\w-]{6,})/)?.[1];
-  return id ? `https://www.youtube.com/embed/${id}` : url;
-}
 function rotuloBloco(tipo: TipoBloco) {
   return CATALOGO_BLOCOS.find((c) => c.tipo === tipo) ?? { label: tipo, icone: "▪" };
 }
@@ -157,8 +153,19 @@ export function EditorBlocos({ blocos, onChange, fotografoId, pasta, acaoBloco }
         return (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             <div><label style={labelStyle}>Título</label><input value={d.titulo ?? ""} onChange={(e) => mudar(b.id, { titulo: e.target.value })} style={inputStyle} /></div>
+            <div><label style={labelStyle}>Texto (subtítulo — opcional)</label><textarea value={d.texto ?? ""} onChange={(e) => mudar(b.id, { texto: e.target.value })} rows={2} style={{ ...inputStyle, resize: "vertical" }} /></div>
             <div><label style={labelStyle}>Imagem de fundo</label>{btnImagem({ blocoId: b.id, campo: "imagem_url", urlAtual: d.imagem_url, rotulo: "imagem" })}</div>
             <div><label style={labelStyle}>Logo (sobre a imagem)</label>{btnImagem({ blocoId: b.id, campo: "logo_url", urlAtual: d.logo_url, rotulo: "logo" })}</div>
+            <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--color-text-primary)", cursor: "pointer" }}>
+              <input type="checkbox" checked={d.com_formulario ?? false} onChange={(e) => mudar(b.id, { com_formulario: e.target.checked })} />
+              Incluir formulário de contato sobreposto
+            </label>
+            {d.com_formulario && (
+              <>
+                <FormularioConfigEditor value={normalizarConfig(d.formulario)} onChange={(f) => mudar(b.id, { formulario: f })} />
+                <div style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>Os envios aparecem em <strong>Site → Inbox</strong>.</div>
+              </>
+            )}
           </div>
         );
       case "titulo":
@@ -257,7 +264,7 @@ export function EditorBlocos({ blocos, onChange, fotografoId, pasta, acaoBloco }
         return (
           <div>
             <label style={labelStyle}>Link do vídeo (YouTube)</label>
-            <input value={d.url ?? ""} onChange={(e) => mudar(b.id, { url: normalizarVideo(e.target.value) })} style={{ ...inputStyle, fontFamily: "monospace", fontSize: 12 }} placeholder="https://www.youtube.com/watch?v=…" />
+            <input value={d.url ?? ""} onChange={(e) => mudar(b.id, { url: normalizarVideoUrl(e.target.value) })} style={{ ...inputStyle, fontFamily: "monospace", fontSize: 12 }} placeholder="https://www.youtube.com/watch?v=…" />
           </div>
         );
       case "depoimentos":

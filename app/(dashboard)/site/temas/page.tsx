@@ -19,6 +19,7 @@ import {
   type HomeBloco, type HomeBlocoKey, type BlogLayout, type DepoLayout, type GradeConfig,
 } from "@/lib/site/design";
 import { conteudoParaBlocos, SLUGS_RESERVADOS, type SiteBloco } from "@/lib/site/blocos";
+import { presetsDaPagina } from "@/lib/site/presets";
 import { EditorBlocos } from "@/app/(dashboard)/site/_components/EditorBlocos";
 import { SiteHeader } from "@/app/sites/[fid]/_components/SiteHeader";
 import { HomeBlocos } from "@/app/sites/[fid]/_components/home/HomeBlocos";
@@ -214,14 +215,16 @@ function Preview({ design, menu, nome, logoUrl, disp, tema, children }: {
           ["--site-fonte-titulo" as string]: fTitulo,
           ["--site-fonte-corpo" as string]: fTexto,
           background: "var(--site-fundo)", color: "var(--site-texto)", fontFamily: "var(--site-fonte-corpo), Georgia, serif",
-          display: lateral ? "flex" : "block",
+          containerType: "inline-size", // paridade com .site-root: o corpo/menu respondem à largura virtual
         } as React.CSSProperties}>
-          <SiteHeader base="#" logoUrl={logoUrl} nome={nome} itens={itens}
-            logoAltura={design.logo_altura} fundo={fundoBarra(design.header, tema.cores.fundo)} padY={design.header.altura}
-            orientacao={design.header.orientacao} logoPos={design.header.logo_pos} corTexto={design.header.cor_texto} largura={design.header.largura} />
-          <div style={lateral ? { flex: 1, minWidth: 0 } : undefined}>
-            <div className="site-main">
-              {children}
+          <div className={`site-corpo${lateral ? " site-corpo-lateral" : ""}`}>
+            <SiteHeader base="#" logoUrl={logoUrl} nome={nome} itens={itens}
+              logoAltura={design.logo_altura} fundo={fundoBarra(design.header, tema.cores.fundo)} padY={design.header.altura}
+              orientacao={design.header.orientacao} logoPos={design.header.logo_pos} corTexto={design.header.cor_texto} largura={design.header.largura} />
+            <div style={lateral ? { flex: 1, minWidth: 0 } : undefined}>
+              <div className="site-main">
+                {children}
+              </div>
             </div>
           </div>
         </div>
@@ -395,14 +398,20 @@ export default function AparenciaPage() {
   function camposBloco(b: HomeBloco): React.ReactNode {
     switch (b.key) {
       case "banner": {
-        const rotativo = (b.tipo ?? "deslizante") !== "grid";
+        // Rotativo: foto_unica/deslizante sempre; grade só quando há limite de linhas
+        // (a velocidade passa a controlar o carrossel das fotos excedentes).
+        const rotativo = (b.tipo ?? "deslizante") !== "grid" || (b.linhas ?? 0) > 0;
         return (
           <>
             {campo("Tipo", <Seg value={b.tipo ?? "deslizante"} options={[{ v: "foto_unica", l: "Foto única" }, { v: "deslizante", l: "Deslizante" }, { v: "grid", l: "Grade" }] as const} onChange={(v) => setBloco("banner", { tipo: v })} />)}
             {b.tipo === "foto_unica" && campo("Ajuste da imagem", <Seg value={b.ajuste ?? "manter_proporcao"} options={[{ v: "manter_proporcao", l: "Manter proporção" }, { v: "preencher", l: "Preencher" }] as const} onChange={(v) => setBloco("banner", { ajuste: v })} />)}
-            {campo("Tamanho (altura)", <Range label="Altura" value={b.altura ?? 300} min={120} max={720} unidade="px" onChange={(v) => setBloco("banner", { altura: v })} />)}
-            {rotativo && campo("Passagem automática", <Range label="Velocidade" value={b.velocidade ?? 4} min={1} max={15} unidade="s" onChange={(v) => setBloco("banner", { velocidade: v })} />)}
+            {b.tipo !== "grid" && campo("Tamanho (altura)", <Range label="Altura" value={b.altura ?? 300} min={120} max={720} unidade="px" onChange={(v) => setBloco("banner", { altura: v })} />)}
             {b.tipo === "grid" && campo("Colunas", <Range label="Colunas" value={b.colunas ?? 3} min={2} max={6} onChange={(v) => setBloco("banner", { colunas: v })} />)}
+            {b.tipo === "grid" && campo("Limite de linhas", <>
+              <Range label={(b.linhas ?? 0) === 0 ? "Sem limite" : "Linhas"} value={b.linhas ?? 0} min={0} max={20} onChange={(v) => setBloco("banner", { linhas: v })} />
+              <p style={{ ...mini, margin: "4px 0 0" }}>0 = sem limite (a grade mostra todas as fotos). Com limite, as fotos excedentes viram um carrossel deslizante.</p>
+            </>)}
+            {rotativo && campo("Passagem automática", <Range label="Velocidade" value={b.velocidade ?? 4} min={1} max={15} unidade="s" onChange={(v) => setBloco("banner", { velocidade: v })} />)}
           </>
         );
       }
@@ -596,6 +605,29 @@ export default function AparenciaPage() {
                 {pgSel.slug === "contato" && (
                   <p style={{ ...mini, margin: "0 0 10px" }}>O título e os canais de contato (WhatsApp/e-mail) são fixos da página — os blocos montam o corpo.</p>
                 )}
+                {(() => {
+                  const trio = presetsDaPagina(pgSel.slug);
+                  if (!trio) return null;
+                  return (
+                    <div style={{ marginBottom: 14 }}>
+                      <div style={{ ...mini, fontWeight: 600, marginBottom: 6 }}>Modelos prontos — um ponto de partida; depois ajuste os blocos como quiser</div>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8 }}>
+                        {trio.map((p) => (
+                          <button key={p.id} type="button"
+                            onClick={() => {
+                              const tem = (paginasBlocos[pgSel.id]?.length ?? 0) > 0;
+                              if (tem && !confirm(`Aplicar o modelo "${p.nome}"? Os blocos atuais desta página serão substituídos (nada muda no site até você Salvar).`)) return;
+                              setPaginasBlocos((m) => ({ ...m, [pgSel.id]: p.construir() }));
+                            }}
+                            style={{ textAlign: "left", padding: "10px 12px", borderRadius: 10, border: "1px solid var(--color-border-tertiary)", background: "var(--color-background-primary)", cursor: "pointer" }}>
+                            <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--color-text-primary)", marginBottom: 4 }}>{p.nome}</div>
+                            <div style={{ fontSize: 11, color: "var(--color-text-secondary)", lineHeight: 1.5 }}>{p.descricao}</div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
                 <EditorBlocos
                   blocos={paginasBlocos[pgSel.id] ?? []}
                   onChange={(bl) => setPaginasBlocos((m) => ({ ...m, [pgSel.id]: bl }))}

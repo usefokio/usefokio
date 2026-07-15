@@ -141,13 +141,16 @@ export default async function SitePublicoLayout({ children, params }: { children
         fontFamily: "var(--site-fonte-corpo), Georgia, serif",
         minHeight: "100vh",
         display: "flex",
-        flexDirection: lateral ? "row" : "column",
+        flexDirection: "column",
       } as React.CSSProperties}
     >
       <ProtecaoImagem />
       <ScriptsRastreamento analytics={config?.analytics_head ?? null} pixel={config?.facebook_pixel ?? null} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
+      {/* Corpo: em orientação lateral vira linha (menu à esquerda); no mobile o CSS
+          .site-corpo-lateral volta a coluna e troca a coluna pela barra-topo com hambúrguer. */}
+      <div className={`site-corpo${lateral ? " site-corpo-lateral" : ""}`}>
       <SiteHeader
         base={b}
         logoUrl={logoSite}
@@ -184,6 +187,7 @@ export default async function SitePublicoLayout({ children, params }: { children
             © {fotografo?.nome_empresa ?? ""}
           </div>
         </footer>
+      </div>
       </div>
     </div>
     {/* Aviso exibido só na impressão (o resto do site fica oculto via @media print) */}

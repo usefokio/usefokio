@@ -4,7 +4,8 @@
 //  • foto_unica: uma foto por vez, com setas e passagem automática; ajuste manter_proporcao
 //    (contain — nunca corta/estica; letterbox se sobrar) ou preencher (cover — pode cortar).
 //  • deslizante: fotos em proporção natural, deixando um pedaço da próxima ao lado; auto-desliza.
-//  • grid: várias imagens em grade (sem rotação), colunas configuráveis.
+//  • grid: várias imagens em grade, colunas configuráveis. Com "linhas" > 0, a grade mostra
+//    só N linhas e as fotos excedentes viram um carrossel deslizante abaixo; 0 = mostra tudo.
 // Onde falta imagem (site sem conteúdo / prévia fictícia) → gradiente placeholder.
 import { useEffect, useRef, useState } from "react";
 import type { HomeBloco } from "@/lib/site/design";
@@ -32,13 +33,19 @@ export function BlocoBanner({ config, banners, base }: { config: HomeBloco; bann
 
   if (tipo === "grid") {
     const cols = config.colunas ?? 3;
+    const linhas = config.linhas ?? 0;
+    const visiveis = linhas > 0 ? banners.slice(0, linhas * cols) : banners;
+    const resto = linhas > 0 ? banners.slice(linhas * cols) : [];
     return (
       <section>
         <div className="site-banner-grid" style={{ display: "grid", gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gap: 4 }}>
-          {banners.map((b) => envolver(b, b.imagem_url
+          {visiveis.map((b) => envolver(b, b.imagem_url
             ? <img src={b.imagem_url} alt={b.titulo ?? ""} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", aspectRatio: "3 / 2" }} loading="lazy" />
             : <div style={{ width: "100%", aspectRatio: "3 / 2", background: gradPlaceholder(b.id) }} />))}
         </div>
+        {resto.length > 0 && (
+          <GradeCarrossel banners={resto} cols={cols} velocidade={config.velocidade ?? 4} envolver={envolver} />
+        )}
       </section>
     );
   }
@@ -66,6 +73,48 @@ function FotoUnica({ banners, altura, velocidade, ajuste, resolver }: { banners:
       })}
       {n > 1 && <><Seta dir="esq" onClick={() => setI((a) => (a - 1 + n) % n)} /><Seta dir="dir" onClick={() => setI((a) => (a + 1) % n)} /></>}
     </section>
+  );
+}
+
+// Carrossel das fotos excedentes da grade limitada: células com a MESMA proporção 3/2 e
+// largura de coluna da grade acima (continuação visual), com scroll-snap + auto-avanço + setas.
+function GradeCarrossel({ banners, cols, velocidade, envolver }: {
+  banners: SiteBanner[]; cols: number; velocidade: number;
+  envolver: (b: SiteBanner, conteudo: React.ReactNode, extra?: React.CSSProperties) => React.ReactNode;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [i, setI] = useState(0);
+  const n = banners.length;
+  const irPara = (idx: number) => {
+    const el = ref.current;
+    const filho = el?.children[idx] as HTMLElement | undefined;
+    if (el && filho) el.scrollTo({ left: filho.offsetLeft, behavior: "smooth" });
+    setI(idx);
+  };
+  useEffect(() => {
+    if (n <= cols) return; // sem overflow, sem rotação
+    const t = setInterval(() => setI((prev) => {
+      const nx = (prev + 1) % n;
+      const el = ref.current;
+      const filho = el?.children[nx] as HTMLElement | undefined;
+      if (el && filho) el.scrollTo({ left: filho.offsetLeft, behavior: "smooth" });
+      return nx;
+    }), velocidade * 1000);
+    return () => clearInterval(t);
+  }, [n, cols, velocidade]);
+  const celula: React.CSSProperties = {
+    flex: `0 0 calc((100% - ${(cols - 1) * 4}px) / ${cols})`,
+    scrollSnapAlign: "start",
+  };
+  return (
+    <div style={{ position: "relative", marginTop: 4 }}>
+      <div ref={ref} className="site-esconde-scroll" style={{ display: "flex", gap: 4, overflowX: "auto", scrollSnapType: "x mandatory" }}>
+        {banners.map((b) => envolver(b, b.imagem_url
+          ? <img src={b.imagem_url} alt={b.titulo ?? ""} style={{ width: "100%", objectFit: "cover", display: "block", aspectRatio: "3 / 2" }} loading="lazy" />
+          : <div style={{ width: "100%", aspectRatio: "3 / 2", background: gradPlaceholder(b.id) }} />, celula))}
+      </div>
+      {n > cols && <><Seta dir="esq" onClick={() => irPara((i - 1 + n) % n)} /><Seta dir="dir" onClick={() => irPara((i + 1) % n)} /></>}
+    </div>
   );
 }
 

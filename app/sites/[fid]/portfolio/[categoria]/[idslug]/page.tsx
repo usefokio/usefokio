@@ -6,6 +6,7 @@ import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { baseLinks, infoCategorias, nomeCategoria, legacyDoSlug } from "@/lib/site/publico";
 import { resolverMetaPagina } from "@/lib/site/seo";
+import { youtubeEmbedUrl } from "@/lib/utils/youtube";
 import { FotosTrabalho } from "../../../_components/FotosTrabalho";
 import { JsonLd } from "../../../_components/JsonLd";
 import type { SiteTrabalho, SiteTrabalhoFoto } from "@/lib/supabase/types";
@@ -91,6 +92,15 @@ export default async function TrabalhoPage({ params }: { params: Promise<{ fid: 
           style={{ maxWidth: 760, margin: "0 auto 36px", fontSize: 15, lineHeight: 1.9, color: "#333" }}
           dangerouslySetInnerHTML={{ __html: t.descricao }}
         />
+      )}
+
+      {/* Vídeo do trabalho (YouTube) — entre a descrição e a galeria; .lp-video é responsivo */}
+      {t.video_url && youtubeEmbedUrl(t.video_url) && (
+        <section style={{ margin: "0 auto 36px" }}>
+          <div className="lp-video">
+            <iframe src={youtubeEmbedUrl(t.video_url)!} title={`Vídeo — ${t.titulo}`} allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
+          </div>
+        </section>
       )}
 
       <FotosTrabalho

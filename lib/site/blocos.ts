@@ -31,10 +31,11 @@ export type SiteBloco = {
   id: string;
   tipo: TipoBloco;
   dados: {
-    // hero
+    // hero (texto = subtítulo; com_formulario sobrepõe o formulário à imagem de fundo)
     imagem_url?: string | null;
     logo_url?: string | null;
     titulo?: string | null;
+    com_formulario?: boolean;
     // titulo/texto
     texto?: string | null;
     html?: string | null;

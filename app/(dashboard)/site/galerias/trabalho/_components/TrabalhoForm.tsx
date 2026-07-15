@@ -13,6 +13,7 @@ import { useEditorEstado, SeloEstado, BotaoSalvarEstado, ModalNaoSalvo } from "@
 import { ConfigPaginaModal } from "@/app/(dashboard)/site/_components/ConfigPaginaModal";
 import type { ConfigPaginaValores } from "@/lib/site/seo";
 import { urlPublicaSite, type ConfigUrl } from "@/lib/site/urlPublica";
+import { normalizarVideoUrl } from "@/lib/utils/youtube";
 import { nomeCategoria } from "@/lib/site/categorias";
 import type { SiteTrabalho, SiteTrabalhoFoto, SiteCategoria } from "@/lib/supabase/types";
 
@@ -50,6 +51,7 @@ export function TrabalhoForm({ trabalhoId }: { trabalhoId?: string }) {
   const [slug, setSlug]             = useState("");
   const [slugTocado, setSlugTocado] = useState(false);
   const [descricao, setDescricao]   = useState("");
+  const [videoUrl, setVideoUrl]     = useState("");
   const [localEvento, setLocalEvento] = useState("");
   const [dataEvento, setDataEvento] = useState("");
   const [publicado, setPublicado]   = useState(true);
@@ -74,7 +76,7 @@ export function TrabalhoForm({ trabalhoId }: { trabalhoId?: string }) {
   const inputFileRef                = useRef<HTMLInputElement>(null);
 
   // Estado de salvamento claro (regra de sistema) — fotos ficam de fora (persistem na hora)
-  const snapshotAtual = JSON.stringify([titulo, catNome, slug, descricao, localEvento, dataEvento, publicado, destaqueHome, seoTitle, seoDesc, seoKeywords, seoNoindex, ogTitle, ogDesc, ogImage, mostrarData, modoExibicao]);
+  const snapshotAtual = JSON.stringify([titulo, catNome, slug, descricao, videoUrl, localEvento, dataEvento, publicado, destaqueHome, seoTitle, seoDesc, seoKeywords, seoNoindex, ogTitle, ogDesc, ogImage, mostrarData, modoExibicao]);
   const estado = useEditorEstado(snapshotAtual, "/site/galerias");
 
   // Categorias da conta (para o combobox). Conta nova nasce vazia — cria a 1ª ao salvar o trabalho.
@@ -94,7 +96,7 @@ export function TrabalhoForm({ trabalhoId }: { trabalhoId?: string }) {
   useEffect(() => {
     if (!editando) {
       // Novo trabalho: baseline = formulário vazio (dirty quando algo for preenchido)
-      estado.inicializar(JSON.stringify(["", "", "", "", "", "", true, false, "", "", "", false, "", "", null, true, "lista"]));
+      estado.inicializar(JSON.stringify(["", "", "", "", "", "", "", true, false, "", "", "", false, "", "", null, true, "lista"]));
       return;
     }
     if (!fotografo) return;
@@ -104,7 +106,8 @@ export function TrabalhoForm({ trabalhoId }: { trabalhoId?: string }) {
       if (!t) { setMsg({ tipo: "erro", texto: "Trabalho não encontrado." }); setCarregando(false); return; }
       const trab = t as SiteTrabalho;
       setTitulo(trab.titulo); setCatNome(nomeCategoria(trab.categoria)); setSlug(trab.slug); setSlugTocado(true);
-      setDescricao(trab.descricao ?? ""); setLocalEvento(trab.local ?? ""); setDataEvento(trab.data_evento ?? "");
+      setDescricao(trab.descricao ?? ""); setVideoUrl(trab.video_url ?? "");
+      setLocalEvento(trab.local ?? ""); setDataEvento(trab.data_evento ?? "");
       setPublicado(trab.publicado); setDestaqueHome(trab.destaque_home);
       setSeoTitle(trab.seo_title ?? ""); setSeoDesc(trab.seo_description ?? "");
       setSeoKeywords(trab.seo_keywords ?? ""); setSeoNoindex(trab.seo_noindex);
@@ -117,7 +120,7 @@ export function TrabalhoForm({ trabalhoId }: { trabalhoId?: string }) {
       const { data: fts } = await supabase.from("site_trabalho_fotos").select("*").eq("trabalho_id", trabalhoId!).order("ordem");
       setFotos((fts as SiteTrabalhoFoto[]) ?? []);
       estado.inicializar(JSON.stringify([
-        trab.titulo, nomeCategoria(trab.categoria), trab.slug, trab.descricao ?? "", trab.local ?? "", trab.data_evento ?? "",
+        trab.titulo, nomeCategoria(trab.categoria), trab.slug, trab.descricao ?? "", trab.video_url ?? "", trab.local ?? "", trab.data_evento ?? "",
         trab.publicado, trab.destaque_home, trab.seo_title ?? "", trab.seo_description ?? "",
         trab.seo_keywords ?? "", trab.seo_noindex, trab.og_title ?? "", trab.og_description ?? "", trab.og_image_url,
         trab.mostrar_data, trab.modo_exibicao || "lista",
@@ -175,7 +178,8 @@ export function TrabalhoForm({ trabalhoId }: { trabalhoId?: string }) {
     const descLimpa = descricao.replace(/<p>\s*<\/p>/g, "").trim();
     return {
       titulo: titulo.trim(), categoria: slugCat, slug: (slug || slugify(titulo)).trim(),
-      descricao: descLimpa || null, local: localEvento.trim() || null, data_evento: dataEvento || null,
+      descricao: descLimpa || null, video_url: videoUrl.trim() || null,
+      local: localEvento.trim() || null, data_evento: dataEvento || null,
       publicado, destaque_home: destaqueHome,
       seo_title: seoTitle.trim() || null, seo_description: seoDesc.trim() || null,
       seo_keywords: seoKeywords.trim() || null, seo_noindex: seoNoindex,
@@ -363,6 +367,13 @@ export function TrabalhoForm({ trabalhoId }: { trabalhoId?: string }) {
           <label style={labelStyle}>Descrição</label>
           <RichTextEditor value={descricao} onChange={setDescricao} minHeight={160} />
           <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 4 }}>Texto exibido na página do trabalho (bom para SEO).</div>
+        </div>
+
+        <div>
+          <label style={labelStyle}>Link do vídeo (YouTube) — opcional</label>
+          <input value={videoUrl} onChange={(e) => setVideoUrl(normalizarVideoUrl(e.target.value))}
+            style={{ ...inputStyle, fontFamily: "monospace", fontSize: 12 }} placeholder="https://www.youtube.com/watch?v=…" />
+          <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 4 }}>O vídeo aparece na página do trabalho, entre a descrição e as fotos.</div>
         </div>
 
         <div style={{ display: "flex", gap: 22, flexWrap: "wrap" }}>

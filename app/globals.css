@@ -52,6 +52,13 @@ a {
 .lp-hero-inner { position: relative; z-index: 1; text-align: center; padding: 40px 24px; display: flex; flex-direction: column; align-items: center; gap: 22px; }
 .lp-hero-inner img.lp-logo { height: 120px; width: auto; max-width: 80vw; }
 .lp-hero-inner h1 { color: #fff; font-family: var(--site-fonte-titulo), Georgia, serif; font-size: 50px; font-weight: 700; line-height: 1.15; margin: 0; }
+/* Texto e formulário SOBREPOSTOS ao hero (layout "banner de fundo" de Contato/Sobre).
+   Sobre a foto (dentro de .lp-hero-inner) o texto é claro; sem foto, cor neutra do tema. */
+.lp-hero-texto { color: var(--site-suave); font-size: 17px; line-height: 1.7; max-width: 640px; margin: 0; }
+.lp-hero-inner .lp-hero-texto { color: rgba(255, 255, 255, 0.92); }
+.lp-hero-form { width: min(560px, 100%); background: color-mix(in srgb, var(--site-fundo) 90%, transparent); backdrop-filter: blur(4px); border-radius: 12px; padding: 24px 22px 18px; text-align: left; box-shadow: 0 12px 44px rgba(0, 0, 0, 0.28); }
+/* Hero sem imagem (título/texto/formulário centralizados na seção) */
+.lp-hero-solto h1 { font-family: var(--site-fonte-titulo), Georgia, serif; font-size: 40px; color: var(--site-titulo); margin: 0; line-height: 1.2; }
 
 .lp-secao { max-width: 1120px; margin: 0 auto; padding: 60px 24px; }
 .lp-titulo { font-family: var(--site-fonte-titulo), Georgia, serif; text-align: center; font-size: 40px; color: var(--site-titulo); margin: 0 0 32px; }
@@ -257,12 +264,24 @@ a {
 
 /* Container-queries: a home e o header respondem à LARGURA do seu container — o viewport no
    site real e a largura do dispositivo escolhido (PC/tablet/celular) na prévia do editor. */
+.site-root { container-type: inline-size; }
 .site-header { container-type: inline-size; }
 .site-main { container-type: inline-size; }
 .site-header-mobile { display: none; }
+
+/* Corpo do site (header + conteúdo). Na orientação lateral é uma LINHA (coluna de menu à
+   esquerda); no mobile vira coluna: a coluna .site-side some e entra a barra-topo
+   .site-side-topbar (logo + hambúrguer) — paridade com o header no topo. */
+.site-corpo { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.site-corpo-lateral { flex-direction: row; }
+.site-side-topbar { display: none; }
+
 @container (max-width: 760px) {
   .site-header-desktop { display: none !important; }
   .site-header-mobile { display: flex !important; }
+  .site-corpo-lateral { flex-direction: column; }
+  .site-corpo-lateral .site-side { display: none !important; }
+  .site-side-topbar { display: flex !important; }
   .site-grid-cards { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
   .site-blog-linha { grid-template-columns: 1fr !important; }
 }

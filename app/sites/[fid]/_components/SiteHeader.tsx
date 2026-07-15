@@ -34,12 +34,20 @@ export function SiteHeader({
     : <Link key={it.id} href={it.href === "/" ? (base || "/") : `${base}${it.href}`} style={linkStyle}>{it.label}</Link>;
 
   // ── Barra lateral esquerda ──
+  // No mobile a coluna some (CSS .site-corpo-lateral) e entra a barra-topo com hambúrguer
+  // (.site-side-topbar) — mesmo comportamento do header no topo: só logo + ícone de menu.
   if (orientacao === "lateral_esquerda") {
     return (
-      <header className="site-side" style={{ width: largura, flex: `0 0 ${largura}px`, background: fundo ?? "var(--site-fundo)", borderRight: "1px solid var(--site-borda)", padding: `${Math.max(padY, 20)}px 20px`, display: "flex", flexDirection: "column", gap: 26, position: "sticky", top: 0, alignSelf: "flex-start", height: "100dvh" }}>
-        <div>{Logo}</div>
-        <nav style={{ display: "flex", flexDirection: "column", gap: 4 }}>{itens.map(link)}</nav>
-      </header>
+      <>
+        <header className="site-side" style={{ width: largura, flex: `0 0 ${largura}px`, background: fundo ?? "var(--site-fundo)", borderRight: "1px solid var(--site-borda)", padding: `${Math.max(padY, 20)}px 20px`, display: "flex", flexDirection: "column", gap: 26, position: "sticky", top: 0, alignSelf: "flex-start", height: "100dvh" }}>
+          <div>{Logo}</div>
+          <nav style={{ display: "flex", flexDirection: "column", gap: 4 }}>{itens.map(link)}</nav>
+        </header>
+        <header className="site-side-topbar" style={{ position: "sticky", top: 0, zIndex: 50, alignItems: "center", justifyContent: "space-between", gap: 16, padding: "10px 16px", background: fundo ?? "var(--site-fundo)", borderBottom: "1px solid var(--site-borda)" }}>
+          {Logo}
+          <MenuMobile base={base} itens={itens} cor={cor} />
+        </header>
+      </>
     );
   }
 

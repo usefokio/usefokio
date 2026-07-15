@@ -417,6 +417,7 @@ export type GoogleReviewsResumo = {
 
 // Trabalho = post de um evento. URL pública: /portfolio/{categoria}/{legacy_id}-{slug}
 export type SiteTrabalho = {
+  video_url: string | null; // URL de embed do YouTube (normalizada em lib/utils/youtube.ts)
   id: string;
   fotografo_id: string;
   categoria: string;

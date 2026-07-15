@@ -82,6 +82,7 @@ export type HomeBloco = {
   ajuste?: BannerAjuste;
   altura?: number;
   velocidade?: number;
+  linhas?: number; // banner(grid): limite de linhas da grade; 0 = sem limite (mostra tudo)
   // banner(grid) / trabalhos / blog / depoimentos(grade)
   colunas?: number;
   // trabalhos / blog
@@ -118,7 +119,7 @@ export const ASPECT: Record<ProporcaoCapa, string> = {
 export const BLOCOS_ORDEM_PADRAO: HomeBlocoKey[] = ["banner", "trabalhos", "blog", "depoimentos", "selos", "cta"];
 
 export const BLOCO_DEFAULTS: Record<HomeBlocoKey, HomeBloco> = {
-  banner:      { key: "banner",      on: true, tipo: "deslizante", ajuste: "manter_proporcao", altura: 300, velocidade: 4, colunas: 3 },
+  banner:      { key: "banner",      on: true, tipo: "deslizante", ajuste: "manter_proporcao", altura: 300, velocidade: 4, colunas: 3, linhas: 0 },
   trabalhos:   { key: "trabalhos",   on: true, colunas: 3, proporcao: "horizontal_3x2", titulo_pos: "abaixo", texto_card: "titulo_subtitulo" },
   blog:        { key: "blog",        on: true, layout: "capa_esquerda", colunas: 3, proporcao: "horizontal_3x2", titulo_pos: "abaixo", descricao: true },
   depoimentos: { key: "depoimentos", on: true, layout: "lista_vertical", colunas: 3, mostrar_foto: true, mostrar_nome: true, mostrar_texto: true },
@@ -222,7 +223,8 @@ function normalizarBloco(key: HomeBlocoKey, raw: unknown): HomeBloco {
         ajuste: umDe(r.ajuste, ["manter_proporcao", "preencher"] as const, d.ajuste!),
         altura: num(r.altura, d.altura!, 120, 900),
         velocidade: num(r.velocidade, d.velocidade!, 1, 20),
-        colunas: num(r.colunas, d.colunas!, 2, 6) };
+        colunas: num(r.colunas, d.colunas!, 2, 6),
+        linhas: num(r.linhas, d.linhas!, 0, 20) };
     case "trabalhos":
       return { key, on,
         colunas: num(r.colunas, d.colunas!, 1, 6),

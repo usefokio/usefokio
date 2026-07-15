@@ -21,18 +21,33 @@ function linkInterno(base: string, href: string) {
 function Bloco({ bloco, ctx }: { bloco: SiteBloco; ctx: ContextoBlocos }) {
   const d = bloco.dados;
   switch (bloco.tipo) {
-    case "hero":
-      return d.imagem_url ? (
-        <section className="lp-hero">
-          <img className="lp-hero-bg" src={d.imagem_url} alt={d.titulo ?? ""} />
-          <div className="lp-hero-inner">
-            {d.logo_url && <img className="lp-logo" src={d.logo_url} alt="" />}
-            {d.titulo && <h1>{d.titulo}</h1>}
-          </div>
-        </section>
-      ) : d.titulo ? (
-        <h1 className="lp-titulo" style={{ marginTop: 60 }}>{d.titulo}</h1>
-      ) : null;
+    case "hero": {
+      // Miolo do hero: logo + título + texto (subtítulo) + formulário sobreposto (opcional).
+      const miolo = (
+        <>
+          {d.logo_url && <img className="lp-logo" src={d.logo_url} alt="" />}
+          {d.titulo && <h1>{d.titulo}</h1>}
+          {d.texto && <p className="lp-hero-texto">{d.texto}</p>}
+          {d.com_formulario && (
+            <div className="lp-hero-form">
+              <ContatoForm fid={ctx.fid} config={d.formulario} categorias={ctx.categorias ?? []} />
+            </div>
+          )}
+        </>
+      );
+      if (d.imagem_url) {
+        return (
+          <section className="lp-hero">
+            <img className="lp-hero-bg" src={d.imagem_url} alt={d.titulo ?? ""} />
+            <div className="lp-hero-inner">{miolo}</div>
+          </section>
+        );
+      }
+      if (d.com_formulario || d.texto) {
+        return <section className="lp-secao lp-hero-solto" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 22, textAlign: "center" }}>{miolo}</section>;
+      }
+      return d.titulo ? <h1 className="lp-titulo" style={{ marginTop: 60 }}>{d.titulo}</h1> : null;
+    }
 
     case "titulo":
       return d.texto ? <h2 className="lp-titulo" style={{ paddingTop: 40 }}>{d.texto}</h2> : null;
