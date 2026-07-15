@@ -42,6 +42,7 @@ export type SiteBloco = {
     // imagem
     url?: string | null;
     largura_total?: boolean;
+    largura?: number; // largura da imagem em % (20-100); largura_total ignora e ocupa 100%
     // duas_colunas / pacote
     invertido?: boolean;
     nome?: string | null;

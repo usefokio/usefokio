@@ -443,6 +443,11 @@ export default function AparenciaPage() {
             {b.tipo === "foto_unica" && campo("Ajuste da imagem", <Seg value={b.ajuste ?? "manter_proporcao"} options={[{ v: "manter_proporcao", l: "Manter proporção" }, { v: "preencher", l: "Preencher" }] as const} onChange={(v) => setBloco("banner", { ajuste: v })} />)}
             {b.tipo !== "grid" && campo("Tamanho (altura)", <Range label="Altura" value={b.altura ?? 300} min={120} max={720} unidade="px" onChange={(v) => setBloco("banner", { altura: v })} />)}
             {b.tipo === "grid" && campo("Colunas", <Range label="Colunas" value={b.colunas ?? 3} min={2} max={6} onChange={(v) => setBloco("banner", { colunas: v })} />)}
+            {b.tipo === "grid" && campo("Orientação das fotos", <Seg value={b.proporcao ?? "horizontal_3x2"} options={PROP_OPTS} onChange={(v) => setBloco("banner", { proporcao: v })} />)}
+            {campo("Alinhamento do recorte", <>
+              <Seg value={b.ancora ?? "centro"} options={[{ v: "superior", l: "Superior" }, { v: "centro", l: "Central" }, { v: "inferior", l: "Inferior" }] as const} onChange={(v) => setBloco("banner", { ancora: v })} />
+              <p style={{ ...mini, margin: "4px 0 0" }}>Escolhe qual parte da foto aparece quando ela é cortada.</p>
+            </>)}
             {b.tipo === "grid" && campo("Limite de linhas", <>
               <Range label={(b.linhas ?? 0) === 0 ? "Sem limite" : "Linhas"} value={b.linhas ?? 0} min={0} max={20} onChange={(v) => setBloco("banner", { linhas: v })} />
               <p style={{ ...mini, margin: "4px 0 0" }}>0 = sem limite (a grade mostra todas as fotos). Com limite, as fotos excedentes viram um carrossel deslizante.</p>
@@ -652,6 +657,11 @@ export default function AparenciaPage() {
                       </button>
                       {cfgSobre.foto && <button onClick={() => setCfgSobre((c) => c ? { ...c, foto: null } : c)} style={{ border: "none", background: "transparent", fontSize: 11, color: "#DC2626", cursor: "pointer" }}>Remover</button>}
                     </div>
+                    {cfgSobre.foto && (
+                      <div style={{ marginTop: 12 }}>
+                        <Range label="Tamanho da foto" value={cfgSobre.foto_largura} min={160} max={720} unidade="px" onChange={(v) => setCfgSobre((c) => c ? { ...c, foto_largura: v } : c)} />
+                      </div>
+                    )}
                   </Card>
                 )}
                 {cfgSobre.layout === "foto_fundo" && (

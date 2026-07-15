@@ -26,7 +26,7 @@ export function PaginaSobre({ cfg, titulo }: { cfg: CfgSobre; titulo: string }) 
       <div style={{ maxWidth: 760, margin: "0 auto", padding: "40px 24px" }}>
         <h1 style={h1Central}>{titulo}</h1>
         <div className="site-conteudo" style={{ fontSize: 15, lineHeight: 1.9, color: "#333" }} dangerouslySetInnerHTML={{ __html: html }} />
-        {cfg.foto && <img src={cfg.foto} alt={titulo} style={{ width: "100%", borderRadius: 12, display: "block", marginTop: 28 }} />}
+        {cfg.foto && <img src={cfg.foto} alt={titulo} style={{ width: "100%", maxWidth: cfg.foto_largura, borderRadius: 12, display: "block", margin: "28px auto 0" }} />}
       </div>
     );
   }
@@ -36,7 +36,7 @@ export function PaginaSobre({ cfg, titulo }: { cfg: CfgSobre; titulo: string }) 
     <div style={{ maxWidth: 900, margin: "0 auto", padding: "40px 24px" }}>
       <h1 style={h1Central}>{titulo}</h1>
       <div style={{ display: "flex", gap: 32, alignItems: "flex-start", flexWrap: "wrap" }}>
-        {cfg.foto && <img src={cfg.foto} alt={titulo} style={{ width: 320, maxWidth: "100%", borderRadius: 12, display: "block" }} />}
+        {cfg.foto && <img src={cfg.foto} alt={titulo} style={{ width: cfg.foto_largura, maxWidth: "100%", borderRadius: 12, display: "block" }} />}
         <div className="site-conteudo" style={{ flex: 1, minWidth: 280, fontSize: 15, lineHeight: 1.9, color: "#333" }}
           dangerouslySetInnerHTML={{ __html: html }} />
       </div>

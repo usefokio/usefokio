@@ -63,7 +63,7 @@ function Bloco({ bloco, ctx }: { bloco: SiteBloco; ctx: ContextoBlocos }) {
       return d.url ? (
         d.largura_total
           ? <img className="lp-full-img" src={d.url} alt="" loading="lazy" />
-          : <div className="lp-secao" style={{ paddingTop: 24, paddingBottom: 24 }}><img src={d.url} alt="" style={{ width: "100%", height: "auto", display: "block", borderRadius: 4 }} loading="lazy" /></div>
+          : <div className="lp-secao" style={{ paddingTop: 24, paddingBottom: 24 }}><img src={d.url} alt="" style={{ width: `${Math.min(100, Math.max(20, d.largura ?? 100))}%`, height: "auto", display: "block", borderRadius: 4, margin: "0 auto" }} loading="lazy" /></div>
       ) : null;
 
     case "duas_colunas":

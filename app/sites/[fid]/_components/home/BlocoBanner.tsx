@@ -9,7 +9,7 @@
 //    percorre TODAS as fotos; 0 = grade estática com todas as fotos (ocupa a página).
 // Onde falta imagem (site sem conteúdo / prévia fictícia) → gradiente placeholder.
 import { useEffect, useRef, useState } from "react";
-import type { HomeBloco } from "@/lib/site/design";
+import { ASPECT, OBJECT_POSITION, type HomeBloco } from "@/lib/site/design";
 import { gradPlaceholder } from "./placeholder";
 import type { SiteBanner } from "@/lib/supabase/types";
 
@@ -25,6 +25,8 @@ function Seta({ dir, onClick, disabled }: { dir: "esq" | "dir"; onClick: () => v
 export function BlocoBanner({ config, banners, base }: { config: HomeBloco; banners: SiteBanner[]; base: string }) {
   const tipo = config.tipo ?? "deslizante";
   const altura = config.altura ?? 300;
+  const aspect = ASPECT[config.proporcao ?? "horizontal_3x2"];   // orientação da foto (grade)
+  const objPos = OBJECT_POSITION[config.ancora ?? "centro"];      // alinhamento do recorte
   const resolver = (link: string) => (link.startsWith("/") ? `${base}${link}` : link);
   const envolver = (b: SiteBanner, conteudo: React.ReactNode, extra?: React.CSSProperties) =>
     b.link
@@ -37,8 +39,8 @@ export function BlocoBanner({ config, banners, base }: { config: HomeBloco; bann
     const linhas = config.linhas ?? 0;
     const porPagina = linhas * cols;
     const celula = (b: SiteBanner) => envolver(b, b.imagem_url
-      ? <img src={b.imagem_url} alt={b.titulo ?? ""} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", aspectRatio: "3 / 2" }} loading="lazy" />
-      : <div style={{ width: "100%", aspectRatio: "3 / 2", background: gradPlaceholder(b.id) }} />);
+      ? <img src={b.imagem_url} alt={b.titulo ?? ""} style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: objPos, display: "block", aspectRatio: aspect }} loading="lazy" />
+      : <div style={{ width: "100%", aspectRatio: aspect, background: gradPlaceholder(b.id) }} />);
 
     // Com limite de linhas e mais fotos que a matriz comporta → a matriz inteira desliza em páginas.
     if (linhas > 0 && banners.length > porPagina) {
@@ -56,11 +58,11 @@ export function BlocoBanner({ config, banners, base }: { config: HomeBloco; bann
     );
   }
 
-  if (tipo === "deslizante") return <Deslizante banners={banners} altura={altura} velocidade={config.velocidade ?? 4} resolver={resolver} />;
-  return <FotoUnica banners={banners} altura={altura} velocidade={config.velocidade ?? 4} ajuste={config.ajuste ?? "manter_proporcao"} resolver={resolver} />;
+  if (tipo === "deslizante") return <Deslizante banners={banners} altura={altura} velocidade={config.velocidade ?? 4} resolver={resolver} objPos={objPos} />;
+  return <FotoUnica banners={banners} altura={altura} velocidade={config.velocidade ?? 4} ajuste={config.ajuste ?? "manter_proporcao"} resolver={resolver} objPos={objPos} />;
 }
 
-function FotoUnica({ banners, altura, velocidade, ajuste, resolver }: { banners: SiteBanner[]; altura: number; velocidade: number; ajuste: string; resolver: (l: string) => string }) {
+function FotoUnica({ banners, altura, velocidade, ajuste, resolver, objPos }: { banners: SiteBanner[]; altura: number; velocidade: number; ajuste: string; resolver: (l: string) => string; objPos: string }) {
   const [i, setI] = useState(0);
   const n = banners.length;
   useEffect(() => {
@@ -73,7 +75,7 @@ function FotoUnica({ banners, altura, velocidade, ajuste, resolver }: { banners:
     <section style={{ position: "relative", height: altura, overflow: "hidden", background: "#111" }}>
       {banners.map((b, idx) => {
         const camada = b.imagem_url
-          ? <img src={b.imagem_url} alt={b.titulo ?? ""} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: fit, opacity: idx === i ? 1 : 0, transition: "opacity 0.8s ease", pointerEvents: idx === i ? "auto" : "none" }} loading={idx === 0 ? "eager" : "lazy"} />
+          ? <img src={b.imagem_url} alt={b.titulo ?? ""} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: fit, objectPosition: objPos, opacity: idx === i ? 1 : 0, transition: "opacity 0.8s ease", pointerEvents: idx === i ? "auto" : "none" }} loading={idx === 0 ? "eager" : "lazy"} />
           : <div style={{ position: "absolute", inset: 0, background: gradPlaceholder(b.id), opacity: idx === i ? 1 : 0, transition: "opacity 0.8s ease" }} />;
         return b.link ? <a key={b.id} href={resolver(b.link)}>{camada}</a> : <div key={b.id}>{camada}</div>;
       })}
@@ -124,7 +126,7 @@ function GradePaginada({ paginas, cols, velocidade, celula }: {
   );
 }
 
-function Deslizante({ banners, altura, velocidade, resolver }: { banners: SiteBanner[]; altura: number; velocidade: number; resolver: (l: string) => string }) {
+function Deslizante({ banners, altura, velocidade, resolver, objPos }: { banners: SiteBanner[]; altura: number; velocidade: number; resolver: (l: string) => string; objPos: string }) {
   const ref = useRef<HTMLDivElement>(null);
   const [i, setI] = useState(0);
   const n = banners.length;
@@ -147,7 +149,7 @@ function Deslizante({ banners, altura, velocidade, resolver }: { banners: SiteBa
   }, [n, velocidade]);
   const item = (b: SiteBanner) => {
     const conteudo = b.imagem_url
-      ? <img src={b.imagem_url} alt={b.titulo ?? ""} style={{ height: "100%", width: "auto", display: "block", objectFit: "cover" }} loading="lazy" />
+      ? <img src={b.imagem_url} alt={b.titulo ?? ""} style={{ height: "100%", width: "auto", display: "block", objectFit: "cover", objectPosition: objPos }} loading="lazy" />
       : <div style={{ height: "100%", width: Math.round(altura * 1.5), background: gradPlaceholder(b.id) }} />;
     const st: React.CSSProperties = { flex: "0 0 auto", height: "100%", scrollSnapAlign: "center" };
     return b.link ? <a key={b.id} href={resolver(b.link)} style={st}>{conteudo}</a> : <div key={b.id} style={st}>{conteudo}</div>;

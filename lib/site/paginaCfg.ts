@@ -18,6 +18,7 @@ export type CfgSobre = {
   layout: LayoutSobre;
   html: string | null;
   foto: string | null;
+  foto_largura: number;       // largura da foto em px (foto+bio) / largura máx. (minimalista)
   fundo: string | null;       // conteudo.banner_url (imagem de fundo do modelo foto_fundo)
 };
 
@@ -35,6 +36,10 @@ export const LAYOUTS_SOBRE: { v: LayoutSobre; l: string }[] = [
 type Raw = Record<string, unknown>;
 const raw = (v: unknown): Raw => (v && typeof v === "object" ? (v as Raw) : {});
 const str = (v: unknown): string | null => (typeof v === "string" && v.trim() ? v : null);
+const numPx = (v: unknown, def: number): number => {
+  const n = typeof v === "number" ? v : Number(v);
+  return Number.isFinite(n) ? Math.min(720, Math.max(160, n)) : def;
+};
 
 // Sem layout salvo, reproduz o visual legado: com foto → colunas; sem foto → minimalista.
 export function cfgContatoDe(conteudo: unknown): CfgContato {
@@ -52,7 +57,7 @@ export function cfgSobreDe(conteudo: unknown): CfgSobre {
   const layout = LAYOUTS_SOBRE.some((o) => o.v === c.layout)
     ? (c.layout as LayoutSobre)
     : (foto ? "foto_bio" : "minimalista");
-  return { layout, html: str(c.html), foto, fundo: str(c.banner_url) };
+  return { layout, html: str(c.html), foto, foto_largura: numPx(c.foto_largura, 320), fundo: str(c.banner_url) };
 }
 
 // Mescla a config de volta no conteudo (preserva chaves desconhecidas do jsonb).
@@ -64,6 +69,7 @@ export function conteudoComCfg(conteudoOriginal: unknown, cfg: CfgContato | CfgS
     html: cfg.html,
     imagens: cfg.foto ? [cfg.foto] : [],
     banner_url: "banner" in cfg ? cfg.banner : cfg.fundo,
+    ...("foto_largura" in cfg ? { foto_largura: cfg.foto_largura } : {}),
     ...("formulario" in cfg && cfg.formulario !== undefined ? { formulario: cfg.formulario } : {}),
   };
 }

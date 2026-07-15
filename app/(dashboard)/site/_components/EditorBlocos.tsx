@@ -180,6 +180,12 @@ export function EditorBlocos({ blocos, onChange, fotografoId, pasta, acaoBloco }
               <input type="checkbox" checked={d.largura_total ?? false} onChange={(e) => mudar(b.id, { largura_total: e.target.checked })} />
               Largura total da página
             </label>
+            {!d.largura_total && (
+              <div>
+                <label style={labelStyle}>Tamanho da imagem — {d.largura ?? 100}%</label>
+                <input type="range" min={20} max={100} step={5} value={d.largura ?? 100} onChange={(e) => mudar(b.id, { largura: parseInt(e.target.value, 10) })} style={{ width: "100%", accentColor: "#2563EB" }} />
+              </div>
+            )}
           </div>
         );
       case "duas_colunas":

@@ -70,6 +70,8 @@ export type BannerTipo = "foto_unica" | "deslizante" | "grid";
 export type BannerAjuste = "manter_proporcao" | "preencher";
 export type ProporcaoCapa = "horizontal_3x2" | "horizontal_4x3" | "vertical_2x3" | "quadrado_1x1";
 export type PosicaoTitulo = "acima" | "centro" | "abaixo";
+// Âncora vertical do recorte da foto (object-position) quando a imagem é cortada (cover).
+export type AncoraFoto = "superior" | "centro" | "inferior";
 export type TextoCard = "titulo_subtitulo" | "so_titulo";
 export type BlogLayout = "capa_esquerda" | "capa_em_cima" | "horizontal_deslizante";
 export type DepoLayout = "lista_vertical" | "horizontal" | "grade";
@@ -83,9 +85,10 @@ export type HomeBloco = {
   altura?: number;
   velocidade?: number;
   linhas?: number; // banner(grid): limite de linhas da grade; 0 = sem limite (mostra tudo)
+  ancora?: AncoraFoto; // banner: alinhamento vertical do recorte da foto (superior/centro/inferior)
   // banner(grid) / trabalhos / blog / depoimentos(grade)
   colunas?: number;
-  // trabalhos / blog
+  // banner(grid) / trabalhos / blog
   proporcao?: ProporcaoCapa;
   titulo_pos?: PosicaoTitulo;
   // trabalhos
@@ -107,6 +110,14 @@ export type HomeBloco = {
 
 export const PROPORCOES: readonly ProporcaoCapa[] = ["horizontal_3x2", "horizontal_4x3", "vertical_2x3", "quadrado_1x1"];
 export const POS_TITULO: readonly PosicaoTitulo[] = ["acima", "centro", "abaixo"];
+export const ANCORAS: readonly AncoraFoto[] = ["superior", "centro", "inferior"];
+
+// object-position CSS por âncora vertical (horizontal sempre centralizado).
+export const OBJECT_POSITION: Record<AncoraFoto, string> = {
+  superior: "center top",
+  centro: "center center",
+  inferior: "center bottom",
+};
 
 // Aspect-ratio CSS por proporção da capa (a capa mantém a proporção — sem altura fixa).
 export const ASPECT: Record<ProporcaoCapa, string> = {
@@ -119,7 +130,7 @@ export const ASPECT: Record<ProporcaoCapa, string> = {
 export const BLOCOS_ORDEM_PADRAO: HomeBlocoKey[] = ["banner", "trabalhos", "blog", "depoimentos", "selos", "cta"];
 
 export const BLOCO_DEFAULTS: Record<HomeBlocoKey, HomeBloco> = {
-  banner:      { key: "banner",      on: true, tipo: "deslizante", ajuste: "manter_proporcao", altura: 300, velocidade: 4, colunas: 3, linhas: 0 },
+  banner:      { key: "banner",      on: true, tipo: "deslizante", ajuste: "manter_proporcao", altura: 300, velocidade: 4, colunas: 3, linhas: 0, proporcao: "horizontal_3x2", ancora: "centro" },
   trabalhos:   { key: "trabalhos",   on: true, colunas: 3, proporcao: "horizontal_3x2", titulo_pos: "abaixo", texto_card: "titulo_subtitulo" },
   blog:        { key: "blog",        on: true, layout: "capa_esquerda", colunas: 3, proporcao: "horizontal_3x2", titulo_pos: "abaixo", descricao: true },
   depoimentos: { key: "depoimentos", on: true, layout: "lista_vertical", colunas: 3, mostrar_foto: true, mostrar_nome: true, mostrar_texto: true },
@@ -224,7 +235,9 @@ function normalizarBloco(key: HomeBlocoKey, raw: unknown): HomeBloco {
         altura: num(r.altura, d.altura!, 120, 900),
         velocidade: num(r.velocidade, d.velocidade!, 1, 20),
         colunas: num(r.colunas, d.colunas!, 2, 6),
-        linhas: num(r.linhas, d.linhas!, 0, 20) };
+        linhas: num(r.linhas, d.linhas!, 0, 20),
+        proporcao: umDe(r.proporcao, PROPORCOES, d.proporcao!),
+        ancora: umDe(r.ancora, ANCORAS, d.ancora!) };
     case "trabalhos":
       return { key, on,
         colunas: num(r.colunas, d.colunas!, 1, 6),
