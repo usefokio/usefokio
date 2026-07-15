@@ -52,8 +52,11 @@ export function normalizarHost(hostHeader: string): string {
 // Host público da requisição, tolerante a proxy reverso (Railway/borda): prefere
 // x-forwarded-host e cai para o header host. O roteamento multi-tenant depende do
 // host público — usar em vez de ler "host" cru no proxy e no layout do site.
+// x-tenant-host: no domínio próprio (Cloudflare for SaaS), o Cloudflare reescreve o Host
+// para saas-origin (pro Railway aceitar) e coloca o domínio real do fotógrafo aqui — por
+// isso é a 1ª opção. Subdomínios/host do app não têm esse header (sem regressão).
 export function hostDaRequisicao(h: { get(name: string): string | null }): string {
-  return normalizarHost(h.get("x-forwarded-host") ?? h.get("host") ?? "");
+  return normalizarHost(h.get("x-tenant-host") ?? h.get("x-forwarded-host") ?? h.get("host") ?? "");
 }
 
 // Hosts do próprio app UseFokio (não são domínios/subdomínios de fotógrafo).
