@@ -67,7 +67,6 @@ export function ehAppHost(host: string): boolean {
   return (
     h === "localhost" ||
     h === "127.0.0.1" ||
-    h.endsWith(".vercel.app") ||
     h.endsWith(".up.railway.app") ||
     h === "usefokio.com.br" ||
     h === "www.usefokio.com.br"

@@ -1,0 +1,34 @@
+# Crons do UseFokio (substituem os crons do vercel.json na saída da Vercel).
+# Batem nas rotas GET protegidas por Authorization: Bearer $CRON_SECRET.
+# Horários em UTC — 0 11 = 08:00 BRT (lembretes de agenda), 0 12 = 09:00 BRT (assinaturas).
+# O segredo CRON_SECRET fica em Settings → Secrets and variables → Actions (mesmo valor do Railway).
+name: Crons UseFokio
+
+on:
+  schedule:
+    - cron: "0 11 * * *"   # lembretes de agenda (08:00 BRT)
+    - cron: "0 12 * * *"   # checagem de assinaturas (09:00 BRT)
+  workflow_dispatch:        # permite rodar manualmente (testar) pelo painel do GitHub
+
+jobs:
+  lembretes:
+    # No agendamento das 11h UTC (ou ao rodar manual). Não roda no schedule das 12h.
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '0 11 * * *'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Disparar lembretes de agenda
+        run: |
+          curl -fsS --retry 3 --retry-delay 10 -X GET \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            https://www.usefokio.com.br/api/crm/agenda/lembretes
+
+  assinaturas:
+    # No agendamento das 12h UTC (ou ao rodar manual). Não roda no schedule das 11h.
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '0 12 * * *'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checar assinaturas
+        run: |
+          curl -fsS --retry 3 --retry-delay 10 -X GET \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            https://www.usefokio.com.br/api/cron/assinaturas
