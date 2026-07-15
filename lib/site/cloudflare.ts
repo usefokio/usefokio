@@ -25,12 +25,26 @@ type CfResp<T> = { success: boolean; errors?: { message: string }[]; result: T }
 async function cfFetch<T>(path: string, init: RequestInit): Promise<T> {
   const cfg = cfConfig();
   if (!cfg) throw new Error("Cloudflare não configurado (CLOUDFLARE_API_TOKEN / CLOUDFLARE_ZONE_ID).");
-  const r = await fetch(`${API}${path}`, {
-    ...init,
-    headers: { authorization: `Bearer ${cfg.token}`, "content-type": "application/json", ...(init.headers ?? {}) },
-    cache: "no-store",
-  });
-  const j = (await r.json()) as CfResp<T>;
+  // Timeout curto: sem isso, uma chamada travada derruba a função (vira HTML 504).
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 8000);
+  let r: Response;
+  try {
+    r = await fetch(`${API}${path}`, {
+      ...init,
+      signal: ctrl.signal,
+      headers: { authorization: `Bearer ${cfg.token}`, "content-type": "application/json", ...(init.headers ?? {}) },
+      cache: "no-store",
+    });
+  } catch (e) {
+    throw new Error(ctrl.signal.aborted ? "Cloudflare não respondeu (timeout)." : `Falha de rede ao Cloudflare: ${e instanceof Error ? e.message : String(e)}`);
+  } finally {
+    clearTimeout(timer);
+  }
+  const txt = await r.text();
+  let j: CfResp<T>;
+  try { j = JSON.parse(txt) as CfResp<T>; }
+  catch { throw new Error(`Cloudflare respondeu conteúdo inesperado (HTTP ${r.status}).`); }
   if (!j.success) throw new Error(j.errors?.[0]?.message ?? `Cloudflare erro HTTP ${r.status}`);
   return j.result;
 }
