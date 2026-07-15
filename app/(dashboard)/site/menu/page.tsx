@@ -8,6 +8,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
+import { SLUGS_RESERVADOS } from "@/lib/site/blocos";
 import type { SiteMenuItem, SitePagina } from "@/lib/supabase/types";
 
 const SECOES = [
@@ -125,9 +126,6 @@ export default function PaginasMenuPage() {
     if (data) setItens((prev) => [...prev, data as SiteMenuItem]);
     setAdd(null); setNovoTitulo(""); setNovoUrl("");
   }
-  // Slugs reservados: rotas fixas do site público (colisão deixaria a página inacessível).
-  const SLUGS_RESERVADOS = new Set(["sobre", "contato", "portfolio", "colecoes", "blog", "post", "galeria", "gallery.php", "sitemap.xml", "robots.txt"]);
-
   async function adicionarPagina() {
     if (!fotografo || !novoTitulo.trim()) return;
     const titulo = novoTitulo.trim();

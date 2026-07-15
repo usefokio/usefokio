@@ -18,7 +18,7 @@ import {
   type ConfigDesign, type BarraConfig, type HeaderConfig, type CategoriaFonte,
   type HomeBloco, type HomeBlocoKey, type BlogLayout, type DepoLayout, type GradeConfig,
 } from "@/lib/site/design";
-import { conteudoParaBlocos, type SiteBloco } from "@/lib/site/blocos";
+import { conteudoParaBlocos, SLUGS_RESERVADOS, type SiteBloco } from "@/lib/site/blocos";
 import { EditorBlocos } from "@/app/(dashboard)/site/_components/EditorBlocos";
 import { SiteHeader } from "@/app/sites/[fid]/_components/SiteHeader";
 import { HomeBlocos } from "@/app/sites/[fid]/_components/home/HomeBlocos";
@@ -360,7 +360,9 @@ export default function AparenciaPage() {
   // ── HUB: abas de página + dados da prévia das grades ──
   const pgSel = paginas.find((p) => p.id === pagina) ?? null;
   const institucionais = paginas.filter((p) => p.slug === "sobre" || p.slug === "contato");
-  const customs = paginas.filter((p) => p.slug !== "sobre" && p.slug !== "contato");
+  // Páginas custom com slug RESERVADO (ex.: /galeria, /portfolio) nunca são servidas no
+  // público (a rota fixa tem precedência) — ficam fora do HUB para não duplicar abas.
+  const customs = paginas.filter((p) => p.slug !== "sobre" && p.slug !== "contato" && !SLUGS_RESERVADOS.has(p.slug));
   const abas: { id: string; label: string }[] = [
     { id: "inicio", label: "Início" },
     ...institucionais.map((p) => ({ id: p.id, label: p.titulo || p.slug })),

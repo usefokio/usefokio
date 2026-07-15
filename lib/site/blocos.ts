@@ -20,6 +20,13 @@ export type TipoBloco =
   | "whatsapp"      // CTA de WhatsApp
   | "formulario";   // formulário de contato/lead (grava em site_leads)
 
+// Slugs reservados: rotas fixas do site público / produto de galeria — uma página custom
+// com esses endereços nunca é servida (a rota estática tem precedência). Usado pelo
+// editor de menu (bloqueia criação) e pela Aparência (esconde páginas inservíveis).
+export const SLUGS_RESERVADOS = new Set([
+  "sobre", "contato", "portfolio", "colecoes", "blog", "post", "galeria", "gallery.php", "sitemap.xml", "robots.txt",
+]);
+
 export type SiteBloco = {
   id: string;
   tipo: TipoBloco;
