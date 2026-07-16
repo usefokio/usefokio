@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState, Suspense } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import Link from "next/link";
+import { ClienteLink } from "@/components/ui/ClienteLink";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { processarImagem } from "@/lib/imageResize";
@@ -433,7 +433,7 @@ function GaleriaSelecaoConteudo() {
             )}
           </div>
           <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
-            {cliente && <span style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>👤 <Link href={`/clientes/${cliente.id}`} style={{ color: "inherit", textDecoration: "none" }} onMouseEnter={e => (e.currentTarget.style.textDecoration = "underline")} onMouseLeave={e => (e.currentTarget.style.textDecoration = "none")}>{cliente.nome}</Link></span>}
+            {cliente && <span style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>👤 <ClienteLink id={cliente.id} nome={cliente.nome} /></span>}
             {galeria.data_evento && <span style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>📅 {new Date(galeria.data_evento + "T12:00:00").toLocaleDateString("pt-BR")}</span>}
             {galeria.expira_em && (
               <span style={{ fontSize: 12, color: new Date(galeria.expira_em) < new Date() ? "#EF4444" : "var(--color-text-secondary)" }}>

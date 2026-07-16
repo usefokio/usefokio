@@ -13,6 +13,7 @@ import { Paginacao } from "@/app/(dashboard)/crm/_components/Paginacao";
 import { EmailModal } from "@/app/(dashboard)/crm/_components/EmailModal";
 import { ClienteSelect } from "@/components/ui/ClienteSelect";
 import { ComboSelect } from "@/components/ui/ComboSelect";
+import { ClienteLink } from "@/components/ui/ClienteLink";
 import type { CrmFinancialEntry } from "@/lib/supabase/types";
 
 type EntryWithPedido = CrmFinancialEntry & {
@@ -642,6 +643,7 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
             const vencido = isVencido(e);
             const clienteNome = e.crm_orders?.clientes?.nome ?? e.clientes?.nome ?? null;
             const clienteEmail = e.crm_orders?.clientes?.email ?? e.clientes?.email ?? null;
+            const clienteId = e.crm_orders?.cliente_id ?? e.cliente_id ?? null;
 
             const abrirEmailLembrete = () => {
               setEmailModal({
@@ -662,7 +664,7 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
                     </div>
                     <div style={{ overflow: "hidden" }}>
                       <div style={{ fontSize: 13, fontWeight: 500, color: "var(--color-text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{e.descricao}</div>
-                      {clienteNome && <div style={{ fontSize: 11, color: "var(--color-text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{clienteNome}</div>}
+                      {clienteNome && <div style={{ fontSize: 11, color: "var(--color-text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}><ClienteLink id={clienteId} nome={clienteNome} /></div>}
                     </div>
                     <div
                       onClick={() => setDrillEntry(e)}
@@ -684,7 +686,9 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
                     <div style={{ fontSize: 11, color: "var(--color-text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{e.num_documento ?? "—"}</div>
                     <div style={{ fontSize: 12, color: "var(--color-text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{e.forma_pagamento ?? "—"}</div>
                     <div style={{ fontSize: 11, color: "var(--color-text-secondary)" }}>{e.crm_orders?.numero ?? "—"}</div>
-                    <div style={{ fontSize: 13, fontWeight: 500, color: "var(--color-text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{clienteNome ?? "—"}</div>
+                    <div style={{ fontSize: 13, fontWeight: 500, color: "var(--color-text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      <ClienteLink id={clienteId} nome={clienteNome} />
+                    </div>
                     <div style={{ fontSize: 13, fontWeight: 500, color: "var(--color-text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{e.descricao}</div>
                     <div
                       onClick={() => setDrillEntry(e)}

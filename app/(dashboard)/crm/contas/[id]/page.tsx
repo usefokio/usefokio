@@ -4,10 +4,11 @@ import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { fetchAllRows } from "@/lib/supabase/fetchAll";
+import { ClienteLink } from "@/components/ui/ClienteLink";
 import type { CrmContaBancaria, CrmFinancialEntry } from "@/lib/supabase/types";
 
 type Movimento = CrmFinancialEntry & {
-  crm_orders?: { nome: string | null; clientes?: { nome: string | null } | null } | null;
+  crm_orders?: { nome: string | null; cliente_id?: string | null; clientes?: { id: string; nome: string | null } | null } | null;
 };
 
 export default function ExtratoConta() {
@@ -30,7 +31,7 @@ export default function ExtratoConta() {
         (client, from, to) =>
           client
             .from("crm_financial_entries")
-            .select("*, crm_orders(nome, clientes(nome))")
+            .select("*, crm_orders(nome, cliente_id, clientes(id, nome))")
             .eq("conta_bancaria_id", id)
             .eq("status", "pago")
             .order("pago_em", { ascending: false })
@@ -166,7 +167,9 @@ export default function ExtratoConta() {
                       {m.parcela && <div style={{ fontSize: 11, color: "var(--color-text-secondary)" }}>Parcela {m.parcela}</div>}
                     </div>
                     <div style={{ fontSize: 12, color: "var(--color-text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {m.crm_orders?.clientes?.nome ?? m.crm_orders?.nome ?? "—"}
+                      {m.crm_orders?.clientes?.nome
+                        ? <ClienteLink id={m.crm_orders.clientes.id} nome={m.crm_orders.clientes.nome} />
+                        : (m.crm_orders?.nome ?? "—")}
                     </div>
                     <div>
                       <span style={{ fontSize: 11, fontWeight: 600, padding: "3px 8px", borderRadius: 8, background: isReceita ? "rgba(16,185,129,0.08)" : "rgba(239,68,68,0.08)", color: isReceita ? "#059669" : "#EF4444" }}>

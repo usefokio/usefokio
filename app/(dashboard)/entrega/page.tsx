@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
+import { ClienteLink } from "@/components/ui/ClienteLink";
 import type { GaleriaEntrega } from "@/lib/supabase/types";
 import { ModalEnviarAcesso } from "./_components/ModalEnviarAcesso";
 import { normalizar } from "@/lib/utils/normalizar";
@@ -672,7 +673,7 @@ export default function EntregaPage() {
                     })()}
                   </div>
                   <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 1 }}>
-                    {g.clientes ? <Link href={`/clientes/${g.clientes.id}`} style={{ color: "inherit", textDecoration: "none" }} onMouseEnter={e => (e.currentTarget.style.textDecoration = "underline")} onMouseLeave={e => (e.currentTarget.style.textDecoration = "none")}>{g.clientes.nome}</Link> : "Sem cliente"}
+                    {g.clientes ? <ClienteLink id={g.clientes.id} nome={g.clientes.nome} /> : "Sem cliente"}
                     {((g.galerias_entrega_fotos?.[0]?.count ?? 0) > 0) && <span> · {g.galerias_entrega_fotos![0].count} foto{g.galerias_entrega_fotos![0].count !== 1 ? "s" : ""}</span>}
                     {g.total_acessos > 0 && <span> · {g.total_acessos} acesso{g.total_acessos !== 1 ? "s" : ""}</span>}
                     {g.downloads > 0 && <span> · {g.downloads} download{g.downloads !== 1 ? "s" : ""}</span>}

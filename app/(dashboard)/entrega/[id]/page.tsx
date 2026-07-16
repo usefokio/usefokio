@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { fetchAllRows } from "@/lib/supabase/fetchAll";
 import { deleteFilesClient } from "@/lib/storage/deleteClient";
 import { useFotografo } from "@/lib/context/FotografoContext";
+import { ClienteLink } from "@/components/ui/ClienteLink";
 import type { GaleriaEntrega, GaleriaEntregaFoto, ContatoCategoria, Pagamento } from "@/lib/supabase/types";
 import { ModalEnviarAcesso } from "../_components/ModalEnviarAcesso";
 
@@ -419,7 +420,7 @@ export default function EntregaDetailPage() {
             <h1 style={{ fontSize: 18, fontWeight: 700, color: "var(--color-text-primary)", margin: 0, letterSpacing: "-0.01em" }}>{g.titulo}</h1>
             <StatusBadge galeria={g} />
           </div>
-          {g.clientes && <div style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>Cliente: <Link href={`/clientes/${g.clientes.id}`} style={{ color: "var(--color-text-primary)", fontWeight: 600, textDecoration: "none" }} onMouseEnter={e => (e.currentTarget.style.textDecoration = "underline")} onMouseLeave={e => (e.currentTarget.style.textDecoration = "none")}>{g.clientes.nome}</Link></div>}
+          {g.clientes && <div style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>Cliente: <ClienteLink id={g.clientes.id} nome={g.clientes.nome} style={{ color: "var(--color-text-primary)", fontWeight: 600 }} /></div>}
           {g.data_evento && <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginTop: 2 }}>Evento: {formatarData(g.data_evento)}</div>}
         </div>
         <div style={{ display: "flex", gap: 8, flexShrink: 0, flexWrap: "wrap" }}>

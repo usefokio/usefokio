@@ -11,6 +11,7 @@ import { PEDIDO_STATUS_MAP } from "@/lib/constants/statusMaps";
 import { formatBRL, formatData } from "@/lib/utils/format";
 import { IcoEdit, IcoTrash, IcoOpen } from "@/app/(dashboard)/crm/_components/Icons";
 import { Paginacao } from "@/app/(dashboard)/crm/_components/Paginacao";
+import { ClienteLink } from "@/components/ui/ClienteLink";
 import type { CrmOrder } from "@/lib/supabase/types";
 
 const btnIcon = (extra?: React.CSSProperties): React.CSSProperties => ({
@@ -23,7 +24,7 @@ const btnIcon = (extra?: React.CSSProperties): React.CSSProperties => ({
 });
 
 type OrderWithCliente = CrmOrder & {
-  clientes?: { nome: string } | null;
+  clientes?: { id: string; nome: string } | null;
 };
 
 type StatusFiltro = "" | CrmOrder["status"];
@@ -71,7 +72,7 @@ export default function PedidosPage() {
     setLoading(true);
     const fid = fotografo.id;
     const items = await fetchAllRows<OrderWithCliente>(
-      (sb, from, to) => sb.from("crm_orders").select("*, clientes(nome)")
+      (sb, from, to) => sb.from("crm_orders").select("*, clientes(id, nome)")
         .eq("fotografo_id", fid)
         .order("created_at", { ascending: false }).range(from, to),
       createClient()
@@ -267,8 +268,9 @@ export default function PedidosPage() {
                   )}
                 </div>
                 {verLarge && (
-                  <div style={{ cursor: "pointer" }} onClick={() => router.push(`/crm/pedidos/${p.id}`)}>
-                    <span style={{ fontSize: 13, color: "var(--color-text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.clientes?.nome ?? "—"}</span>
+                  <div style={{ cursor: "pointer", minWidth: 0 }} onClick={() => router.push(`/crm/pedidos/${p.id}`)}>
+                    <ClienteLink id={p.clientes?.id} nome={p.clientes?.nome}
+                      style={{ fontSize: 13, color: "var(--color-text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "block" }} />
                   </div>
                 )}
                 {verLarge && (

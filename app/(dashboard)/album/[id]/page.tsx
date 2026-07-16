@@ -7,6 +7,7 @@ import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { garantirSenhaCliente } from "@/lib/clientes/garantirSenha";
+import { ClienteLink } from "@/components/ui/ClienteLink";
 import type { AlbumSelecao, AlbumLamina, AlbumComentario } from "@/lib/supabase/types";
 
 type StatusAlbum = "rascunho" | "ativa" | "aguardando_revisao" | "aprovado" | "encerrada";
@@ -46,7 +47,7 @@ export default function VisualizarAlbumPage() {
     if (!fotografo) return;
     const supabase = createClient();
     Promise.all([
-      supabase.from("album_selecoes").select("*, clientes(nome)").eq("id", id).eq("fotografo_id", fotografo.id).maybeSingle(),
+      supabase.from("album_selecoes").select("*, clientes(id, nome)").eq("id", id).eq("fotografo_id", fotografo.id).maybeSingle(),
       supabase.from("album_laminas").select("*").eq("selecao_id", id).order("ordem").order("created_at"),
       supabase.from("album_comentarios").select("*").eq("selecao_id", id).order("created_at"),
     ]).then(([{ data: s }, { data: l }, { data: c }]) => {
@@ -108,6 +109,7 @@ export default function VisualizarAlbumPage() {
 
   const st = STATUS_BADGE[selecao.status as StatusAlbum] ?? STATUS_BADGE.rascunho;
   const clienteNome = selecao.clientes?.nome ?? "Sem cliente";
+  const clienteId = selecao.clientes?.id ?? null;
 
   const versaoCorrente = selecao.versao ?? 1;
   const vVista = versaoVista ?? versaoCorrente;
@@ -147,7 +149,7 @@ export default function VisualizarAlbumPage() {
               )}
             </div>
             <div style={{ fontSize: 13, color: "var(--color-text-secondary)", marginTop: 4 }}>
-              👤 {clienteNome}
+              👤 {clienteId ? <ClienteLink id={clienteId} nome={clienteNome} /> : clienteNome}
               {selecao.modelo_nome && <span> · {selecao.modelo_nome}{selecao.modelo_largura_cm && selecao.modelo_altura_cm ? ` (${selecao.modelo_largura_cm}×${selecao.modelo_altura_cm} cm)` : ""}</span>}
             </div>
             <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginTop: 3 }}>

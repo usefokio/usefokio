@@ -9,10 +9,11 @@ import { useFotografo } from "@/lib/context/FotografoContext";
 import type { GaleriaSelecao, Cliente } from "@/lib/supabase/types";
 import { ModalEnviarAcesso } from "./[id]/_components/ModalEnviarAcesso";
 import { fetchAllRows } from "@/lib/supabase/fetchAll";
+import { ClienteLink } from "@/components/ui/ClienteLink";
 import { deleteFilesClient } from "@/lib/storage/deleteClient";
 
 type GaleriaComCliente = GaleriaSelecao & {
-  cliente?: Pick<Cliente, "nome" | "email" | "senha_acesso" | "telefone" | "whatsapp"> | null;
+  cliente?: Pick<Cliente, "id" | "nome" | "email" | "senha_acesso" | "telefone" | "whatsapp"> | null;
   capa_foto?: { thumbnail_path: string | null; url_publica: string | null } | null;
 };
 
@@ -95,7 +96,7 @@ function SelecaoConteudo() {
     fetchAllRows<GaleriaComCliente>(
       (sbc, f, t) => sbc
         .from("galerias_selecao")
-        .select("*, cliente:clientes(nome, email, senha_acesso, telefone, whatsapp), capa_foto:galerias_selecao_fotos!foto_capa_id(thumbnail_path, url_publica)")
+        .select("*, cliente:clientes(id, nome, email, senha_acesso, telefone, whatsapp), capa_foto:galerias_selecao_fotos!foto_capa_id(thumbnail_path, url_publica)")
         .eq("fotografo_id", fotografo.id)
         .order("created_at", { ascending: false })
         .range(f, t),
@@ -344,7 +345,7 @@ function SelecaoConteudo() {
                     {g.titulo}
                   </div>
                   <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginTop: 2 }}>
-                    {g.cliente?.nome ?? "Sem cliente"}
+                    {g.cliente?.nome ? <ClienteLink id={g.cliente.id} nome={g.cliente.nome} /> : "Sem cliente"}
                     {g.total_fotos != null && <span> · {g.total_fotos} foto{g.total_fotos !== 1 ? "s" : ""}</span>}
                     {!g.selecao_livre && g.limite_minimo ? <span> · mín. {g.limite_minimo}</span> : null}
                     <span> · {new Date(g.created_at).toLocaleDateString("pt-BR")}</span>

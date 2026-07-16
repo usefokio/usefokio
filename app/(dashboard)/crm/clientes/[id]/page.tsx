@@ -43,6 +43,7 @@ export default function ClienteDetailPage() {
 
   const [cliente,   setCliente]   = useState<Cliente | null>(null);
   const [loading,   setLoading]   = useState(true);
+  const [naoEncontrado, setNaoEncontrado] = useState(false);
   const [editing,   setEditing]   = useState(false);
   const [salvando,  setSalvando]  = useState(false);
   const [erroSalvar, setErroSalvar] = useState("");
@@ -126,7 +127,9 @@ export default function ClienteDetailPage() {
       .eq("id", id)
       .eq("fotografo_id", fid)
       .single();
-    if (!data) { router.push("/crm/clientes"); return; }
+    // Não encontrado: mostrar erro. Redirecionar pra lista escondia a causa (o usuário via
+    // a tela de busca sem saber por quê).
+    if (!data) { setNaoEncontrado(true); setLoading(false); return; }
     const c = data as Cliente;
     setCliente(c);
     carregarRelacionados(c.id);
@@ -197,7 +200,19 @@ export default function ClienteDetailPage() {
   if (loading) return (
     <div style={{ padding: "28px 32px", fontSize: 13, color: "var(--color-text-secondary)" }}>Carregando…</div>
   );
-  if (!cliente) return null;
+  if (naoEncontrado || !cliente) return (
+    <div style={{ padding: "60px 32px", textAlign: "center" }}>
+      <div style={{ fontSize: 34, marginBottom: 10 }}>🔍</div>
+      <div style={{ fontSize: 15, fontWeight: 700, color: "var(--color-text-primary)", marginBottom: 6 }}>Cliente não encontrado</div>
+      <p style={{ fontSize: 13, color: "var(--color-text-secondary)", margin: "0 0 18px", lineHeight: 1.6 }}>
+        Este contato não existe ou não pertence à sua conta. Se você chegou aqui por um link antigo, ele pode estar desatualizado.
+      </p>
+      <button onClick={() => router.push("/crm/clientes")}
+        style={{ padding: "9px 18px", borderRadius: 8, border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+        ← Ver todos os contatos
+      </button>
+    </div>
+  );
 
   const tipo = TIPO_MAP[cliente.tipo_contato] ?? TIPO_MAP.cliente;
 

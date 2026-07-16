@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { deleteFilesClient } from "@/lib/storage/deleteClient";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { ModalEnviarAcesso } from "./_components/ModalEnviarAcesso";
+import { ClienteLink } from "@/components/ui/ClienteLink";
 import type { AlbumSelecao } from "@/lib/supabase/types";
 
 type StatusAlbum = "rascunho" | "ativa" | "aguardando_revisao" | "aprovado" | "encerrada";
@@ -252,7 +253,7 @@ export default function AlbumPage() {
                     {s.titulo}
                   </div>
                   <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginTop: 2 }}>
-                    {cliente?.nome ?? "Sem cliente"}
+                    {cliente?.nome ? <ClienteLink id={cliente.id} nome={cliente.nome} /> : "Sem cliente"}
                     {s.modelo_nome && <span> · {s.modelo_nome}</span>}
                     <span> · {formatarData(s.created_at)}</span>
                   </div>

@@ -5,6 +5,7 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import FormOportunidade from "../_components/FormOportunidade";
+import { ClienteLink } from "@/components/ui/ClienteLink";
 import type { CrmOpportunity, CrmFunnel, CrmFunnelStage, CrmFunnelProgress } from "@/lib/supabase/types";
 
 const CORES_PADRAO: Record<string, { color: string; bg: string }> = {
@@ -238,8 +239,8 @@ export default function OportunidadeDetailPage() {
           const fmtDate = (s: string) => new Date(s + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" });
           const localEvento = [opp.local_evento, opp.cidade_evento, opp.estado_evento].filter(Boolean).join(", ");
           const casal = [opp.nome_noiva, opp.nome_noivo].filter(Boolean).join(" & ");
-          const campos: { label: string; valor: string }[] = [];
-          if (clienteNome)                  campos.push({ label: "Cliente",            valor: clienteNome });
+          const campos: { label: string; valor: React.ReactNode }[] = [];
+          if (clienteNome)                  campos.push({ label: "Cliente",            valor: <ClienteLink id={opp.cliente_id} nome={clienteNome} /> });
           if (opp.categoria)                campos.push({ label: "Categoria",          valor: opp.categoria });
           if (opp.canal_origem)             campos.push({ label: "Canal de origem",    valor: opp.canal_origem });
           if (opp.valor_estimado != null)   campos.push({ label: "Valor estimado",     valor: fmt(opp.valor_estimado) });

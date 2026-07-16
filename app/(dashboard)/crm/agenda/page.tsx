@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { ClienteSelect } from "@/components/ui/ClienteSelect";
 import { ComboSelect } from "@/components/ui/ComboSelect";
+import { ClienteLink } from "@/components/ui/ClienteLink";
 import type { CrmSchedule, CrmAgendamentoCategoria, Cliente } from "@/lib/supabase/types";
 
 // ─── Tipos internos ────────────────────────────────────────────────────────────
@@ -13,7 +14,7 @@ import type { CrmSchedule, CrmAgendamentoCategoria, Cliente } from "@/lib/supaba
 type TipoEvento = "agendamento" | "tarefa" | "evento_opp" | "evento_pedido" | "a_receber" | "a_pagar" | "aniversario" | "feriado";
 
 type ScheduleComCliente = CrmSchedule & {
-  clientes: { nome: string; email: string | null; telefone: string | null; whatsapp: string | null } | null;
+  clientes: { id: string; nome: string; email: string | null; telefone: string | null; whatsapp: string | null } | null;
 };
 
 interface EventoCalendario {
@@ -25,7 +26,7 @@ interface EventoCalendario {
   bg: string;
   navegarPara?: string;
   dados?: ScheduleComCliente;
-  clienteInfo?: { nome: string; email: string | null; telefone: string | null; whatsapp: string | null } | null;
+  clienteInfo?: { id: string; nome: string; email: string | null; telefone: string | null; whatsapp: string | null } | null;
 }
 
 // ─── Configuração visual por tipo ──────────────────────────────────────────────
@@ -170,13 +171,13 @@ export default function AgendaPage() {
       { data: clientes },
     ] = await Promise.all([
       sb.from("crm_schedules")
-        .select("*, clientes(nome, email, telefone, whatsapp)")
+        .select("*, clientes(id, nome, email, telefone, whatsapp)")
         .eq("fotografo_id", fid)
         .gte("inicio", inicio)
         .lte("inicio", fim + "T23:59:59"),
 
       sb.from("crm_orders")
-        .select("id, nome, numero, data_evento, clientes(nome, email, telefone, whatsapp)")
+        .select("id, nome, numero, data_evento, clientes(id, nome, email, telefone, whatsapp)")
         .eq("fotografo_id", fid)
         .not("data_evento", "is", null)
         .gte("data_evento", inicio)
@@ -206,7 +207,7 @@ export default function AgendaPage() {
     }
 
     // Eventos de pedidos
-    type OrderRow = { id: string; nome: string | null; numero: string | null; data_evento: string | null; clientes: { nome: string; email: string | null; telefone: string | null; whatsapp: string | null } | { nome: string; email: string | null; telefone: string | null; whatsapp: string | null }[] | null };
+    type OrderRow = { id: string; nome: string | null; numero: string | null; data_evento: string | null; clientes: { id: string; nome: string; email: string | null; telefone: string | null; whatsapp: string | null } | { id: string; nome: string; email: string | null; telefone: string | null; whatsapp: string | null }[] | null };
     for (const p of (orders ?? []) as OrderRow[]) {
       if (!p.data_evento) continue;
       const nome = p.nome ?? p.numero ?? "Pedido";
@@ -534,7 +535,7 @@ export default function AgendaPage() {
                   <div>
                     <div style={{ fontSize: 10, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>Cliente</div>
                     <div style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)" }}>
-                      👤 {popupEvento.clienteInfo.nome}
+                      👤 <ClienteLink id={popupEvento.clienteInfo.id} nome={popupEvento.clienteInfo.nome} />
                     </div>
                     {popupEvento.clienteInfo.email && (
                       <a href={`mailto:${popupEvento.clienteInfo.email}`}

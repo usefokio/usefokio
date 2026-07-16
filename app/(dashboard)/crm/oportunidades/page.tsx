@@ -9,10 +9,11 @@ import { useWindowWidth } from "@/lib/hooks/useWindowWidth";
 import { usePersistState } from "@/lib/hooks/usePersistState";
 import { IcoEdit, IcoTrash, IcoOpen } from "@/app/(dashboard)/crm/_components/Icons";
 import { Paginacao } from "@/app/(dashboard)/crm/_components/Paginacao";
+import { ClienteLink } from "@/components/ui/ClienteLink";
 import type { CrmOpportunity } from "@/lib/supabase/types";
 
 type OppWithRelations = CrmOpportunity & {
-  clientes?: { nome: string } | null;
+  clientes?: { id: string; nome: string } | null;
   etapa?: { nome: string; ordem: number } | null;
 };
 
@@ -85,7 +86,7 @@ export default function OportunidadesPage() {
     const [data, { data: sts }] = await Promise.all([
       fetchAllRows<OppWithRelations>(
         (sbc, from, to) => sbc.from("crm_opportunities")
-          .select("*, clientes!cliente_id(nome), etapa:crm_funnel_stages!etapa_id(nome, ordem)")
+          .select("*, clientes!cliente_id(id, nome), etapa:crm_funnel_stages!etapa_id(nome, ordem)")
           .eq("fotografo_id", fid)
           .order("created_at", { ascending: false })
           .range(from, to),
@@ -297,14 +298,17 @@ export default function OportunidadesPage() {
                   <div style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{o.titulo}</div>
                   {o.categoria && <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{o.categoria}</div>}
                   {verSmall && o.clientes?.nome && (
-                    <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 1 }}>{o.clientes.nome}</div>
+                    <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 1 }}>
+                      <ClienteLink id={o.clientes.id} nome={o.clientes.nome} />
+                    </div>
                   )}
                 </div>
 
                 {/* Cliente — large e medium */}
                 {(verLarge || verMedium) && (
                   <div style={{ display: "flex", alignItems: "center", minWidth: 0 }}>
-                    <span style={{ fontSize: 13, color: "var(--color-text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{o.clientes?.nome ?? "—"}</span>
+                    <ClienteLink id={o.clientes?.id} nome={o.clientes?.nome}
+                      style={{ fontSize: 13, color: "var(--color-text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} />
                   </div>
                 )}
 

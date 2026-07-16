@@ -8,6 +8,7 @@ import FormPedido from "../_components/FormPedido";
 import { PEDIDO_STATUS_MAP, FIN_STATUS_MAP } from "@/lib/constants/statusMaps";
 import { formatBRL, formatData, formatNum, mascaraValor, parsearValor } from "@/lib/utils/format";
 import { usePersistState } from "@/lib/hooks/usePersistState";
+import { ClienteLink } from "@/components/ui/ClienteLink";
 import type { CrmOrder, CrmFinancialEntry, CrmContractTemplate, CrmContract, CrmProduct, CrmOrderNote } from "@/lib/supabase/types";
 import { RichTextEditor } from "@/app/(dashboard)/crm/_components/RichTextEditor";
 import { ProdutoSearch } from "@/components/ui/ProdutoSearch";
@@ -502,7 +503,7 @@ export default function PedidoDetailPage() {
 
           {/* Info row */}
           <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginBottom: 10 }}>
-            {pedido.clientes?.nome && <span style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>👤 <Link href={`/clientes/${pedido.cliente_id}`} style={{ color: "inherit", textDecoration: "none" }} onMouseEnter={e => (e.currentTarget.style.textDecoration = "underline")} onMouseLeave={e => (e.currentTarget.style.textDecoration = "none")}>{pedido.clientes.nome}</Link></span>}
+            {pedido.clientes?.nome && <span style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>👤 <ClienteLink id={pedido.cliente_id} nome={pedido.clientes.nome} /></span>}
             {pedido.categoria      && <span style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>{pedido.categoria}</span>}
             {pedido.data_evento    && <span style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>📅 Evento: {fmtData(pedido.data_evento)}</span>}
             {pedido.data_entrega   && <span style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>🚚 Entrega: {fmtData(pedido.data_entrega)}</span>}
