@@ -115,9 +115,10 @@ export async function criarCobranca(params: {
 
 /** Registra (ou atualiza) o webhook de pagamentos no Asaas para a URL do sistema */
 export async function registrarWebhook(apiKey: string, ambiente: AsaasAmbiente, webhookUrl: string, token?: string, email?: string): Promise<void> {
-  // Normaliza a URL: garante https:// e colapsa barras duplicadas no path. NEXT_PUBLIC_APP_URL
-  // pode ter vindo sem esquema ou com barra final e o Asaas rejeita ("A url informada é inválida").
-  let url = webhookUrl.trim();
+  // Normaliza a URL: remove aspas/espaços (NEXT_PUBLIC_APP_URL às vezes vem colado com aspas no
+  // painel), garante https:// e colapsa barras duplicadas no path. Sem isso o Asaas rejeita
+  // ("A url informada é inválida").
+  let url = webhookUrl.replace(/["'\s]/g, "");
   if (!/^https?:\/\//i.test(url)) url = "https://" + url.replace(/^\/+/, "");
   url = url.replace(/([^:]\/)\/+/g, "$1");
 
