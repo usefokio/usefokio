@@ -38,7 +38,7 @@ export default async function VideosPage({ params }: { params: Promise<{ fid: st
   const grade = normalizarDesign(cfg?.design).grades.videos;
 
   return (
-    <div style={{ maxWidth: 1180, margin: "0 auto", padding: "48px 24px" }}>
+    <div style={{ maxWidth: "var(--site-largura)", margin: "0 auto", padding: "48px 24px" }}>
       {/* VideoObject por vídeo — habilita rich results de vídeo no Google */}
       {videos.slice(0, 20).map((v) => (
         <JsonLd key={v.id} data={{

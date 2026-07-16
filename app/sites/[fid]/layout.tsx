@@ -147,6 +147,9 @@ export default async function SitePublicoLayout({ children, params }: { children
         ...temaCssVars(tema),
         "--site-fonte-titulo": `var(${fonteTituloVar})`,
         "--site-fonte-corpo": `var(${fonteCorpoVar})`,
+        // Largura do conteúdo = margem lateral do site. Uma var só, herdada por header, rodapé,
+        // listagens e blocos — todos alinham juntos (Aparência → Espaçamento).
+        "--site-largura": `${design.largura_maxima}px`,
         background: "var(--site-fundo)",
         color: "var(--site-texto)",
         fontFamily: "var(--site-fonte-corpo), Georgia, serif",
@@ -182,7 +185,7 @@ export default async function SitePublicoLayout({ children, params }: { children
 
         {/* Footer */}
         <footer style={{ borderTop: "1px solid var(--site-borda)", marginTop: 70, background: fundoBarra(design.rodape, "var(--site-superficie)") }}>
-          <div style={{ maxWidth: 1180, margin: "0 auto", padding: `${design.rodape.altura}px 24px`, display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 20, flexWrap: "wrap" }}>
+          <div style={{ maxWidth: "var(--site-largura)", margin: "0 auto", padding: `${design.rodape.altura}px 24px`, display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 20, flexWrap: "wrap" }}>
             <div style={{ fontSize: 15, color: "var(--site-texto)" }}>
               <div style={{ fontFamily: "var(--site-fonte-titulo), Georgia, serif", fontSize: 22, color: "var(--site-titulo)", marginBottom: 8 }}>{fotografo?.nome_empresa ?? ""}</div>
               {fotografo?.telefone && <div>{fotografo.telefone}</div>}

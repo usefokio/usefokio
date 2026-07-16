@@ -2,7 +2,7 @@
 // por design.grades (Aparência): colunas, proporção da capa, posição e texto do título.
 // Espelha o visual do BlocoTrabalhos da home (mesma linguagem de card do tema).
 import Link from "next/link";
-import { ASPECT, type GradeConfig } from "@/lib/site/design";
+import { aspectAchatado, type GradeConfig } from "@/lib/site/design";
 import { gradPlaceholder } from "./home/placeholder";
 
 export type ItemGrade = {
@@ -16,7 +16,7 @@ export type ItemGrade = {
 };
 
 export function GradeCards({ itens, config }: { itens: ItemGrade[]; config: GradeConfig }) {
-  const aspect = ASPECT[config.proporcao];
+  const aspect = aspectAchatado(config.proporcao, config.achatamento);
   const comSub = config.texto_card === "titulo_subtitulo";
   const pos = config.titulo_pos;
 
@@ -35,7 +35,7 @@ export function GradeCards({ itens, config }: { itens: ItemGrade[]; config: Grad
   );
 
   return (
-    <div className="site-grid-cards" style={{ display: "grid", gridTemplateColumns: `repeat(${config.colunas}, minmax(0, 1fr))`, gap: 34 }}>
+    <div className="site-grid-cards" style={{ display: "grid", gridTemplateColumns: `repeat(${config.colunas}, minmax(0, 1fr))`, gap: config.gap }}>
       {itens.map((item) => (
         <Link key={item.id} href={item.href} style={{ textDecoration: "none", color: "var(--site-texto)" }}>
           {pos === "acima" && titulo(item, false)}

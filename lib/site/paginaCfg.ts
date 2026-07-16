@@ -23,6 +23,8 @@ export type CfgSobre = {
   foto_largura: number;       // largura da foto em px (foto+bio) / largura máx. (minimalista)
   ancora: AncoraFoto;         // alinhamento do recorte das imagens da página (vertical/horizontal)
   fundo: string | null;       // conteudo.banner_url (imagem de fundo do modelo foto_fundo)
+  cta_ativo: boolean;         // botão de contato no fim da página (ligado por padrão)
+  cta_botao: string;          // texto do botão
 };
 
 export const LAYOUTS_CONTATO: { v: LayoutContato; l: string }[] = [
@@ -61,7 +63,13 @@ export function cfgSobreDe(conteudo: unknown): CfgSobre {
   const layout = LAYOUTS_SOBRE.some((o) => o.v === c.layout)
     ? (c.layout as LayoutSobre)
     : (foto ? "foto_bio" : "minimalista");
-  return { layout, html: str(c.html), foto, foto_largura: numPx(c.foto_largura, 320), ancora: ancoraDe(c.ancora), fundo: str(c.banner_url) };
+  return {
+    layout, html: str(c.html), foto, foto_largura: numPx(c.foto_largura, 320),
+    ancora: ancoraDe(c.ancora), fundo: str(c.banner_url),
+    // Botão de contato: ligado por padrão (só some se o fotógrafo desligar explicitamente)
+    cta_ativo: c.cta_ativo !== false,
+    cta_botao: str(c.cta_botao) ?? "Entre em contato",
+  };
 }
 
 // Mescla a config de volta no conteudo (preserva chaves desconhecidas do jsonb).
@@ -75,6 +83,7 @@ export function conteudoComCfg(conteudoOriginal: unknown, cfg: CfgContato | CfgS
     banner_url: "banner" in cfg ? cfg.banner : cfg.fundo,
     ancora: cfg.ancora,
     ...("foto_largura" in cfg ? { foto_largura: cfg.foto_largura } : {}),
+    ...("cta_ativo" in cfg ? { cta_ativo: cfg.cta_ativo, cta_botao: cfg.cta_botao } : {}),
     ...("formulario" in cfg && cfg.formulario !== undefined ? { formulario: cfg.formulario } : {}),
   };
 }

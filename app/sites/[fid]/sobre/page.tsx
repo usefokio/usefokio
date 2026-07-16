@@ -3,6 +3,7 @@
 // O mesmo componente PaginaSobre renderiza aqui e na prévia ao vivo do editor.
 import type { Metadata } from "next";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { baseLinks } from "@/lib/site/publico";
 import { resolverMetaPagina } from "@/lib/site/seo";
 import { cfgSobreDe } from "@/lib/site/paginaCfg";
 import { PaginaSobre } from "../_components/PaginaSobre";
@@ -32,6 +33,6 @@ export async function generateMetadata({ params }: { params: Promise<{ fid: stri
 
 export default async function SobrePage({ params }: { params: Promise<{ fid: string }> }) {
   const { fid } = await params;
-  const p = await buscarSobre(fid);
-  return <PaginaSobre cfg={cfgSobreDe(p?.conteudo)} titulo={p?.titulo ?? "Sobre"} />;
+  const [p, base] = await Promise.all([buscarSobre(fid), baseLinks(fid)]);
+  return <PaginaSobre cfg={cfgSobreDe(p?.conteudo)} titulo={p?.titulo ?? "Sobre"} base={base} />;
 }

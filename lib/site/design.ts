@@ -133,6 +133,23 @@ export const ASPECT: Record<ProporcaoCapa, string> = {
   quadrado_1x1: "1 / 1",
 };
 
+// Razão numérica de cada proporção (largura/altura) — base do achatamento.
+const ASPECT_NUM: Record<ProporcaoCapa, number> = {
+  horizontal_16x9: 16 / 9,
+  horizontal_3x2: 3 / 2,
+  horizontal_4x3: 4 / 3,
+  vertical_2x3: 2 / 3,
+  quadrado_1x1: 1,
+};
+
+// Achata a capa a partir da proporção escolhida: 0% = a proporção original; 100% = duas vezes
+// mais larga que alta (panorâmica). A foto RECORTA (object-fit: cover + âncora), nunca distorce.
+export function aspectAchatado(proporcao: ProporcaoCapa, achatamento: number): string {
+  const a = Math.min(Math.max(achatamento || 0, 0), 100);
+  if (a === 0) return ASPECT[proporcao]; // preserva a string original quando não há achatamento
+  return String(ASPECT_NUM[proporcao] * (1 + a / 100));
+}
+
 export const BLOCOS_ORDEM_PADRAO: HomeBlocoKey[] = ["banner", "trabalhos", "videos", "blog", "depoimentos", "selos", "cta"];
 
 export const BLOCO_DEFAULTS: Record<HomeBlocoKey, HomeBloco> = {
@@ -165,21 +182,26 @@ export type GradeConfig = {
   proporcao: ProporcaoCapa;
   titulo_pos: PosicaoTitulo;
   texto_card: TextoCard;
+  gap: number;         // espaçamento entre as capas, em px
+  achatamento: number; // 0-100% — afina o recorte a partir da proporção escolhida
 };
 export type GradesConfig = { portfolio: GradeConfig; trabalhos: GradeConfig; videos: GradeConfig };
 
 export const GRADE_PADRAO: GradeConfig = {
   colunas: 3, proporcao: "horizontal_4x3", titulo_pos: "abaixo", texto_card: "titulo_subtitulo",
+  gap: 34, achatamento: 0,
 };
 // Grade de vídeos: proporção nativa 16:9 e só o título (vídeos não têm categoria/local).
 export const GRADE_VIDEO_PADRAO: GradeConfig = {
   colunas: 3, proporcao: "horizontal_16x9", titulo_pos: "abaixo", texto_card: "so_titulo",
+  gap: 34, achatamento: 0,
 };
 
 export type ConfigDesign = {
   par: string;              // id do par de fontes
   logo_url: string | null;  // logo próprio do site (null = usa o logo global do fotógrafo)
   logo_altura: number;      // altura da logo no header, em px
+  largura_maxima: number;   // largura do conteúdo em px = margem lateral do site (via --site-largura)
   header: HeaderConfig;
   rodape: BarraConfig;
   blocos: HomeBloco[];      // ordem = ordem de render na home
@@ -190,6 +212,7 @@ export const DESIGN_PADRAO: ConfigDesign = {
   par: PAR_PADRAO,
   logo_url: null,
   logo_altura: 46,
+  largura_maxima: 1180, // o valor que era hardcoded em todo o site — default preserva o visual atual
   header: { cor: null, opacidade: 97, altura: 18, orientacao: "topo", logo_pos: "esquerda", cor_texto: null, largura: 200 },
   rodape: { cor: null, opacidade: 100, altura: 44 },
   blocos: BLOCOS_PADRAO,
@@ -312,6 +335,8 @@ function normalizarGrade(raw: unknown, def: GradeConfig = GRADE_PADRAO): GradeCo
     proporcao: umDe(r.proporcao, PROPORCOES, def.proporcao),
     titulo_pos: umDe(r.titulo_pos, POS_TITULO, def.titulo_pos),
     texto_card: umDe(r.texto_card, ["titulo_subtitulo", "so_titulo"] as const, def.texto_card),
+    gap: num(r.gap, def.gap, 0, 60),
+    achatamento: num(r.achatamento, def.achatamento, 0, 100),
   };
 }
 
@@ -323,6 +348,7 @@ export function normalizarDesign(raw: unknown): ConfigDesign {
     par: PARES_FONTE.some((p) => p.id === d.par) ? (d.par as string) : PAR_PADRAO,
     logo_url: typeof d.logo_url === "string" && d.logo_url.trim() ? d.logo_url.trim() : null,
     logo_altura: num(d.logo_altura, DESIGN_PADRAO.logo_altura, 16, 160),
+    largura_maxima: num(d.largura_maxima, DESIGN_PADRAO.largura_maxima, 900, 1440),
     header: normalizarHeader(d.header),
     rodape: normalizarBarra(d.rodape, DESIGN_PADRAO.rodape),
     blocos: normalizarBlocos(d.blocos),

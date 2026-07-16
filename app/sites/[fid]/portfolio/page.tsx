@@ -31,7 +31,7 @@ export default async function PortfolioPage({ params }: { params: Promise<{ fid:
   const grade = normalizarDesign(cfg?.design).grades.trabalhos; // exibição configurada na Aparência
 
   return (
-    <div style={{ maxWidth: 1180, margin: "0 auto", padding: "48px 24px" }}>
+    <div style={{ maxWidth: "var(--site-largura)", margin: "0 auto", padding: "48px 24px" }}>
       <h1 className="site-secao-titulo" style={{ fontSize: 30, textAlign: "center", margin: "0 0 24px" }}>Trabalhos</h1>
       <PortfolioNav base={b} categorias={categorias} ativa={null} catMap={info.map} />
       <GradeCards

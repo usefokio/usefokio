@@ -35,7 +35,7 @@ export default async function PortfolioColecoesPage({ params }: { params: Promis
   const grade = normalizarDesign(cfg?.design).grades.portfolio; // exibição configurada na Aparência
 
   return (
-    <div style={{ maxWidth: 1180, margin: "0 auto", padding: "48px 24px" }}>
+    <div style={{ maxWidth: "var(--site-largura)", margin: "0 auto", padding: "48px 24px" }}>
       <h1 className="site-secao-titulo" style={{ fontSize: 30, textAlign: "center", margin: "0 0 44px" }}>Portfólio</h1>
 
       {portfolios.length === 0 ? (

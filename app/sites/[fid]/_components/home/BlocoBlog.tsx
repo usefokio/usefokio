@@ -58,7 +58,7 @@ export function BlocoBlog({ config, posts, base }: { config: HomeBloco; posts: S
   );
 
   return (
-    <section style={{ maxWidth: 1180, margin: "0 auto", padding: "56px 24px" }}>
+    <section style={{ maxWidth: "var(--site-largura)", margin: "0 auto", padding: "56px 24px" }}>
       <h2 className="site-secao-titulo" style={{ fontSize: 30, textAlign: "center", margin: "0 0 44px" }}>Do blog</h2>
       {horizontal ? (
         <div className="site-esconde-scroll" style={{ display: "flex", gap: 24, overflowX: "auto", scrollSnapType: "x mandatory", paddingBottom: 8 }}>{posts.map(card)}</div>

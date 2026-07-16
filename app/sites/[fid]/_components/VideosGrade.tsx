@@ -4,13 +4,13 @@
 // (colunas, proporção, posição do título). Clicar abre o player numa janela sobreposta
 // (lightbox) — só então o <iframe> é carregado, então N vídeos não pesam de uma vez.
 import { useEffect, useState } from "react";
-import { ASPECT, type GradeConfig } from "@/lib/site/design";
+import { aspectAchatado, type GradeConfig } from "@/lib/site/design";
 import { youtubeEmbedUrl, youtubeThumbUrl } from "@/lib/utils/youtube";
 
 export type ItemVideo = { id: string; video_url: string; titulo: string | null; descricao: string | null };
 
 export function VideosGrade({ videos, config }: { videos: ItemVideo[]; config: GradeConfig }) {
-  const aspect = ASPECT[config.proporcao];
+  const aspect = aspectAchatado(config.proporcao, config.achatamento);
   const comSub = config.texto_card === "titulo_subtitulo";
   const pos = config.titulo_pos;
   const [aberto, setAberto] = useState<ItemVideo | null>(null);
@@ -35,7 +35,7 @@ export function VideosGrade({ videos, config }: { videos: ItemVideo[]; config: G
 
   return (
     <>
-      <div className="site-grid-cards" style={{ display: "grid", gridTemplateColumns: `repeat(${config.colunas}, minmax(0, 1fr))`, gap: 34 }}>
+      <div className="site-grid-cards" style={{ display: "grid", gridTemplateColumns: `repeat(${config.colunas}, minmax(0, 1fr))`, gap: config.gap }}>
         {videos.map((v) => {
           const thumb = youtubeThumbUrl(v.video_url);
           return (

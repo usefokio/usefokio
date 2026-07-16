@@ -10,7 +10,7 @@ export function BlocoSelos({ config, selos }: { config: HomeBloco; selos: SiteSe
 
   return (
     <section style={{ borderTop: "1px solid var(--site-borda)", borderBottom: "1px solid var(--site-borda)", background: "var(--site-superficie)", padding: "24px" }}>
-      <div style={{ maxWidth: 1180, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-around", gap: 18, flexWrap: "nowrap" }}>
+      <div style={{ maxWidth: "var(--site-largura)", margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-around", gap: 18, flexWrap: "nowrap" }}>
         {selos.map((s) => {
           const conteudo = (
             <span style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, minWidth: 0 }}>

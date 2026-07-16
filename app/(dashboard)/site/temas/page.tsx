@@ -219,6 +219,8 @@ function Preview({ design, menu, nome, logoUrl, disp, tema, children }: {
           ...temaCssVars(tema),
           ["--site-fonte-titulo" as string]: fTitulo,
           ["--site-fonte-corpo" as string]: fTexto,
+          // Espelha a var do site real (layout.tsx) para a prévia refletir a largura ao vivo
+          ["--site-largura" as string]: `${design.largura_maxima}px`,
           background: "var(--site-fundo)", color: "var(--site-texto)", fontFamily: "var(--site-fonte-corpo), Georgia, serif",
           containerType: "inline-size", // paridade com .site-root: o corpo/menu respondem à largura virtual
         } as React.CSSProperties}>
@@ -531,7 +533,7 @@ export default function AparenciaPage() {
   }
 
   return (
-    <div style={{ maxWidth: 1180, margin: "0 auto", padding: "32px 24px" }}>
+    <div style={{ maxWidth: "var(--site-largura)", margin: "0 auto", padding: "32px 24px" }}>
       <link rel="stylesheet" href={GOOGLE_HREF} />
 
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 4 }}>
@@ -642,6 +644,15 @@ export default function AparenciaPage() {
               {campo("Transparência", <Range label="Transparência" value={100 - design.rodape.opacidade} min={0} max={60} unidade="%" onChange={(v) => setRodape({ opacidade: 100 - v })} />)}
               {campo("Altura", <Range label="Altura" value={design.rodape.altura} min={16} max={96} unidade="px" onChange={(v) => setRodape({ altura: v })} />)}
             </Card>
+
+            {/* Espaçamento — vale para o site inteiro (header, rodapé, listagens e blocos) */}
+            <Card titulo="Espaçamento" aberto={!!aberto.espacamento} onToggle={() => toggle("espacamento")}>
+              {campo("Largura do conteúdo", <Range label="Largura" value={design.largura_maxima} min={900} max={1440} unidade="px" onChange={(v) => setDesign((d) => ({ ...d, largura_maxima: v }))} />)}
+              <p style={{ ...mini, marginTop: 4 }}>
+                Define a <strong>margem em relação às laterais</strong>. Vale para o site todo — header, rodapé,
+                galerias e blocos alinham juntos. Menor = mais respiro nas bordas.
+              </p>
+            </Card>
             </>)}
 
             {/* ── Exibição das grades (Portfólio /colecoes, Trabalhos /portfolio e Vídeos /videos) ── */}
@@ -652,7 +663,12 @@ export default function AparenciaPage() {
               return (
                 <Card titulo={titulos[k]} aberto onToggle={() => {}}>
                   {campo("Colunas do grid", <Range label="Colunas" value={g.colunas} min={1} max={6} onChange={(v) => setGrade(k, { colunas: v })} />)}
+                  {campo("Espaçamento entre as capas", <Range label="Espaçamento" value={g.gap} min={0} max={60} unidade="px" onChange={(v) => setGrade(k, { gap: v })} />)}
                   {campo("Proporção da capa", <Seg value={g.proporcao} options={PROP_OPTS} onChange={(v) => setGrade(k, { proporcao: v })} />)}
+                  {campo("Achatar a imagem", <>
+                    <Range label="Achatamento" value={g.achatamento} min={0} max={100} unidade="%" onChange={(v) => setGrade(k, { achatamento: v })} />
+                    <p style={{ ...mini, marginTop: 4 }}>Afina o recorte a partir da proporção escolhida. A foto é <strong>cortada</strong>, nunca esticada — o alinhamento do recorte é o da capa de cada item.</p>
+                  </>)}
                   {campo("Posição do título", <Seg value={g.titulo_pos} options={POS_OPTS} onChange={(v) => setGrade(k, { titulo_pos: v })} />)}
                   {(k === "trabalhos" || k === "videos") && campo("Texto do card", <Seg value={g.texto_card} options={[{ v: "titulo_subtitulo", l: k === "videos" ? "Título + descrição" : "Título + subtítulo" }, { v: "so_titulo", l: "Só título" }] as const} onChange={(v) => setGrade(k, { texto_card: v })} />)}
                   <p style={{ ...mini, marginTop: 4 }}>
@@ -709,6 +725,16 @@ export default function AparenciaPage() {
                 )}
                 <Card titulo="Texto de apresentação" aberto onToggle={() => {}}>
                   <SiteRichEditor value={cfgSobre.html ?? ""} onChange={(html) => setCfgSobre((c) => c ? { ...c, html } : c)} minHeight={160} pasta="paginas/sobre" />
+                </Card>
+                <Card titulo="Botão de contato" aberto onToggle={() => {}}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: cfgSobre.cta_ativo ? 12 : 0 }}>
+                    <Chave on={cfgSobre.cta_ativo} onChange={(v) => setCfgSobre((c) => c ? { ...c, cta_ativo: v } : c)} titulo="Mostrar botão no fim da página" />
+                    <span style={{ fontSize: 12.5, color: "var(--color-text-primary)", fontWeight: 500 }}>Mostrar botão no fim da página</span>
+                  </div>
+                  {cfgSobre.cta_ativo && campo("Texto do botão",
+                    <input value={cfgSobre.cta_botao} onChange={(e) => setCfgSobre((c) => c ? { ...c, cta_botao: e.target.value } : c)}
+                      placeholder="Entre em contato" style={inp} />)}
+                  {cfgSobre.cta_ativo && <p style={{ ...mini, marginTop: 4 }}>Leva o visitante para a sua página de <strong>Contato</strong>.</p>}
                 </Card>
               </>
             )}
@@ -770,25 +796,25 @@ export default function AparenciaPage() {
             <Preview design={design} menu={menu} nome={nome} logoUrl={logo} disp={disp} tema={tema}>
               {pagina === "inicio" && <HomeBlocos blocos={design.blocos} dados={dadosPreview} base="#" />}
               {pagina === "grade:portfolio" && (
-                <div style={{ maxWidth: 1180, margin: "0 auto", padding: "48px 24px" }}>
+                <div style={{ maxWidth: "var(--site-largura)", margin: "0 auto", padding: "48px 24px" }}>
                   <h1 className="site-secao-titulo" style={{ fontSize: 30, textAlign: "center", margin: "0 0 44px" }}>Portfólio</h1>
                   <GradeCards config={design.grades.portfolio} itens={portfoliosPrev} />
                 </div>
               )}
               {pagina === "grade:trabalhos" && (
-                <div style={{ maxWidth: 1180, margin: "0 auto", padding: "48px 24px" }}>
+                <div style={{ maxWidth: "var(--site-largura)", margin: "0 auto", padding: "48px 24px" }}>
                   <h1 className="site-secao-titulo" style={{ fontSize: 30, textAlign: "center", margin: "0 0 44px" }}>Trabalhos</h1>
                   <GradeCards config={design.grades.trabalhos} itens={trabalhosPrev} />
                 </div>
               )}
               {pagina === "grade:videos" && (
-                <div style={{ maxWidth: 1180, margin: "0 auto", padding: "48px 24px" }}>
+                <div style={{ maxWidth: "var(--site-largura)", margin: "0 auto", padding: "48px 24px" }}>
                   <h1 className="site-secao-titulo" style={{ fontSize: 30, textAlign: "center", margin: "0 0 44px" }}>Vídeos</h1>
                   <VideosGrade config={design.grades.videos} videos={videosPrev} />
                 </div>
               )}
               {pagina === "pg:sobre" && cfgSobre && (
-                <PaginaSobre cfg={cfgSobre} titulo={pgSobre?.titulo ?? "Sobre"} />
+                <PaginaSobre cfg={cfgSobre} titulo={pgSobre?.titulo ?? "Sobre"} base="#" />
               )}
               {pagina === "pg:contato" && cfgContato && (
                 <PaginaContato cfg={cfgContato} titulo={pgContato?.titulo ?? "Solicite seu orçamento"} canais={canaisPreview} fid={fotografo?.id ?? ""} categorias={[]} />
