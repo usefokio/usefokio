@@ -259,9 +259,9 @@ export default function PedidoDetailPage() {
       DATA_EVENTO:          dataEvento,
       HORA_EVENTO:          pedido.hora_evento ?? horaEvento,
       LOCAL_EVENTO:         (() => {
-        const cat = (pedido.categoria ?? "").toLowerCase();
-        const isCasamento = cat.includes("casamento") || cat === "bodas";
-        if (isCasamento) {
+        // Quem manda é a flag do pedido (os legados vieram marcados pelo backfill da migration).
+        // Antes lia o NOME da categoria — quebrava no fluxo novo (categoria "Evento" + checkbox).
+        if (pedido.eh_casamento) {
           const parts = [pedido.local_cerimonia, pedido.local_recepcao].filter(Boolean);
           return parts.length > 0 ? parts.join(" / ") : localEvento;
         }
@@ -950,9 +950,7 @@ export default function PedidoDetailPage() {
 
                 {/* Dados do evento */}
                 {(() => {
-                  const cat = (pedido.categoria ?? "").toLowerCase();
-                  const isCasamento = cat.includes("casamento") || cat === "bodas";
-                  const localSalvo = isCasamento
+                  const localSalvo = pedido.eh_casamento
                     ? [pedido.local_cerimonia, pedido.local_recepcao].filter(Boolean).join(" / ")
                     : pedido.local_evento ?? "";
                   const horaSalva = pedido.hora_evento ?? "";
@@ -972,7 +970,7 @@ export default function PedidoDetailPage() {
                           <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 10 }}>Dados do pedido</div>
                           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                             {horaSalva && <div><div style={labelSt}>Hora</div><div style={chipSt}>{horaSalva}</div></div>}
-                            {localSalvo && <div style={!horaSalva && !convidadosSalvos ? { gridColumn: "1 / -1" } : {}}><div style={labelSt}>{isCasamento ? "Cerimônia / Recepção" : "Local"}</div><div style={chipSt}>{localSalvo}</div></div>}
+                            {localSalvo && <div style={!horaSalva && !convidadosSalvos ? { gridColumn: "1 / -1" } : {}}><div style={labelSt}>{pedido.eh_casamento ? "Cerimônia / Recepção" : "Local"}</div><div style={chipSt}>{localSalvo}</div></div>}
                             {convidadosSalvos && <div><div style={labelSt}>Convidados</div><div style={chipSt}>{convidadosSalvos}</div></div>}
                           </div>
                         </div>
