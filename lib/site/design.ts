@@ -64,11 +64,11 @@ export type HeaderConfig = BarraConfig & {
 // Conjunto FIXO de blocos (não é lista livre como as landing pages). Cada bloco
 // tem on/off; a ORDEM do array define a ordem de render na home. Campos por bloco
 // num "saco" plano com nomes distintos (evita colisão de tipo entre blocos).
-export type HomeBlocoKey = "banner" | "trabalhos" | "blog" | "depoimentos" | "selos" | "cta";
+export type HomeBlocoKey = "banner" | "trabalhos" | "videos" | "blog" | "depoimentos" | "selos" | "cta";
 
 export type BannerTipo = "foto_unica" | "deslizante" | "grid";
 export type BannerAjuste = "manter_proporcao" | "preencher";
-export type ProporcaoCapa = "horizontal_3x2" | "horizontal_4x3" | "vertical_2x3" | "quadrado_1x1";
+export type ProporcaoCapa = "horizontal_16x9" | "horizontal_3x2" | "horizontal_4x3" | "vertical_2x3" | "quadrado_1x1";
 export type PosicaoTitulo = "acima" | "centro" | "abaixo";
 // Âncora do recorte da foto (object-position) quando a imagem é cortada (cover):
 // vertical (superior/centro/inferior) e horizontal (esquerda/direita).
@@ -109,7 +109,7 @@ export type HomeBloco = {
   cta_botao?: string;
 };
 
-export const PROPORCOES: readonly ProporcaoCapa[] = ["horizontal_3x2", "horizontal_4x3", "vertical_2x3", "quadrado_1x1"];
+export const PROPORCOES: readonly ProporcaoCapa[] = ["horizontal_16x9", "horizontal_3x2", "horizontal_4x3", "vertical_2x3", "quadrado_1x1"];
 export const POS_TITULO: readonly PosicaoTitulo[] = ["acima", "centro", "abaixo"];
 export const ANCORAS: readonly AncoraFoto[] = ["superior", "centro", "inferior", "esquerda", "direita"];
 
@@ -124,17 +124,19 @@ export const OBJECT_POSITION: Record<AncoraFoto, string> = {
 
 // Aspect-ratio CSS por proporção da capa (a capa mantém a proporção — sem altura fixa).
 export const ASPECT: Record<ProporcaoCapa, string> = {
+  horizontal_16x9: "16 / 9",
   horizontal_3x2: "3 / 2",
   horizontal_4x3: "4 / 3",
   vertical_2x3: "2 / 3",
   quadrado_1x1: "1 / 1",
 };
 
-export const BLOCOS_ORDEM_PADRAO: HomeBlocoKey[] = ["banner", "trabalhos", "blog", "depoimentos", "selos", "cta"];
+export const BLOCOS_ORDEM_PADRAO: HomeBlocoKey[] = ["banner", "trabalhos", "videos", "blog", "depoimentos", "selos", "cta"];
 
 export const BLOCO_DEFAULTS: Record<HomeBlocoKey, HomeBloco> = {
   banner:      { key: "banner",      on: true, tipo: "deslizante", ajuste: "manter_proporcao", altura: 300, velocidade: 4, colunas: 3, linhas: 0, proporcao: "horizontal_3x2", ancora: "centro" },
   trabalhos:   { key: "trabalhos",   on: true, colunas: 3, proporcao: "horizontal_3x2", titulo_pos: "abaixo", texto_card: "titulo_subtitulo" },
+  videos:      { key: "videos",      on: true, colunas: 3, proporcao: "horizontal_16x9", titulo_pos: "abaixo", texto_card: "so_titulo" },
   blog:        { key: "blog",        on: true, layout: "capa_esquerda", colunas: 3, proporcao: "horizontal_3x2", titulo_pos: "abaixo", descricao: true },
   depoimentos: { key: "depoimentos", on: true, layout: "lista_vertical", colunas: 3, mostrar_foto: true, mostrar_nome: true, mostrar_texto: true },
   selos:       { key: "selos",       on: true, mostrar_titulo: true },
@@ -146,6 +148,7 @@ export const BLOCOS_PADRAO: HomeBloco[] = BLOCOS_ORDEM_PADRAO.map((k) => ({ ...B
 export const BLOCO_LABEL: Record<HomeBlocoKey, string> = {
   banner: "Banner",
   trabalhos: "Trabalhos recentes",
+  videos: "Vídeos",
   blog: "Blog",
   depoimentos: "Depoimentos",
   selos: "Selos e associações",
@@ -161,10 +164,14 @@ export type GradeConfig = {
   titulo_pos: PosicaoTitulo;
   texto_card: TextoCard;
 };
-export type GradesConfig = { portfolio: GradeConfig; trabalhos: GradeConfig };
+export type GradesConfig = { portfolio: GradeConfig; trabalhos: GradeConfig; videos: GradeConfig };
 
 export const GRADE_PADRAO: GradeConfig = {
   colunas: 3, proporcao: "horizontal_4x3", titulo_pos: "abaixo", texto_card: "titulo_subtitulo",
+};
+// Grade de vídeos: proporção nativa 16:9 e só o título (vídeos não têm categoria/local).
+export const GRADE_VIDEO_PADRAO: GradeConfig = {
+  colunas: 3, proporcao: "horizontal_16x9", titulo_pos: "abaixo", texto_card: "so_titulo",
 };
 
 export type ConfigDesign = {
@@ -184,7 +191,7 @@ export const DESIGN_PADRAO: ConfigDesign = {
   header: { cor: null, opacidade: 97, altura: 18, orientacao: "topo", logo_pos: "esquerda", cor_texto: null, largura: 200 },
   rodape: { cor: null, opacidade: 100, altura: 44 },
   blocos: BLOCOS_PADRAO,
-  grades: { portfolio: { ...GRADE_PADRAO }, trabalhos: { ...GRADE_PADRAO } },
+  grades: { portfolio: { ...GRADE_PADRAO }, trabalhos: { ...GRADE_PADRAO }, videos: { ...GRADE_VIDEO_PADRAO } },
 };
 
 function num(v: unknown, def: number, min: number, max: number): number {
@@ -247,6 +254,12 @@ function normalizarBloco(key: HomeBlocoKey, raw: unknown): HomeBloco {
         proporcao: umDe(r.proporcao, PROPORCOES, d.proporcao!),
         titulo_pos: umDe(r.titulo_pos, POS_TITULO, d.titulo_pos!),
         texto_card: umDe(r.texto_card, ["titulo_subtitulo", "so_titulo"] as const, d.texto_card!) };
+    case "videos":
+      return { key, on,
+        colunas: num(r.colunas, d.colunas!, 1, 6),
+        proporcao: umDe(r.proporcao, PROPORCOES, d.proporcao!),
+        titulo_pos: umDe(r.titulo_pos, POS_TITULO, d.titulo_pos!),
+        texto_card: umDe(r.texto_card, ["titulo_subtitulo", "so_titulo"] as const, d.texto_card!) };
     case "blog":
       return { key, on,
         layout: umDe(r.layout, ["capa_esquerda", "capa_em_cima", "horizontal_deslizante"] as const, d.layout as BlogLayout),
@@ -288,13 +301,13 @@ function normalizarBlocos(raw: unknown): HomeBloco[] {
 }
 
 // Normaliza uma config de grade (parcial/ausente) para o shape completo.
-function normalizarGrade(raw: unknown): GradeConfig {
+function normalizarGrade(raw: unknown, def: GradeConfig = GRADE_PADRAO): GradeConfig {
   const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
   return {
-    colunas: num(r.colunas, GRADE_PADRAO.colunas, 1, 6),
-    proporcao: umDe(r.proporcao, PROPORCOES, GRADE_PADRAO.proporcao),
-    titulo_pos: umDe(r.titulo_pos, POS_TITULO, GRADE_PADRAO.titulo_pos),
-    texto_card: umDe(r.texto_card, ["titulo_subtitulo", "so_titulo"] as const, GRADE_PADRAO.texto_card),
+    colunas: num(r.colunas, def.colunas, 1, 6),
+    proporcao: umDe(r.proporcao, PROPORCOES, def.proporcao),
+    titulo_pos: umDe(r.titulo_pos, POS_TITULO, def.titulo_pos),
+    texto_card: umDe(r.texto_card, ["titulo_subtitulo", "so_titulo"] as const, def.texto_card),
   };
 }
 
@@ -309,6 +322,6 @@ export function normalizarDesign(raw: unknown): ConfigDesign {
     header: normalizarHeader(d.header),
     rodape: normalizarBarra(d.rodape, DESIGN_PADRAO.rodape),
     blocos: normalizarBlocos(d.blocos),
-    grades: { portfolio: normalizarGrade(grades.portfolio), trabalhos: normalizarGrade(grades.trabalhos) },
+    grades: { portfolio: normalizarGrade(grades.portfolio), trabalhos: normalizarGrade(grades.trabalhos), videos: normalizarGrade(grades.videos, GRADE_VIDEO_PADRAO) },
   };
 }

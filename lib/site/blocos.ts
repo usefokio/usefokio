@@ -24,7 +24,7 @@ export type TipoBloco =
 // com esses endereços nunca é servida (a rota estática tem precedência). Usado pelo
 // editor de menu (bloqueia criação) e pela Aparência (esconde páginas inservíveis).
 export const SLUGS_RESERVADOS = new Set([
-  "sobre", "contato", "portfolio", "colecoes", "blog", "post", "galeria", "gallery.php", "sitemap.xml", "robots.txt",
+  "sobre", "contato", "portfolio", "colecoes", "videos", "blog", "post", "galeria", "gallery.php", "sitemap.xml", "robots.txt",
 ]);
 
 export type SiteBloco = {

@@ -2,10 +2,13 @@
 // fotógrafo ainda não tem aquele conteúdo — assim TODOS os blocos têm prévia (imagens
 // viram gradientes via placeholder). Nunca é usado no site publicado.
 import type { DadosHome } from "./tipos";
-import type { SiteBanner, SiteDepoimento, SitePost, SiteSelo, SiteTrabalho } from "@/lib/supabase/types";
+import type { SiteBanner, SiteDepoimento, SitePost, SiteSelo, SiteTrabalho, SiteVideo } from "@/lib/supabase/types";
 
 const trab = (id: string, titulo: string, local: string): SiteTrabalho =>
   ({ id, titulo, categoria: "casamentos", local, capa_url: null, slug: "exemplo", legacy_id: null, views: 0, likes: 0 } as unknown as SiteTrabalho);
+
+const video = (id: string, titulo: string): SiteVideo =>
+  ({ id, titulo, video_url: "", descricao: null } as unknown as SiteVideo);
 
 const post = (id: string, titulo: string, resumo: string): SitePost =>
   ({ id, titulo, resumo, capa_url: null, slug: "exemplo", legacy_id: null } as unknown as SitePost);
@@ -28,6 +31,11 @@ export const DADOS_EXEMPLO: DadosHome = {
     trab("ex-t4", "Ana e Gabriel", "Chalé Arco-Íris"),
     trab("ex-t5", "Carol e Mateus", "Águas de Sta. Bárbara"),
     trab("ex-t6", "Isabela e Rafael", "Morro do Gavião"),
+  ],
+  videos: [
+    video("ex-v1", "Bianca e Vinícius — Trailer"),
+    video("ex-v2", "Maria e Diego — Same Day Edit"),
+    video("ex-v3", "Mariana e Jefferson — Filme"),
   ],
   posts: [
     post("ex-p1", "Como escolher o local do seu casamento", "Dicas para encontrar o cenário perfeito para o grande dia, do rústico ao clássico."),

@@ -16,11 +16,12 @@ export async function GET(request: Request, { params }: { params: Promise<{ fid:
   const b = siteBaseUrl(host, fid);
   const admin = createAdminClient();
 
-  const [{ data: trabalhos }, { data: portfolios }, { data: posts }, { data: landings }] = await Promise.all([
+  const [{ data: trabalhos }, { data: portfolios }, { data: posts }, { data: landings }, { count: videosCount }] = await Promise.all([
     admin.from("site_trabalhos").select("categoria, slug, legacy_id, updated_at").eq("fotografo_id", fid).eq("publicado", true),
     admin.from("site_portfolios").select("legacy_id, slug, updated_at").eq("fotografo_id", fid).eq("publicado", true),
     admin.from("site_posts").select("slug, legacy_id, updated_at, publicado_em").eq("fotografo_id", fid).eq("publicado", true),
     admin.from("site_landing_pages").select("slug, updated_at").eq("fotografo_id", fid).eq("publicado", true),
+    admin.from("site_videos").select("id", { count: "exact", head: true }).eq("fotografo_id", fid).eq("publicado", true),
   ]);
 
   type Url = { loc: string; lastmod?: string | null };
@@ -31,6 +32,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ fid:
     { loc: `${b}/sobre` },
     { loc: `${b}/contato` },
   ];
+  if ((videosCount ?? 0) > 0) urls.push({ loc: `${b}/videos` });
 
   const listaTrab = (trabalhos ?? []) as Pick<SiteTrabalho, "categoria" | "slug" | "legacy_id" | "updated_at">[];
   for (const t of listaTrab) {

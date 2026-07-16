@@ -195,6 +195,7 @@ const CRM_ITEMS = [
 const SITE_ITEMS = [
   { href: "/site",             label: "Dashboard" },
   { href: "/site/galerias",    label: "Galerias" },
+  { href: "/site/videos",      label: "Vídeos" },
   { href: "/site/blog",        label: "Blog" },
   { href: "/site/menu",        label: "Páginas e Menu" },
   { href: "/site/landing-pages", label: "Landing Pages" },

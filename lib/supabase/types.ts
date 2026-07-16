@@ -625,6 +625,19 @@ export type SiteSelo = {
   created_at: string;
 };
 
+// Vídeo do portfólio de vídeos (lista ordenável). video_url = URL de embed do YouTube,
+// normalizada em lib/utils/youtube.ts; a miniatura é derivada do próprio YouTube.
+export type SiteVideo = {
+  id: string;
+  fotografo_id: string;
+  titulo: string | null;
+  video_url: string;
+  descricao: string | null;
+  ordem: number;
+  publicado: boolean;
+  created_at: string;
+};
+
 // Item da navegação/lista do site (unificação Páginas+Menu):
 //  - pagina: aponta para uma site_paginas (href = /{slug}); conteúdo editável
 //  - secao: seção embutida (/, /portfolio, /blog); conteúdo vem de Galerias/Blog

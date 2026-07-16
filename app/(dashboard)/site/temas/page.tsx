@@ -28,9 +28,10 @@ import { HomeBlocos } from "@/app/sites/[fid]/_components/home/HomeBlocos";
 import { PaginaContato, type CanalContato } from "@/app/sites/[fid]/_components/PaginaContato";
 import { PaginaSobre } from "@/app/sites/[fid]/_components/PaginaSobre";
 import { GradeCards, type ItemGrade } from "@/app/sites/[fid]/_components/GradeCards";
+import { VideosGrade, type ItemVideo } from "@/app/sites/[fid]/_components/VideosGrade";
 import { DADOS_EXEMPLO } from "@/app/sites/[fid]/_components/home/exemplo";
 import type { DadosHome } from "@/app/sites/[fid]/_components/home/tipos";
-import type { SiteBanner, SiteDepoimento, SitePagina, SitePortfolio, SitePost, SiteSelo, SiteTrabalho } from "@/lib/supabase/types";
+import type { SiteBanner, SiteDepoimento, SitePagina, SitePortfolio, SitePost, SiteSelo, SiteTrabalho, SiteVideo } from "@/lib/supabase/types";
 
 const CATS: CategoriaFonte[] = ["minimalista", "serifada", "elegante"];
 const FONTES_UNICAS = [...new Set(PARES_FONTE.flatMap((p) => [p.titulo, p.texto]))];
@@ -40,7 +41,7 @@ const PALETA = ["#FFFFFF", "#F8F7F4", "#F1EFEA", "#E8E2D6", "#5E6E5F", "#463F37"
 const HEX_RE = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i;
 const clamp01 = (n: number) => Math.min(1, Math.max(0, n));
 
-const PROP_OPTS = [{ v: "horizontal_3x2", l: "Horizontal 3:2" }, { v: "horizontal_4x3", l: "Horizontal 4:3" }, { v: "vertical_2x3", l: "Vertical 2:3" }, { v: "quadrado_1x1", l: "Quadrado" }] as const;
+const PROP_OPTS = [{ v: "horizontal_16x9", l: "Vídeo 16:9" }, { v: "horizontal_3x2", l: "Horizontal 3:2" }, { v: "horizontal_4x3", l: "Horizontal 4:3" }, { v: "vertical_2x3", l: "Vertical 2:3" }, { v: "quadrado_1x1", l: "Quadrado" }] as const;
 const POS_OPTS = [{ v: "acima", l: "Acima" }, { v: "centro", l: "Sobre a capa" }, { v: "abaixo", l: "Abaixo" }] as const;
 const ANC_OPTS = [{ v: "superior", l: "Superior" }, { v: "centro", l: "Central" }, { v: "inferior", l: "Inferior" }, { v: "esquerda", l: "Esquerda" }, { v: "direita", l: "Direita" }] as const;
 
@@ -237,7 +238,7 @@ function Preview({ design, menu, nome, logoUrl, disp, tema, children }: {
   );
 }
 
-const DADOS_VAZIO: DadosHome = { banners: [], trabalhos: [], posts: [], depoimentos: [], selos: [] };
+const DADOS_VAZIO: DadosHome = { banners: [], trabalhos: [], videos: [], posts: [], depoimentos: [], selos: [] };
 
 export default function AparenciaPage() {
   const { fotografo } = useFotografo();
@@ -264,6 +265,7 @@ export default function AparenciaPage() {
   const baseSobre = useRef("");   // baseline (JSON) — só grava a página se mudou
   const baseContato = useRef("");
   const [portfolios, setPortfolios] = useState<SitePortfolio[]>([]);
+  const [videosSite, setVideosSite] = useState<SiteVideo[]>([]);
   // Upload de imagem das páginas (foto/banner/fundo)
   const inputImgPagina = useRef<HTMLInputElement>(null);
   const alvoImgPagina = useRef<{ qual: "sobre" | "contato"; campo: "foto" | "banner" | "fundo" } | null>(null);
@@ -281,7 +283,7 @@ export default function AparenciaPage() {
       const d = normalizarDesign(row?.design);
       setDesign(d); setTemaId(row?.tema ?? null);
       const fid = fotografo.id;
-      const [banners, trabalhos, posts, depoimentos, selos, menuRows, paginasRows, portfoliosRows] = await Promise.all([
+      const [banners, trabalhos, posts, depoimentos, selos, menuRows, paginasRows, portfoliosRows, videosRows] = await Promise.all([
         fetchAllRows<SiteBanner>((s, f, t) => s.from("site_banners").select("*").eq("fotografo_id", fid).eq("publicado", true).order("ordem").range(f, t), sb),
         fetchAllRows<SiteTrabalho>((s, f, t) => s.from("site_trabalhos").select("*").eq("fotografo_id", fid).eq("publicado", true).order("data_evento", { ascending: false }).range(f, t), sb),
         fetchAllRows<SitePost>((s, f, t) => s.from("site_posts").select("*").eq("fotografo_id", fid).eq("publicado", true).order("ordem").range(f, t), sb),
@@ -290,8 +292,10 @@ export default function AparenciaPage() {
         fetchAllRows<{ id: string; label: string; href: string; visivel: boolean }>((s, f, t) => s.from("site_menu").select("id,label,href,visivel").eq("fotografo_id", fid).order("ordem").range(f, t), sb),
         fetchAllRows<SitePagina>((s, f, t) => s.from("site_paginas").select("*").eq("fotografo_id", fid).order("created_at").range(f, t), sb),
         fetchAllRows<SitePortfolio>((s, f, t) => s.from("site_portfolios").select("*").eq("fotografo_id", fid).eq("publicado", true).order("ordem").range(f, t), sb),
+        fetchAllRows<SiteVideo>((s, f, t) => s.from("site_videos").select("*").eq("fotografo_id", fid).eq("publicado", true).order("ordem").range(f, t), sb),
       ]);
-      setDados({ banners, trabalhos: trabalhos.slice(0, 9), posts: posts.slice(0, 6), depoimentos, selos });
+      setDados({ banners, trabalhos: trabalhos.slice(0, 9), videos: videosRows.slice(0, 6), posts: posts.slice(0, 6), depoimentos, selos });
+      setVideosSite(videosRows);
       setMenu(menuRows.filter((m) => m.visivel !== false).map((m) => ({ id: String(m.id), label: m.label, href: m.href })));
       // Sobre/Contato: config de modelo fixo derivada do conteudo (padrão da home — sem blocos).
       const rSobre = paginasRows.find((p) => p.slug === "sobre") ?? null;
@@ -310,7 +314,7 @@ export default function AparenciaPage() {
   const setHeader = (patch: Partial<HeaderConfig>) => setDesign((d) => ({ ...d, header: { ...d.header, ...patch } }));
   const setRodape = (patch: Partial<BarraConfig>) => setDesign((d) => ({ ...d, rodape: { ...d.rodape, ...patch } }));
   const setBloco = (key: HomeBlocoKey, patch: Partial<HomeBloco>) => setDesign((d) => ({ ...d, blocos: d.blocos.map((bl) => bl.key === key ? { ...bl, ...patch } : bl) }));
-  const setGrade = (k: "portfolio" | "trabalhos", patch: Partial<GradeConfig>) => setDesign((d) => ({ ...d, grades: { ...d.grades, [k]: { ...d.grades[k], ...patch } } }));
+  const setGrade = (k: "portfolio" | "trabalhos" | "videos", patch: Partial<GradeConfig>) => setDesign((d) => ({ ...d, grades: { ...d.grades, [k]: { ...d.grades[k], ...patch } } }));
   const toggle = (k: string) => setAberto((a) => ({ ...a, [k]: !a[k] }));
 
   function soltar(destino: number) {
@@ -391,6 +395,7 @@ export default function AparenciaPage() {
   const dadosPreview: DadosHome = {
     banners: dados.banners.length ? dados.banners : DADOS_EXEMPLO.banners,
     trabalhos: dados.trabalhos.length ? dados.trabalhos : DADOS_EXEMPLO.trabalhos,
+    videos: dados.videos.length ? dados.videos : DADOS_EXEMPLO.videos,
     posts: dados.posts.length ? dados.posts : DADOS_EXEMPLO.posts,
     depoimentos: dados.depoimentos.length ? dados.depoimentos : DADOS_EXEMPLO.depoimentos,
     selos: dados.selos.length ? dados.selos : DADOS_EXEMPLO.selos,
@@ -403,6 +408,7 @@ export default function AparenciaPage() {
     ...(pgContato ? [{ id: "pg:contato", label: pgContato.titulo || "Contato" }] : []),
     { id: "grade:portfolio", label: "Portfólio" },
     { id: "grade:trabalhos", label: "Trabalhos" },
+    { id: "grade:videos", label: "Vídeos" },
   ];
 
   // Canais exibidos na prévia do Contato (derivados do cadastro, como no site real)
@@ -417,6 +423,9 @@ export default function AparenciaPage() {
   const portfoliosPrev: ItemGrade[] = portfolios.length
     ? portfolios.map((p) => ({ id: p.id, href: "#", capa_url: p.capa_url, titulo: p.titulo }))
     : DADOS_EXEMPLO.trabalhos.map((t) => ({ id: t.id, href: "#", capa_url: t.capa_url, titulo: t.titulo }));
+  const videosPrev: ItemVideo[] = videosSite.length
+    ? videosSite.map((v) => ({ id: v.id, video_url: v.video_url, titulo: v.titulo, descricao: v.descricao }))
+    : [1, 2, 3].map((n) => ({ id: `ex-${n}`, video_url: "", titulo: `Vídeo ${n}`, descricao: null }));
 
   const campo = (titulo: string, node: React.ReactNode) => (
     <div style={{ marginBottom: 14 }}>
@@ -464,6 +473,16 @@ export default function AparenciaPage() {
             {campo("Proporção da capa", <Seg value={b.proporcao ?? "horizontal_3x2"} options={PROP_OPTS} onChange={(v) => setBloco("trabalhos", { proporcao: v })} />)}
             {campo("Posição do título", <Seg value={b.titulo_pos ?? "abaixo"} options={POS_OPTS} onChange={(v) => setBloco("trabalhos", { titulo_pos: v })} />)}
             {campo("Texto do card", <Seg value={b.texto_card ?? "titulo_subtitulo"} options={[{ v: "titulo_subtitulo", l: "Título + subtítulo" }, { v: "so_titulo", l: "Só título" }] as const} onChange={(v) => setBloco("trabalhos", { texto_card: v })} />)}
+          </>
+        );
+      case "videos":
+        return (
+          <>
+            {campo("Colunas do grid", <Range label="Colunas" value={b.colunas ?? 3} min={1} max={6} onChange={(v) => setBloco("videos", { colunas: v })} />)}
+            {campo("Proporção da miniatura", <Seg value={b.proporcao ?? "horizontal_16x9"} options={PROP_OPTS} onChange={(v) => setBloco("videos", { proporcao: v })} />)}
+            {campo("Posição do título", <Seg value={b.titulo_pos ?? "abaixo"} options={POS_OPTS} onChange={(v) => setBloco("videos", { titulo_pos: v })} />)}
+            {campo("Texto do card", <Seg value={b.texto_card ?? "so_titulo"} options={[{ v: "titulo_subtitulo", l: "Título + descrição" }, { v: "so_titulo", l: "Só título" }] as const} onChange={(v) => setBloco("videos", { texto_card: v })} />)}
+            <p style={{ ...mini, margin: "4px 0 0" }}>Mostra os vídeos de <strong>Site → Vídeos</strong> (os 6 primeiros). O player abre em janela sobreposta ao clicar.</p>
           </>
         );
       case "blog": {
@@ -623,20 +642,23 @@ export default function AparenciaPage() {
             </Card>
             </>)}
 
-            {/* ── Exibição das grades (Portfólio /colecoes e Trabalhos /portfolio) ── */}
-            {(pagina === "grade:portfolio" || pagina === "grade:trabalhos") && (() => {
-              const k = pagina === "grade:portfolio" ? "portfolio" as const : "trabalhos" as const;
+            {/* ── Exibição das grades (Portfólio /colecoes, Trabalhos /portfolio e Vídeos /videos) ── */}
+            {(pagina === "grade:portfolio" || pagina === "grade:trabalhos" || pagina === "grade:videos") && (() => {
+              const k = pagina === "grade:portfolio" ? "portfolio" as const : pagina === "grade:trabalhos" ? "trabalhos" as const : "videos" as const;
               const g = design.grades[k];
+              const titulos = { portfolio: "Exibição da grade do Portfólio", trabalhos: "Exibição da grade de Trabalhos", videos: "Exibição da grade de Vídeos" };
               return (
-                <Card titulo={k === "portfolio" ? "Exibição da grade do Portfólio" : "Exibição da grade de Trabalhos"} aberto onToggle={() => {}}>
+                <Card titulo={titulos[k]} aberto onToggle={() => {}}>
                   {campo("Colunas do grid", <Range label="Colunas" value={g.colunas} min={1} max={6} onChange={(v) => setGrade(k, { colunas: v })} />)}
                   {campo("Proporção da capa", <Seg value={g.proporcao} options={PROP_OPTS} onChange={(v) => setGrade(k, { proporcao: v })} />)}
                   {campo("Posição do título", <Seg value={g.titulo_pos} options={POS_OPTS} onChange={(v) => setGrade(k, { titulo_pos: v })} />)}
-                  {k === "trabalhos" && campo("Texto do card", <Seg value={g.texto_card} options={[{ v: "titulo_subtitulo", l: "Título + subtítulo" }, { v: "so_titulo", l: "Só título" }] as const} onChange={(v) => setGrade(k, { texto_card: v })} />)}
+                  {(k === "trabalhos" || k === "videos") && campo("Texto do card", <Seg value={g.texto_card} options={[{ v: "titulo_subtitulo", l: k === "videos" ? "Título + descrição" : "Título + subtítulo" }, { v: "so_titulo", l: "Só título" }] as const} onChange={(v) => setGrade(k, { texto_card: v })} />)}
                   <p style={{ ...mini, marginTop: 4 }}>
                     {k === "portfolio"
                       ? <>As coleções exibidas são as de <strong>Site → Galerias → Portfólio</strong>.</>
-                      : <>Os trabalhos exibidos são os de <strong>Site → Galerias → Trabalhos</strong>.</>}
+                      : k === "trabalhos"
+                      ? <>Os trabalhos exibidos são os de <strong>Site → Galerias → Trabalhos</strong>.</>
+                      : <>Os vídeos exibidos são os de <strong>Site → Vídeos</strong> (a proporção 16:9 combina com o YouTube).</>}
                   </p>
                 </Card>
               );
@@ -755,6 +777,12 @@ export default function AparenciaPage() {
                 <div style={{ maxWidth: 1180, margin: "0 auto", padding: "48px 24px" }}>
                   <h1 className="site-secao-titulo" style={{ fontSize: 30, textAlign: "center", margin: "0 0 44px" }}>Trabalhos</h1>
                   <GradeCards config={design.grades.trabalhos} itens={trabalhosPrev} />
+                </div>
+              )}
+              {pagina === "grade:videos" && (
+                <div style={{ maxWidth: 1180, margin: "0 auto", padding: "48px 24px" }}>
+                  <h1 className="site-secao-titulo" style={{ fontSize: 30, textAlign: "center", margin: "0 0 44px" }}>Vídeos</h1>
+                  <VideosGrade config={design.grades.videos} videos={videosPrev} />
                 </div>
               )}
               {pagina === "pg:sobre" && cfgSobre && (

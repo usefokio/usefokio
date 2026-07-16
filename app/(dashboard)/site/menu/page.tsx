@@ -15,6 +15,7 @@ const SECOES = [
   { href: "/", label: "Início" },
   { href: "/colecoes", label: "Portfólio" },  // lista as coleções best-of (site_portfolios)
   { href: "/portfolio", label: "Trabalhos" }, // lista os posts de evento (site_trabalhos)
+  { href: "/videos", label: "Vídeos" },       // portfólio de vídeos do YouTube (site_videos)
   { href: "/blog", label: "Blog" },
 ] as const;
 

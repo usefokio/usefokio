@@ -4,6 +4,7 @@ import { type HomeBloco } from "@/lib/site/design";
 import type { DadosHome } from "./tipos";
 import { BlocoBanner } from "./BlocoBanner";
 import { BlocoTrabalhos } from "./BlocoTrabalhos";
+import { BlocoVideos } from "./BlocoVideos";
 import { BlocoBlog } from "./BlocoBlog";
 import { BlocoDepoimentos } from "./BlocoDepoimentos";
 import { BlocoSelos } from "./BlocoSelos";
@@ -16,6 +17,7 @@ export function HomeBlocos({ blocos, dados, base }: { blocos: HomeBloco[]; dados
         switch (b.key) {
           case "banner": return <BlocoBanner key="banner" config={b} banners={dados.banners} base={base} />;
           case "trabalhos": return <BlocoTrabalhos key="trabalhos" config={b} trabalhos={dados.trabalhos} base={base} catMap={dados.catMap} />;
+          case "videos": return <BlocoVideos key="videos" config={b} videos={dados.videos} />;
           case "blog": return <BlocoBlog key="blog" config={b} posts={dados.posts} base={base} />;
           case "depoimentos": return <BlocoDepoimentos key="depoimentos" config={b} depoimentos={dados.depoimentos} />;
           case "selos": return <BlocoSelos key="selos" config={b} selos={dados.selos} />;
