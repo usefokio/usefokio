@@ -47,6 +47,16 @@ export default function SiteDashboardPage() {
         </div>
       )}
 
+      {/* Saúde do SEO — atalho para a análise automática do conteúdo */}
+      <a href="/site/saude-seo" style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 24, padding: "16px 18px", borderRadius: 12, border: "1px solid var(--color-border-tertiary)", background: "var(--color-background-primary)", textDecoration: "none" }}>
+        <span style={{ fontSize: 22 }}>🔍</span>
+        <span style={{ flex: 1 }}>
+          <span style={{ display: "block", fontSize: 13, fontWeight: 700, color: "var(--color-text-primary)" }}>Saúde do SEO</span>
+          <span style={{ display: "block", fontSize: 12, color: "var(--color-text-secondary)", marginTop: 2 }}>Análise automática do site: veja o que falta configurar para aparecer melhor no Google.</span>
+        </span>
+        <span style={{ fontSize: 14, color: "var(--color-text-secondary)" }}>→</span>
+      </a>
+
       <div style={{ marginTop: 24, padding: "16px 18px", borderRadius: 12, border: "1px solid var(--color-border-tertiary)", background: "var(--color-background-secondary)", fontSize: 12, color: "var(--color-text-secondary)", lineHeight: 1.7 }}>
         {publicado ? (
           <>Seu site está <strong>publicado</strong> e servido no seu endereço. Edite tudo pelos itens do menu — as mudanças aparecem no site ao salvar (pode levar alguns segundos de cache).</>
