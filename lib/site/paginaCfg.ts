@@ -12,7 +12,7 @@ export type CfgContato = {
   html: string | null;        // texto/biografia (conteudo.html)
   foto: string | null;        // conteudo.imagens[0]
   banner: string | null;      // conteudo.banner_url — topo (duas_colunas) ou fundo (banner_fundo)
-  ancora: AncoraFoto;         // alinhamento vertical do recorte das imagens da página
+  ancora: AncoraFoto;         // alinhamento do recorte das imagens da página (vertical/horizontal)
   formulario?: ConfigFormulario;
 };
 
@@ -21,7 +21,7 @@ export type CfgSobre = {
   html: string | null;
   foto: string | null;
   foto_largura: number;       // largura da foto em px (foto+bio) / largura máx. (minimalista)
-  ancora: AncoraFoto;         // alinhamento vertical do recorte das imagens da página
+  ancora: AncoraFoto;         // alinhamento do recorte das imagens da página (vertical/horizontal)
   fundo: string | null;       // conteudo.banner_url (imagem de fundo do modelo foto_fundo)
 };
 

@@ -70,8 +70,9 @@ export type BannerTipo = "foto_unica" | "deslizante" | "grid";
 export type BannerAjuste = "manter_proporcao" | "preencher";
 export type ProporcaoCapa = "horizontal_3x2" | "horizontal_4x3" | "vertical_2x3" | "quadrado_1x1";
 export type PosicaoTitulo = "acima" | "centro" | "abaixo";
-// Âncora vertical do recorte da foto (object-position) quando a imagem é cortada (cover).
-export type AncoraFoto = "superior" | "centro" | "inferior";
+// Âncora do recorte da foto (object-position) quando a imagem é cortada (cover):
+// vertical (superior/centro/inferior) e horizontal (esquerda/direita).
+export type AncoraFoto = "superior" | "centro" | "inferior" | "esquerda" | "direita";
 export type TextoCard = "titulo_subtitulo" | "so_titulo";
 export type BlogLayout = "capa_esquerda" | "capa_em_cima" | "horizontal_deslizante";
 export type DepoLayout = "lista_vertical" | "horizontal" | "grade";
@@ -85,7 +86,7 @@ export type HomeBloco = {
   altura?: number;
   velocidade?: number;
   linhas?: number; // banner(grid): limite de linhas da grade; 0 = sem limite (mostra tudo)
-  ancora?: AncoraFoto; // banner: alinhamento vertical do recorte da foto (superior/centro/inferior)
+  ancora?: AncoraFoto; // banner: alinhamento do recorte da foto (superior/centro/inferior/esquerda/direita)
   // banner(grid) / trabalhos / blog / depoimentos(grade)
   colunas?: number;
   // banner(grid) / trabalhos / blog
@@ -110,13 +111,15 @@ export type HomeBloco = {
 
 export const PROPORCOES: readonly ProporcaoCapa[] = ["horizontal_3x2", "horizontal_4x3", "vertical_2x3", "quadrado_1x1"];
 export const POS_TITULO: readonly PosicaoTitulo[] = ["acima", "centro", "abaixo"];
-export const ANCORAS: readonly AncoraFoto[] = ["superior", "centro", "inferior"];
+export const ANCORAS: readonly AncoraFoto[] = ["superior", "centro", "inferior", "esquerda", "direita"];
 
-// object-position CSS por âncora vertical (horizontal sempre centralizado).
+// object-position CSS por âncora: vertical (com x centralizado) e horizontal (com y centralizado).
 export const OBJECT_POSITION: Record<AncoraFoto, string> = {
   superior: "center top",
   centro: "center center",
   inferior: "center bottom",
+  esquerda: "left center",
+  direita: "right center",
 };
 
 // Aspect-ratio CSS por proporção da capa (a capa mantém a proporção — sem altura fixa).

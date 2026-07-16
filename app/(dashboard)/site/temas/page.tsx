@@ -42,7 +42,7 @@ const clamp01 = (n: number) => Math.min(1, Math.max(0, n));
 
 const PROP_OPTS = [{ v: "horizontal_3x2", l: "Horizontal 3:2" }, { v: "horizontal_4x3", l: "Horizontal 4:3" }, { v: "vertical_2x3", l: "Vertical 2:3" }, { v: "quadrado_1x1", l: "Quadrado" }] as const;
 const POS_OPTS = [{ v: "acima", l: "Acima" }, { v: "centro", l: "Sobre a capa" }, { v: "abaixo", l: "Abaixo" }] as const;
-const ANC_OPTS = [{ v: "superior", l: "Superior" }, { v: "centro", l: "Central" }, { v: "inferior", l: "Inferior" }] as const;
+const ANC_OPTS = [{ v: "superior", l: "Superior" }, { v: "centro", l: "Central" }, { v: "inferior", l: "Inferior" }, { v: "esquerda", l: "Esquerda" }, { v: "direita", l: "Direita" }] as const;
 
 // ── Estilos base ──
 const lbl: React.CSSProperties = { fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em" };
@@ -446,7 +446,7 @@ export default function AparenciaPage() {
             {b.tipo === "grid" && campo("Colunas", <Range label="Colunas" value={b.colunas ?? 3} min={2} max={6} onChange={(v) => setBloco("banner", { colunas: v })} />)}
             {b.tipo === "grid" && campo("Orientação das fotos", <Seg value={b.proporcao ?? "horizontal_3x2"} options={PROP_OPTS} onChange={(v) => setBloco("banner", { proporcao: v })} />)}
             {campo("Alinhamento do recorte", <>
-              <Seg value={b.ancora ?? "centro"} options={[{ v: "superior", l: "Superior" }, { v: "centro", l: "Central" }, { v: "inferior", l: "Inferior" }] as const} onChange={(v) => setBloco("banner", { ancora: v })} />
+              <Seg value={b.ancora ?? "centro"} options={ANC_OPTS} onChange={(v) => setBloco("banner", { ancora: v })} />
               <p style={{ ...mini, margin: "4px 0 0" }}>Escolhe qual parte da foto aparece quando ela é cortada.</p>
             </>)}
             {b.tipo === "grid" && campo("Limite de linhas", <>

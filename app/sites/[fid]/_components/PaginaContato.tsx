@@ -30,7 +30,7 @@ export function PaginaContato({ cfg, titulo, canais, fid, categorias }: {
   cfg: CfgContato; titulo: string; canais: CanalContato[]; fid: string;
   categorias: { valor: string; label: string }[];
 }) {
-  const objPos = OBJECT_POSITION[cfg.ancora]; // alinhamento vertical do recorte das imagens
+  const objPos = OBJECT_POSITION[cfg.ancora]; // alinhamento do recorte das imagens
   const form = <ContatoForm fid={fid} config={cfg.formulario} categorias={categorias} />;
   const textoEl = cfg.html
     ? <div className="site-conteudo" style={{ fontSize: 15, color: "var(--site-suave)", lineHeight: 1.8, margin: "0 0 20px" }} dangerouslySetInnerHTML={{ __html: cfg.html }} />

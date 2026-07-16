@@ -7,7 +7,7 @@ const h1Central: React.CSSProperties = { fontSize: 28, fontWeight: 700, textAlig
 
 export function PaginaSobre({ cfg, titulo }: { cfg: CfgSobre; titulo: string }) {
   const html = cfg.html ?? "<p>Em breve.</p>";
-  const objPos = OBJECT_POSITION[cfg.ancora]; // alinhamento vertical do recorte
+  const objPos = OBJECT_POSITION[cfg.ancora]; // alinhamento do recorte da foto
 
   // ── Foto de fundo: título + texto sobrepostos à imagem ──
   if (cfg.layout === "foto_fundo") {
@@ -34,7 +34,7 @@ export function PaginaSobre({ cfg, titulo }: { cfg: CfgSobre; titulo: string }) 
   }
 
   // ── Foto + biografia (2 colunas): a foto recorta em retrato (aspectRatio) para o
-  // alinhamento (âncora) ter efeito — a parte visível segue superior/central/inferior. ──
+  // alinhamento (âncora) ter efeito — a parte visível segue a âncora (vertical ou horizontal). ──
   return (
     <div style={{ maxWidth: 900, margin: "0 auto", padding: "40px 24px" }}>
       <h1 style={h1Central}>{titulo}</h1>
