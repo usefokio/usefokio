@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { confirmarRenovacaoPaga } from "@/lib/pagamentos/confirmar";
 
 const PAID_STATUSES = ["RECEIVED", "CONFIRMED", "RECEIVED_IN_CASH"];
 const CANCELLED_STATUSES = ["REFUNDED", "CHARGEBACK_REQUESTED", "DELETED"];
@@ -52,34 +53,11 @@ export async function POST(request: NextRequest) {
 
     if (!isPaid) return NextResponse.json({ ok: true });
 
-    const galeriaId = pagamento.galeria_id;
-
-    if (galeriaId) {
-      const { data: galeria } = await admin
-        .from("galerias_entrega")
-        .select("expires_at")
-        .eq("id", galeriaId)
-        .single();
-
-      const base = galeria?.expires_at && new Date(galeria.expires_at) > new Date()
-        ? new Date(galeria.expires_at)
-        : new Date();
-      const novaData = new Date(base.getTime() + (pagamento.dias_liberados ?? 30) * 86_400_000);
-
-      await admin.from("galerias_entrega").update({
-        expires_at: novaData.toISOString(),
-        suspensa:   false,
-      }).eq("id", galeriaId);
-
-      await admin.from("respostas_campanha")
-        .update({ resposta: "renovar", estagio: "encerrado", respondido_em: new Date().toISOString() })
-        .eq("galeria_id", galeriaId);
-    }
-
-    await admin.from("pagamentos").update({
-      status:  "pago",
-      paid_at: new Date().toISOString(),
-    }).eq("id", pagamento.id);
+    await confirmarRenovacaoPaga(admin, {
+      id: pagamento.id,
+      galeria_id: pagamento.galeria_id,
+      dias_liberados: pagamento.dias_liberados,
+    });
 
     return NextResponse.json({ ok: true });
   } catch (err) {

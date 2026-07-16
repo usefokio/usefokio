@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { decryptKey, consultarPagamento, type AsaasAmbiente } from "@/lib/asaas";
+import { confirmarRenovacaoPaga } from "@/lib/pagamentos/confirmar";
 
 export async function POST(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -42,25 +43,10 @@ export async function POST(_request: NextRequest, { params }: { params: Promise<
         continue;
       }
 
-      // Pago: conta sempre a partir da data do pagamento
-      const novaData = new Date(Date.now() + (p.dias_liberados ?? 30) * 86_400_000);
+      // Pago: estende o acesso (fonte única — mesma regra do webhook e do cron)
+      const novaData = await confirmarRenovacaoPaga(admin, { id: p.id, galeria_id: id, dias_liberados: p.dias_liberados });
 
-      await admin.from("galerias_entrega").update({
-        expires_at: novaData.toISOString(),
-        suspensa:   false,
-      }).eq("id", id);
-
-      await admin.from("pagamentos").update({
-        status:  "pago",
-        paid_at: new Date().toISOString(),
-      }).eq("id", p.id);
-
-      // Marca a resposta da campanha como "renovar" para exibir a tag na listagem
-      await admin.from("respostas_campanha")
-        .update({ resposta: "renovar", estagio: "encerrado", respondido_em: new Date().toISOString() })
-        .eq("galeria_id", id);
-
-      return NextResponse.json({ liberado: true, novaData: novaData.toISOString() });
+      return NextResponse.json({ liberado: true, novaData });
     } catch {
       // erro de consulta individual não bloqueia os demais
     }

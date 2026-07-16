@@ -3,6 +3,7 @@ import type { NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { fotografoIdAtual } from "@/lib/auth/fotografoAtual";
 import { decryptKey, consultarPagamento, type AsaasAmbiente } from "@/lib/asaas";
+import { confirmarRenovacaoPaga } from "@/lib/pagamentos/confirmar";
 
 export async function POST(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -45,22 +46,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
     return NextResponse.json({ ok: true, pago: false, mensagem: "Pagamento ainda não confirmado no Asaas." });
   }
 
-  const novaData = new Date(Date.now() + (pgto.dias_liberados ?? 30) * 86_400_000);
+  const expiresAt = await confirmarRenovacaoPaga(admin, { id: pgto.id, galeria_id: id, dias_liberados: pgto.dias_liberados });
 
-  await admin.from("galerias_entrega").update({
-    expires_at: novaData.toISOString(),
-    suspensa: false,
-  }).eq("id", id);
-
-  await admin.from("pagamentos").update({
-    status: "pago",
-    paid_at: new Date().toISOString(),
-  }).eq("id", pgto.id);
-
-  // Renovação paga → encerra a campanha (sai do funil).
-  await admin.from("respostas_campanha")
-    .update({ resposta: "renovar", estagio: "encerrado", respondido_em: new Date().toISOString() })
-    .eq("galeria_id", id);
-
-  return NextResponse.json({ ok: true, pago: true, expiresAt: novaData.toISOString() });
+  return NextResponse.json({ ok: true, pago: true, expiresAt });
 }

@@ -2,7 +2,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { decryptKey, criarCobranca, type AsaasAmbiente } from "@/lib/asaas";
+import { decryptKey, criarCobranca, registrarWebhook, type AsaasAmbiente } from "@/lib/asaas";
 import nodemailer from "nodemailer";
 import { getResend, FROM_DEFAULT } from "@/lib/email/resend";
 import { rateLimitOk, clientIp } from "@/lib/rate-limit";
@@ -186,6 +186,16 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       });
       paymentId = resultado.paymentId;
       invoiceUrl = resultado.invoiceUrl;
+
+      // Self-heal: reativa o webhook do fotógrafo (interrupted:false) com a URL e o token
+      // atuais — o registro pode ter ficado obsoleto (migração de servidor / troca de token).
+      // Não pode derrubar a cobrança, então é não-bloqueante.
+      try {
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://www.usefokio.com.br";
+        await registrarWebhook(apiKey, fotografo!.asaas_ambiente as AsaasAmbiente, `${appUrl}/api/asaas/webhook`, process.env.ASAAS_WEBHOOK_TOKEN, fotografo!.email ?? undefined);
+      } catch (we) {
+        console.error("[renovar] re-registro de webhook falhou:", we instanceof Error ? we.message : we);
+      }
     } else {
       return NextResponse.json({ erro: "Gateway não implementado ainda." }, { status: 501 });
     }

@@ -61,7 +61,7 @@ export async function POST(req: Request) {
     let webhookRegistrado = false;
     try {
       const { registrarWebhook } = await import("@/lib/asaas");
-      await registrarWebhook(apiKey.trim(), amb, `${appUrl}/api/asaas/webhook-sistema`);
+      await registrarWebhook(apiKey.trim(), amb, `${appUrl}/api/asaas/webhook-sistema`, process.env.ASAAS_WEBHOOK_TOKEN);
       webhookRegistrado = true;
     } catch (we) {
       console.error("[sistema-config] Falha ao registrar webhook:", we instanceof Error ? we.message : we);

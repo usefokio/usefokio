@@ -44,6 +44,10 @@ export default function SistemaPage() {
   const [msgWm,        setMsgWm]        = useState("");
   const [uploadandoQr, setUploadandoQr] = useState(false);
 
+  // ── Manutenção: re-registrar webhooks de pagamento ──────────────────────────
+  const [reregistrando, setReregistrando] = useState(false);
+  const [msgReg,        setMsgReg]         = useState("");
+
   useEffect(() => {
     carregarSistema();
     carregarWm();
@@ -56,6 +60,25 @@ export default function SistemaPage() {
       headers: { Authorization: `Bearer ${session?.access_token ?? ""}` },
     });
     if (res.ok) setSistemaConfig(await res.json());
+  }
+
+  async function reregistrarWebhooks() {
+    setReregistrando(true);
+    setMsgReg("");
+    const supabase = createClient();
+    const { data: { session } } = await supabase.auth.getSession();
+    const res = await fetch("/api/webmaster/asaas/reregistrar-webhooks", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${session?.access_token ?? ""}` },
+    });
+    const json = await res.json();
+    if (!res.ok) {
+      setMsgReg("❌ " + (json.error ?? "Erro ao re-registrar."));
+    } else {
+      const nFalhas = json.falhas?.length ?? 0;
+      setMsgReg(`✅ ${json.sucesso}/${json.total} fotógrafos · sistema ${json.sistema ? "OK" : "—"}${nFalhas ? ` · ${nFalhas} falha(s)` : ""}`);
+    }
+    setReregistrando(false);
   }
 
   async function salvarSistema() {
@@ -299,6 +322,21 @@ export default function SistemaPage() {
             </div>
           )}
         </div>
+      </div>
+
+      {/* ── Manutenção: re-registrar webhooks de pagamento ─────────────────────── */}
+      <div style={cardStyle}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: "var(--color-text-primary)", marginBottom: 6 }}>
+          🔁 Webhooks de pagamento
+        </div>
+        <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: "0 0 14px", lineHeight: 1.5 }}>
+          Re-registra o webhook do Asaas de todos os fotógrafos conectados (e do sistema) com a URL e o token atuais.
+          Use se as confirmações automáticas de pagamento pararem (ex.: após migração de servidor).
+        </p>
+        <button onClick={reregistrarWebhooks} disabled={reregistrando} style={{ padding: "9px 18px", borderRadius: 8, border: "none", background: "#2563EB", color: "#fff", fontSize: 12, fontWeight: 700, cursor: reregistrando ? "default" : "pointer", width: "fit-content", opacity: reregistrando ? 0.6 : 1 }}>
+          {reregistrando ? "Re-registrando…" : "Re-registrar webhooks"}
+        </button>
+        {msgReg && <div style={{ fontSize: 12, marginTop: 10, color: msgReg.startsWith("❌") ? "#EF4444" : "#059669" }}>{msgReg}</div>}
       </div>
     </div>
   );
