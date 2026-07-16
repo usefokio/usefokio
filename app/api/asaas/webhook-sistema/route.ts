@@ -2,6 +2,11 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getResend, FROM_DEFAULT } from "@/lib/email/resend";
 
+// Health-check: alguns validadores do Asaas checam a URL via GET. Responde 200.
+export async function GET() {
+  return NextResponse.json({ ok: true });
+}
+
 export async function POST(req: Request) {
   const token = req.headers.get("asaas-access-token");
   const expectedToken = process.env.ASAAS_WEBHOOK_TOKEN;

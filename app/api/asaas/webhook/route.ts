@@ -3,6 +3,11 @@ import type { NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { confirmarRenovacaoPaga } from "@/lib/pagamentos/confirmar";
 
+// Health-check: alguns validadores do Asaas checam a URL via GET. Responde 200.
+export async function GET() {
+  return NextResponse.json({ ok: true });
+}
+
 const PAID_STATUSES = ["RECEIVED", "CONFIRMED", "RECEIVED_IN_CASH"];
 const CANCELLED_STATUSES = ["REFUNDED", "CHARGEBACK_REQUESTED", "DELETED"];
 

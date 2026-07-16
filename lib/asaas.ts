@@ -115,13 +115,19 @@ export async function criarCobranca(params: {
 
 /** Registra (ou atualiza) o webhook de pagamentos no Asaas para a URL do sistema */
 export async function registrarWebhook(apiKey: string, ambiente: AsaasAmbiente, webhookUrl: string, token?: string, email?: string): Promise<void> {
+  // Normaliza a URL: garante https:// e colapsa barras duplicadas no path. NEXT_PUBLIC_APP_URL
+  // pode ter vindo sem esquema ou com barra final e o Asaas rejeita ("A url informada é inválida").
+  let url = webhookUrl.trim();
+  if (!/^https?:\/\//i.test(url)) url = "https://" + url.replace(/^\/+/, "");
+  url = url.replace(/([^:]\/)\/+/g, "$1");
+
   // Lista webhooks existentes
   const lista = await asaasFetch(apiKey, ambiente, "/webhooks").catch(() => ({ data: [] }));
-  const existente = (lista?.data ?? []).find((w: { url: string; id: string }) => w.url === webhookUrl);
+  const existente = (lista?.data ?? []).find((w: { url: string; id: string }) => w.url === url);
 
   const payload: Record<string, unknown> = {
     name:        "UseFokio",
-    url:         webhookUrl,
+    url,
     email:       email || process.env.WEBMASTER_EMAIL || "usefokio@gmail.com", // obrigatório no Asaas
     enabled:     true,
     interrupted: false,

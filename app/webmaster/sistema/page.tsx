@@ -76,7 +76,7 @@ export default function SistemaPage() {
       setMsgReg("❌ " + (json.error ?? "Erro ao re-registrar."));
     } else {
       const falhas: { id: string; erro: string }[] = json.falhas ?? [];
-      const resumo = `${json.sucesso}/${json.total} fotógrafos · sistema ${json.sistema ? "OK" : "—"} · token ${json.tokenLen} chars`;
+      const resumo = `${json.sucesso}/${json.total} fotógrafos · sistema ${json.sistema ? "OK" : "—"} · token ${json.tokenLen} chars · url ${json.appUrl}`;
       const detalhe = falhas.length ? " · " + falhas.map((f) => `[${f.id === "sistema" ? "sistema" : f.id.slice(0, 8)}] ${f.erro}`).join(" | ") : "";
       setMsgReg(`${falhas.length ? "⚠️" : "✅"} ${resumo}${detalhe}`);
     }
