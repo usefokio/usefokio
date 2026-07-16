@@ -10,7 +10,6 @@ import type { Categoria } from "@/lib/supabase/types";
 import { inputStyle } from "@/lib/styles";
 import { mascaraMoeda, parseMoeda, formatarMoeda } from "@/lib/moeda";
 import { aplicarMarcaDagua } from "@/lib/imageResize";
-import { DoacaoDev } from "../_components/DoacaoDev";
 
 type Tab = "categorias" | "identidade" | "pagamentos" | "seguranca" | "mensagens" | "email";
 
@@ -749,12 +748,6 @@ function ConfigPagamentos() {
         <button onClick={salvarPix} disabled={pixSalvando} style={{ padding: "8px 20px", borderRadius: 8, border: "none", background: pixSalvando ? "#6B7280" : "#111", color: "#fff", fontSize: 13, fontWeight: 600, cursor: pixSalvando ? "default" : "pointer" }}>
           {pixSalvando ? "Salvando…" : "Salvar configuração PIX"}
         </button>
-      </div>
-
-      {/* Doação ao desenvolvedor */}
-      <div style={{ borderTop: "0.5px solid var(--color-border-tertiary)", paddingTop: 20 }}>
-        <div style={{ fontSize: 13, fontWeight: 700, color: "var(--color-text-primary)", marginBottom: 4 }}>❤️ Apoie o desenvolvedor</div>
-        <DoacaoDev />
       </div>
 
       {/* Modal de confirmação OTP */}

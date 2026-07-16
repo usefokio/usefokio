@@ -1,8 +1,7 @@
 "use client";
 
-// Bloco do dashboard: apoio ao desenvolvedor (Pix/doação), convite e Instagram.
+// Bloco do dashboard: convite para outros fotógrafos e Instagram do UseFokio.
 import { useState } from "react";
-import { DoacaoDev } from "./DoacaoDev";
 
 const INSTAGRAM_URL = "https://www.instagram.com/usefokio/";
 const SITE_URL      = "https://www.usefokio.com.br";
@@ -40,34 +39,6 @@ export function ApoieProjeto() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16, marginBottom: 16 }}>
-      {/* Apoie o desenvolvedor */}
-      <div style={card}>
-        <div style={{ display: "flex", alignItems: "center", gap: 11, marginBottom: 12 }}>
-          <div style={{
-            width: 38, height: 38, borderRadius: 10, flexShrink: 0,
-            background: "rgba(239,68,68,0.10)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 19,
-          }}>
-            ❤️
-          </div>
-          <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: "var(--color-text-primary)", lineHeight: 1.2 }}>
-              Apoie o UseFokio
-            </div>
-            <div style={{ fontSize: 11, fontWeight: 600, color: "#7C3AED", marginTop: 2 }}>
-              Beta • Desenvolvedor solo
-            </div>
-          </div>
-        </div>
-
-        <p style={{ fontSize: 12.5, color: "var(--color-text-secondary)", lineHeight: 1.65, margin: "0 0 14px" }}>
-          O UseFokio é feito por <strong style={{ color: "var(--color-text-primary)", fontWeight: 600 }}>uma pessoa só</strong>, em
-          fase beta e gratuito. Seu apoio ajuda a manter o projeto no ar e a lançar novas funcionalidades mais rápido —
-          qualquer valor faz diferença. 💙
-        </p>
-
-        <DoacaoDev />
-      </div>
-
       {/* Convite + Instagram */}
       <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
         {/* Convide um amigo */}

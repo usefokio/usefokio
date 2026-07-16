@@ -5,7 +5,6 @@ import { useRouter, usePathname } from "next/navigation";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { createClient } from "@/lib/supabase/client";
 import { rotaPermitida, rotaInicialPermitida } from "@/lib/recursos";
-import { DoacaoDev } from "./DoacaoDev";
 
 const WEBMASTER_ID    = process.env.NEXT_PUBLIC_WEBMASTER_ID ?? "";
 const WEBMASTER_EMAIL = "usefokio@gmail.com";
@@ -70,7 +69,6 @@ export function DashboardGuard({ children }: { children: React.ReactNode }) {
     return sessionStorage.getItem(`termos_${TERMOS_VERSAO}`) === "1";
   });
   const [precisaAceitar, setPrecisaAceitar] = useState(false);
-  const [pagamentosDoacao, setPagamentosDoacao] = useState<string[]>([]);
 
   useEffect(() => {
     if (process.env.NODE_ENV === "development") return;
@@ -118,17 +116,6 @@ export function DashboardGuard({ children }: { children: React.ReactNode }) {
         sessionStorage.setItem(`termos_${TERMOS_VERSAO}`, "1");
         setTermosVerificados(true);
       });
-
-    // Verifica pagamentos recebidos ainda não celebrados → popup de doação
-    sb.from("pagamentos")
-      .select("id")
-      .eq("fotografo_id", fotografo.id)
-      .eq("status", "pago")
-      .eq("doacao_sugerida", false)
-      .neq("tipo", "doacao")
-      .then(({ data }) => {
-        if (data && data.length > 0) setPagamentosDoacao(data.map((p) => p.id));
-      });
   }, [fotografo, loading, router, pathname]);
 
   const spinStyle = { height: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--color-background-tertiary)", fontFamily: "var(--font-sans)" } as const;
@@ -145,17 +132,6 @@ export function DashboardGuard({ children }: { children: React.ReactNode }) {
   // Não renderizar conteúdo de produto negado enquanto o redirect do useEffect roda
   if (process.env.NODE_ENV !== "development" && !rotaPermitida(fotografo.recursos, pathname)) {
     return <div style={spinStyle}><div style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>Redirecionando…</div></div>;
-  }
-
-  async function fecharDoacao() {
-    if (pagamentosDoacao.length > 0) {
-      await fetch("/api/doacao/sugerida", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ids: pagamentosDoacao }),
-      }).catch(() => {});
-    }
-    setPagamentosDoacao([]);
   }
 
   // Banner de vencimento do plano
@@ -189,26 +165,6 @@ export function DashboardGuard({ children }: { children: React.ReactNode }) {
       {children}
       {precisaAceitar && (
         <ModalAceiteTermos onAceito={() => setPrecisaAceitar(false)} />
-      )}
-      {pagamentosDoacao.length > 0 && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 200, padding: 20 }} onClick={fecharDoacao}>
-          <div onClick={(e) => e.stopPropagation()} style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 16, padding: "30px 30px", width: 440, maxWidth: "100%", boxShadow: "0 12px 48px rgba(0,0,0,0.25)" }}>
-            <div style={{ fontSize: 36, marginBottom: 10, textAlign: "center" }}>🎉</div>
-            <h3 style={{ margin: "0 0 6px", fontSize: 17, fontWeight: 800, color: "var(--color-text-primary)", textAlign: "center", letterSpacing: "-0.01em" }}>
-              Você recebeu um novo pagamento!
-            </h3>
-            <p style={{ margin: "0 0 6px", fontSize: 12, color: "#7C3AED", textAlign: "center", fontWeight: 600 }}>
-              Beta v0 · Desenvolvedor solo
-            </p>
-            <p style={{ margin: "0 0 20px", fontSize: 13, color: "var(--color-text-secondary)", textAlign: "center", lineHeight: 1.6 }}>
-              O UseFokio é feito por uma pessoa só, em fase beta. Cada doação mantém o projeto vivo e ajuda a lançar novas funcionalidades mais rápido.
-            </p>
-            <DoacaoDev compacto />
-            <button onClick={fecharDoacao} style={{ display: "block", margin: "16px auto 0", background: "none", border: "none", fontSize: 12, color: "var(--color-text-secondary)", cursor: "pointer", textDecoration: "underline" }}>
-              Agora não
-            </button>
-          </div>
-        </div>
       )}
     </>
   );
