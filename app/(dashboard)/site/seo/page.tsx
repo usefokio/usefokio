@@ -5,6 +5,9 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { useEditorEstado, SeloEstado, BotaoSalvarEstado, ModalNaoSalvo } from "@/app/(dashboard)/_components/EditorEstado";
+import { SeoDicas, SeoNota } from "@/app/(dashboard)/site/_components/SeoDica";
+import { BotaoIA } from "@/app/(dashboard)/site/_components/BotaoIA";
+import { auditarSiteGlobal, pontuar } from "@/lib/site/seoAudit";
 
 const inputStyle: React.CSSProperties = {
   width: "100%", padding: "10px 12px", borderRadius: 8, boxSizing: "border-box",
@@ -28,10 +31,20 @@ export default function SeoPage() {
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const [ogImageUrl, setOgImageUrl] = useState<string | null>(null); // só leitura aqui (upload no P5)
+  const [publicado, setPublicado] = useState<boolean | null>(null);
 
   // Estado de salvamento claro (regra de sistema)
   const snapshotAtual = JSON.stringify([tituloSite, seoTitle, seoDesc, keywords, analytics, gsv, pixel]);
   const estado = useEditorEstado(snapshotAtual, "/site");
+
+  // Análise de SEO ao vivo do site (motor único em lib/site/seoAudit)
+  const achadosSeo = auditarSiteGlobal({
+    titulo_site: tituloSite, seo_title: seoTitle, seo_description: seoDesc, seo_keywords: keywords,
+    og_image_url: ogImageUrl, analytics_head: analytics, google_site_verification: gsv,
+    facebook_pixel: pixel, publicado,
+  });
+  const nota = pontuar(achadosSeo);
 
   useEffect(() => {
     if (!fotografo) return;
@@ -45,6 +58,8 @@ export default function SeoPage() {
         setAnalytics(data.analytics_head ?? "");
         setGsv(data.google_site_verification ?? "");
         setPixel(data.facebook_pixel ?? "");
+        setOgImageUrl(data.og_image_url ?? null);
+        setPublicado(data.publicado ?? null);
       }
       estado.inicializar(JSON.stringify([
         data?.titulo_site ?? "", data?.seo_title ?? "", data?.seo_description ?? "", data?.seo_keywords ?? "",
@@ -83,11 +98,23 @@ export default function SeoPage() {
     <div style={{ maxWidth: 720, margin: "0 auto", padding: "40px 24px" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 6, flexWrap: "wrap" }}>
         <h1 style={{ fontSize: 22, fontWeight: 800, color: "var(--color-text-primary)", margin: 0, letterSpacing: "-0.02em" }}>SEO do site</h1>
-        <SeloEstado temAlteracoes={estado.temAlteracoes} />
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <BotaoIA compacto contexto={{ tipo: "descricao", entidade: "site", campos: { titulo_site: tituloSite } }} />
+          <SeloEstado temAlteracoes={estado.temAlteracoes} />
+        </div>
       </div>
-      <p style={{ fontSize: 13, color: "var(--color-text-secondary)", margin: "0 0 24px", lineHeight: 1.6 }}>
+      <p style={{ fontSize: 13, color: "var(--color-text-secondary)", margin: "0 0 16px", lineHeight: 1.6 }}>
         Metadados gerais (home). Cada trabalho, portfólio e post tem o próprio SEO na sua tela de edição.
       </p>
+
+      {/* Nota + análise ao vivo do SEO global */}
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10 }}>
+        <SeoNota nota={nota} />
+        <div style={{ fontSize: 12, color: "var(--color-text-secondary)", lineHeight: 1.5 }}>
+          <strong style={{ color: "var(--color-text-primary)" }}>Nota de SEO do site (home).</strong> Siga as dicas abaixo — a nota atualiza conforme você preenche.
+        </div>
+      </div>
+      <div style={{ marginBottom: 18 }}><SeoDicas achados={achadosSeo} /></div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
         <div>

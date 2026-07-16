@@ -10,6 +10,9 @@ import { processarImagemEntrega } from "@/lib/imageResize";
 import { SiteRichEditor } from "@/app/(dashboard)/site/_components/SiteRichEditor";
 import { useEditorEstado, SeloEstado, BotaoSalvarEstado, ModalNaoSalvo } from "@/app/(dashboard)/_components/EditorEstado";
 import { ConfigPaginaModal } from "@/app/(dashboard)/site/_components/ConfigPaginaModal";
+import { SeoDicas } from "@/app/(dashboard)/site/_components/SeoDica";
+import { BotaoIA } from "@/app/(dashboard)/site/_components/BotaoIA";
+import { auditarPost, contarPalavras } from "@/lib/site/seoAudit";
 import type { ConfigPaginaValores } from "@/lib/site/seo";
 import type { SitePost } from "@/lib/supabase/types";
 
@@ -66,6 +69,10 @@ export function PostForm({ postId }: { postId?: string }) {
   // Estado de salvamento claro (regra de sistema) — capa fica de fora (upload persiste na hora)
   const snapshotAtual = JSON.stringify([titulo, slug, categoria, tags, resumo, corpo, publicado, publicadoEm, seoTitle, seoDesc, seoKw, seoNoindex, ogTitle, ogDesc, ogImage, mostrarData]);
   const estado = useEditorEstado(snapshotAtual, "/site/blog");
+
+  // Análise de SEO ao vivo (motor único em lib/site/seoAudit)
+  const achadosSeo = auditarPost({ titulo, resumo, corpo, capa_url: capaUrl, tags, seo_title: seoTitle, seo_description: seoDesc, seo_keywords: seoKw, seo_noindex: seoNoindex, og_image_url: ogImage });
+  const palavrasCorpo = contarPalavras(corpo);
 
   useEffect(() => {
     if (!editando) {
@@ -190,6 +197,7 @@ export function PostForm({ postId }: { postId?: string }) {
           {editando ? "Editar post" : "Novo post"}
         </h1>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <BotaoIA compacto contexto={{ tipo: "texto", entidade: "post", campos: { titulo, categoria, tags } }} />
           {editando && (
             <button onClick={() => setConfigAberto(true)} title="Configurações da página (URL, SEO, redes sociais)"
               style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 8, border: "1px solid var(--color-border-secondary)", background: "transparent", fontSize: 12, fontWeight: 600, color: "var(--color-text-primary)", cursor: "pointer" }}>
@@ -241,7 +249,18 @@ export function PostForm({ postId }: { postId?: string }) {
         <div>
           <label style={labelStyle}>Conteúdo</label>
           <SiteRichEditor value={corpo} onChange={setCorpo} minHeight={320} pasta={`posts/${postId ?? "novo"}`} />
+          <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 4 }}>
+            <strong>{palavrasCorpo} palavra{palavrasCorpo !== 1 ? "s" : ""}</strong> — posts com 300+ palavras rankeiam melhor; use subtítulos (H2) para organizar.
+          </div>
         </div>
+
+        {/* Análise de SEO ao vivo — some quando está tudo OK */}
+        {achadosSeo.some((a) => a.nivel !== "ok") && (
+          <div>
+            <label style={labelStyle}>Análise de SEO desta página</label>
+            <SeoDicas achados={achadosSeo} />
+          </div>
+        )}
 
         <div style={{ display: "flex", gap: 22, alignItems: "center", flexWrap: "wrap" }}>
           <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--color-text-primary)", cursor: "pointer" }}>

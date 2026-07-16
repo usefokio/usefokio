@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { fetchAllRows } from "@/lib/supabase/fetchAll";
 import { useFotografo } from "@/lib/context/FotografoContext";
+import { SeoStatusSelo } from "@/app/(dashboard)/site/_components/SeoDica";
+import { auditarPost, resumo } from "@/lib/site/seoAudit";
 import type { SitePost } from "@/lib/supabase/types";
 
 export default function BlogListaPage() {
@@ -82,6 +84,7 @@ export default function BlogListaPage() {
                   {p.publicado_em && ` · ${new Date(p.publicado_em).toLocaleDateString("pt-BR")}`}
                 </div>
               </div>
+              {(() => { const r = resumo(auditarPost(p)); return <SeoStatusSelo pendencias={r.pendencias} pior={r.pior} />; })()}
               <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 10, flexShrink: 0, background: p.publicado ? "rgba(16,185,129,0.12)" : "rgba(245,158,11,0.15)", color: p.publicado ? "#059669" : "#B45309" }}>
                 {p.publicado ? "Publicado" : "Rascunho"}
               </span>

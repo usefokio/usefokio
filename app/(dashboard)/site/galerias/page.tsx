@@ -6,6 +6,8 @@ import { createClient } from "@/lib/supabase/client";
 import { fetchAllRows } from "@/lib/supabase/fetchAll";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { nomeCategoria } from "@/lib/site/categorias";
+import { SeoStatusSelo } from "@/app/(dashboard)/site/_components/SeoDica";
+import { auditarTrabalho, auditarColecao, resumo, type NivelAchado } from "@/lib/site/seoAudit";
 import type { SitePortfolio, SiteTrabalho, SiteCategoria } from "@/lib/supabase/types";
 
 function slugify(v: string): string {
@@ -34,9 +36,9 @@ function Badge({ pub }: { pub: boolean }) {
 }
 
 // Card de galeria (Trabalho/Portfólio) com capa e rodapé opcional de views/curtidas sobre a imagem.
-function CardGaleria({ capa, titulo, categoria, publicado, views, likes, onClick }: {
+function CardGaleria({ capa, titulo, categoria, publicado, views, likes, seo, onClick }: {
   capa: string | null; titulo: string; categoria: string; publicado: boolean;
-  views?: number; likes?: number; onClick: () => void;
+  views?: number; likes?: number; seo?: { pendencias: number; pior: NivelAchado }; onClick: () => void;
 }) {
   return (
     <div
@@ -60,7 +62,10 @@ function CardGaleria({ capa, titulo, categoria, publicado, views, likes, onClick
         <div style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)", lineHeight: 1.35, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{titulo}</div>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginTop: "auto" }}>
           <span style={{ fontSize: 11, color: "var(--color-text-secondary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{categoria}</span>
-          <Badge pub={publicado} />
+          <span style={{ display: "inline-flex", gap: 4, alignItems: "center" }}>
+            {seo && <SeoStatusSelo pendencias={seo.pendencias} pior={seo.pior} />}
+            <Badge pub={publicado} />
+          </span>
         </div>
       </div>
     </div>
@@ -245,6 +250,7 @@ export default function GaleriasPage() {
                   publicado={t.publicado}
                   views={t.views}
                   likes={t.likes}
+                  seo={resumo(auditarTrabalho(t))}
                   onClick={() => router.push(`/site/galerias/trabalho/${t.id}`)}
                 />
               ))}
@@ -287,6 +293,7 @@ export default function GaleriasPage() {
                   titulo={p.titulo}
                   categoria={nomeCategoria(p.categoria, catMap)}
                   publicado={p.publicado}
+                  seo={resumo(auditarColecao(p))}
                   onClick={() => router.push(`/site/galerias/portfolio/${p.id}`)}
                 />
               ))}

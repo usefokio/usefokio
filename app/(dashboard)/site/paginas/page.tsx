@@ -11,6 +11,9 @@ import { SiteRichEditor } from "@/app/(dashboard)/site/_components/SiteRichEdito
 import { FormularioConfigEditor } from "@/app/(dashboard)/site/_components/FormularioConfigEditor";
 import { useEditorEstado, SeloEstado, BotaoSalvarEstado, ModalNaoSalvo } from "@/app/(dashboard)/_components/EditorEstado";
 import { ConfigPaginaModal } from "@/app/(dashboard)/site/_components/ConfigPaginaModal";
+import { SeoDicas } from "@/app/(dashboard)/site/_components/SeoDica";
+import { BotaoIA } from "@/app/(dashboard)/site/_components/BotaoIA";
+import { auditarPagina, contarPalavras } from "@/lib/site/seoAudit";
 import { normalizarConfig, type ConfigFormulario } from "@/lib/site/formulario";
 import type { ConfigPaginaValores } from "@/lib/site/seo";
 import type { SitePagina } from "@/lib/supabase/types";
@@ -51,6 +54,12 @@ function PaginasConteudo() {
   // Estado de salvamento claro (regra de sistema) — dirty só enquanto uma página está em edição
   const snapshotAtual = editando ? JSON.stringify([editando.id, titulo, html, imagens, formConfig, seoTitle, seoDesc, seoKw, seoNoindex, ogTitle, ogDesc, ogImage]) : "idle";
   const estado = useEditorEstado(snapshotAtual, "/site");
+
+  // Análise de SEO ao vivo (motor único em lib/site/seoAudit)
+  const achadosSeo = editando
+    ? auditarPagina({ titulo, html, seo_title: seoTitle, seo_description: seoDesc, seo_keywords: seoKw, seo_noindex: seoNoindex, og_image_url: ogImage })
+    : [];
+  const palavrasHtml = contarPalavras(html);
 
   useEffect(() => {
     if (!fotografo) return;
@@ -165,6 +174,7 @@ function PaginasConteudo() {
               ← Voltar para a lista
             </button>
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <BotaoIA compacto contexto={{ tipo: "texto", entidade: "pagina", campos: { titulo, slug: editando.slug } }} />
               <button onClick={() => setConfigAberto(true)} title="Configurações da página (SEO, redes sociais)"
                 style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 12px", borderRadius: 8, border: "1px solid var(--color-border-secondary)", background: "transparent", fontSize: 12, fontWeight: 600, color: "var(--color-text-primary)", cursor: "pointer" }}>
                 ⚙ Configurações
@@ -201,12 +211,19 @@ function PaginasConteudo() {
             <div>
               <label style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: 5 }}>Conteúdo</label>
               <SiteRichEditor value={html} onChange={setHtml} minHeight={280} pasta={`paginas/${editando.slug}`} />
-              {editando.slug === "contato" && (
-                <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 6 }}>
-                  Obs.: este texto aparece acima do formulário de orçamento na página Contato.
-                </div>
-              )}
+              <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 6 }}>
+                <strong>{palavrasHtml} palavra{palavrasHtml !== 1 ? "s" : ""}</strong> — textos com 120+ palavras dão mais contexto ao Google (conte a sua história, cidade e especialidades).
+                {editando.slug === "contato" && " Obs.: este texto aparece acima do formulário de orçamento."}
+              </div>
             </div>
+
+            {/* Análise de SEO ao vivo — some quando está tudo OK */}
+            {achadosSeo.some((a) => a.nivel !== "ok") && (
+              <div>
+                <label style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: 5 }}>Análise de SEO desta página</label>
+                <SeoDicas achados={achadosSeo} />
+              </div>
+            )}
             {editando.slug === "contato" && (
               <div>
                 <label style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: 5 }}>Formulário de orçamento</label>

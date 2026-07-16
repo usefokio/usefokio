@@ -11,6 +11,9 @@ import { deleteFilesClient } from "@/lib/storage/deleteClient";
 import { processarImagemEntrega } from "@/lib/imageResize";
 import { useEditorEstado, SeloEstado, BotaoSalvarEstado, ModalNaoSalvo } from "@/app/(dashboard)/_components/EditorEstado";
 import { ConfigPaginaModal } from "@/app/(dashboard)/site/_components/ConfigPaginaModal";
+import { SeoDicas } from "@/app/(dashboard)/site/_components/SeoDica";
+import { BotaoIA } from "@/app/(dashboard)/site/_components/BotaoIA";
+import { auditarColecao } from "@/lib/site/seoAudit";
 import type { ConfigPaginaValores } from "@/lib/site/seo";
 import { urlPublicaSite, type ConfigUrl } from "@/lib/site/urlPublica";
 import type { SitePortfolio, SitePortfolioFoto } from "@/lib/supabase/types";
@@ -36,6 +39,7 @@ export default function PortfolioEditorPage({ params }: { params: Promise<{ id: 
 
   const [portfolio, setPortfolio] = useState<SitePortfolio | null>(null);
   const [titulo, setTitulo] = useState("");
+  const [descricao, setDescricao] = useState("");
   const [publicado, setPublicado] = useState(true);
   const [seoTitle, setSeoTitle] = useState("");
   const [seoDesc, setSeoDesc] = useState("");
@@ -56,8 +60,14 @@ export default function PortfolioEditorPage({ params }: { params: Promise<{ id: 
   const inputFileRef = useRef<HTMLInputElement>(null);
 
   // Estado de salvamento claro (regra de sistema) — fotos ficam de fora (persistem na hora, por design)
-  const snapshotAtual = JSON.stringify([titulo, publicado, seoTitle, seoDesc, seoKw, seoNoindex, ogTitle, ogDesc, ogImage, modoExibicao]);
+  const snapshotAtual = JSON.stringify([titulo, descricao, publicado, seoTitle, seoDesc, seoKw, seoNoindex, ogTitle, ogDesc, ogImage, modoExibicao]);
   const estado = useEditorEstado(snapshotAtual, "/site/galerias");
+
+  // Análise de SEO ao vivo (motor único em lib/site/seoAudit)
+  const achadosSeo = auditarColecao(
+    { titulo, descricao, capa_url: capaUrl, seo_title: seoTitle, seo_description: seoDesc, seo_keywords: seoKw, seo_noindex: seoNoindex, og_image_url: ogImage },
+    fotos,
+  );
 
   useEffect(() => {
     if (!fotografo) return;
@@ -68,6 +78,7 @@ export default function PortfolioEditorPage({ params }: { params: Promise<{ id: 
       const port = p as SitePortfolio;
       setPortfolio(port);
       setTitulo(port.titulo);
+      setDescricao(port.descricao ?? "");
       setPublicado(port.publicado);
       setSeoTitle(port.seo_title ?? ""); setSeoDesc(port.seo_description ?? ""); setSeoKw(port.seo_keywords ?? "");
       setSeoNoindex(port.seo_noindex); setOgTitle(port.og_title ?? ""); setOgDesc(port.og_description ?? ""); setOgImage(port.og_image_url);
@@ -78,7 +89,7 @@ export default function PortfolioEditorPage({ params }: { params: Promise<{ id: 
       const { data: fts } = await supabase.from("site_portfolio_fotos").select("*").eq("portfolio_id", id).order("ordem");
       setFotos((fts as SitePortfolioFoto[]) ?? []);
       estado.inicializar(JSON.stringify([
-        port.titulo, port.publicado, port.seo_title ?? "", port.seo_description ?? "", port.seo_keywords ?? "",
+        port.titulo, port.descricao ?? "", port.publicado, port.seo_title ?? "", port.seo_description ?? "", port.seo_keywords ?? "",
         port.seo_noindex, port.og_title ?? "", port.og_description ?? "", port.og_image_url, port.modo_exibicao || "lista",
       ]));
       setCarregando(false);
@@ -92,7 +103,7 @@ export default function PortfolioEditorPage({ params }: { params: Promise<{ id: 
     setSalvando(true); setMsg(null);
     const supabase = createClient();
     const { error } = await supabase.from("site_portfolios").update({
-      titulo: titulo.trim(), publicado,
+      titulo: titulo.trim(), descricao: descricao.trim() || null, publicado,
       seo_title: seoTitle.trim() || null, seo_description: seoDesc.trim() || null, seo_keywords: seoKw.trim() || null,
       seo_noindex: seoNoindex, og_title: ogTitle.trim() || null, og_description: ogDesc.trim() || null, og_image_url: ogImage,
       modo_exibicao: modoExibicao,
@@ -244,6 +255,7 @@ export default function PortfolioEditorPage({ params }: { params: Promise<{ id: 
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4, gap: 10, flexWrap: "wrap" }}>
         <h1 style={{ fontSize: 22, fontWeight: 800, color: "var(--color-text-primary)", margin: 0, letterSpacing: "-0.02em" }}>Editar portfólio</h1>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <BotaoIA compacto contexto={{ tipo: "descricao", entidade: "colecao", campos: { titulo, categoria: portfolio?.categoria } }} />
           <a href={urlPublicaSite(cfgSite, fotografo?.id ?? "", urlPublica)} target="_blank" rel="noopener noreferrer" title="Abrir este portfólio no site (nova aba)"
             style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 8, border: "1px solid var(--color-border-secondary)", background: "transparent", fontSize: 12, fontWeight: 600, color: "var(--color-text-primary)", cursor: "pointer", textDecoration: "none" }}>
             Ver no site ↗
@@ -274,10 +286,24 @@ export default function PortfolioEditorPage({ params }: { params: Promise<{ id: 
             </div>
           ) : null}
         </div>
+        <div>
+          <label style={labelStyle}>Descrição da coleção</label>
+          <textarea value={descricao} onChange={(e) => setDescricao(e.target.value)} rows={3} style={{ ...inputStyle, resize: "vertical" }}
+            placeholder="Apresente esta coleção: estilo, o que o cliente encontra aqui… (usada também na busca do Google)" />
+          <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 4 }}>Texto exibido/usado como descrição de busca quando o SEO da página está vazio.</div>
+        </div>
         <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--color-text-primary)", cursor: "pointer" }}>
           <input type="checkbox" checked={publicado} onChange={(e) => setPublicado(e.target.checked)} style={{ width: 15, height: 15 }} />
           Publicado
         </label>
+
+        {/* Análise de SEO ao vivo — some quando está tudo OK */}
+        {achadosSeo.some((a) => a.nivel !== "ok") && (
+          <div>
+            <label style={labelStyle}>Análise de SEO desta página</label>
+            <SeoDicas achados={achadosSeo} />
+          </div>
+        )}
       </div>
 
       <div style={{ marginTop: 30 }}>

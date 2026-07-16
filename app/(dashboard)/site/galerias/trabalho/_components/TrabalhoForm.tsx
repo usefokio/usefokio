@@ -11,6 +11,9 @@ import { processarImagemEntrega } from "@/lib/imageResize";
 import { RichTextEditor } from "@/app/(dashboard)/crm/_components/RichTextEditor";
 import { useEditorEstado, SeloEstado, BotaoSalvarEstado, ModalNaoSalvo } from "@/app/(dashboard)/_components/EditorEstado";
 import { ConfigPaginaModal } from "@/app/(dashboard)/site/_components/ConfigPaginaModal";
+import { SeoDicas } from "@/app/(dashboard)/site/_components/SeoDica";
+import { BotaoIA } from "@/app/(dashboard)/site/_components/BotaoIA";
+import { auditarTrabalho, contarPalavras } from "@/lib/site/seoAudit";
 import type { ConfigPaginaValores } from "@/lib/site/seo";
 import { urlPublicaSite, type ConfigUrl } from "@/lib/site/urlPublica";
 import { normalizarVideoUrl } from "@/lib/utils/youtube";
@@ -78,6 +81,13 @@ export function TrabalhoForm({ trabalhoId }: { trabalhoId?: string }) {
   // Estado de salvamento claro (regra de sistema) — fotos ficam de fora (persistem na hora)
   const snapshotAtual = JSON.stringify([titulo, catNome, slug, descricao, videoUrl, localEvento, dataEvento, publicado, destaqueHome, seoTitle, seoDesc, seoKeywords, seoNoindex, ogTitle, ogDesc, ogImage, mostrarData, modoExibicao]);
   const estado = useEditorEstado(snapshotAtual, "/site/galerias");
+
+  // Análise de SEO ao vivo (motor único em lib/site/seoAudit)
+  const achadosSeo = auditarTrabalho(
+    { titulo, descricao, capa_url: capaUrl, seo_title: seoTitle, seo_description: seoDesc, seo_keywords: seoKeywords, seo_noindex: seoNoindex, og_image_url: ogImage },
+    fotos,
+  );
+  const palavrasDescricao = contarPalavras(descricao);
 
   // Categorias da conta (para o combobox). Conta nova nasce vazia — cria a 1ª ao salvar o trabalho.
   useEffect(() => {
@@ -315,6 +325,7 @@ export function TrabalhoForm({ trabalhoId }: { trabalhoId?: string }) {
           {existe ? "Editar trabalho" : "Novo trabalho"}
         </h1>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <BotaoIA compacto contexto={{ tipo: "descricao", entidade: "trabalho", campos: { titulo, local: localEvento, categoria: catNome } }} />
           {existe && (
             <a href={urlPublicaSite(cfgSite, fotografo?.id ?? "", urlPublica)} target="_blank" rel="noopener noreferrer" title="Abrir esta página no site (nova aba)"
               style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 8, border: "1px solid var(--color-border-secondary)", background: "transparent", fontSize: 12, fontWeight: 600, color: "var(--color-text-primary)", cursor: "pointer", textDecoration: "none" }}>
@@ -366,7 +377,9 @@ export function TrabalhoForm({ trabalhoId }: { trabalhoId?: string }) {
         <div>
           <label style={labelStyle}>Descrição</label>
           <RichTextEditor value={descricao} onChange={setDescricao} minHeight={160} />
-          <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 4 }}>Texto exibido na página do trabalho (bom para SEO).</div>
+          <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 4 }}>
+            Texto exibido na página do trabalho (bom para SEO). · <strong>{palavrasDescricao} palavra{palavrasDescricao !== 1 ? "s" : ""}</strong> — o ideal são 100+ contando a história do evento.
+          </div>
         </div>
 
         <div>
@@ -386,6 +399,14 @@ export function TrabalhoForm({ trabalhoId }: { trabalhoId?: string }) {
             Destaque na home
           </label>
         </div>
+
+        {/* Análise de SEO ao vivo — some quando está tudo OK */}
+        {achadosSeo.some((a) => a.nivel !== "ok") && (
+          <div>
+            <label style={labelStyle}>Análise de SEO desta página</label>
+            <SeoDicas achados={achadosSeo} />
+          </div>
+        )}
 
       </div>
 

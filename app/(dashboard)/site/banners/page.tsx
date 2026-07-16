@@ -19,6 +19,7 @@ export default function BannersPage() {
   const [trabalhos, setTrabalhos] = useState<TrabalhoOpcao[]>([]);
   const [editando, setEditando] = useState<string | null>(null);
   const [formLink, setFormLink] = useState("");
+  const [formTitulo, setFormTitulo] = useState(""); // título = alt da imagem (SEO/acessibilidade)
   const inputFileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -36,9 +37,10 @@ export default function BannersPage() {
   async function salvarLink(banner: SiteBanner) {
     const supabase = createClient();
     const link = formLink.trim() || null;
-    setBanners((prev) => prev.map((b) => b.id === banner.id ? { ...b, link } : b));
+    const titulo = formTitulo.trim() || null;
+    setBanners((prev) => prev.map((b) => b.id === banner.id ? { ...b, link, titulo } : b));
     setEditando(null);
-    await supabase.from("site_banners").update({ link }).eq("id", banner.id);
+    await supabase.from("site_banners").update({ link, titulo }).eq("id", banner.id);
   }
 
   async function enviar(files: FileList | null) {
@@ -125,7 +127,7 @@ export default function BannersPage() {
                   {b.publicado ? (idx === 0 ? "Principal" : "Publicado") : "Oculto"}
                 </span>
                 <div style={{ display: "flex", gap: 4 }}>
-                  <button onClick={() => { setEditando(editando === b.id ? null : b.id); setFormLink(b.link ?? ""); }} title="Editar link" style={{ border: "none", background: "transparent", cursor: "pointer", fontSize: 13, color: "var(--color-text-secondary)" }}>✏️</button>
+                  <button onClick={() => { setEditando(editando === b.id ? null : b.id); setFormLink(b.link ?? ""); setFormTitulo(b.titulo ?? ""); }} title="Editar link e legenda (alt)" style={{ border: "none", background: "transparent", cursor: "pointer", fontSize: 13, color: "var(--color-text-secondary)" }}>✏️</button>
                   <button onClick={() => alternarPublicado(b)} title={b.publicado ? "Ocultar" : "Publicar"} style={{ border: "none", background: "transparent", cursor: "pointer", fontSize: 13, color: "var(--color-text-secondary)" }}>{b.publicado ? "🙈" : "👁"}</button>
                   <button onClick={() => excluir(b)} title="Excluir" style={{ border: "none", background: "transparent", cursor: "pointer", fontSize: 13, color: "#DC2626" }}>🗑</button>
                 </div>
@@ -135,6 +137,11 @@ export default function BannersPage() {
               )}
               {editando === b.id && (
                 <div style={{ padding: "0 10px 10px", display: "flex", flexDirection: "column", gap: 6 }}>
+                  <input
+                    value={formTitulo} onChange={(e) => setFormTitulo(e.target.value)}
+                    placeholder="Legenda da imagem (alt/SEO) — ex.: casamento ao ar livre em Ourinhos"
+                    style={{ padding: "7px 10px", borderRadius: 7, border: "1px solid var(--color-border-secondary)", fontSize: 12, background: "var(--color-background-primary)", color: "var(--color-text-primary)" }}
+                  />
                   <input
                     value={formLink} onChange={(e) => setFormLink(e.target.value)}
                     placeholder="Link (vazio = banner só imagem)"
