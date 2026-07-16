@@ -4,9 +4,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { confirmarRenovacaoPaga } from "@/lib/pagamentos/confirmar";
 
 // Health-check: alguns validadores do Asaas checam a URL via GET. Responde 200.
-// Expõe a base configurada (NEXT_PUBLIC_APP_URL — não é segredo) só para diagnóstico da URL do webhook.
 export async function GET() {
-  return NextResponse.json({ ok: true, base: process.env.NEXT_PUBLIC_APP_URL ?? null });
+  return NextResponse.json({ ok: true });
 }
 
 const PAID_STATUSES = ["RECEIVED", "CONFIRMED", "RECEIVED_IN_CASH"];
