@@ -161,13 +161,13 @@ export default function ConfigurarPage() {
     setMsgEmail(res.ok ? `✅ Email enviado para ${json.enviado_para}` : `❌ ${json.erro ?? "Falha no teste."}`);
   }
 
-  // ── Concluir onboarding ─────────────────────────────────────────────────────
-  async function concluir() {
+  // ── Concluir onboarding (destino: painel, ou briefing do site quando o fotógrafo optar) ──
+  async function concluir(destino: string = "/dashboard") {
     if (!fotografo) return;
     const sb = createClient();
     await sb.from("fotografos").update({ onboarding_concluido: true }).eq("id", fotografo.id);
     await reload();
-    router.replace("/dashboard");
+    router.replace(destino);
   }
 
   const primeiroNome = fotografo?.nome_completo.split(" ")[0] ?? "fotógrafo";
@@ -450,8 +450,16 @@ export default function ConfigurarPage() {
                 Seu feedback é muito importante nessa fase. Qualquer problema, entre em contato.
               </div>
 
-              <button onClick={concluir} style={{ width: "100%", padding: "13px", borderRadius: 9, background: "#111", color: "#fff", border: "none", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>
-                Ir para o painel →
+              {/* Briefing do site — passo opcional (pulável): gera sugestões de SEO/Sobre */}
+              <div style={{ background: "rgba(37,99,235,0.06)", border: "0.5px solid rgba(37,99,235,0.25)", borderRadius: 10, padding: "14px 16px", marginBottom: 14, fontSize: 12, color: "var(--color-text-secondary)", lineHeight: 1.6, textAlign: "left" }}>
+                <strong style={{ color: "var(--color-text-primary)" }}>✨ Opcional: briefing da sua marca (~3 min).</strong><br />
+                Conte seu conceito, nichos e cidades — geramos sugestões de SEO e do texto “Sobre” do seu site automaticamente. Dá pra fazer depois em Site → Briefing.
+              </div>
+              <button onClick={() => concluir("/site/briefing")} style={{ width: "100%", padding: "13px", borderRadius: 9, background: "#2563EB", color: "#fff", border: "none", fontSize: 14, fontWeight: 700, cursor: "pointer", marginBottom: 10 }}>
+                ✨ Preencher o briefing agora
+              </button>
+              <button onClick={() => concluir()} style={{ width: "100%", padding: "13px", borderRadius: 9, background: "#111", color: "#fff", border: "none", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>
+                Pular e ir para o painel →
               </button>
             </div>
           )}

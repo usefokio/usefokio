@@ -205,6 +205,7 @@ const SITE_ITEMS = [
   { href: "/site/inbox",       label: "Inbox" },
   { href: "/site/seo",         label: "SEO" },
   { href: "/site/saude-seo",   label: "Saúde do SEO" },
+  { href: "/site/briefing",    label: "Briefing" },
   { href: "/site/dominio",     label: "Domínio" },
   { href: "/site/temas",       label: "Aparência" },
   { href: "/site/config",      label: "Configurações" },

@@ -8,6 +8,8 @@ import { useEditorEstado, SeloEstado, BotaoSalvarEstado, ModalNaoSalvo } from "@
 import { SeoDicas, SeoNota } from "@/app/(dashboard)/site/_components/SeoDica";
 import { BotaoIA } from "@/app/(dashboard)/site/_components/BotaoIA";
 import { auditarSiteGlobal, pontuar } from "@/lib/site/seoAudit";
+import { normalizarBriefing, briefingPreenchido } from "@/lib/site/briefing";
+import { gerarSugestoes, type SugestoesSeo } from "@/lib/site/briefingConfig";
 
 const inputStyle: React.CSSProperties = {
   width: "100%", padding: "10px 12px", borderRadius: 8, boxSizing: "border-box",
@@ -33,6 +35,7 @@ export default function SeoPage() {
   const [msg, setMsg] = useState<string | null>(null);
   const [ogImageUrl, setOgImageUrl] = useState<string | null>(null); // só leitura aqui (upload no P5)
   const [publicado, setPublicado] = useState<boolean | null>(null);
+  const [sugestoes, setSugestoes] = useState<SugestoesSeo | null>(null); // do briefing (template)
 
   // Estado de salvamento claro (regra de sistema)
   const snapshotAtual = JSON.stringify([tituloSite, seoTitle, seoDesc, keywords, analytics, gsv, pixel]);
@@ -60,6 +63,9 @@ export default function SeoPage() {
         setPixel(data.facebook_pixel ?? "");
         setOgImageUrl(data.og_image_url ?? null);
         setPublicado(data.publicado ?? null);
+        // Sugestões do briefing (template) — só quando o briefing foi preenchido
+        const br = normalizarBriefing(data.briefing);
+        if (briefingPreenchido(br)) setSugestoes(gerarSugestoes(br, { nome_empresa: fotografo.nome_empresa, cidade: fotografo.cidade }));
       }
       estado.inicializar(JSON.stringify([
         data?.titulo_site ?? "", data?.seo_title ?? "", data?.seo_description ?? "", data?.seo_keywords ?? "",
@@ -115,6 +121,30 @@ export default function SeoPage() {
         </div>
       </div>
       <div style={{ marginBottom: 18 }}><SeoDicas achados={achadosSeo} /></div>
+
+      {/* Sugestões do briefing — preenche os campos; o fotógrafo revisa e salva */}
+      {sugestoes && (sugestoes.seo_title || sugestoes.seo_description || sugestoes.seo_keywords) && (
+        <div style={{ border: "1px solid rgba(37,99,235,0.3)", borderRadius: 12, padding: "14px 16px", background: "rgba(37,99,235,0.04)", marginBottom: 18 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 8, flexWrap: "wrap" }}>
+            <div style={{ fontSize: 13, fontWeight: 800, color: "var(--color-text-primary)" }}>✨ Sugestões do seu briefing</div>
+            <button
+              onClick={() => {
+                if (sugestoes.seo_title && !seoTitle.trim()) setSeoTitle(sugestoes.seo_title);
+                if (sugestoes.seo_description && !seoDesc.trim()) setSeoDesc(sugestoes.seo_description);
+                if (sugestoes.seo_keywords && !keywords.trim()) setKeywords(sugestoes.seo_keywords);
+              }}
+              style={{ padding: "7px 14px", borderRadius: 8, border: "none", background: "#2563EB", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+              Aplicar nos campos vazios
+            </button>
+          </div>
+          <div style={{ fontSize: 12, color: "var(--color-text-secondary)", lineHeight: 1.7 }}>
+            {sugestoes.seo_title && <div><strong>Título:</strong> {sugestoes.seo_title}</div>}
+            {sugestoes.seo_description && <div><strong>Descrição:</strong> {sugestoes.seo_description}</div>}
+            {sugestoes.seo_keywords && <div><strong>Palavras-chave:</strong> {sugestoes.seo_keywords}</div>}
+          </div>
+          <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 8 }}>Só preenche o que estiver vazio (não sobrescreve o que você já escreveu). Revise e clique em Salvar.</div>
+        </div>
+      )}
 
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
         <div>

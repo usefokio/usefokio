@@ -9,13 +9,19 @@ export default function SiteDashboardPage() {
   const { fotografo } = useFotografo();
   const [cfg, setCfg] = useState<ConfigUrl | null>(null);
   const [carregado, setCarregado] = useState(false);
+  const [semBriefing, setSemBriefing] = useState(false);
 
   useEffect(() => {
     if (!fotografo) return;
     // Primeiro acesso ao Site: garante o esqueleto (Sobre/Contato + menu inicial) — idempotente.
     fetch("/api/site/inicializar", { method: "POST" }).catch(() => {}).finally(() => {
-      createClient().from("site_config").select("subdominio, dominio_customizado, publicado").eq("fotografo_id", fotografo.id).maybeSingle()
-        .then(({ data }) => { setCfg((data as ConfigUrl) ?? null); setCarregado(true); });
+      createClient().from("site_config").select("subdominio, dominio_customizado, publicado, briefing").eq("fotografo_id", fotografo.id).maybeSingle()
+        .then(({ data }) => {
+          setCfg((data as ConfigUrl) ?? null);
+          const br = (data as { briefing?: { preenchido_em?: string | null } | null } | null)?.briefing;
+          setSemBriefing(!br?.preenchido_em);
+          setCarregado(true);
+        });
     });
   }, [fotografo]);
 
@@ -45,6 +51,18 @@ export default function SiteDashboardPage() {
             </span>
           )}
         </div>
+      )}
+
+      {/* Convite ao briefing — some depois de preenchido (refazível em Site → Briefing) */}
+      {carregado && semBriefing && (
+        <a href="/site/briefing" style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 24, padding: "16px 18px", borderRadius: 12, border: "1px solid rgba(37,99,235,0.35)", background: "rgba(37,99,235,0.06)", textDecoration: "none" }}>
+          <span style={{ fontSize: 22 }}>✨</span>
+          <span style={{ flex: 1 }}>
+            <span style={{ display: "block", fontSize: 13, fontWeight: 700, color: "var(--color-text-primary)" }}>Complete o briefing da sua marca</span>
+            <span style={{ display: "block", fontSize: 12, color: "var(--color-text-secondary)", marginTop: 2 }}>Conte seu conceito, nichos e cidades — geramos sugestões de SEO e do texto Sobre automaticamente (leva ~3 min).</span>
+          </span>
+          <span style={{ fontSize: 12, fontWeight: 700, color: "#2563EB", whiteSpace: "nowrap" }}>Preencher →</span>
+        </a>
       )}
 
       {/* Saúde do SEO — atalho para a análise automática do conteúdo */}

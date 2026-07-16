@@ -14,6 +14,8 @@ import { ConfigPaginaModal } from "@/app/(dashboard)/site/_components/ConfigPagi
 import { SeoDicas } from "@/app/(dashboard)/site/_components/SeoDica";
 import { BotaoIA } from "@/app/(dashboard)/site/_components/BotaoIA";
 import { auditarPagina, contarPalavras } from "@/lib/site/seoAudit";
+import { normalizarBriefing, briefingPreenchido } from "@/lib/site/briefing";
+import { gerarSugestoes } from "@/lib/site/briefingConfig";
 import { normalizarConfig, type ConfigFormulario } from "@/lib/site/formulario";
 import type { ConfigPaginaValores } from "@/lib/site/seo";
 import type { SitePagina } from "@/lib/supabase/types";
@@ -47,6 +49,7 @@ function PaginasConteudo() {
   const [configAberto, setConfigAberto] = useState(false);
   const [dominio, setDominio] = useState("seusite.usefokio.com.br");
   const [enviandoFoto, setEnviandoFoto] = useState(false);
+  const [rascunhoSobre, setRascunhoSobre] = useState<string | null>(null); // gerado do briefing
   const [salvando, setSalvando] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const inputFotoRef = useRef<HTMLInputElement>(null);
@@ -66,8 +69,13 @@ function PaginasConteudo() {
     const supabase = createClient();
     supabase.from("site_paginas").select("*").eq("fotografo_id", fotografo.id).order("slug")
       .then(({ data }) => { setPaginas((data as SitePagina[]) ?? []); estado.inicializar("idle"); setLoading(false); });
-    supabase.from("site_config").select("subdominio, dominio_customizado").eq("fotografo_id", fotografo.id).maybeSingle()
-      .then(({ data }) => { if (data) setDominio(data.dominio_customizado || (data.subdominio ? `${data.subdominio}.usefokio.com.br` : "seusite.usefokio.com.br")); });
+    supabase.from("site_config").select("subdominio, dominio_customizado, briefing").eq("fotografo_id", fotografo.id).maybeSingle()
+      .then(({ data }) => {
+        if (data) setDominio(data.dominio_customizado || (data.subdominio ? `${data.subdominio}.usefokio.com.br` : "seusite.usefokio.com.br"));
+        // Rascunho do "Sobre" gerado do briefing (template) — oferecido quando o texto está vazio
+        const br = normalizarBriefing(data?.briefing);
+        if (briefingPreenchido(br)) setRascunhoSobre(gerarSugestoes(br, { nome_empresa: fotografo.nome_empresa, cidade: fotografo.cidade }).sobre_html);
+      });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fotografo]);
 
@@ -210,6 +218,21 @@ function PaginasConteudo() {
             </div>
             <div>
               <label style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: 5 }}>Conteúdo</label>
+              {/* Rascunho do briefing — só quando o Sobre está vazio (não sobrescreve texto existente) */}
+              {editando.slug === "sobre" && rascunhoSobre && contarPalavras(html) === 0 && (
+                <div style={{ border: "1px solid rgba(37,99,235,0.3)", borderRadius: 10, padding: "12px 14px", background: "rgba(37,99,235,0.04)", marginBottom: 8 }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+                    <span style={{ fontSize: 12.5, fontWeight: 700, color: "var(--color-text-primary)" }}>✨ Temos um rascunho pronto a partir do seu briefing</span>
+                    <button onClick={() => setHtml(rascunhoSobre)}
+                      style={{ padding: "6px 12px", borderRadius: 8, border: "none", background: "#2563EB", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+                      Usar rascunho
+                    </button>
+                  </div>
+                  <div style={{ fontSize: 11.5, color: "var(--color-text-secondary)", marginTop: 6, lineHeight: 1.5 }}>
+                    {rascunhoSobre.replace(/<[^>]+>/g, " ").trim().slice(0, 180)}… <em>(revise e edite à vontade antes de salvar)</em>
+                  </div>
+                </div>
+              )}
               <SiteRichEditor value={html} onChange={setHtml} minHeight={280} pasta={`paginas/${editando.slug}`} />
               <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 6 }}>
                 <strong>{palavrasHtml} palavra{palavrasHtml !== 1 ? "s" : ""}</strong> — textos com 120+ palavras dão mais contexto ao Google (conte a sua história, cidade e especialidades).
