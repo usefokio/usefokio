@@ -195,6 +195,11 @@ sessão após sessão — tratar como checklist obrigatório, não como preferê
 
 - **Campo de valor R$**: sempre com máscara — `mascaraValor`/`parsearValor` (ou `mascaraMoeda`/`parseMoeda`).
   Nunca `<input>` numérico cru para dinheiro. Exibir com `formatNum`/`formatBRL` (`lib/utils/format.ts`).
+- **Campo de horário**: sempre com máscara — `mascaraHora` (`lib/utils/format.ts`), com `onChange` **e**
+  `onPaste`, `inputMode="numeric"`, placeholder `16:30`. Nunca texto livre (gerava "16h"/"16h30"/"10" no mesmo
+  campo). Data+hora juntas → `<input type="datetime-local">` (padrão da agenda).
+- **Nome de cliente**: onde aparecer, é **clicável** e abre o cadastro — usar `components/ui/ClienteLink.tsx`
+  (já faz `stopPropagation` p/ conviver com card/linha clicável). O `select` precisa trazer `clientes(id, nome)`.
 - **Listagens/somas: NUNCA `select` direto** — sempre `fetchAllRows` (`lib/supabase/fetchAll.ts`) para listas,
   ou RPC de agregação para totais. O PostgREST corta em **1000 linhas silenciosamente** → totais/listas
   errados. Este bug já reapareceu em ~9 telas.

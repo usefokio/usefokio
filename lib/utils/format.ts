@@ -31,6 +31,22 @@ export const mascaraValor = (v: string): string => {
 export const parsearValor = (v: string): number =>
   parseFloat(v.replace(/\./g, "").replace(",", ".")) || 0;
 
+// Formata enquanto digita: "1630" → "16:30". Tolera colar "16h30"/"16:30" (só os dígitos contam)
+// e limita a horas válidas (HH ≤ 23, MM ≤ 59) — ex: "99" → "23", "1899" → "18:59".
+export function mascaraHora(v: string): string {
+  const d = v.replace(/\D/g, "").slice(0, 4);
+  if (!d) return "";
+  if (d.length <= 2) {
+    // Primeiro dígito > 2 só pode ser hora unitária (ex: "9" → "9", vira "09:" ao seguir)
+    const h = parseInt(d, 10);
+    return d.length === 2 && h > 23 ? "23" : d;
+  }
+  const hh = Math.min(parseInt(d.slice(0, 2), 10), 23);
+  const mm = Math.min(parseInt(d.slice(2), 10) || 0, 59);
+  const mmTxt = d.length === 3 ? String(Math.min(parseInt(d.slice(2), 10), 5)) : String(mm).padStart(2, "0");
+  return `${String(hh).padStart(2, "0")}:${mmTxt}`;
+}
+
 // Retorna true se a string é uma data real no formato YYYY-MM-DD (ex: rejeita "2026-06-31")
 export function isValidDate(s: string): boolean {
   if (!s || !/^\d{4}-\d{2}-\d{2}$/.test(s)) return false;

@@ -4,12 +4,13 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
-import { isValidDate, formatNum, mascaraValor, parsearValor } from "@/lib/utils/format";
+import { isValidDate, formatNum, mascaraValor, parsearValor, mascaraHora } from "@/lib/utils/format";
 import { Field } from "@/components/ui/Field";
 import { inputStyle } from "@/lib/styles";
 import { ClienteSelect } from "@/components/ui/ClienteSelect";
 import { ComboSelect } from "@/components/ui/ComboSelect";
 import { ProdutoSearch } from "@/components/ui/ProdutoSearch";
+import { ehCategoriaEvento } from "@/lib/crm/casamento";
 import type { CrmOrder, CrmProduct, Cliente, CrmProductCategory } from "@/lib/supabase/types";
 import { useUnsavedGuard } from "@/lib/hooks/useUnsavedGuard";
 import { SeloEstado, ModalNaoSalvo } from "@/app/(dashboard)/_components/EditorEstado";
@@ -30,6 +31,7 @@ type FormData = {
   convidados: string;
   local_cerimonia: string;
   local_recepcao: string;
+  eh_casamento: boolean;
   observacoes: string;
 };
 
@@ -64,7 +66,7 @@ const EMPTY: FormData = {
   nome: "", cliente_id: "", categoria: "", status: "aguardando_sinal",
   total: "", discount: "0", other_expenses: "0",
   data_evento: "", hora_evento: "", local_evento: "", convidados: "",
-  local_cerimonia: "", local_recepcao: "", observacoes: "",
+  local_cerimonia: "", local_recepcao: "", eh_casamento: false, observacoes: "",
 };
 
 const EMPTY_PLANO: Omit<PlanoItem, "tmpId"> = {
@@ -240,7 +242,7 @@ export default function FormPedido({ inicial, onSalvo, onCancelar }: Props) {
   };
 
   // ── Helpers de UI ───────────────────────────────────────────────────────────
-  const upd = (k: keyof FormData, v: string) => setForm(f => ({ ...f, [k]: v }));
+  const upd = <K extends keyof FormData>(k: K, v: FormData[K]) => setForm(f => ({ ...f, [k]: v }));
   const parseMoney = parsearValor;
   const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
   const fmtDate = (s: string) => new Date(s + "T12:00:00").toLocaleDateString("pt-BR");
@@ -408,8 +410,9 @@ export default function FormPedido({ inicial, onSalvo, onCancelar }: Props) {
       hora_evento:     flags.pede_horario ? (form.hora_evento.trim() || null) : null,
       local_evento:    flags.pede_local ? (form.local_evento.trim() || null) : null,
       convidados:      form.convidados ? parseInt(form.convidados) || null : null,
-      local_cerimonia: flags.pede_local ? (form.local_cerimonia.trim() || null) : null,
-      local_recepcao:  flags.pede_local ? (form.local_recepcao.trim() || null) : null,
+      local_cerimonia: flags.pede_local && form.eh_casamento ? (form.local_cerimonia.trim() || null) : null,
+      local_recepcao:  flags.pede_local && form.eh_casamento ? (form.local_recepcao.trim() || null) : null,
+      eh_casamento:    flags.pede_local ? form.eh_casamento : false,
       data_entrega:    null,
       observacoes:     form.observacoes.trim() || null,
       updated_at:      new Date().toISOString(),
@@ -680,7 +683,9 @@ export default function FormPedido({ inicial, onSalvo, onCancelar }: Props) {
             {flags.pede_horario && (
               <div style={{ flex: "1 1 160px" }}>
                 <Field label="Horário">
-                  <input value={form.hora_evento} onChange={e => upd("hora_evento", e.target.value)} placeholder="Ex: 16h" style={inputStyle} />
+                  <input value={form.hora_evento} onChange={e => upd("hora_evento", mascaraHora(e.target.value))}
+                onPaste={e => { e.preventDefault(); upd("hora_evento", mascaraHora(e.clipboardData.getData("text"))); }}
+                inputMode="numeric" placeholder="16:30" style={inputStyle} />
                 </Field>
               </div>
             )}
@@ -692,20 +697,32 @@ export default function FormPedido({ inicial, onSalvo, onCancelar }: Props) {
           </div>
         )}
         {flags.pede_local && (
-          (form.categoria.toLowerCase().includes("casamento") || form.categoria === "Bodas") ? (
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-              <Field label="Local da cerimônia">
-                <input value={form.local_cerimonia} onChange={e => upd("local_cerimonia", e.target.value)} placeholder="Ex: Igreja São Francisco" style={inputStyle} />
+          <>
+            {/* Categoria de evento → o fotógrafo marca se é casamento (antes vinha do NOME da
+                categoria, que mudou e quebrou). Marcado = cerimônia + recepção. */}
+            {ehCategoriaEvento(form.categoria) && (
+              <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", marginBottom: 4 }}>
+                <input type="checkbox" checked={form.eh_casamento} onChange={e => upd("eh_casamento", e.target.checked)}
+                  style={{ width: 15, height: 15, cursor: "pointer", accentColor: "#2563EB" }} />
+                <span style={{ fontSize: 13, color: "var(--color-text-primary)", fontWeight: 500 }}>É casamento</span>
+                <span style={{ fontSize: 11.5, color: "var(--color-text-secondary)" }}>— exibe local da cerimônia e da recepção</span>
+              </label>
+            )}
+            {form.eh_casamento ? (
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+                <Field label="Local da cerimônia">
+                  <input value={form.local_cerimonia} onChange={e => upd("local_cerimonia", e.target.value)} placeholder="Ex: Igreja São Francisco" style={inputStyle} />
+                </Field>
+                <Field label="Local da recepção">
+                  <input value={form.local_recepcao} onChange={e => upd("local_recepcao", e.target.value)} placeholder="Ex: Clube Náutico" style={inputStyle} />
+                </Field>
+              </div>
+            ) : (
+              <Field label="Local do evento">
+                <input value={form.local_evento} onChange={e => upd("local_evento", e.target.value)} placeholder="Ex: Espaço Villa dos Sonhos" style={inputStyle} />
               </Field>
-              <Field label="Local da recepção">
-                <input value={form.local_recepcao} onChange={e => upd("local_recepcao", e.target.value)} placeholder="Ex: Clube Náutico" style={inputStyle} />
-              </Field>
-            </div>
-          ) : (
-            <Field label="Local do evento">
-              <input value={form.local_evento} onChange={e => upd("local_evento", e.target.value)} placeholder="Ex: Espaço Villa dos Sonhos" style={inputStyle} />
-            </Field>
-          )
+            )}
+          </>
         )}
       </div>
 

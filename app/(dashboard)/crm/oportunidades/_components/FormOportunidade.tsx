@@ -25,6 +25,7 @@ type FormData = {
   nome_noivo: string;
   local_cerimonia: string;
   local_recepcao: string;
+  eh_casamento: boolean;
   local_evento: string;
   cidade_evento: string;
   estado_evento: string;
@@ -38,7 +39,7 @@ const EMPTY: FormData = {
   titulo: "", cliente_id: "", categoria: "", status: "em_aberto",
   canal_origem: "", prioridade: "media", valor_estimado: "",
   data_evento: "", nome_noiva: "", nome_noivo: "",
-  local_cerimonia: "", local_recepcao: "", local_evento: "",
+  local_cerimonia: "", local_recepcao: "", eh_casamento: false, local_evento: "",
   cidade_evento: "", estado_evento: "", convidados: "",
   indicado_por_id: "", indicado_por_nome: "", observacoes: "",
 };
@@ -110,7 +111,10 @@ export default function FormOportunidade({ inicial, onSalvo }: Props) {
   }, [form.data_evento, fotografo]);
 
   const isEditing   = !!inicial?.id;
-  const isCasamento = form.categoria.toLowerCase().includes("casamento");
+  // Quem manda é a flag marcada pelo fotógrafo — não mais o NOME da categoria (que muda e quebra).
+  // Aqui as categorias são de serviço (Casamento - Foto, Aniversário…), não de produto: por isso o
+  // checkbox aparece em qualquer categoria, e não só em "Evento" como no formulário do pedido.
+  const isCasamento = form.eh_casamento;
   const isIndicacao = form.canal_origem.startsWith("Indicação");
 
   useEffect(() => {
@@ -148,7 +152,7 @@ export default function FormOportunidade({ inicial, onSalvo }: Props) {
     });
   }, [fotografo]);
 
-  const upd = (k: keyof FormData, v: string) => setForm(f => ({ ...f, [k]: v }));
+  const upd = <K extends keyof FormData>(k: K, v: FormData[K]) => setForm(f => ({ ...f, [k]: v }));
 
   // Estado de salvamento claro (regra de sistema) — baseline = form inicial; dirty ao editar.
   const snapshotAtual = JSON.stringify(form);
@@ -178,6 +182,7 @@ export default function FormOportunidade({ inicial, onSalvo }: Props) {
       local_cerimonia:  isCasamento ? (form.local_cerimonia.trim() || null)  : null,
       local_recepcao:   isCasamento ? (form.local_recepcao.trim() || null)   : null,
       local_evento:     !isCasamento ? (form.local_evento.trim() || null)    : null,
+      eh_casamento:     form.eh_casamento,
       cidade_evento:    form.cidade_evento.trim()   || null,
       estado_evento:    form.estado_evento          || null,
       convidados:       form.convidados ? parseInt(form.convidados) : null,
@@ -334,6 +339,18 @@ export default function FormOportunidade({ inicial, onSalvo }: Props) {
           />
         </Field>
       </div>
+
+      {/* É casamento? — marcado pelo fotógrafo (antes era deduzido do nome da categoria) */}
+      {!!form.categoria.trim() && (
+        <div style={{ marginTop: 24, borderTop: "0.5px solid var(--color-border-tertiary)", paddingTop: 20 }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+            <input type="checkbox" checked={form.eh_casamento} onChange={(e) => upd("eh_casamento", e.target.checked)}
+              style={{ width: 15, height: 15, cursor: "pointer", accentColor: "#2563EB" }} />
+            <span style={{ fontSize: 13, color: "var(--color-text-primary)", fontWeight: 500 }}>É casamento</span>
+            <span style={{ fontSize: 11.5, color: "var(--color-text-secondary)" }}>— exibe nomes do casal, local da cerimônia e da recepção</span>
+          </label>
+        </div>
+      )}
 
       {/* Dados do evento — casamento */}
       {isCasamento && (

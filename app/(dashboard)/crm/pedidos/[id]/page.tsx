@@ -6,7 +6,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import FormPedido from "../_components/FormPedido";
 import { PEDIDO_STATUS_MAP, FIN_STATUS_MAP } from "@/lib/constants/statusMaps";
-import { formatBRL, formatData, formatNum, mascaraValor, parsearValor } from "@/lib/utils/format";
+import { formatBRL, formatData, formatNum, mascaraValor, parsearValor, mascaraHora } from "@/lib/utils/format";
 import { usePersistState } from "@/lib/hooks/usePersistState";
 import { ClienteLink } from "@/components/ui/ClienteLink";
 import type { CrmOrder, CrmFinancialEntry, CrmContractTemplate, CrmContract, CrmProduct, CrmOrderNote } from "@/lib/supabase/types";
@@ -568,6 +568,7 @@ export default function PedidoDetailPage() {
             convidados:     pedido.convidados != null ? String(pedido.convidados) : "",
             local_cerimonia: pedido.local_cerimonia ?? "",
             local_recepcao:  pedido.local_recepcao ?? "",
+            eh_casamento:   pedido.eh_casamento ?? false,
             observacoes:    pedido.observacoes ?? "",
           }}
           onSalvo={(_, agendaAtualizado) => {
@@ -984,7 +985,7 @@ export default function PedidoDetailPage() {
                             {horaSalva || localSalvo || convidadosSalvos ? "Complementar informações" : "Dados do evento"}
                           </div>
                           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                            {!horaSalva && <div><div style={labelSt}>Hora do evento</div><input value={horaEvento} onChange={e => setHoraEvento(e.target.value)} placeholder="Ex: 16h" style={inpSt} /></div>}
+                            {!horaSalva && <div><div style={labelSt}>Hora do evento</div><input value={horaEvento} onChange={e => setHoraEvento(mascaraHora(e.target.value))} onPaste={e => { e.preventDefault(); setHoraEvento(mascaraHora(e.clipboardData.getData("text"))); }} inputMode="numeric" placeholder="16:30" style={inpSt} /></div>}
                             {!localSalvo && <div><div style={labelSt}>Local / Espaço</div><input value={localEvento} onChange={e => setLocalEvento(e.target.value)} placeholder="Ex: Espaço Villa Lobos" style={inpSt} /></div>}
                             {!convidadosSalvos && <div><div style={labelSt}>Nº de convidados</div><input value={convidados} onChange={e => setConvidados(e.target.value)} placeholder="Ex: 200" style={inpSt} /></div>}
                             <div><div style={labelSt}>Cidade do evento</div><input value={cidadeEvento} onChange={e => setCidadeEvento(e.target.value)} placeholder="Ex: Ourinhos" style={inpSt} /></div>

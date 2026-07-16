@@ -16,6 +16,12 @@ function NovoPedidoForm() {
     data_evento:     params.get("data_evento")      ?? undefined,
     total:           params.get("total")            ?? undefined,
     observacoes:     params.get("observacoes")      ?? undefined,
+    // Dados do evento vindos da oportunidade (ver handleGerarPedido)
+    local_evento:    params.get("local_evento")     ?? undefined,
+    convidados:      params.get("convidados")       ?? undefined,
+    local_cerimonia: params.get("local_cerimonia")  ?? undefined,
+    local_recepcao:  params.get("local_recepcao")   ?? undefined,
+    eh_casamento:    params.get("eh_casamento") === "1" ? true : undefined,
   };
 
   // Remove undefined keys so FormPedido spread doesn't overwrite defaults

@@ -140,6 +140,14 @@ export default function OportunidadeDetailPage() {
     if (opp.data_evento)     params.set("data_evento",  opp.data_evento);
     if (opp.valor_estimado)  params.set("total",        String(opp.valor_estimado));
     if (opp.observacoes)     params.set("observacoes",  opp.observacoes);
+    // Dados do evento não eram levados: o pedido nascia sem local nem os dados de casamento
+    if (opp.local_evento)    params.set("local_evento",    opp.local_evento);
+    if (opp.convidados != null) params.set("convidados",   String(opp.convidados));
+    if (opp.eh_casamento) {
+      params.set("eh_casamento", "1");
+      if (opp.local_cerimonia) params.set("local_cerimonia", opp.local_cerimonia);
+      if (opp.local_recepcao)  params.set("local_recepcao",  opp.local_recepcao);
+    }
     router.push(`/crm/pedidos/novo?${params.toString()}`);
   };
 
@@ -413,6 +421,7 @@ export default function OportunidadeDetailPage() {
             nome_noivo:      opp.nome_noivo ?? "",
             local_cerimonia: opp.local_cerimonia ?? "",
             local_recepcao:  opp.local_recepcao ?? "",
+            eh_casamento:    opp.eh_casamento ?? false,
             local_evento:    opp.local_evento ?? "",
             cidade_evento:   opp.cidade_evento ?? "",
             estado_evento:   opp.estado_evento ?? "",

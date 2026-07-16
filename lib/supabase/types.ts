@@ -806,6 +806,7 @@ export type CrmOpportunity = {
   nome_noivo: string | null;
   local_cerimonia: string | null;
   local_recepcao: string | null;
+  eh_casamento: boolean; // marcado pelo fotógrafo; decide os campos de casal/cerimônia/recepção
   local_evento: string | null;
   cidade_evento: string | null;
   estado_evento: string | null;
@@ -896,6 +897,7 @@ export type CrmOrder = {
   convidados: number | null;
   local_cerimonia: string | null;
   local_recepcao: string | null;
+  eh_casamento: boolean; // marcado pelo fotógrafo; decide se cerimônia/recepção aparecem (antes vinha do nome da categoria)
   data_entrega: string | null;
   observacoes: string | null;
   plano_parcelas: Record<string, unknown> | null;
