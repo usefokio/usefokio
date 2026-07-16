@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { isValidDate, mascaraTelefone } from "@/lib/utils/format";
 import { useEditorEstado, SeloEstado, ModalNaoSalvo } from "@/app/(dashboard)/_components/EditorEstado";
+import { ModalContatoCliente } from "./_components/ModalContatoCliente";
 import type { Cliente, CrmOrder, GaleriaEntrega, GaleriaSelecao } from "@/lib/supabase/types";
 
 const TIPO_MAP: Record<string, { label: string; color: string; bg: string }> = {
@@ -44,6 +45,7 @@ export default function ClienteDetailPage() {
   const [cliente,   setCliente]   = useState<Cliente | null>(null);
   const [loading,   setLoading]   = useState(true);
   const [naoEncontrado, setNaoEncontrado] = useState(false);
+  const [modalContato, setModalContato] = useState(false);
   const [editing,   setEditing]   = useState(false);
   const [salvando,  setSalvando]  = useState(false);
   const [erroSalvar, setErroSalvar] = useState("");
@@ -254,6 +256,14 @@ export default function ClienteDetailPage() {
             </>
           ) : (
             <>
+              <button onClick={() => router.push(`/crm/pedidos/novo?cliente_id=${cliente.id}`)}
+                style={{ ...btnBase, background: "rgba(37,99,235,0.06)", border: "0.5px solid rgba(37,99,235,0.25)", color: "#2563EB" }}>
+                📋 Gerar pedido
+              </button>
+              <button onClick={() => setModalContato(true)}
+                style={{ ...btnBase, background: "rgba(37,99,235,0.06)", border: "0.5px solid rgba(37,99,235,0.25)", color: "#2563EB" }}>
+                📬 Enviar contato
+              </button>
               <button onClick={abrirEdicao}
                 style={{ ...btnBase, background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-secondary)", color: "var(--color-text-primary)" }}>
                 Editar
@@ -585,6 +595,8 @@ export default function ClienteDetailPage() {
           </div>
         </div>
       )}
+
+      {modalContato && <ModalContatoCliente cliente={cliente} onFechar={() => setModalContato(false)} />}
 
       <ModalNaoSalvo
         aberto={guarda.modalAberto}
