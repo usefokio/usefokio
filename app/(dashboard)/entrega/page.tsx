@@ -446,7 +446,10 @@ export default function EntregaPage() {
       {/* Banner: expirando */}
       {!loading && expirando.length > 0 && filtro !== "expirando" && (
         <div
-          onClick={() => setFiltro("expirando")}
+          // O banner conta TODAS as galerias expirando; o filtro de ano é por data do EVENTO, e a
+          // galeria costuma expirar 1-2 anos depois dele. Sem limpar o ano, o clique caía numa lista
+          // vazia ("9 expirando" + 0 resultados). Banner global → mostra o global.
+          onClick={() => { setFiltro("expirando"); setAnoFiltro(null); }}
           style={{ background: "rgba(245,158,11,0.08)", border: "0.5px solid rgba(245,158,11,0.4)", borderRadius: 10, padding: "12px 16px", marginBottom: 18, display: "flex", alignItems: "center", gap: 12, cursor: "pointer" }}
           onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(245,158,11,0.13)")}
           onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(245,158,11,0.08)")}
