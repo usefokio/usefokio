@@ -61,5 +61,5 @@ export async function POST(req: Request) {
     falhas.push({ id: "sistema", erro: e instanceof Error ? e.message : String(e) });
   }
 
-  return NextResponse.json({ ok: true, total: (fotografos ?? []).length, sucesso, sistema, falhas });
+  return NextResponse.json({ ok: true, total: (fotografos ?? []).length, sucesso, sistema, tokenLen: (token ?? "").length, falhas });
 }

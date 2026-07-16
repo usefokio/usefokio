@@ -120,15 +120,16 @@ export async function registrarWebhook(apiKey: string, ambiente: AsaasAmbiente, 
   const existente = (lista?.data ?? []).find((w: { url: string; id: string }) => w.url === webhookUrl);
 
   const payload: Record<string, unknown> = {
-    name:       "UseFokio",
-    url:        webhookUrl,
-    enabled:    true,
+    name:        "UseFokio",
+    url:         webhookUrl,
+    email:       email || process.env.WEBMASTER_EMAIL || "usefokio@gmail.com", // obrigatório no Asaas
+    enabled:     true,
     interrupted: false,
-    authToken:  token ?? "",
-    sendType:   "SEQUENTIALLY",
+    apiVersion:  3,                       // obrigatório no Asaas
+    authToken:   token ?? "",             // Asaas exige 32–255 caracteres
+    sendType:    "SEQUENTIALLY",
     events: ["PAYMENT_RECEIVED", "PAYMENT_CONFIRMED", "PAYMENT_OVERDUE", "PAYMENT_DELETED", "PAYMENT_REFUNDED"],
   };
-  if (email) payload.email = email;
 
   if (existente?.id) {
     await asaasFetch(apiKey, ambiente, `/webhooks/${existente.id}`, { method: "PUT", body: JSON.stringify(payload) });
