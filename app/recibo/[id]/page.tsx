@@ -2,7 +2,6 @@
 
 import { useEffect, useState, Suspense } from "react";
 import { useParams, useSearchParams } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
 
 type Entrada = {
   id: string;
@@ -34,31 +33,22 @@ function ReciboConteudo() {
   const [nomefotografo, setNomefotografo] = useState<string>("Fotógrafo");
 
   useEffect(() => {
+    // Página pública: os dados vêm por /api/recibo (service role). O client anônimo do browser
+    // esbarra no RLS de crm_financial_entries e voltava vazio → "Recibo não encontrado".
     const grupo = searchParams.get("grupo");
     const idsParam = searchParams.get("ids");
     const ids = idsParam ? idsParam.split(",").map(s => s.trim()).filter(Boolean) : (id ? [id] : []);
     if (!grupo && ids.length === 0) { setEntradas(null); return; }
 
-    const base = createClient()
-      .from("crm_financial_entries")
-      .select("id, descricao, valor, vencimento, pago_em, status, conta_id, parcela, fotografo_id, crm_orders(nome, numero, data_evento, clientes(nome, email, telefone))")
-      .order("vencimento");
-    (grupo ? base.eq("recibo_grupo_id", grupo) : base.in("id", ids))
-      .then(({ data }) => {
-        const lista = (data as unknown as Entrada[]) ?? [];
+    const qs = grupo ? `grupo=${encodeURIComponent(grupo)}` : `ids=${encodeURIComponent(ids.join(","))}`;
+    fetch(`/api/recibo?${qs}`)
+      .then((r) => r.json())
+      .then((json: { entradas?: Entrada[]; nomeFotografo?: string }) => {
+        const lista = json.entradas ?? [];
         setEntradas(lista.length > 0 ? lista : null);
-        const fid = lista[0]?.fotografo_id;
-        if (fid) {
-          createClient()
-            .from("fotografos_nomes")
-            .select("nome_completo, nome_empresa")
-            .eq("id", fid)
-            .single()
-            .then(({ data: f }) => {
-              if (f) setNomefotografo((f as { nome_completo: string | null; nome_empresa: string | null }).nome_empresa || (f as { nome_completo: string | null }).nome_completo || "Fotógrafo");
-            });
-        }
-      });
+        if (json.nomeFotografo) setNomefotografo(json.nomeFotografo);
+      })
+      .catch(() => setEntradas(null));
   }, [id, searchParams]);
 
   const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });

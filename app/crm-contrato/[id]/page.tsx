@@ -2,7 +2,6 @@
 
 import { useEffect, useState, Suspense } from "react";
 import { useParams } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
 import type { CrmContract } from "@/lib/supabase/types";
 
 function ContratoConteudo() {
@@ -11,18 +10,16 @@ function ContratoConteudo() {
   const [nomeFotografo, setNomeFotografo] = useState("");
 
   useEffect(() => {
-    const sb = createClient();
-    sb.from("crm_contracts").select("*").eq("id", id).single()
-      .then(({ data }) => {
-        const c = data as CrmContract | null;
-        setContrato(c);
-        if (c?.fotografo_id) {
-          sb.from("fotografos_nomes").select("nome_empresa, nome_completo").eq("id", c.fotografo_id).single()
-            .then(({ data: f }) => {
-              if (f) setNomeFotografo((f as { nome_empresa: string | null; nome_completo: string | null }).nome_empresa ?? (f as { nome_completo: string | null }).nome_completo ?? "");
-            });
-        }
-      });
+    // Página pública: dados por /api/crm-contrato (service role) — o client anônimo esbarra
+    // no RLS de crm_contracts e voltava vazio → "Contrato não encontrado".
+    if (!id) { setContrato(null); return; }
+    fetch(`/api/crm-contrato?id=${encodeURIComponent(id)}`)
+      .then((r) => r.json())
+      .then((json: { contrato?: CrmContract | null; nomeFotografo?: string }) => {
+        setContrato(json.contrato ?? null);
+        if (json.nomeFotografo) setNomeFotografo(json.nomeFotografo);
+      })
+      .catch(() => setContrato(null));
   }, [id]);
 
   if (contrato === undefined) {
