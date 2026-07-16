@@ -6,7 +6,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Avatar } from "@/components/ui/Avatar";
 import { useFotografo } from "@/lib/context/FotografoContext";
-import { PLANOS, pctUso, corBarra, limiteEfetivo, type PlanoId } from "@/lib/planos";
+import { PLANOS, pctUso, corBarra, limiteEfetivo, formatarBytes, type PlanoId } from "@/lib/planos";
 import { temProdutoFotografia, temProdutoCRM, temProdutoSite } from "@/lib/recursos";
 
 const USEFOKIO_ITEMS = [
@@ -329,6 +329,17 @@ export function Sidebar({ isMobile = false, mobileAberta = false, onFechar }: Si
   const [crmOpen,      setCrmOpen]      = useState(true);
   const [siteOpen,     setSiteOpen]     = useState(true);
   const [resetando, setResetando]       = useState(false);
+  // Uso de ARMAZENAMENTO (bytes + limite em GB) — planos por espaço; valores vêm do banco.
+  const [usoStorage, setUsoStorage] = useState<{ bytes_usados: number; limite_gb: number | null } | null>(null);
+
+  useEffect(() => {
+    if (!fotografo) return;
+    fetch("/api/conta/uso")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => { if (j && typeof j.bytes_usados === "number") setUsoStorage({ bytes_usados: j.bytes_usados, limite_gb: j.limite_gb ?? null }); })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fotografo?.id]);
 
   // Persistência do aberto/minimizado dos módulos-mãe entre refreshes.
   // Lido em efeito (não no initializer) para não causar hydration mismatch.
@@ -684,6 +695,31 @@ export function Sidebar({ isMobile = false, mobileAberta = false, onFechar }: Si
               {pct >= 80 && (
                 <div style={{ fontSize: 9, color: bc, fontWeight: 600, marginTop: 3 }}>
                   {pct >= 95 ? "⚠️ Limite quase atingido!" : "Atenção: uso elevado"}
+                </div>
+              )}
+            </Link>
+          );
+        })()}
+
+        {/* Barra de ARMAZENAMENTO (GB) — planos por espaço; some se ilimitado */}
+        {!collapsed && fotografo && usoStorage && usoStorage.limite_gb !== null && (() => {
+          const limiteBytes = usoStorage.limite_gb! * 1024 ** 3;
+          const pctS = Math.min(100, Math.round((usoStorage.bytes_usados / limiteBytes) * 100));
+          const bcS = corBarra(pctS);
+          return (
+            <Link href="/conta/plano" style={{ display: "block", padding: "8px 13px 0", textDecoration: "none" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
+                <span style={{ fontSize: 10, color: "var(--color-text-secondary)", fontWeight: 500 }}>Espaço</span>
+                <span style={{ fontSize: 10, color: pctS >= 80 ? bcS : "var(--color-text-secondary)", fontWeight: 600 }}>
+                  {formatarBytes(usoStorage.bytes_usados)} / {usoStorage.limite_gb} GB
+                </span>
+              </div>
+              <div style={{ height: 4, background: "var(--color-background-secondary)", borderRadius: 2, overflow: "hidden" }}>
+                <div style={{ height: "100%", borderRadius: 2, background: bcS, width: `${pctS}%`, transition: "width 0.4s" }} />
+              </div>
+              {pctS >= 80 && (
+                <div style={{ fontSize: 9, color: bcS, fontWeight: 600, marginTop: 3 }}>
+                  {pctS >= 95 ? "⚠️ Espaço quase esgotado — novos uploads serão bloqueados" : "Atenção: espaço quase no limite"}
                 </div>
               )}
             </Link>

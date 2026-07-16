@@ -10,7 +10,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const admin = createAdminClient();
   const { data, error } = await admin
     .from("fotografos")
-    .select("recursos, limite_fotos_custom")
+    .select("recursos, limite_fotos_custom, limite_armazenamento_gb_custom")
     .eq("id", id)
     .maybeSingle();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -21,7 +21,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (!await verificarWebmaster(req)) return NextResponse.json({ error: "forbidden" }, { status: 403 });
   const { id } = await params;
   const body = await req.json() as Record<string, unknown>;
-  const allowed = ["recursos", "limite_fotos_custom", "aprovado"] as const;
+  const allowed = ["recursos", "limite_fotos_custom", "limite_armazenamento_gb_custom", "aprovado"] as const;
   const update: Record<string, unknown> = {};
   for (const key of allowed) {
     if (key in body) update[key] = body[key];

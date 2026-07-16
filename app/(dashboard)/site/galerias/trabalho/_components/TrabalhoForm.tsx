@@ -237,14 +237,14 @@ export function TrabalhoForm({ trabalhoId }: { trabalhoId?: string }) {
     let capaDefinida = !!capaUrl;
     for (const file of lista) {
       try {
-        const { blob, largura, altura } = await processarImagemEntrega(file, 1800, 0.85);
+        const { blob, largura, altura, tamanho_bytes } = await processarImagemEntrega(file, 1800, 0.85);
         // Preserva o nome original do arquivo (descritivo = melhor pra SEO de imagem);
         // sufixo curto evita colisão entre arquivos de mesmo nome.
         const base = slugify(file.name.replace(/\.[a-z0-9]+$/i, "")) || "foto";
         const path = `site/${fotografo.id}/trabalhos/${tid}/${base}-${crypto.randomUUID().slice(0, 6)}.jpg`;
         const { storage_path, url_publica } = await uploadFileClient(path, blob);
         const { data } = await supabase.from("site_trabalho_fotos")
-          .insert({ trabalho_id: tid, storage_path, url_publica, ordem: ordem++, largura, altura })
+          .insert({ trabalho_id: tid, storage_path, url_publica, ordem: ordem++, largura, altura, tamanho_bytes })
           .select("*").single();
         if (data) setFotos((prev) => [...prev, data as SiteTrabalhoFoto]);
         if (!capaDefinida) {

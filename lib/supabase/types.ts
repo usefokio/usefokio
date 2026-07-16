@@ -54,6 +54,8 @@ export type Fotografo = {
   smtp_from: string | null;
   smtp_ativo: boolean;
   limite_fotos_custom: number | null;
+  // Override por-fotógrafo do limite de armazenamento em GB (null = usa o do plano; vale o maior).
+  limite_armazenamento_gb_custom: number | null;
   crm_email_config: {
     nome_remetente: string;
     email_from: string | null;
@@ -458,6 +460,7 @@ export type SiteTrabalhoFoto = {
   tags: string | null; // palavras-chave da foto (SEO/organização), separadas por vírgula
   largura: number | null;
   altura: number | null;
+  tamanho_bytes: number | null; // bytes do arquivo enviado (conta no armazenamento do plano)
   likes: number;
   created_at: string;
 };
@@ -600,6 +603,7 @@ export type SiteBanner = {
   link: string | null;
   ordem: number;
   publicado: boolean;
+  tamanho_bytes: number | null; // bytes do arquivo enviado (conta no armazenamento do plano)
   created_at: string;
 };
 

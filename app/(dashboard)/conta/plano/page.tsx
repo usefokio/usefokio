@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
-import { PLANOS, pctUso, corBarra, limiteEfetivo, type PlanoId } from "@/lib/planos";
+import { PLANOS, pctUso, corBarra, limiteEfetivo, formatarBytes, type PlanoId } from "@/lib/planos";
 
 type UsoPorRecurso = {
   selecao: number;
@@ -206,6 +206,17 @@ export default function PlanoPage() {
   const [uso,              setUso]              = useState<UsoPorRecurso | null>(null);
   const [carregandoUso,    setCarregandoUso]    = useState(true);
   const [planoExpiraEm,    setPlanoExpiraEm]    = useState<string | null>(null);
+  // Uso de ARMAZENAMENTO (bytes + limite em GB) — planos por espaço; valores do banco.
+  const [usoStorage,       setUsoStorage]       = useState<{ bytes_usados: number; limite_gb: number | null } | null>(null);
+
+  useEffect(() => {
+    if (!fotografo) return;
+    fetch("/api/conta/uso")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => { if (j && typeof j.bytes_usados === "number") setUsoStorage({ bytes_usados: j.bytes_usados, limite_gb: j.limite_gb ?? null }); })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fotografo?.id]);
   const [modalCheckout,    setModalCheckout]    = useState(false);
   const [planosDB,         setPlanosDB]         = useState<PlanoPublico[]>([]);
   const [planoSelecionado, setPlanoSelecionado] = useState<{ id?: string; nome: string; preco: number; periodo?: "mensal" | "anual" } | null>(null);
@@ -350,6 +361,36 @@ export default function PlanoPage() {
             </>
           )}
         </div>
+
+        {/* Barra de ARMAZENAMENTO (GB) — some se o plano não tem limite de espaço */}
+        {usoStorage && (() => {
+          const limiteGb = usoStorage.limite_gb;
+          const pctS = limiteGb !== null ? Math.min(100, Math.round((usoStorage.bytes_usados / (limiteGb * 1024 ** 3)) * 100)) : null;
+          const bcS = pctS !== null ? corBarra(pctS) : "#2563EB";
+          return (
+            <div style={{ marginBottom: 18 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 }}>
+                <span style={{ fontSize: 12, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Armazenamento</span>
+                <span style={{ fontSize: 14, fontWeight: 700, color: pctS !== null && pctS >= 80 ? bcS : "var(--color-text-primary)" }}>
+                  {formatarBytes(usoStorage.bytes_usados)}
+                  {limiteGb !== null ? ` / ${limiteGb} GB` : " (ilimitado)"}
+                </span>
+              </div>
+              {pctS !== null && (
+                <>
+                  <div style={{ height: 8, background: "rgba(0,0,0,0.08)", borderRadius: 4, overflow: "hidden" }}>
+                    <div style={{ height: "100%", borderRadius: 4, background: bcS, width: `${pctS}%`, transition: "width 0.5s ease" }} />
+                  </div>
+                  <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 5 }}>
+                    {pctS}% utilizado
+                    {pctS >= 95 && <span style={{ color: "#EF4444", fontWeight: 600, marginLeft: 8 }}>⚠️ Espaço quase esgotado — novos uploads serão bloqueados</span>}
+                    {pctS >= 80 && pctS < 95 && <span style={{ color: "#F59E0B", fontWeight: 600, marginLeft: 8 }}>Atenção: espaço quase no limite</span>}
+                  </div>
+                </>
+              )}
+            </div>
+          );
+        })()}
 
         {/* Breakdown por recurso */}
         <div style={{ background: "rgba(0,0,0,0.04)", borderRadius: 10, padding: "16px 18px", display: "flex", flexDirection: "column", gap: 14 }}>

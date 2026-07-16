@@ -12,6 +12,7 @@ type PlanoConfig = {
   preco_anual: number | null;
   limite_fotos: number | null;
   limite_galerias: number | null;
+  limite_armazenamento_gb: number | null;
   duracao_dias: number | null;
   ativo: boolean;
   eh_campanha: boolean;
@@ -131,6 +132,7 @@ export default function PlanosPage() {
                   {`R$${Number(p.preco).toFixed(2).replace(".", ",")}/mês`}
                   {p.preco_anual != null ? ` · R$${Number(p.preco_anual).toFixed(2).replace(".", ",")}/mês anual` : ""}
                   {p.limite_fotos != null ? ` · ${p.limite_fotos.toLocaleString("pt-BR")} fotos` : " · fotos ilimitadas"}
+                  {p.limite_armazenamento_gb != null ? ` · ${p.limite_armazenamento_gb} GB` : " · espaço ilimitado"}
                   <span style={{ color: p.limite_galerias == null ? "#059669" : "inherit" }}>
                     {p.limite_galerias != null ? ` · ${p.limite_galerias} gal. entrega` : " · galerias ilimitadas"}
                   </span>
@@ -161,6 +163,7 @@ export default function PlanosPage() {
                     ordem:           p.ordem,
                     limite_fotos:    p.limite_fotos,
                     limite_galerias: p.limite_galerias,
+                    limite_armazenamento_gb: p.limite_armazenamento_gb,
                     forma_pagamento: p.forma_pagamento,
                     nome:            `${p.nome} (cópia)`,
                     descricao:       p.descricao,
@@ -233,6 +236,10 @@ export default function PlanosPage() {
                   <div style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", marginBottom: 4 }}>Limite de galerias de entrega</div>
                   <input style={inputStyle} type="number" value={modal.limite_galerias ?? ""} onChange={(e) => { const v = e.target.value ? Number(e.target.value) : null; setModal((m) => m ? { ...m, limite_galerias: v } : m); }} placeholder="em branco = ilimitado" />
                 </div>
+              </div>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", marginBottom: 4 }}>Limite de armazenamento (GB)</div>
+                <input style={inputStyle} type="number" step="0.5" value={modal.limite_armazenamento_gb ?? ""} onChange={(e) => { const v = e.target.value ? Number(e.target.value) : null; setModal((m) => m ? { ...m, limite_armazenamento_gb: v } : m); }} placeholder="em branco = ilimitado" />
               </div>
               <div>
                 <div style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", marginBottom: 4 }}>Forma de pagamento</div>

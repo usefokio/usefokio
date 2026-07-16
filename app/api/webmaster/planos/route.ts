@@ -19,7 +19,7 @@ export async function POST(req: Request) {
   if (!await verificarWebmaster(req)) return NextResponse.json({ error: "forbidden" }, { status: 403 });
 
   const body = await req.json().catch(() => ({}));
-  const { codigo, nome, descricao, preco, preco_anual, limite_fotos, limite_galerias, duracao_dias, eh_campanha, valido_ate, cor, features, ordem, forma_pagamento } = body;
+  const { codigo, nome, descricao, preco, preco_anual, limite_fotos, limite_galerias, limite_armazenamento_gb, duracao_dias, eh_campanha, valido_ate, cor, features, ordem, forma_pagamento } = body;
 
   if (!nome?.trim())   return NextResponse.json({ error: "nome obrigatório" }, { status: 400 });
   if (!codigo?.trim()) return NextResponse.json({ error: "codigo obrigatório" }, { status: 400 });
@@ -36,6 +36,7 @@ export async function POST(req: Request) {
       preco_anual:      preco_anual ? Number(preco_anual) : null,
       limite_fotos:     limite_fotos ? Number(limite_fotos) : null,
       limite_galerias:  limite_galerias ? Number(limite_galerias) : null,
+      limite_armazenamento_gb: limite_armazenamento_gb ? Number(limite_armazenamento_gb) : null,
       duracao_dias:     duracao_dias ? Number(duracao_dias) : null,
       eh_campanha:      !!eh_campanha,
       valido_ate:       valido_ate || null,

@@ -1,6 +1,7 @@
 import { uploadFile } from "@/lib/storage/upload";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { limiteEfetivoMax } from "@/lib/planos";
 
 // Dá mais tempo para o envio ao R2 (imagens grandes/capa) não estourar o
 // tempo-limite padrão da função serverless em conexões lentas.
@@ -13,12 +14,22 @@ export async function POST(req: Request) {
     return Response.json({ error: "unauthorized" }, { status: 401 });
   }
 
+  // Form primeiro: a checagem de armazenamento precisa do tamanho do arquivo.
+  const form = await req.formData();
+  const file = form.get("file") as File | null;
+  const path = form.get("path") as string | null;
+  const contentType = (form.get("contentType") as string | null) ?? "image/jpeg";
+
+  if (!file || !path) {
+    return Response.json({ error: "file e path são obrigatórios" }, { status: 400 });
+  }
+
   // Verificação de plano (pula em desenvolvimento)
   if (user && process.env.NODE_ENV !== "development") {
     const admin = createAdminClient();
     const { data: foto } = await admin
       .from("fotografos")
-      .select("plano, plano_expira_em, total_fotos_usadas, limite_fotos_custom")
+      .select("plano, plano_expira_em, total_fotos_usadas, limite_fotos_custom, limite_armazenamento_gb_custom")
       .eq("id", user.id)
       .maybeSingle();
 
@@ -33,47 +44,39 @@ export async function POST(req: Request) {
         }
       }
 
-      // Limite de fotos atingido
-      const usadas = foto.total_fotos_usadas ?? 0;
-
-      // Sempre busca o limite do plano — garante que upgrade nunca fique bloqueado
-      // por um limite_fotos_custom herdado de plano inferior
+      // Sempre busca os limites do plano — garante que upgrade nunca fique bloqueado
+      // por um limite custom herdado de plano inferior (vale o MAIOR dos dois).
       const { data: pc } = await admin
         .from("planos_config")
-        .select("limite_fotos")
+        .select("limite_fotos, limite_armazenamento_gb")
         .eq("codigo", foto.plano)
         .eq("ativo", true)
         .maybeSingle();
-      const planLimit: number | null = pc?.limite_fotos ?? null;
 
-      // Limite efetivo: se ambos definidos, usa o maior (plano garante o mínimo)
-      // se só custom: usa custom (plano ilimitado mas custom restringe)
-      // se só plano: usa plano
-      let limite: number | null;
-      if (foto.limite_fotos_custom != null && planLimit != null) {
-        limite = Math.max(foto.limite_fotos_custom, planLimit);
-      } else if (foto.limite_fotos_custom != null) {
-        limite = foto.limite_fotos_custom;
-      } else {
-        limite = planLimit;
-      }
-
+      // ── Limite de FOTOS (contagem) ─────────────────────────────────────────
+      const usadas = foto.total_fotos_usadas ?? 0;
+      const limite = limiteEfetivoMax(foto.limite_fotos_custom, pc?.limite_fotos ?? null);
       if (limite !== null && usadas >= limite) {
         return Response.json(
           { error: `Limite de ${limite.toLocaleString("pt-BR")} fotos atingido. Faça upgrade do plano em /conta/plano.`, limitReached: true },
           { status: 403 }
         );
       }
+
+      // ── Limite de ARMAZENAMENTO (GB) ───────────────────────────────────────
+      // Só bloqueia NOVOS uploads: o acesso ao que já existe continua normal.
+      const limiteGb = limiteEfetivoMax(foto.limite_armazenamento_gb_custom, pc?.limite_armazenamento_gb ?? null);
+      if (limiteGb !== null) {
+        const { data: usadoBytes } = await admin.rpc("fotografo_bytes_usados", { fid: user.id });
+        const limiteBytes = limiteGb * 1024 ** 3;
+        if ((Number(usadoBytes) || 0) + file.size > limiteBytes) {
+          return Response.json(
+            { error: `Limite de armazenamento de ${limiteGb} GB atingido. Faça upgrade do plano em /conta/plano para continuar enviando fotos.`, storageLimitReached: true },
+            { status: 403 }
+          );
+        }
+      }
     }
-  }
-
-  const form = await req.formData();
-  const file = form.get("file") as File | null;
-  const path = form.get("path") as string | null;
-  const contentType = (form.get("contentType") as string | null) ?? "image/jpeg";
-
-  if (!file || !path) {
-    return Response.json({ error: "file e path são obrigatórios" }, { status: 400 });
   }
 
   try {

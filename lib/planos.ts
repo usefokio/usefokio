@@ -64,6 +64,24 @@ export function limiteEfetivo(plano: PlanoConfig, custom?: number | null): numbe
   return custom ?? plano.limite_fotos;
 }
 
+/**
+ * Limite efetivo genérico (fotos ou GB) com valores vindos do BANCO (planos_config +
+ * override do fotógrafo): se ambos definidos vale o MAIOR (o plano garante o mínimo);
+ * senão o que existir; null = ilimitado. Mesma regra usada no enforcement do upload.
+ */
+export function limiteEfetivoMax(custom: number | null | undefined, doPlano: number | null | undefined): number | null {
+  if (custom != null && doPlano != null) return Math.max(custom, doPlano);
+  return custom ?? doPlano ?? null;
+}
+
+/** Formata bytes para exibição (MB até 1 GB; GB acima). */
+export function formatarBytes(bytes: number): string {
+  const gb = bytes / 1024 ** 3;
+  if (gb >= 1) return `${gb.toFixed(gb >= 10 ? 0 : 1)} GB`;
+  const mb = bytes / 1024 ** 2;
+  return `${Math.max(1, Math.round(mb))} MB`;
+}
+
 /** Retorna a porcentagem de uso (0–100). Retorna null se ilimitado. */
 export function pctUso(usadas: number, plano: PlanoConfig, custom?: number | null): number | null {
   const limite = limiteEfetivo(plano, custom);

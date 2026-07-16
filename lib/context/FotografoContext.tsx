@@ -47,6 +47,7 @@ export function FotografoProvider({ children }: { children: ReactNode }) {
         abacate_api_key_enc: null, abacate_ativo: false,
         smtp_host: null, smtp_port: null, smtp_user: null, smtp_from: null, smtp_ativo: false,
         limite_fotos_custom: null,
+        limite_armazenamento_gb_custom: null,
         onboarding_concluido: true,
         crm_email_config: null,
         plano_expira_em: null, plano_ativado_em: null, asaas_cobranca_id: null,

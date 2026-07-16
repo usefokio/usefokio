@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
-type PlanoConfig = { id: string; codigo: string; nome: string; limite_fotos: number | null; preco: number; preco_anual: number | null; eh_campanha: boolean };
+type PlanoConfig = { id: string; codigo: string; nome: string; limite_fotos: number | null; limite_armazenamento_gb: number | null; preco: number; preco_anual: number | null; eh_campanha: boolean };
 
 type FotografoStats = {
   id: string;
@@ -18,6 +18,7 @@ type FotografoStats = {
   total_fotos: number;
   total_bytes: number;
   limite_fotos_custom: number | null;
+  limite_armazenamento_gb_custom: number | null;
   plano_expira_em: string | null;
   plano_ativado_em: string | null;
 };
@@ -130,6 +131,62 @@ function LimiteFotosCell({ inicial, planLimite }: { inicial: number | null; plan
   );
 }
 
+// Limite de ARMAZENAMENTO (GB) por fotógrafo — EDITÁVEL: clique para definir o override
+// (vazio = usa o do plano; vale o MAIOR dos dois, mesma regra do limite de fotos).
+function LimiteGbCell({ fotografoId, inicial, planGb }: { fotografoId: string; inicial: number | null; planGb: number | null }) {
+  const [custom,   setCustom]   = useState<number | null>(inicial);
+  const [editando, setEditando] = useState(false);
+  const [valor,    setValor]    = useState("");
+  const [salvando, setSalvando] = useState(false);
+
+  const efetivo: number | null =
+    custom != null && planGb != null ? Math.max(custom, planGb)
+    : custom != null ? custom
+    : planGb;
+
+  async function salvar() {
+    const v = valor.trim() === "" ? null : Number(valor.replace(",", "."));
+    if (v !== null && (!Number.isFinite(v) || v < 0)) return;
+    setSalvando(true);
+    const res = await fetch(`/api/webmaster/fotografo-config/${fotografoId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...(await authHeaders()) },
+      body: JSON.stringify({ limite_armazenamento_gb_custom: v }),
+    });
+    if (res.ok) setCustom(v);
+    setSalvando(false);
+    setEditando(false);
+  }
+
+  if (editando) {
+    return (
+      <span style={{ display: "inline-flex", gap: 4, alignItems: "center" }}>
+        <input
+          autoFocus
+          value={valor}
+          onChange={(e) => setValor(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") salvar(); if (e.key === "Escape") setEditando(false); }}
+          placeholder={planGb != null ? `plano: ${planGb}` : "GB"}
+          style={{ width: 64, padding: "3px 6px", borderRadius: 6, border: "0.5px solid var(--color-border-secondary)", fontSize: 11, background: "var(--color-background-primary)", color: "var(--color-text-primary)" }}
+        />
+        <button onClick={salvar} disabled={salvando} style={{ border: "none", background: "rgba(5,150,105,0.1)", color: "#059669", borderRadius: 6, padding: "3px 8px", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+          {salvando ? "…" : "OK"}
+        </button>
+      </span>
+    );
+  }
+
+  return (
+    <button
+      onClick={() => { setValor(custom != null ? String(custom) : ""); setEditando(true); }}
+      title="Clique para definir o limite de armazenamento (GB) deste fotógrafo — vazio usa o do plano"
+      style={{ border: "none", background: "transparent", padding: 0, cursor: "pointer", fontSize: 11, fontWeight: 600, color: "var(--color-text-primary)", whiteSpace: "nowrap", textDecoration: "underline dotted", textUnderlineOffset: 3 }}
+    >
+      {efetivo != null ? `${efetivo} GB` : "∞ GB"}{custom != null ? " ✎" : ""}
+    </button>
+  );
+}
+
 const PLANO_COLOR: Record<string, string> = {
   gratuito:     "#059669",
   profissional: "#2563EB",
@@ -140,6 +197,7 @@ export default function WebmasterPage() {
   const [stats,           setStats]           = useState<FotografoStats[]>([]);
   const [loading,         setLoading]         = useState(true);
   const [planLimits,      setPlanLimits]      = useState<Record<string, number | null>>({});
+  const [planGbLimits,    setPlanGbLimits]    = useState<Record<string, number | null>>({});
   const [planosConfig,    setPlanosConfig]    = useState<PlanoConfig[]>([]);
   const [pendingIds,      setPendingIds]      = useState<Set<string>>(new Set());
   const [filtro,          setFiltro]          = useState<"todos" | "pendentes">("todos");
@@ -165,8 +223,10 @@ export default function WebmasterPage() {
         const json = await res.json();
         const lista = json.planos as PlanoConfig[];
         const map: Record<string, number | null> = {};
-        lista.forEach((p) => { map[p.codigo] = p.limite_fotos; });
+        const mapGb: Record<string, number | null> = {};
+        lista.forEach((p) => { map[p.codigo] = p.limite_fotos; mapGb[p.codigo] = p.limite_armazenamento_gb; });
         setPlanLimits(map);
+        setPlanGbLimits(mapGb);
         setPlanosConfig(lista);
       }
     }
@@ -367,7 +427,7 @@ export default function WebmasterPage() {
             <table style={{ width: "100%", minWidth: 900, borderCollapse: "collapse", fontSize: 12 }}>
               <thead>
                 <tr style={{ background: "var(--color-background-secondary)" }}>
-                  {["Nome / Empresa", "Email", "Plano", "Expira", "Status", "Clientes", "Galerias", "Fotos", "Uso", "Limite", "Cadastro", "Recursos", "Ação"].map((h) => (
+                  {["Nome / Empresa", "Email", "Plano", "Expira", "Status", "Clientes", "Galerias", "Fotos", "Uso", "Lim. fotos", "Lim. GB", "Cadastro", "Recursos", "Ação"].map((h) => (
                     <th key={h} style={{ padding: "10px 14px", textAlign: "left", fontSize: 10, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: "0.5px solid var(--color-border-tertiary)", whiteSpace: "nowrap" }}>
                       {h}
                     </th>
@@ -408,6 +468,13 @@ export default function WebmasterPage() {
                       <LimiteFotosCell
                         inicial={f.limite_fotos_custom}
                         planLimite={planLimits[f.plano] ?? null}
+                      />
+                    </td>
+                    <td style={{ padding: "12px 14px" }}>
+                      <LimiteGbCell
+                        fotografoId={f.id}
+                        inicial={f.limite_armazenamento_gb_custom}
+                        planGb={planGbLimits[f.plano] ?? null}
                       />
                     </td>
                     <td style={{ padding: "12px 14px", color: "var(--color-text-secondary)", whiteSpace: "nowrap" }}>

@@ -49,12 +49,12 @@ export default function BannersPage() {
     let ordem = banners.length > 0 ? Math.max(...banners.map((b) => b.ordem)) + 1 : 0;
     for (const file of lista) {
       try {
-        const { blob } = await processarImagemEntrega(file, 2400, 0.85);
+        const { blob, tamanho_bytes } = await processarImagemEntrega(file, 2400, 0.85);
         const base = file.name.replace(/\.[a-z0-9]+$/i, "").normalize("NFD").replace(/[^\x20-\x7E]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "banner";
         const path = `site/${fotografo.id}/banners/${base}-${crypto.randomUUID().slice(0, 6)}.jpg`;
         const { storage_path, url_publica } = await uploadFileClient(path, blob);
         const { data } = await supabase.from("site_banners")
-          .insert({ fotografo_id: fotografo.id, imagem_url: url_publica, storage_path, ordem: ordem++ })
+          .insert({ fotografo_id: fotografo.id, imagem_url: url_publica, storage_path, ordem: ordem++, tamanho_bytes })
           .select("*").single();
         if (data) setBanners((prev) => [...prev, data as SiteBanner]);
       } catch (e) {
