@@ -10,6 +10,8 @@ import { useFotografo } from "@/lib/context/FotografoContext";
 import { useEditorEstado, SeloEstado, BotaoSalvarEstado, ModalNaoSalvo } from "@/app/(dashboard)/_components/EditorEstado";
 import { normalizarBriefing, type Briefing } from "@/lib/site/briefing";
 import { gerarSugestoes } from "@/lib/site/briefingConfig";
+import { gerarPromptEntrevista, ROTULOS_BRIEFING as R } from "@/lib/site/briefingPrompt";
+import { ModalPromptIA } from "./_components/ModalPromptIA";
 import type { SiteCategoria } from "@/lib/supabase/types";
 
 const inputStyle: React.CSSProperties = {
@@ -36,6 +38,8 @@ export default function BriefingPage() {
   const [nichosTxt, setNichosTxt] = useState("");
   const [regioesTxt, setRegioesTxt] = useState("");
   const [sementesTxt, setSementesTxt] = useState("");
+  const [cats, setCats] = useState<string[]>([]);
+  const [modalIA, setModalIA] = useState(false);
 
   const snapshotAtual = JSON.stringify([b.conceito, b.historia, nichosTxt, b.publico_alvo, regioesTxt, b.diferenciais, b.tom_voz, sementesTxt]);
   const estado = useEditorEstado(snapshotAtual, "/site");
@@ -50,7 +54,9 @@ export default function BriefingPage() {
       ]);
       const br = normalizarBriefing(cfg?.briefing);
       // Semeia os nichos com as categorias do site quando o briefing ainda não tem
-      const nichos = br.nichos.length ? br.nichos : ((cats as SiteCategoria[]) ?? []).filter((c) => c.ativo).map((c) => c.nome);
+      const nomesCats = ((cats as SiteCategoria[]) ?? []).filter((c) => c.ativo).map((c) => c.nome);
+      const nichos = br.nichos.length ? br.nichos : nomesCats;
+      setCats(nomesCats);
       setB({ ...br, nichos });
       setNichosTxt(deLista(nichos));
       setRegioesTxt(deLista(br.regioes));
@@ -65,6 +71,9 @@ export default function BriefingPage() {
     ...b, nichos: paraLista(nichosTxt), regioes: paraLista(regioesTxt), palavras_semente: paraLista(sementesTxt),
   };
   const sugestoes = gerarSugestoes(briefingAtual, { nome_empresa: fotografo?.nome_empresa, cidade: fotografo?.cidade });
+  const promptIA = gerarPromptEntrevista({
+    nome_empresa: fotografo?.nome_empresa, cidade: fotografo?.cidade, categorias: cats, briefingAtual: b,
+  });
 
   async function salvar(): Promise<boolean> {
     if (!fotografo) return false;
@@ -87,55 +96,64 @@ export default function BriefingPage() {
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 6, flexWrap: "wrap" }}>
         <h1 style={{ fontSize: 22, fontWeight: 800, color: "var(--color-text-primary)", margin: 0, letterSpacing: "-0.02em" }}>Briefing da sua marca</h1>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <button onClick={() => setModalIA(true)}
+            style={{ padding: "8px 14px", borderRadius: 8, border: "1px solid rgba(37,99,235,0.4)", background: "rgba(37,99,235,0.06)", fontSize: 12.5, fontWeight: 700, color: "#2563EB", cursor: "pointer", whiteSpace: "nowrap" }}>
+            ✨ Preencher com ajuda de IA
+          </button>
           <SeloEstado temAlteracoes={estado.temAlteracoes} />
           <BotaoSalvarEstado temAlteracoes={estado.temAlteracoes} salvando={salvando} onClick={() => salvar()} />
         </div>
       </div>
       <p style={{ fontSize: 13, color: "var(--color-text-secondary)", margin: "0 0 24px", lineHeight: 1.6 }}>
         Conte quem você é e para quem fotografa — usamos isso para gerar sugestões de SEO (título, descrição,
-        palavras-chave e o texto do Sobre) e, em breve, para o assistente de IA escrever por você. Pode refazer quando quiser.
+        palavras-chave e o texto do Sobre). Pode refazer quando quiser.{" "}
+        <strong style={{ color: "var(--color-text-primary)" }}>Não sabe o que escrever?</strong>{" "}
+        <button onClick={() => setModalIA(true)}
+          style={{ border: "none", background: "transparent", padding: 0, font: "inherit", color: "#2563EB", fontWeight: 700, cursor: "pointer", textDecoration: "underline" }}>
+          Deixe uma IA te entrevistar
+        </button>{" "}— leva uns 10 minutos e funciona com o ChatGPT, Gemini ou Claude que você já usa.
       </p>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
         <div>
-          <label style={labelStyle}>Conceito / estilo do seu trabalho</label>
+          <label style={labelStyle}>{R.conceito}</label>
           <input value={b.conceito} onChange={(e) => setB({ ...b, conceito: e.target.value })} style={inputStyle}
             placeholder="Ex.: fotografia documental e espontânea, com luz natural" />
           <div style={hint}>Como você descreveria o seu olhar em uma frase.</div>
         </div>
         <div>
-          <label style={labelStyle}>Sua história</label>
+          <label style={labelStyle}>{R.historia}</label>
           <textarea value={b.historia} onChange={(e) => setB({ ...b, historia: e.target.value })} rows={4} style={{ ...inputStyle, resize: "vertical" }}
             placeholder="Ex.: Fotografo casamentos há 12 anos. Comecei registrando a família e me apaixonei por…" />
           <div style={hint}>Vira a base do texto da página <strong>Sobre</strong> — escreva como contaria a um cliente.</div>
         </div>
         <div>
-          <label style={labelStyle}>Nichos / áreas de atuação (separados por vírgula)</label>
+          <label style={labelStyle}>{R.nichos} (separados por vírgula)</label>
           <input value={nichosTxt} onChange={(e) => setNichosTxt(e.target.value)} style={inputStyle} placeholder="Casamentos, Ensaios, Gestantes" />
           <div style={hint}>Já sugerimos as categorias do seu site — ajuste a ordem: a primeira é o seu foco principal.</div>
         </div>
         <div>
-          <label style={labelStyle}>Público-alvo</label>
+          <label style={labelStyle}>{R.publico_alvo}</label>
           <input value={b.publico_alvo} onChange={(e) => setB({ ...b, publico_alvo: e.target.value })} style={inputStyle}
             placeholder="Ex.: casais que valorizam fotos naturais e sem poses forçadas" />
         </div>
         <div>
-          <label style={labelStyle}>Cidades / regiões que atende (separadas por vírgula)</label>
+          <label style={labelStyle}>{R.regioes} (separadas por vírgula)</label>
           <input value={regioesTxt} onChange={(e) => setRegioesTxt(e.target.value)} style={inputStyle} placeholder="Ourinhos, interior de SP" />
           <div style={hint}>Fundamental pro SEO local — “fotógrafo de casamento em {"{cidade}"}” é o que mais converte.</div>
         </div>
         <div>
-          <label style={labelStyle}>Diferenciais</label>
+          <label style={labelStyle}>{R.diferenciais}</label>
           <input value={b.diferenciais} onChange={(e) => setB({ ...b, diferenciais: e.target.value })} style={inputStyle}
             placeholder="Ex.: entrega em 15 dias, álbuns artesanais, cobertura com drone" />
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
           <div>
-            <label style={labelStyle}>Tom de voz</label>
+            <label style={labelStyle}>{R.tom_voz}</label>
             <input value={b.tom_voz} onChange={(e) => setB({ ...b, tom_voz: e.target.value })} style={inputStyle} placeholder="Ex.: próximo e informal" />
           </div>
           <div>
-            <label style={labelStyle}>Palavras que quer ser encontrado</label>
+            <label style={labelStyle}>{R.palavras_semente}</label>
             <input value={sementesTxt} onChange={(e) => setSementesTxt(e.target.value)} style={inputStyle} placeholder="fotógrafo de casamento ourinhos…" />
           </div>
         </div>
@@ -161,6 +179,8 @@ export default function BriefingPage() {
           <BotaoSalvarEstado temAlteracoes={estado.temAlteracoes} salvando={salvando} onClick={() => salvar()} />
         </div>
       </div>
+
+      {modalIA && <ModalPromptIA prompt={promptIA} onFechar={() => setModalIA(false)} />}
 
       <ModalNaoSalvo
         aberto={estado.modalAberto}
