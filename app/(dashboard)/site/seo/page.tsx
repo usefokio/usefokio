@@ -1,9 +1,11 @@
 "use client";
 
-// SEO global do site: título, descrição e código de rastreamento (analytics).
-import { useEffect, useState } from "react";
+// SEO global do site: título, descrição, imagem de compartilhamento e rastreamento (analytics).
+import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
+import { uploadFileClient } from "@/lib/storage/uploadClient";
+import { processarImagemEntrega } from "@/lib/imageResize";
 import { useEditorEstado, SeloEstado, BotaoSalvarEstado, ModalNaoSalvo } from "@/app/(dashboard)/_components/EditorEstado";
 import { SeoDicas, SeoNota } from "@/app/(dashboard)/site/_components/SeoDica";
 import { BotaoIA } from "@/app/(dashboard)/site/_components/BotaoIA";
@@ -33,13 +35,28 @@ export default function SeoPage() {
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
-  const [ogImageUrl, setOgImageUrl] = useState<string | null>(null); // só leitura aqui (upload no P5)
+  const [ogImageUrl, setOgImageUrl] = useState<string | null>(null); // imagem de compartilhamento do site
+  const [enviandoOg, setEnviandoOg] = useState(false);
+  const inputOg = useRef<HTMLInputElement>(null);
   const [publicado, setPublicado] = useState<boolean | null>(null);
   const [sugestoes, setSugestoes] = useState<SugestoesSeo | null>(null); // do briefing (template)
 
   // Estado de salvamento claro (regra de sistema)
-  const snapshotAtual = JSON.stringify([tituloSite, seoTitle, seoDesc, keywords, analytics, gsv, pixel]);
+  const snapshotAtual = JSON.stringify([tituloSite, seoTitle, seoDesc, keywords, analytics, gsv, pixel, ogImageUrl]);
   const estado = useEditorEstado(snapshotAtual, "/site");
+
+  async function enviarOg(files: FileList | null) {
+    if (!files || !files[0] || !fotografo) return;
+    setEnviandoOg(true);
+    try {
+      const { blob } = await processarImagemEntrega(files[0], 1200, 0.85);
+      const path = `site/${fotografo.id}/og/global-${crypto.randomUUID().slice(0, 6)}.jpg`;
+      const { url_publica } = await uploadFileClient(path, blob);
+      setOgImageUrl(url_publica);
+    } catch { setMsg("Erro no upload da imagem."); }
+    setEnviandoOg(false);
+    if (inputOg.current) inputOg.current.value = "";
+  }
 
   // Análise de SEO ao vivo do site (motor único em lib/site/seoAudit)
   const achadosSeo = auditarSiteGlobal({
@@ -69,7 +86,7 @@ export default function SeoPage() {
       }
       estado.inicializar(JSON.stringify([
         data?.titulo_site ?? "", data?.seo_title ?? "", data?.seo_description ?? "", data?.seo_keywords ?? "",
-        data?.analytics_head ?? "", data?.google_site_verification ?? "", data?.facebook_pixel ?? "",
+        data?.analytics_head ?? "", data?.google_site_verification ?? "", data?.facebook_pixel ?? "", data?.og_image_url ?? null,
       ]));
       setCarregando(false);
     });
@@ -89,6 +106,7 @@ export default function SeoPage() {
       analytics_head: analytics.trim() || null,
       google_site_verification: gsv.trim() || null,
       facebook_pixel: pixel.trim() || null,
+      og_image_url: ogImageUrl,
       updated_at: new Date().toISOString(),
     }, { onConflict: "fotografo_id" });
     setSalvando(false);
@@ -163,6 +181,29 @@ export default function SeoPage() {
         <div>
           <label style={labelStyle}>Palavras-chave (separadas por vírgula)</label>
           <textarea value={keywords} onChange={(e) => setKeywords(e.target.value)} rows={3} style={{ ...inputStyle, resize: "vertical" }} placeholder="fotógrafo de casamento em Ourinhos, ensaio gestante interior SP…" />
+        </div>
+
+        <div>
+          <label style={labelStyle}>Imagem de compartilhamento do site (WhatsApp/redes)</label>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            {ogImageUrl
+              ? <img src={ogImageUrl} alt="" style={{ width: 180, aspectRatio: "1200/630", objectFit: "cover", borderRadius: 8, display: "block" }} />
+              : <div style={{ width: 180, aspectRatio: "1200/630", borderRadius: 8, border: "1px dashed var(--color-border-secondary)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, color: "var(--color-text-secondary)", textAlign: "center", padding: 6 }}>Sem imagem — o logo é usado</div>}
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <button onClick={() => inputOg.current?.click()} disabled={enviandoOg}
+                style={{ padding: "8px 14px", borderRadius: 8, border: "1px solid var(--color-border-secondary)", background: "transparent", fontSize: 12, fontWeight: 600, color: "var(--color-text-primary)", cursor: "pointer" }}>
+                {enviandoOg ? "Enviando…" : (ogImageUrl ? "Trocar imagem" : "+ Escolher imagem")}
+              </button>
+              {ogImageUrl && (
+                <button onClick={() => setOgImageUrl(null)}
+                  style={{ padding: "6px 14px", borderRadius: 8, border: "none", background: "transparent", fontSize: 11, color: "#DC2626", cursor: "pointer", textAlign: "left" }}>
+                  Remover (volta a usar o logo)
+                </button>
+              )}
+            </div>
+            <input ref={inputOg} type="file" accept="image/*" style={{ display: "none" }} onChange={(e) => enviarOg(e.target.files)} />
+          </div>
+          <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 4 }}>Use uma foto forte na horizontal (ideal 1200×630) — é a imagem que aparece quando compartilham o seu site.</div>
         </div>
 
         <div style={{ padding: "14px 16px", borderRadius: 12, border: "1px solid var(--color-border-tertiary)", background: "var(--color-background-secondary)", display: "flex", flexDirection: "column", gap: 12 }}>

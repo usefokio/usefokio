@@ -6,6 +6,7 @@ import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { resolverMetaPagina } from "@/lib/site/seo";
 import { GaleriaFotos } from "../../_components/GaleriaFotos";
+import { JsonLd } from "../../_components/JsonLd";
 import type { SitePortfolio, SitePortfolioFoto } from "@/lib/supabase/types";
 
 type Props = { params: Promise<{ fid: string; slug: string }> };
@@ -46,6 +47,13 @@ export default async function ColecaoPortfolioPage({ params }: Props) {
 
   return (
     <div>
+      <JsonLd data={{
+        "@context": "https://schema.org",
+        "@type": "ImageGallery",
+        name: p.titulo,
+        description: p.seo_description ?? p.descricao ?? undefined,
+        image: [p.capa_url, ...todasFotos.map((f) => f.url_publica)].filter(Boolean).slice(0, 30),
+      }} />
       {p.capa_url && (
         <div style={{ height: "56vh", maxHeight: 560, overflow: "hidden", background: "#111" }}>
           <img src={p.capa_url} alt={p.titulo} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />

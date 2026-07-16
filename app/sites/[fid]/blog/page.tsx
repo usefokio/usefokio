@@ -1,8 +1,23 @@
 // Lista de posts do blog.
 import Link from "next/link";
+import type { Metadata } from "next";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { baseLinks } from "@/lib/site/publico";
+import { baseLinks, carregarSite } from "@/lib/site/publico";
 import type { SitePost } from "@/lib/supabase/types";
+
+export async function generateMetadata({ params }: { params: Promise<{ fid: string }> }): Promise<Metadata> {
+  const { fid } = await params;
+  const { fotografo, config } = await carregarSite(fid);
+  const nome = config?.titulo_site ?? fotografo?.nome_empresa ?? "Blog";
+  const title = `Blog — ${nome}`;
+  const description = `Dicas, histórias e bastidores por ${nome}.`;
+  const ogImage = config?.og_image_url ?? fotografo?.logo_url ?? undefined;
+  return {
+    title, description,
+    openGraph: { title, description, images: ogImage ? [ogImage] : undefined },
+    twitter: { card: "summary_large_image", title, description, images: ogImage ? [ogImage] : undefined },
+  };
+}
 
 export default async function BlogPage({ params }: { params: Promise<{ fid: string }> }) {
   const { fid } = await params;

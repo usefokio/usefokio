@@ -66,6 +66,16 @@ export default async function TrabalhoPage({ params }: { params: Promise<{ fid: 
         description: t.seo_description ?? undefined,
         image: [t.capa_url, ...todasFotos.map((f) => f.url_publica)].filter(Boolean).slice(0, 30),
       }} />
+      {/* Trilha (BreadcrumbList) — situa a página na hierarquia do site pro Google */}
+      <JsonLd data={{
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        itemListElement: [
+          { "@type": "ListItem", position: 1, name: "Trabalhos", item: `${b}/portfolio` },
+          { "@type": "ListItem", position: 2, name: catLabel, item: `${b}/portfolio/${t.categoria}` },
+          { "@type": "ListItem", position: 3, name: t.titulo },
+        ],
+      }} />
       {t.capa_url && (
         <div style={{ height: "56vh", maxHeight: 560, overflow: "hidden", background: "#111" }}>
           <img src={t.capa_url} alt={t.titulo} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />

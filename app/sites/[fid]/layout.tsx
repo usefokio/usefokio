@@ -111,6 +111,8 @@ export default async function SitePublicoLayout({ children, params }: { children
   const hostPrincipal = config?.dominio_customizado
     ? normalizarHost(config.dominio_customizado)
     : (config?.subdominio ? `${config.subdominio}.usefokio.com.br` : null);
+  // Endereço do cadastro → SEO local (LocalBusiness): o Google associa o fotógrafo à cidade.
+  const temEndereco = !!(fotografo?.cidade || fotografo?.cep);
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "ProfessionalService",
@@ -120,6 +122,15 @@ export default async function SitePublicoLayout({ children, params }: { children
     url: hostPrincipal ? `https://${hostPrincipal}` : undefined,
     telephone: fotografo?.telefone ?? undefined,
     email: fotografo?.email ?? undefined,
+    address: temEndereco ? {
+      "@type": "PostalAddress",
+      streetAddress: [fotografo?.rua, fotografo?.numero].filter(Boolean).join(", ") || undefined,
+      addressLocality: fotografo?.cidade ?? undefined,
+      addressRegion: fotografo?.estado ?? undefined,
+      postalCode: fotografo?.cep ?? undefined,
+      addressCountry: "BR",
+    } : undefined,
+    areaServed: fotografo?.cidade ?? undefined,
     sameAs: [redes.instagram, redes.facebook, redes.youtube].filter(Boolean),
   };
 

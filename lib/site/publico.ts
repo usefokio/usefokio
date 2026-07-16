@@ -150,7 +150,7 @@ export async function contextoBlocos(fid: string): Promise<import("@/app/sites/[
 export async function carregarSite(fid: string) {
   const admin = createAdminClient();
   const [{ data: fotografo }, { data: config }, { data: menu }] = await Promise.all([
-    admin.from("fotografos").select("id, nome_empresa, nome_completo, email, telefone, whatsapp, logo_url").eq("id", fid).maybeSingle(),
+    admin.from("fotografos").select("id, nome_empresa, nome_completo, email, telefone, whatsapp, logo_url, rua, numero, bairro, cidade, estado, cep").eq("id", fid).maybeSingle(),
     admin.from("site_config").select("*").eq("fotografo_id", fid).maybeSingle(),
     admin.from("site_menu").select("*").eq("fotografo_id", fid).order("ordem"),
   ]);

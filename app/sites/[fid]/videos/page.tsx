@@ -6,13 +6,22 @@ import { carregarSite } from "@/lib/site/publico";
 import { fetchAllRows } from "@/lib/supabase/fetchAll";
 import { normalizarDesign } from "@/lib/site/design";
 import { VideosGrade } from "../_components/VideosGrade";
+import { JsonLd } from "../_components/JsonLd";
+import { youtubeEmbedUrl, youtubeThumbUrl } from "@/lib/utils/youtube";
 import type { SiteVideo } from "@/lib/supabase/types";
 
 export async function generateMetadata({ params }: { params: Promise<{ fid: string }> }): Promise<Metadata> {
   const { fid } = await params;
   const { fotografo, config } = await carregarSite(fid);
   const nome = config?.titulo_site ?? fotografo?.nome_empresa ?? "Vídeos";
-  return { title: `Vídeos — ${nome}`, description: `Assista aos vídeos de ${nome}.` };
+  const title = `Vídeos — ${nome}`;
+  const description = `Assista aos vídeos de ${nome}.`;
+  const ogImage = config?.og_image_url ?? fotografo?.logo_url ?? undefined;
+  return {
+    title, description,
+    openGraph: { title, description, images: ogImage ? [ogImage] : undefined },
+    twitter: { card: "summary_large_image", title, description, images: ogImage ? [ogImage] : undefined },
+  };
 }
 
 export default async function VideosPage({ params }: { params: Promise<{ fid: string }> }) {
@@ -30,6 +39,18 @@ export default async function VideosPage({ params }: { params: Promise<{ fid: st
 
   return (
     <div style={{ maxWidth: 1180, margin: "0 auto", padding: "48px 24px" }}>
+      {/* VideoObject por vídeo — habilita rich results de vídeo no Google */}
+      {videos.slice(0, 20).map((v) => (
+        <JsonLd key={v.id} data={{
+          "@context": "https://schema.org",
+          "@type": "VideoObject",
+          name: v.titulo ?? "Vídeo",
+          description: v.descricao ?? v.titulo ?? "Vídeo",
+          thumbnailUrl: youtubeThumbUrl(v.video_url) ?? undefined,
+          embedUrl: youtubeEmbedUrl(v.video_url) ?? v.video_url,
+          uploadDate: v.created_at?.slice(0, 10),
+        }} />
+      ))}
       <h1 className="site-secao-titulo" style={{ fontSize: 30, textAlign: "center", margin: "0 0 24px" }}>Vídeos</h1>
       {videos.length > 0 ? (
         <VideosGrade config={grade} videos={videos.map((v) => ({ id: v.id, video_url: v.video_url, titulo: v.titulo, descricao: v.descricao }))} />

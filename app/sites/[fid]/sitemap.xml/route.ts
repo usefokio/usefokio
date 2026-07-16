@@ -16,11 +16,12 @@ export async function GET(request: Request, { params }: { params: Promise<{ fid:
   const b = siteBaseUrl(host, fid);
   const admin = createAdminClient();
 
-  const [{ data: trabalhos }, { data: portfolios }, { data: posts }, { data: landings }, { count: videosCount }] = await Promise.all([
+  const [{ data: trabalhos }, { data: portfolios }, { data: posts }, { data: paginas }, { count: videosCount }] = await Promise.all([
     admin.from("site_trabalhos").select("categoria, slug, legacy_id, updated_at").eq("fotografo_id", fid).eq("publicado", true),
     admin.from("site_portfolios").select("legacy_id, slug, updated_at").eq("fotografo_id", fid).eq("publicado", true),
     admin.from("site_posts").select("slug, legacy_id, updated_at, publicado_em").eq("fotografo_id", fid).eq("publicado", true),
-    admin.from("site_landing_pages").select("slug, updated_at").eq("fotografo_id", fid).eq("publicado", true),
+    // Páginas custom institucionais (indexáveis) — landings ficam FORA (são noindex por regra).
+    admin.from("site_paginas").select("slug, updated_at, seo_noindex").eq("fotografo_id", fid).eq("publicado", true),
     admin.from("site_videos").select("id", { count: "exact", head: true }).eq("fotografo_id", fid).eq("publicado", true),
   ]);
 
@@ -49,8 +50,11 @@ export async function GET(request: Request, { params }: { params: Promise<{ fid:
   for (const p of (posts ?? []) as Pick<SitePost, "slug" | "legacy_id" | "updated_at" | "publicado_em">[]) {
     urls.push({ loc: `${b}/post/${p.legacy_id ? `${p.legacy_id}-` : ""}${p.slug}`, lastmod: p.updated_at ?? p.publicado_em });
   }
-  for (const l of (landings ?? []) as { slug: string; updated_at: string | null }[]) {
-    urls.push({ loc: `${b}/${l.slug}`, lastmod: l.updated_at });
+  // Páginas custom indexáveis (as institucionais sobre/contato já estão nas URLs fixas acima;
+  // páginas com noindex ficam fora). Landings NÃO entram: são noindex por regra.
+  for (const p of (paginas ?? []) as { slug: string; updated_at: string | null; seo_noindex: boolean | null }[]) {
+    if (p.seo_noindex || p.slug === "sobre" || p.slug === "contato") continue;
+    urls.push({ loc: `${b}/${p.slug}`, lastmod: p.updated_at });
   }
 
   const body =
