@@ -52,6 +52,9 @@ export default function FluxoPage() {
         .eq("fotografo_id", fotografo.id)
         .eq("status", "pago")
         .or("num_documento.is.null,num_documento.neq.DRE")
+        // Transferência entre contas do próprio fotógrafo não é entrada nem saída — só troca de bolso.
+        // Mesmo critério do DRE/Resultados/Panorama/Financeiro (lib/crm/dreAnual.ts).
+        .neq("internal_account_type", "transferencia")
         .gte("pago_em", `${ano}-01-01`)
         .lte("pago_em", `${ano}-12-31`)
         .not("pago_em", "is", null)
@@ -105,6 +108,7 @@ export default function FluxoPage() {
       .eq("fotografo_id", fotografo.id)
       .eq("status", "pago")
       .or("num_documento.is.null,num_documento.neq.DRE")
+      .neq("internal_account_type", "transferencia")
       .gte("pago_em", mesStart)
       .lt("pago_em", mesEnd)
       .not("pago_em", "is", null)
@@ -138,6 +142,9 @@ export default function FluxoPage() {
       .eq("status", "pago")
       .eq("tipo", tipo === "entrada" ? "receita" : "despesa")
       .or("num_documento.is.null,num_documento.neq.DRE")
+      // É por aqui que as transferências vazavam: elas não têm conta contábil (conta_id null),
+      // então caíam neste fallback por tipo e viravam entrada/saída.
+      .neq("internal_account_type", "transferencia")
       .gte("pago_em", mesStart)
       .lt("pago_em", mesEnd)
       .not("pago_em", "is", null)
