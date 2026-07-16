@@ -92,6 +92,8 @@ export type HomeBloco = {
   // banner(grid) / trabalhos / blog
   proporcao?: ProporcaoCapa;
   titulo_pos?: PosicaoTitulo;
+  // trabalhos / videos: título da seção na home (vazio = usa o padrão do bloco)
+  titulo_secao?: string;
   // trabalhos
   texto_card?: TextoCard;
   // blog
@@ -253,12 +255,14 @@ function normalizarBloco(key: HomeBlocoKey, raw: unknown): HomeBloco {
         colunas: num(r.colunas, d.colunas!, 1, 6),
         proporcao: umDe(r.proporcao, PROPORCOES, d.proporcao!),
         titulo_pos: umDe(r.titulo_pos, POS_TITULO, d.titulo_pos!),
+        titulo_secao: str(r.titulo_secao, "", 80),
         texto_card: umDe(r.texto_card, ["titulo_subtitulo", "so_titulo"] as const, d.texto_card!) };
     case "videos":
       return { key, on,
         colunas: num(r.colunas, d.colunas!, 1, 6),
         proporcao: umDe(r.proporcao, PROPORCOES, d.proporcao!),
         titulo_pos: umDe(r.titulo_pos, POS_TITULO, d.titulo_pos!),
+        titulo_secao: str(r.titulo_secao, "", 80),
         texto_card: umDe(r.texto_card, ["titulo_subtitulo", "so_titulo"] as const, d.texto_card!) };
     case "blog":
       return { key, on,

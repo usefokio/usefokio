@@ -15,7 +15,7 @@ export function BlocoVideos({ config, videos }: { config: HomeBloco; videos: Sit
   };
   return (
     <section style={{ maxWidth: 1180, margin: "0 auto", padding: "56px 24px" }}>
-      <h2 className="site-secao-titulo" style={{ fontSize: 30, textAlign: "center", margin: "0 0 44px" }}>Vídeos</h2>
+      <h2 className="site-secao-titulo" style={{ fontSize: 30, textAlign: "center", margin: "0 0 44px" }}>{config.titulo_secao?.trim() || "Vídeos"}</h2>
       <VideosGrade config={grade} videos={videos.map((v) => ({ id: v.id, video_url: v.video_url, titulo: v.titulo, descricao: v.descricao }))} />
     </section>
   );

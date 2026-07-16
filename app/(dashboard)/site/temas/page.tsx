@@ -469,6 +469,7 @@ export default function AparenciaPage() {
       case "trabalhos":
         return (
           <>
+            {campo("Título da seção", <input value={b.titulo_secao ?? ""} onChange={(e) => setBloco("trabalhos", { titulo_secao: e.target.value })} placeholder="Trabalhos recentes" style={inp} />)}
             {campo("Colunas do grid", <Range label="Colunas" value={b.colunas ?? 3} min={1} max={6} onChange={(v) => setBloco("trabalhos", { colunas: v })} />)}
             {campo("Proporção da capa", <Seg value={b.proporcao ?? "horizontal_3x2"} options={PROP_OPTS} onChange={(v) => setBloco("trabalhos", { proporcao: v })} />)}
             {campo("Posição do título", <Seg value={b.titulo_pos ?? "abaixo"} options={POS_OPTS} onChange={(v) => setBloco("trabalhos", { titulo_pos: v })} />)}
@@ -478,6 +479,7 @@ export default function AparenciaPage() {
       case "videos":
         return (
           <>
+            {campo("Título da seção", <input value={b.titulo_secao ?? ""} onChange={(e) => setBloco("videos", { titulo_secao: e.target.value })} placeholder="Vídeos" style={inp} />)}
             {campo("Colunas do grid", <Range label="Colunas" value={b.colunas ?? 3} min={1} max={6} onChange={(v) => setBloco("videos", { colunas: v })} />)}
             {campo("Proporção da miniatura", <Seg value={b.proporcao ?? "horizontal_16x9"} options={PROP_OPTS} onChange={(v) => setBloco("videos", { proporcao: v })} />)}
             {campo("Posição do título", <Seg value={b.titulo_pos ?? "abaixo"} options={POS_OPTS} onChange={(v) => setBloco("videos", { titulo_pos: v })} />)}

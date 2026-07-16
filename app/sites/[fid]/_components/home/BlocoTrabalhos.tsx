@@ -30,7 +30,7 @@ export function BlocoTrabalhos({ config, trabalhos, base, catMap }: { config: Ho
 
   return (
     <section style={{ maxWidth: 1180, margin: "0 auto", padding: "56px 24px" }}>
-      <h2 className="site-secao-titulo" style={{ fontSize: 30, textAlign: "center", margin: "0 0 44px" }}>Trabalhos recentes</h2>
+      <h2 className="site-secao-titulo" style={{ fontSize: 30, textAlign: "center", margin: "0 0 44px" }}>{config.titulo_secao?.trim() || "Trabalhos recentes"}</h2>
       <div className="site-grid-cards" style={{ display: "grid", gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gap: 30 }}>
         {trabalhos.map((t) => (
           <Link key={t.id} href={url(t)} style={{ textDecoration: "none", color: "var(--site-texto)" }}>
