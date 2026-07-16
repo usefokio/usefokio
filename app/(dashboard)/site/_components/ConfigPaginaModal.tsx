@@ -7,6 +7,9 @@ import { useRef, useState } from "react";
 import { uploadFileClient } from "@/lib/storage/uploadClient";
 import { processarImagemEntrega } from "@/lib/imageResize";
 import { MODOS_EXIBICAO, slugifySite, type ConfigPaginaValores } from "@/lib/site/seo";
+import { auditarConfigPagina, pontuar } from "@/lib/site/seoAudit";
+import { SeoDicas, SeoNota } from "./SeoDica";
+import { BotaoIA } from "./BotaoIA";
 
 type Aba = "geral" | "redes" | "seo";
 
@@ -42,6 +45,9 @@ export function ConfigPaginaModal({
   const inputOg = useRef<HTMLInputElement>(null);
 
   const seg = urlPublica.split("/").filter(Boolean);
+  // Análise de SEO ao vivo dos campos do modal (título/descrição/keywords/OG/noindex).
+  const achados = auditarConfigPagina(valores, { titulo: tituloFallback, descricao: descricaoFallback, imagem: imagemFallback });
+  const nota = pontuar(achados);
   const segTitulo = valores.seo_title.trim() || tituloFallback;
   const segDesc = valores.seo_description.trim() || descricaoFallback || "";
   const ogTitulo = valores.og_title.trim() || segTitulo;
@@ -173,6 +179,14 @@ export function ConfigPaginaModal({
 
             {aba === "seo" && (
               <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                {/* nota + dicas ao vivo */}
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <SeoNota nota={nota} />
+                  <div style={{ fontSize: 12, color: "var(--color-text-secondary)", lineHeight: 1.5 }}>
+                    <strong style={{ color: "var(--color-text-primary)" }}>Nota de SEO desta página.</strong> Preencha os campos abaixo seguindo as dicas — a nota atualiza na hora.
+                  </div>
+                </div>
+                <SeoDicas achados={achados} />
                 {/* prévia Google */}
                 <div style={{ border: "1px solid var(--color-border-tertiary)", borderRadius: 10, padding: "14px 16px", background: "#fff" }}>
                   <div style={{ fontSize: 13, color: "#202124", marginBottom: 6, fontWeight: 700 }}><span style={{ color: "#4285F4" }}>G</span><span style={{ color: "#EA4335" }}>o</span><span style={{ color: "#FBBC05" }}>o</span><span style={{ color: "#4285F4" }}>g</span><span style={{ color: "#34A853" }}>l</span><span style={{ color: "#EA4335" }}>e</span></div>
@@ -208,7 +222,8 @@ export function ConfigPaginaModal({
         </div>
 
         {/* footer */}
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, padding: "14px 20px", borderTop: "1px solid var(--color-border-tertiary)" }}>
+        <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 10, padding: "14px 20px", borderTop: "1px solid var(--color-border-tertiary)" }}>
+          <div style={{ marginRight: "auto" }}><BotaoIA compacto contexto={{ tipo: "descricao", entidade: "pagina", campos: { titulo: segTitulo } }} /></div>
           <button onClick={cancelar} style={{ padding: "9px 18px", borderRadius: 8, border: "1px solid var(--color-border-secondary)", background: "transparent", fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)", cursor: "pointer" }}>Cancelar</button>
           <button onClick={onSalvar} disabled={salvando} style={{ padding: "9px 22px", borderRadius: 8, border: "none", background: "#2563EB", color: "#fff", fontSize: 13, fontWeight: 700, cursor: salvando ? "default" : "pointer" }}>{salvando ? "Salvando…" : "Salvar"}</button>
         </div>
