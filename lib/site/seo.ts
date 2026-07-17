@@ -1,5 +1,28 @@
 // Config de SEO/Open Graph/exibição por página do site (modal "Configurações da página").
 // Reutilizado por trabalhos, posts, páginas e portfólios (painel) e pela renderização pública.
+import { normalizarBriefing } from "./briefing";
+import { gerarSeoPagina, type AlvoSeoPagina } from "./briefingConfig";
+
+// SEO das páginas GENÉRICAS (listagens e categorias, que não têm campos próprios no banco):
+// briefing preenchido → texto gerado dele; sem briefing → o fallback (o texto fixo de sempre).
+export function metaPaginaGenerica(
+  config: { briefing?: unknown; og_image_url?: string | null } | null | undefined,
+  fotografo: { nome_empresa?: string | null; cidade?: string | null; logo_url?: string | null } | null | undefined,
+  alvo: AlvoSeoPagina,
+  fallback: { title: string; description: string },
+): { title: string; description: string; keywords?: string; ogImage?: string } {
+  const gerado = gerarSeoPagina(
+    normalizarBriefing(config?.briefing),
+    { nome_empresa: fotografo?.nome_empresa, cidade: fotografo?.cidade },
+    alvo,
+  );
+  return {
+    title: gerado?.title ?? fallback.title,
+    description: gerado?.description ?? fallback.description,
+    keywords: gerado?.keywords,
+    ogImage: config?.og_image_url ?? fotografo?.logo_url ?? undefined,
+  };
+}
 
 export type ConfigPaginaValores = {
   slug: string;             // URL (aba Geral) — quando aplicável

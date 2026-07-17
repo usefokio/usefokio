@@ -3,6 +3,12 @@
 // Cada regra devolve um Achado; a nota (0–100) é derivada dos achados. Faixas de tamanho seguem
 // as melhores práticas do Google: título ~30–60 chars, description ~70–160 chars.
 
+// Limites de caracteres (máximos visíveis na busca) — FONTE ÚNICA, usada pela auditoria E pelo
+// gerador de sugestões do briefing (lib/site/briefingConfig.ts): o que o briefing gera nasce
+// dentro do que a auditoria cobra.
+export const LIMITE_TITULO = 65;
+export const LIMITE_DESCRICAO = 165;
+
 export type NivelAchado = "erro" | "aviso" | "dica" | "ok";
 
 export type Achado = {
@@ -29,7 +35,7 @@ function checarTitulo(seoTitle: string | null | undefined, fallback: string | nu
   const t = (seoTitle ?? "").trim() || (fallback ?? "").trim();
   if (!t) return [{ id: "titulo_vazio", campo: "seo_title", nivel: "erro", titulo: "Sem título", mensagem: "A página não tem título — é o fator mais importante do SEO.", comoResolver: "Preencha o título (ideal: 30–60 caracteres, com o assunto e a cidade)." }];
   if (t.length < 20) return [{ id: "titulo_curto", campo: "seo_title", nivel: "aviso", titulo: "Título curto", mensagem: `O título tem ${t.length} caracteres; o Google favorece títulos descritivos de 30–60.`, comoResolver: "Inclua o tipo de trabalho e a cidade (ex.: “Casamento no Espaço X em Ourinhos”)." }];
-  if (t.length > 65) return [{ id: "titulo_longo", campo: "seo_title", nivel: "dica", titulo: "Título longo", mensagem: `Com ${t.length} caracteres, o título será cortado na busca (~60 visíveis).`, comoResolver: "Deixe o essencial nos primeiros 60 caracteres." }];
+  if (t.length > LIMITE_TITULO) return [{ id: "titulo_longo", campo: "seo_title", nivel: "dica", titulo: "Título longo", mensagem: `Com ${t.length} caracteres, o título será cortado na busca (~60 visíveis).`, comoResolver: "Deixe o essencial nos primeiros 60 caracteres." }];
   return [{ id: "titulo_ok", campo: "seo_title", nivel: "ok", titulo: "Título bom", mensagem: "Tamanho de título dentro do ideal." }];
 }
 
@@ -37,7 +43,7 @@ function checarDescription(desc: string | null | undefined, rotulo = "Descriçã
   const d = (desc ?? "").trim();
   if (!d) return [{ id: "desc_vazia", campo: "seo_description", nivel: "aviso", titulo: "Sem descrição de busca", mensagem: `${rotulo} vazia — o Google monta um trecho aleatório da página.`, comoResolver: "Escreva 1–2 frases (70–160 caracteres) que convençam o clique." }];
   if (d.length < 70) return [{ id: "desc_curta", campo: "seo_description", nivel: "dica", titulo: "Descrição curta", mensagem: `A descrição tem ${d.length} caracteres; o ideal é 70–160.`, comoResolver: "Acrescente o local, o estilo e um convite à ação." }];
-  if (d.length > 165) return [{ id: "desc_longa", campo: "seo_description", nivel: "dica", titulo: "Descrição longa", mensagem: `Com ${d.length} caracteres, a descrição será cortada (~160 visíveis).` }];
+  if (d.length > LIMITE_DESCRICAO) return [{ id: "desc_longa", campo: "seo_description", nivel: "dica", titulo: "Descrição longa", mensagem: `Com ${d.length} caracteres, a descrição será cortada (~160 visíveis).` }];
   return [{ id: "desc_ok", campo: "seo_description", nivel: "ok", titulo: "Descrição boa", mensagem: "Tamanho de descrição dentro do ideal." }];
 }
 

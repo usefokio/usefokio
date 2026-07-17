@@ -2,6 +2,7 @@
 import type { Metadata } from "next";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { baseLinks, carregarSite, infoCategorias, categoriasParaNav, nomeCategoria } from "@/lib/site/publico";
+import { metaPaginaGenerica } from "@/lib/site/seo";
 import { normalizarDesign } from "@/lib/site/design";
 import { GradeCards } from "../../_components/GradeCards";
 import { PortfolioNav } from "../../_components/PortfolioNav";
@@ -12,7 +13,15 @@ export async function generateMetadata({ params }: { params: Promise<{ fid: stri
   const [{ fotografo, config }, info] = await Promise.all([carregarSite(fid), infoCategorias(fid)]);
   const nome = config?.titulo_site ?? fotografo?.nome_empresa ?? "";
   const cat = nomeCategoria(categoria, info.map);
-  return { title: `${cat}${nome ? " — " + nome : ""}`, description: `Trabalhos de ${cat}${nome ? " por " + nome : ""}.` };
+  // A página de categoria é a mais valiosa do SEO local: com briefing vira
+  // "Fotógrafo de {categoria} em {cidade} — {estúdio}" — o que o cliente digita no Google.
+  const m = metaPaginaGenerica(config, fotografo, { tipo: "categoria", nome: cat }, {
+    title: `${cat}${nome ? " — " + nome : ""}`, description: `Trabalhos de ${cat}${nome ? " por " + nome : ""}.`,
+  });
+  return {
+    title: m.title, description: m.description, keywords: m.keywords,
+    openGraph: { title: m.title, description: m.description, images: m.ogImage ? [m.ogImage] : undefined },
+  };
 }
 
 export default async function CategoriaPage({ params }: { params: Promise<{ fid: string; categoria: string }> }) {

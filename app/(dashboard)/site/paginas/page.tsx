@@ -14,8 +14,8 @@ import { ConfigPaginaModal } from "@/app/(dashboard)/site/_components/ConfigPagi
 import { SeoDicas } from "@/app/(dashboard)/site/_components/SeoDica";
 import { BotaoIA } from "@/app/(dashboard)/site/_components/BotaoIA";
 import { auditarPagina, contarPalavras } from "@/lib/site/seoAudit";
-import { normalizarBriefing, briefingPreenchido } from "@/lib/site/briefing";
-import { gerarSugestoes } from "@/lib/site/briefingConfig";
+import { normalizarBriefing, briefingPreenchido, type Briefing } from "@/lib/site/briefing";
+import { gerarSugestoes, gerarSeoPagina } from "@/lib/site/briefingConfig";
 import { normalizarConfig, type ConfigFormulario } from "@/lib/site/formulario";
 import type { ConfigPaginaValores } from "@/lib/site/seo";
 import type { SitePagina } from "@/lib/supabase/types";
@@ -50,6 +50,7 @@ function PaginasConteudo() {
   const [dominio, setDominio] = useState("seusite.usefokio.com.br");
   const [enviandoFoto, setEnviandoFoto] = useState(false);
   const [rascunhoSobre, setRascunhoSobre] = useState<string | null>(null); // gerado do briefing
+  const [briefingSite, setBriefingSite] = useState<Briefing | null>(null); // p/ sugestão de SEO no modal
   const [salvando, setSalvando] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const inputFotoRef = useRef<HTMLInputElement>(null);
@@ -74,7 +75,10 @@ function PaginasConteudo() {
         if (data) setDominio(data.dominio_customizado || (data.subdominio ? `${data.subdominio}.usefokio.com.br` : "seusite.usefokio.com.br"));
         // Rascunho do "Sobre" gerado do briefing (template) — oferecido quando o texto está vazio
         const br = normalizarBriefing(data?.briefing);
-        if (briefingPreenchido(br)) setRascunhoSobre(gerarSugestoes(br, { nome_empresa: fotografo.nome_empresa, cidade: fotografo.cidade }).sobre_html);
+        if (briefingPreenchido(br)) {
+          setBriefingSite(br);
+          setRascunhoSobre(gerarSugestoes(br, { nome_empresa: fotografo.nome_empresa, cidade: fotografo.cidade }).sobre_html);
+        }
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fotografo]);
@@ -275,6 +279,13 @@ function PaginasConteudo() {
           imagemFallback={imagens[0] ?? null}
           fotografoId={fotografo.id}
           salvando={salvando}
+          sugestao={
+            // Sugestão do briefing só nas páginas GENÉRICAS (Sobre/Contato) — páginas custom são
+            // conteúdo próprio e ficam de fora.
+            briefingSite && (editando.slug === "sobre" || editando.slug === "contato")
+              ? gerarSeoPagina(briefingSite, { nome_empresa: fotografo.nome_empresa, cidade: fotografo.cidade }, { tipo: editando.slug }) ?? undefined
+              : undefined
+          }
         />
       )}
 

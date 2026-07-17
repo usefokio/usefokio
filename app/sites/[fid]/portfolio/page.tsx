@@ -2,6 +2,7 @@
 import type { Metadata } from "next";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { baseLinks, carregarSite, infoCategorias, categoriasParaNav, nomeCategoria } from "@/lib/site/publico";
+import { metaPaginaGenerica } from "@/lib/site/seo";
 import { normalizarDesign } from "@/lib/site/design";
 import { GradeCards } from "../_components/GradeCards";
 import { PortfolioNav } from "../_components/PortfolioNav";
@@ -11,7 +12,14 @@ export async function generateMetadata({ params }: { params: Promise<{ fid: stri
   const { fid } = await params;
   const { fotografo, config } = await carregarSite(fid);
   const nome = config?.titulo_site ?? fotografo?.nome_empresa ?? "Trabalhos";
-  return { title: `Trabalhos — ${nome}`, description: `Conheça os trabalhos de ${nome}.` };
+  // Com briefing preenchido, o SEO desta listagem sai dele; sem, mantém o texto de sempre.
+  const m = metaPaginaGenerica(config, fotografo, { tipo: "trabalhos" }, {
+    title: `Trabalhos — ${nome}`, description: `Conheça os trabalhos de ${nome}.`,
+  });
+  return {
+    title: m.title, description: m.description, keywords: m.keywords,
+    openGraph: { title: m.title, description: m.description, images: m.ogImage ? [m.ogImage] : undefined },
+  };
 }
 
 export default async function PortfolioPage({ params }: { params: Promise<{ fid: string }> }) {

@@ -3,6 +3,7 @@
 import type { Metadata } from "next";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { carregarSite } from "@/lib/site/publico";
+import { metaPaginaGenerica } from "@/lib/site/seo";
 import { fetchAllRows } from "@/lib/supabase/fetchAll";
 import { normalizarDesign } from "@/lib/site/design";
 import { VideosGrade } from "../_components/VideosGrade";
@@ -14,13 +15,13 @@ export async function generateMetadata({ params }: { params: Promise<{ fid: stri
   const { fid } = await params;
   const { fotografo, config } = await carregarSite(fid);
   const nome = config?.titulo_site ?? fotografo?.nome_empresa ?? "Vídeos";
-  const title = `Vídeos — ${nome}`;
-  const description = `Assista aos vídeos de ${nome}.`;
-  const ogImage = config?.og_image_url ?? fotografo?.logo_url ?? undefined;
+  const m = metaPaginaGenerica(config, fotografo, { tipo: "videos" }, {
+    title: `Vídeos — ${nome}`, description: `Assista aos vídeos de ${nome}.`,
+  });
   return {
-    title, description,
-    openGraph: { title, description, images: ogImage ? [ogImage] : undefined },
-    twitter: { card: "summary_large_image", title, description, images: ogImage ? [ogImage] : undefined },
+    title: m.title, description: m.description, keywords: m.keywords,
+    openGraph: { title: m.title, description: m.description, images: m.ogImage ? [m.ogImage] : undefined },
+    twitter: { card: "summary_large_image", title: m.title, description: m.description, images: m.ogImage ? [m.ogImage] : undefined },
   };
 }
 

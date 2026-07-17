@@ -23,7 +23,7 @@ const contador = (n: number, max: number): React.CSSProperties => ({ fontSize: 1
 
 export function ConfigPaginaModal({
   onFechar, onSalvar, valores, onChange, recursos,
-  urlPublica, dominio, tituloFallback, descricaoFallback, imagemFallback, fotografoId, salvando,
+  urlPublica, dominio, tituloFallback, descricaoFallback, imagemFallback, fotografoId, salvando, sugestao,
 }: {
   onFechar: () => void;                                // Cancelar (reverte as edições do modal)
   onSalvar: () => void;                                // Salvar (persiste via editor pai)
@@ -37,6 +37,9 @@ export function ConfigPaginaModal({
   imagemFallback?: string | null;
   fotografoId: string;
   salvando?: boolean;
+  // Sugestão do BRIEFING (páginas genéricas como Sobre/Contato) — preenche só os campos vazios,
+  // o fotógrafo revisa e salva. Sem a prop, o modal fica idêntico (páginas pontuais não mudam).
+  sugestao?: { title: string; description: string; keywords: string };
 }) {
   const [iniciais] = useState(valores); // snapshot para o Cancelar reverter
   const temGeral = !!(recursos.url || recursos.data || recursos.exibicao);
@@ -187,6 +190,30 @@ export function ConfigPaginaModal({
                   </div>
                 </div>
                 <SeoDicas achados={achados} />
+                {/* Sugestão do briefing — preenche só os vazios; o fotógrafo revisa e salva */}
+                {sugestao && (!valores.seo_title.trim() || !valores.seo_description.trim() || !valores.seo_keywords.trim()) && (
+                  <div style={{ border: "1px solid rgba(37,99,235,0.3)", borderRadius: 10, padding: "12px 14px", background: "rgba(37,99,235,0.04)" }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 6, flexWrap: "wrap" }}>
+                      <span style={{ fontSize: 12.5, fontWeight: 700, color: "var(--color-text-primary)" }}>✨ Sugestão do seu briefing</span>
+                      <button
+                        onClick={() => {
+                          const patch: Partial<ConfigPaginaValores> = {};
+                          if (!valores.seo_title.trim()) patch.seo_title = sugestao.title;
+                          if (!valores.seo_description.trim()) patch.seo_description = sugestao.description;
+                          if (!valores.seo_keywords.trim()) patch.seo_keywords = sugestao.keywords;
+                          onChange(patch);
+                        }}
+                        style={{ padding: "6px 12px", borderRadius: 8, border: "none", background: "#2563EB", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+                        Aplicar nos campos vazios
+                      </button>
+                    </div>
+                    <div style={{ fontSize: 11.5, color: "var(--color-text-secondary)", lineHeight: 1.6 }}>
+                      {!valores.seo_title.trim() && <div><strong>Título:</strong> {sugestao.title}</div>}
+                      {!valores.seo_description.trim() && <div><strong>Descrição:</strong> {sugestao.description}</div>}
+                      {!valores.seo_keywords.trim() && <div><strong>Palavras-chave:</strong> {sugestao.keywords}</div>}
+                    </div>
+                  </div>
+                )}
                 {/* prévia Google */}
                 <div style={{ border: "1px solid var(--color-border-tertiary)", borderRadius: 10, padding: "14px 16px", background: "#fff" }}>
                   <div style={{ fontSize: 13, color: "#202124", marginBottom: 6, fontWeight: 700 }}><span style={{ color: "#4285F4" }}>G</span><span style={{ color: "#EA4335" }}>o</span><span style={{ color: "#FBBC05" }}>o</span><span style={{ color: "#4285F4" }}>g</span><span style={{ color: "#34A853" }}>l</span><span style={{ color: "#EA4335" }}>e</span></div>

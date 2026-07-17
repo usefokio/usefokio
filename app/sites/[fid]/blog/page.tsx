@@ -3,19 +3,20 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { baseLinks, carregarSite } from "@/lib/site/publico";
+import { metaPaginaGenerica } from "@/lib/site/seo";
 import type { SitePost } from "@/lib/supabase/types";
 
 export async function generateMetadata({ params }: { params: Promise<{ fid: string }> }): Promise<Metadata> {
   const { fid } = await params;
   const { fotografo, config } = await carregarSite(fid);
   const nome = config?.titulo_site ?? fotografo?.nome_empresa ?? "Blog";
-  const title = `Blog — ${nome}`;
-  const description = `Dicas, histórias e bastidores por ${nome}.`;
-  const ogImage = config?.og_image_url ?? fotografo?.logo_url ?? undefined;
+  const m = metaPaginaGenerica(config, fotografo, { tipo: "blog" }, {
+    title: `Blog — ${nome}`, description: `Dicas, histórias e bastidores por ${nome}.`,
+  });
   return {
-    title, description,
-    openGraph: { title, description, images: ogImage ? [ogImage] : undefined },
-    twitter: { card: "summary_large_image", title, description, images: ogImage ? [ogImage] : undefined },
+    title: m.title, description: m.description, keywords: m.keywords,
+    openGraph: { title: m.title, description: m.description, images: m.ogImage ? [m.ogImage] : undefined },
+    twitter: { card: "summary_large_image", title: m.title, description: m.description, images: m.ogImage ? [m.ogImage] : undefined },
   };
 }
 
