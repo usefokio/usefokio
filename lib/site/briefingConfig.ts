@@ -14,9 +14,33 @@ export type SugestoesSeo = {
 
 const lista = (v: string[], max: number) => v.slice(0, max).join(", ");
 
+// Regiões que parecem NOME DE LUGAR (Ourinhos, Jundiaí/SP…). O briefing aceita descrições longas
+// ("região num raio de cerca de 120 km (interior de SP…)") — leem bem no Sobre, mas viram keyword
+// que ninguém digita e "Atendo …" truncado. Heurística: curto e sem parênteses; se nada sobrar,
+// fica só o 1º item (a cidade-base vem antes da vírgula por instrução do formulário/prompt).
+const regioesLugar = (regioes: string[]): string[] => {
+  const curtas = regioes.map((r) => r.trim()).filter((r) => r && r.length <= 30 && !r.includes("("));
+  return curtas.length ? curtas : regioes.slice(0, 1);
+};
+
+// Monta a description frase a frase e SÓ inclui a próxima se couber inteira — cortar no meio
+// da palavra ("Atendo O…") fica feio na busca. A 1ª frase entra sempre (cortada se gigante).
+const frases = (parts: (string | null | undefined | false)[]) => {
+  let out = "";
+  for (const p of parts) {
+    if (!p || !String(p).trim()) continue;
+    const frase = String(p).trim().replace(/\.+$/, "");
+    const cand = out ? `${out} ${frase}.` : `${frase}.`;
+    if (cand.length <= LIMITE_DESCRICAO) out = cand;
+    else if (!out) out = cand.slice(0, LIMITE_DESCRICAO);
+  }
+  return out;
+};
+
 export function gerarSugestoes(b: Briefing, ctx: { nome_empresa?: string | null; cidade?: string | null }): SugestoesSeo {
   const estudio = (ctx.nome_empresa ?? "").trim();
-  const cidade = (b.regioes[0] ?? ctx.cidade ?? "").trim();
+  const lugares = regioesLugar(b.regioes);
+  const cidade = (lugares[0] ?? ctx.cidade ?? "").trim();
   const nicho = b.nichos[0] ?? "";
   if (!nicho && !estudio) return { seo_title: null, seo_description: null, seo_keywords: null, sobre_html: null };
 
@@ -27,14 +51,13 @@ export function gerarSugestoes(b: Briefing, ctx: { nome_empresa?: string | null;
   ].filter(Boolean).join(" ");
   const seo_title = (estudio ? `${partesTitulo} — ${estudio}` : partesTitulo).slice(0, LIMITE_TITULO);
 
-  // Descrição: conceito + nichos + regiões + convite (mira 120–160 chars)
-  const desc = [
+  // Descrição: conceito + nichos + regiões + convite (frase a frase, sem corte no meio)
+  const seo_description = frases([
     b.conceito || (nicho ? `Fotografia de ${nicho.toLowerCase()}` : "Fotografia profissional"),
     b.nichos.length > 1 ? `Especializado em ${lista(b.nichos, 3).toLowerCase()}` : "",
-    b.regioes.length ? `Atendo ${lista(b.regioes, 2)} e região` : "",
+    lugares.length ? `Atendo ${lista(lugares, 2)} e região` : "",
     "Peça seu orçamento",
-  ].filter(Boolean).join(". ") + ".";
-  const seo_description = desc.slice(0, LIMITE_DESCRICAO);
+  ]);
 
   // Palavras-chave: nicho+cidade cruzados + sementes do fotógrafo
   const kw = new Set<string>();
@@ -42,7 +65,7 @@ export function gerarSugestoes(b: Briefing, ctx: { nome_empresa?: string | null;
     kw.add(`fotógrafo de ${n.toLowerCase()}${cidade ? ` ${cidade.toLowerCase()}` : ""}`);
     kw.add(`fotografia de ${n.toLowerCase()}`);
   }
-  for (const r of b.regioes.slice(0, 3)) kw.add(`fotógrafo em ${r.toLowerCase()}`);
+  for (const r of lugares.slice(0, 3)) kw.add(`fotógrafo em ${r.toLowerCase()}`);
   for (const p of b.palavras_semente.slice(0, 6)) kw.add(p.toLowerCase());
   const seo_keywords = kw.size ? [...kw].join(", ").slice(0, 250) : null;
 
@@ -76,7 +99,8 @@ export function gerarSeoPagina(
 ): SeoPaginaGerado | null {
   if (!briefingPreenchido(b)) return null;
   const estudio = (ctx.nome_empresa ?? "").trim();
-  const cidade = (b.regioes[0] ?? ctx.cidade ?? "").trim();
+  const lugares = regioesLugar(b.regioes);
+  const cidade = (lugares[0] ?? ctx.cidade ?? "").trim();
   const nicho = b.nichos[0] ?? "";
   if (!estudio && !nicho) return null;
 
@@ -84,20 +108,7 @@ export function gerarSeoPagina(
   const foco = alvo.tipo === "categoria" ? alvo.nome.trim() : nicho;
   const emCidade = cidade ? ` em ${cidade}` : "";
   const comEstudio = (t: string) => (estudio ? `${t} — ${estudio}` : t).slice(0, LIMITE_TITULO);
-  // Monta a description frase a frase e SÓ inclui a próxima se couber inteira — cortar no meio
-  // da palavra ("Atendo O…") fica feio na busca. A 1ª frase entra sempre (cortada se gigante).
-  const frases = (parts: (string | null | undefined | false)[]) => {
-    let out = "";
-    for (const p of parts) {
-      if (!p || !String(p).trim()) continue;
-      const frase = String(p).trim().replace(/\.+$/, "");
-      const cand = out ? `${out} ${frase}.` : `${frase}.`;
-      if (cand.length <= LIMITE_DESCRICAO) out = cand;
-      else if (!out) out = cand.slice(0, LIMITE_DESCRICAO);
-    }
-    return out;
-  };
-  const atendo = b.regioes.length ? `Atendo ${lista(b.regioes, 2)} e região` : "";
+  const atendo = lugares.length ? `Atendo ${lista(lugares, 2)} e região` : "";
 
   // Palavras-chave: foco×cidade + demais nichos + regiões + sementes (mesma lógica da home)
   const kw = new Set<string>();
@@ -106,7 +117,7 @@ export function gerarSeoPagina(
     kw.add(`fotografia de ${foco.toLowerCase()}`);
   }
   for (const n of b.nichos.slice(0, 3)) if (n !== foco) kw.add(`fotografia de ${n.toLowerCase()}`);
-  for (const r of b.regioes.slice(0, 3)) kw.add(`fotógrafo em ${r.toLowerCase()}`);
+  for (const r of lugares.slice(0, 3)) kw.add(`fotógrafo em ${r.toLowerCase()}`);
   for (const p of b.palavras_semente.slice(0, 4)) kw.add(p.toLowerCase());
   const keywords = [...kw].join(", ").slice(0, 250);
 
