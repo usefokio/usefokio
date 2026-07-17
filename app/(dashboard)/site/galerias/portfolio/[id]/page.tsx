@@ -16,7 +16,9 @@ import { BotaoIA } from "@/app/(dashboard)/site/_components/BotaoIA";
 import { auditarColecao } from "@/lib/site/seoAudit";
 import type { ConfigPaginaValores } from "@/lib/site/seo";
 import { urlPublicaSite, type ConfigUrl } from "@/lib/site/urlPublica";
-import type { SitePortfolio, SitePortfolioFoto } from "@/lib/supabase/types";
+import { resolverCategoria } from "@/lib/site/categorias";
+import { CategoriaCombobox } from "@/app/(dashboard)/site/_components/CategoriaCombobox";
+import type { SiteCategoria, SitePortfolio, SitePortfolioFoto } from "@/lib/supabase/types";
 
 const inputStyle: React.CSSProperties = {
   width: "100%", padding: "10px 12px", borderRadius: 8, boxSizing: "border-box",
@@ -39,6 +41,8 @@ export default function PortfolioEditorPage({ params }: { params: Promise<{ id: 
 
   const [portfolio, setPortfolio] = useState<SitePortfolio | null>(null);
   const [titulo, setTitulo] = useState("");
+  const [catNome, setCatNome] = useState("");                  // nome digitado/escolhido (combobox)
+  const [cats, setCats] = useState<SiteCategoria[]>([]);       // categorias da conta
   const [descricao, setDescricao] = useState("");
   const [publicado, setPublicado] = useState(true);
   const [seoTitle, setSeoTitle] = useState("");
@@ -60,7 +64,7 @@ export default function PortfolioEditorPage({ params }: { params: Promise<{ id: 
   const inputFileRef = useRef<HTMLInputElement>(null);
 
   // Estado de salvamento claro (regra de sistema) — fotos ficam de fora (persistem na hora, por design)
-  const snapshotAtual = JSON.stringify([titulo, descricao, publicado, seoTitle, seoDesc, seoKw, seoNoindex, ogTitle, ogDesc, ogImage, modoExibicao]);
+  const snapshotAtual = JSON.stringify([titulo, catNome, descricao, publicado, seoTitle, seoDesc, seoKw, seoNoindex, ogTitle, ogDesc, ogImage, modoExibicao]);
   const estado = useEditorEstado(snapshotAtual, "/site/galerias");
 
   // Análise de SEO ao vivo (motor único em lib/site/seoAudit)
@@ -73,11 +77,22 @@ export default function PortfolioEditorPage({ params }: { params: Promise<{ id: 
     if (!fotografo) return;
     const supabase = createClient();
     async function carregar() {
-      const { data: p } = await supabase.from("site_portfolios").select("*").eq("id", id).maybeSingle();
+      const [{ data: p }, { data: categorias }] = await Promise.all([
+        supabase.from("site_portfolios").select("*").eq("id", id).maybeSingle(),
+        supabase.from("site_categorias").select("*").eq("fotografo_id", fotografo!.id).order("ordem"),
+      ]);
       if (!p) { setMsg({ tipo: "erro", texto: "Portfólio não encontrado." }); setCarregando(false); return; }
       const port = p as SitePortfolio;
+      const listaCats = (categorias as SiteCategoria[]) ?? [];
+      const catMapa = Object.fromEntries(listaCats.map((c) => [c.slug, c.nome]));
+      // Só pré-preenche se a categoria estiver REGISTRADA na conta. Coleção antiga tem
+      // categoria = slug do próprio título ("fantasma", nunca foi área de atuação) — deixar
+      // o campo em branco evita registrá-la sem querer ao salvar (não polui site_categorias).
+      const nomeCatInicial = catMapa[port.categoria] ?? "";
       setPortfolio(port);
+      setCats(listaCats);
       setTitulo(port.titulo);
+      setCatNome(nomeCatInicial);
       setDescricao(port.descricao ?? "");
       setPublicado(port.publicado);
       setSeoTitle(port.seo_title ?? ""); setSeoDesc(port.seo_description ?? ""); setSeoKw(port.seo_keywords ?? "");
@@ -89,7 +104,7 @@ export default function PortfolioEditorPage({ params }: { params: Promise<{ id: 
       const { data: fts } = await supabase.from("site_portfolio_fotos").select("*").eq("portfolio_id", id).order("ordem");
       setFotos((fts as SitePortfolioFoto[]) ?? []);
       estado.inicializar(JSON.stringify([
-        port.titulo, port.descricao ?? "", port.publicado, port.seo_title ?? "", port.seo_description ?? "", port.seo_keywords ?? "",
+        port.titulo, nomeCatInicial, port.descricao ?? "", port.publicado, port.seo_title ?? "", port.seo_description ?? "", port.seo_keywords ?? "",
         port.seo_noindex, port.og_title ?? "", port.og_description ?? "", port.og_image_url, port.modo_exibicao || "lista",
       ]));
       setCarregando(false);
@@ -98,12 +113,30 @@ export default function PortfolioEditorPage({ params }: { params: Promise<{ id: 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, fotografo]);
 
+  // Garante que a categoria digitada existe (mesma regra do trabalho) e devolve o slug dela.
+  // Campo em branco (ou só símbolos, que slugificam para vazio) NÃO cria categoria nem apaga a
+  // já salva — devolve a categoria atual da coleção, para não gravar "" nem registrar fantasma.
+  async function garantirCategoria(supabase: ReturnType<typeof createClient>): Promise<string> {
+    const nome = catNome.trim();
+    if (!nome) return portfolio?.categoria ?? "";
+    const { slug, existente } = resolverCategoria(nome, cats);
+    if (!slug) return portfolio?.categoria ?? "";
+    if (!existente && fotografo) {
+      const ordem = cats.length > 0 ? Math.max(...cats.map((c) => c.ordem)) + 1 : 0;
+      const { data: nova } = await supabase.from("site_categorias").insert({ fotografo_id: fotografo.id, slug, nome, ordem }).select("*").single();
+      if (nova) setCats((prev) => [...prev, nova as SiteCategoria]);
+    }
+    return slug;
+  }
+
   async function salvar(): Promise<boolean> {
     if (!titulo.trim()) { setMsg({ tipo: "erro", texto: "Informe o título." }); return false; }
+    // Categoria é OPCIONAL: em branco, garantirCategoria mantém a que já estava salva.
     setSalvando(true); setMsg(null);
     const supabase = createClient();
+    const slugCat = await garantirCategoria(supabase);
     const { error } = await supabase.from("site_portfolios").update({
-      titulo: titulo.trim(), descricao: descricao.trim() || null, publicado,
+      titulo: titulo.trim(), categoria: slugCat, descricao: descricao.trim() || null, publicado,
       seo_title: seoTitle.trim() || null, seo_description: seoDesc.trim() || null, seo_keywords: seoKw.trim() || null,
       seo_noindex: seoNoindex, og_title: ogTitle.trim() || null, og_description: ogDesc.trim() || null, og_image_url: ogImage,
       modo_exibicao: modoExibicao,
@@ -111,17 +144,20 @@ export default function PortfolioEditorPage({ params }: { params: Promise<{ id: 
     }).eq("id", id);
     setSalvando(false);
     if (error) { setMsg({ tipo: "erro", texto: error.message }); return false; }
+    setPortfolio((prev) => prev ? { ...prev, categoria: slugCat } : prev);
     estado.marcarSalvo(snapshotAtual);
     setMsg({ tipo: "ok", texto: "Portfólio salvo!" });
     return true;
   }
 
-  // Puxa as fotos marcadas ⭐ destaque nos trabalhos da mesma categoria (sem duplicar)
+  // Puxa as fotos marcadas ⭐ destaque nos trabalhos da mesma categoria (sem duplicar).
+  // Usa a categoria do CAMPO (mesmo antes de salvar), com fallback na salva.
   async function puxarDestaques() {
     if (!portfolio || !fotografo) return;
     setPuxando(true); setMsg(null);
     const supabase = createClient();
-    const { data: trabalhos } = await supabase.from("site_trabalhos").select("id").eq("fotografo_id", fotografo.id).eq("categoria", portfolio.categoria);
+    const catBusca = resolverCategoria(catNome, cats).slug || portfolio.categoria;
+    const { data: trabalhos } = await supabase.from("site_trabalhos").select("id").eq("fotografo_id", fotografo.id).eq("categoria", catBusca);
     const ids = (trabalhos ?? []).map((t: { id: string }) => t.id);
     if (ids.length === 0) { setPuxando(false); setMsg({ tipo: "erro", texto: "Nenhum trabalho nesta categoria." }); return; }
     const { data: destaques } = await supabase.from("site_trabalho_fotos").select("id, url_publica, storage_path, descricao").in("trabalho_id", ids).eq("destaque", true);
@@ -285,6 +321,13 @@ export default function PortfolioEditorPage({ params }: { params: Promise<{ id: 
               Endereço no site: /colecoes/{portfolio.slug}
             </div>
           ) : null}
+        </div>
+        <div>
+          <label style={labelStyle}>Categoria (área de atuação)</label>
+          <CategoriaCombobox valor={catNome} onChange={setCatNome} cats={cats} listaId="lista-categorias-colecao" placeholder="Ex.: Casamentos" style={inputStyle} />
+          <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 4 }}>
+            Liga a coleção à área de atuação — é dela que o “⭐ Puxar destaques” busca as fotos dos trabalhos.
+          </div>
         </div>
         <div>
           <label style={labelStyle}>Descrição da coleção</label>

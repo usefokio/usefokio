@@ -24,6 +24,7 @@ export default function CategoriasPage() {
   const { fotografo } = useFotografo();
   const [cats, setCats] = useState<SiteCategoria[]>([]);
   const [contagem, setContagem] = useState<Record<string, number>>({});
+  const [contagemPort, setContagemPort] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [editando, setEditando] = useState<string | null>(null);
   const [edNome, setEdNome] = useState("");
@@ -35,17 +36,24 @@ export default function CategoriasPage() {
     if (!fotografo) return;
     const sb = createClient();
     async function carregar() {
-      const [{ data: categorias }, trabalhos] = await Promise.all([
+      const [{ data: categorias }, trabalhos, colecoes] = await Promise.all([
         sb.from("site_categorias").select("*").eq("fotografo_id", fotografo!.id).order("ordem"),
         fetchAllRows<{ categoria: string }>(
           (s, from, to) => s.from("site_trabalhos").select("categoria").eq("fotografo_id", fotografo!.id).range(from, to),
           sb,
         ),
+        fetchAllRows<{ categoria: string }>(
+          (s, from, to) => s.from("site_portfolios").select("categoria").eq("fotografo_id", fotografo!.id).range(from, to),
+          sb,
+        ),
       ]);
       const cont: Record<string, number> = {};
       for (const t of trabalhos ?? []) cont[t.categoria] = (cont[t.categoria] ?? 0) + 1;
+      const contPort: Record<string, number> = {};
+      for (const p of colecoes ?? []) if (p.categoria) contPort[p.categoria] = (contPort[p.categoria] ?? 0) + 1;
       setCats((categorias as SiteCategoria[]) ?? []);
       setContagem(cont);
+      setContagemPort(contPort);
       setLoading(false);
     }
     carregar();
@@ -69,8 +77,10 @@ export default function CategoriasPage() {
 
   async function excluir(c: SiteCategoria) {
     const n = contagem[c.slug] ?? 0;
-    if (n > 0) {
-      setMsg(`"${c.nome}" tem ${n} trabalho(s). Mova ou exclua esses trabalhos antes de apagar a categoria.`);
+    const nPort = contagemPort[c.slug] ?? 0;
+    if (n > 0 || nPort > 0) {
+      const usos = [n > 0 ? `${n} trabalho(s)` : "", nPort > 0 ? `${nPort} coleção(ões)` : ""].filter(Boolean).join(" e ");
+      setMsg(`"${c.nome}" tem ${usos}. Mova ou exclua antes de apagar a categoria.`);
       return;
     }
     if (!confirm(`Excluir a categoria "${c.nome}"? (ela não tem trabalhos)`)) return;
@@ -115,6 +125,8 @@ export default function CategoriasPage() {
           {cats.map((c, idx) => {
             const emEdicao = editando === c.id;
             const n = contagem[c.slug] ?? 0;
+            const nPort = contagemPort[c.slug] ?? 0;
+            const emUso = n > 0 || nPort > 0;
             return (
               <div key={c.id} draggable={!emEdicao}
                 onDragStart={() => { if (!emEdicao) dragIdx.current = idx; }}
@@ -137,11 +149,13 @@ export default function CategoriasPage() {
                   <>
                     <span style={{ color: "var(--color-text-tertiary)", fontSize: 14, flex: "0 0 auto", width: 14 }}>⠿</span>
                     <span style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 600, color: "var(--color-text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.nome}</span>
-                    <span style={{ fontSize: 12, color: "var(--color-text-secondary)", whiteSpace: "nowrap" }}>{n} {n === 1 ? "trabalho" : "trabalhos"}</span>
+                    <span style={{ fontSize: 12, color: "var(--color-text-secondary)", whiteSpace: "nowrap" }}>
+                      {n} {n === 1 ? "trabalho" : "trabalhos"}{nPort > 0 ? ` · ${nPort} ${nPort === 1 ? "coleção" : "coleções"}` : ""}
+                    </span>
                     <span style={{ fontSize: 11.5, color: "var(--color-text-tertiary)", fontFamily: "monospace", flex: "0 1 auto", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>/{c.slug}</span>
                     <button onClick={() => alternarAtivo(c)} title={c.ativo ? "Ocultar da barra do portfólio" : "Mostrar na barra do portfólio"} style={acao}>{c.ativo ? "👁" : "🚫"}</button>
                     <button onClick={() => iniciarEdicao(c)} title="Renomear" style={acao}>✏️</button>
-                    <button onClick={() => excluir(c)} title={n > 0 ? "Só é possível excluir categorias sem trabalhos" : "Excluir"} style={{ ...acao, fontSize: 13, color: n > 0 ? "var(--color-text-tertiary)" : "#DC2626", cursor: n > 0 ? "not-allowed" : "pointer" }}>🗑</button>
+                    <button onClick={() => excluir(c)} title={emUso ? "Só é possível excluir categorias sem trabalhos nem coleções" : "Excluir"} style={{ ...acao, fontSize: 13, color: emUso ? "var(--color-text-tertiary)" : "#DC2626", cursor: emUso ? "not-allowed" : "pointer" }}>🗑</button>
                   </>
                 )}
               </div>

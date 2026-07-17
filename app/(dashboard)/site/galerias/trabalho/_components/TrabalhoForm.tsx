@@ -17,7 +17,8 @@ import { auditarTrabalho, contarPalavras } from "@/lib/site/seoAudit";
 import type { ConfigPaginaValores } from "@/lib/site/seo";
 import { urlPublicaSite, type ConfigUrl } from "@/lib/site/urlPublica";
 import { normalizarVideoUrl } from "@/lib/utils/youtube";
-import { nomeCategoria } from "@/lib/site/categorias";
+import { nomeCategoria, resolverCategoria } from "@/lib/site/categorias";
+import { CategoriaCombobox } from "@/app/(dashboard)/site/_components/CategoriaCombobox";
 import type { SiteTrabalho, SiteTrabalhoFoto, SiteCategoria } from "@/lib/supabase/types";
 
 function slugify(texto: string): string {
@@ -96,12 +97,8 @@ export function TrabalhoForm({ trabalhoId }: { trabalhoId?: string }) {
       .then(({ data }) => setCats((data as SiteCategoria[]) ?? []));
   }, [fotografo]);
 
-  // slug da categoria: se o nome bate com uma existente, usa o slug dela; senão, gera do nome.
-  const categoriaSlug = useMemo(() => {
-    const t = catNome.trim();
-    const ex = cats.find((c) => c.nome.toLowerCase() === t.toLowerCase());
-    return ex ? ex.slug : slugify(t);
-  }, [catNome, cats]);
+  // slug da categoria: casa com existente por nome OU slug (lib/site/categorias); senão gera do nome.
+  const categoriaSlug = useMemo(() => resolverCategoria(catNome, cats).slug, [catNome, cats]);
 
   useEffect(() => {
     if (!editando) {
@@ -355,11 +352,7 @@ export function TrabalhoForm({ trabalhoId }: { trabalhoId?: string }) {
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
           <div>
             <label style={labelStyle}>Categoria *</label>
-            <input list="lista-categorias" value={catNome} onChange={(e) => setCatNome(e.target.value)} style={inputStyle}
-              placeholder="Ex.: Casamentos" autoComplete="off" />
-            <datalist id="lista-categorias">
-              {cats.map((c) => <option key={c.id} value={c.nome} />)}
-            </datalist>
+            <CategoriaCombobox valor={catNome} onChange={setCatNome} cats={cats} listaId="lista-categorias" placeholder="Ex.: Casamentos" style={inputStyle} />
             <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: "4px 0 0" }}>
               Escolha uma existente ou digite uma nova — ela é criada ao salvar.
             </p>

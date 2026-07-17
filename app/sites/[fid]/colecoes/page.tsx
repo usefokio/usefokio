@@ -4,7 +4,7 @@
 // (/galeria é reservado pro produto de galeria de cliente; por isso a coleção usa /colecoes.)
 import type { Metadata } from "next";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { baseLinks, carregarSite } from "@/lib/site/publico";
+import { baseLinks, carregarSite, infoCategorias } from "@/lib/site/publico";
 import { metaPaginaGenerica } from "@/lib/site/seo";
 import { normalizarDesign } from "@/lib/site/design";
 import { GradeCards } from "../_components/GradeCards";
@@ -34,12 +34,18 @@ export default async function PortfolioColecoesPage({ params }: { params: Promis
   const { fid } = await params;
   const b = await baseLinks(fid);
   const admin = createAdminClient();
-  const [{ data }, { data: cfg }] = await Promise.all([
+  const [{ data }, { data: cfg }, info] = await Promise.all([
     admin.from("site_portfolios").select("*").eq("fotografo_id", fid).eq("publicado", true).order("ordem"),
     admin.from("site_config").select("design").eq("fotografo_id", fid).maybeSingle(),
+    infoCategorias(fid),
   ]);
   const portfolios = ((data ?? []) as SitePortfolio[]).filter((p) => urlDoPortfolio(b, p));
   const grade = normalizarDesign(cfg?.design).grades.portfolio; // exibição configurada na Aparência
+  // Categoria no card SÓ quando registrada na conta (evita ecoar o slug-fantasma) e ≠ do título.
+  const catDoCard = (p: SitePortfolio) => {
+    const nome = info.map[p.categoria];
+    return nome && nome.trim().toLowerCase() !== p.titulo.trim().toLowerCase() ? nome : undefined;
+  };
 
   return (
     <div style={{ maxWidth: "var(--site-largura)", margin: "0 auto", padding: "48px 24px" }}>
@@ -55,6 +61,7 @@ export default async function PortfolioColecoesPage({ params }: { params: Promis
             href: urlDoPortfolio(b, p) as string,
             capa_url: p.capa_url,
             titulo: p.titulo,
+            subtitulo: catDoCard(p),
           }))}
         />
       )}
