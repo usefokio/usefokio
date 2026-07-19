@@ -362,6 +362,7 @@ export type SiteConfig = {
   dominio_customizado: string | null;
   tema: string;
   publicado: boolean;
+  marca_dagua: boolean;     // queima a marca do fotógrafo nas fotos NOVAS do site
   briefing: unknown | null; // Briefing de marca (jsonb) — ler via normalizarBriefing (lib/site/briefing.ts)
   titulo_site: string | null;
   seo_title: string | null;

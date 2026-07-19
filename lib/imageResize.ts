@@ -164,37 +164,45 @@ function injetarExif(blob: Blob, exifStr: string): Promise<Blob> {
   });
 }
 
+/** Marca d'água opcional, queimada no JPEG no momento do upload. */
+export type MarcaDagua = {
+  url: string;
+  urlVertical?: string | null;  // usada quando a foto é retrato
+  escala?: number;
+  opacidade?: number;
+};
+
+// Alvo do SITE público: boa em tela, ruim para impressão — o acervo é o ativo do fotógrafo.
+export const SITE_MAX_PX = 1400;
+export const SITE_QUALIDADE = 0.82;
+
 /**
- * Versão simplificada para fotos de entrega (baixa resolução, sem thumbnail separado).
- * Retorna apenas o blob redimensionado — o mesmo arquivo serve para grid e download.
+ * Versão simplificada para fotos de entrega e do site (sem thumbnail separado).
+ * Só devolve o arquivo ORIGINAL quando ele já está dentro do limite de DIMENSÃO e não há marca
+ * d'água. Antes o corte era por PESO (< 1 MB), o que deixava passar original cru — um JPEG bem
+ * comprimido de 4000px pesa menos de 1 MB e ia inteiro para o bucket público.
  */
 export async function processarImagemEntrega(
   file: File,
   maxPx = 1200,
   qualidade = 0.82,
+  marca?: MarcaDagua | null,
 ): Promise<{ blob: Blob; largura: number; altura: number; tamanho_bytes: number }> {
-  // Arquivos menores que 1 MB não passam pelo canvas — devolvem o original
-  if (file.size < 1024 * 1024) {
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      const url = URL.createObjectURL(file);
-      img.onload = () => {
-        URL.revokeObjectURL(url);
-        resolve({ blob: file, largura: img.naturalWidth, altura: img.naturalHeight, tamanho_bytes: file.size });
-      };
-      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error(`Erro ao carregar ${file.name}`)); };
-      img.src = url;
-    });
-  }
-
   return new Promise((resolve, reject) => {
     const img = new Image();
     const url = URL.createObjectURL(file);
     img.onload = async () => {
       URL.revokeObjectURL(url);
       const { naturalWidth: ow, naturalHeight: oh } = img;
-      let largura = ow, altura = oh;
       const ladoLongo = Math.max(ow, oh);
+
+      // Já cabe no limite e não precisa de marca → devolve o original (não recomprime à toa)
+      if (ladoLongo <= maxPx && !marca) {
+        resolve({ blob: file, largura: ow, altura: oh, tamanho_bytes: file.size });
+        return;
+      }
+
+      let largura = ow, altura = oh;
       if (ladoLongo > maxPx) {
         const r = maxPx / ladoLongo;
         largura = Math.round(ow * r);
@@ -206,6 +214,13 @@ export async function processarImagemEntrega(
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = "high";
       ctx.drawImage(img, 0, 0, largura, altura);
+
+      // Marca d'água ANTES do export — foto retrato usa a versão vertical, quando houver
+      if (marca) {
+        const wmUrl = altura > largura && marca.urlVertical ? marca.urlVertical : marca.url;
+        if (wmUrl) await aplicarMarcaDagua(ctx, largura, altura, wmUrl, marca.escala, marca.opacidade);
+      }
+
       try {
         const blobSemExif = await canvasToBlob(canvas, "image/jpeg", qualidade);
         const originalDataUrl = await fileToDataUrl(file);

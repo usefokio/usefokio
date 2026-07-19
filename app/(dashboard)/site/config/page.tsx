@@ -23,22 +23,24 @@ export default function SiteConfigPage() {
   const [instagram, setInstagram] = useState("");
   const [facebook, setFacebook] = useState("");
   const [youtube, setYoutube] = useState("");
+  const [marcaDagua, setMarcaDagua] = useState(false);
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
   // Estado de salvamento claro (regra de sistema)
-  const snapshotAtual = JSON.stringify([instagram, facebook, youtube]);
+  const snapshotAtual = JSON.stringify([instagram, facebook, youtube, marcaDagua]);
   const estado = useEditorEstado(snapshotAtual, "/site");
 
   useEffect(() => {
     if (!fotografo) return;
-    createClient().from("site_config").select("redes").eq("fotografo_id", fotografo.id).maybeSingle().then(({ data }) => {
+    createClient().from("site_config").select("redes, marca_dagua").eq("fotografo_id", fotografo.id).maybeSingle().then(({ data }) => {
       const redes = (data?.redes ?? {}) as Record<string, string>;
       setInstagram(redes.instagram ?? "");
       setFacebook(redes.facebook ?? "");
       setYoutube(redes.youtube ?? "");
-      estado.inicializar(JSON.stringify([redes.instagram ?? "", redes.facebook ?? "", redes.youtube ?? ""]));
+      setMarcaDagua(!!data?.marca_dagua);
+      estado.inicializar(JSON.stringify([redes.instagram ?? "", redes.facebook ?? "", redes.youtube ?? "", !!data?.marca_dagua]));
       setCarregando(false);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -54,6 +56,7 @@ export default function SiteConfigPage() {
     const { error } = await createClient().from("site_config").upsert({
       fotografo_id: fotografo.id,
       redes: Object.keys(redes).length > 0 ? redes : null,
+      marca_dagua: marcaDagua,
       updated_at: new Date().toISOString(),
     }, { onConflict: "fotografo_id" });
     setSalvando(false);
@@ -79,6 +82,25 @@ export default function SiteConfigPage() {
             <div><label style={labelStyle}>Instagram</label><input value={instagram} onChange={(e) => setInstagram(e.target.value)} style={inputStyle} placeholder="https://instagram.com/…" /></div>
             <div><label style={labelStyle}>Facebook</label><input value={facebook} onChange={(e) => setFacebook(e.target.value)} style={inputStyle} placeholder="https://facebook.com/…" /></div>
             <div><label style={labelStyle}>YouTube</label><input value={youtube} onChange={(e) => setYoutube(e.target.value)} style={inputStyle} placeholder="https://youtube.com/…" /></div>
+          </div>
+        </div>
+
+        <div style={{ padding: "14px 16px", borderRadius: 12, border: "1px solid var(--color-border-tertiary)", background: "var(--color-background-secondary)" }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "var(--color-text-primary)", marginBottom: 4 }}>Proteção das imagens</div>
+          <p style={{ fontSize: 12, color: "var(--color-text-secondary)", margin: "0 0 10px", lineHeight: 1.6 }}>
+            O site já publica as fotos em <strong>resolução de tela</strong> (nunca em alta), bloqueia clique
+            direito e arrastar. Nenhum site consegue impedir print de tela — a marca d&apos;água é a única
+            proteção que sobrevive a um print.
+          </p>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--color-text-primary)", cursor: "pointer" }}>
+            <input type="checkbox" checked={marcaDagua} onChange={(e) => setMarcaDagua(e.target.checked)} style={{ width: 15, height: 15 }} />
+            Aplicar marca d&apos;água nas fotos do site
+          </label>
+          <div style={{ fontSize: 11.5, color: "var(--color-text-secondary)", marginTop: 6, lineHeight: 1.6 }}>
+            Vale para fotos <strong>enviadas a partir de agora</strong> — as já publicadas não mudam.
+            {fotografo?.watermark_url
+              ? <> Usa a marca cadastrada em <Link href="/config" style={{ color: "var(--color-text-primary)", fontWeight: 600 }}>Configurações</Link> (escala e opacidade também vêm de lá).</>
+              : <> <strong style={{ color: "#B45309" }}>Você ainda não cadastrou uma marca d&apos;água</strong> — envie o PNG em <Link href="/config" style={{ color: "var(--color-text-primary)", fontWeight: 600 }}>Configurações</Link> para esta opção ter efeito.</>}
           </div>
         </div>
 

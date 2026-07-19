@@ -8,7 +8,8 @@ import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { uploadFileClient } from "@/lib/storage/uploadClient";
 import { deleteFilesClient } from "@/lib/storage/deleteClient";
-import { processarImagemEntrega } from "@/lib/imageResize";
+import { processarImagemEntrega, SITE_MAX_PX, SITE_QUALIDADE } from "@/lib/imageResize";
+import { marcaDaguaSite } from "@/lib/site/marcaDagua";
 import { useEditorEstado, SeloEstado, BotaoSalvarEstado, ModalNaoSalvo } from "@/app/(dashboard)/_components/EditorEstado";
 import { ConfigPaginaModal } from "@/app/(dashboard)/site/_components/ConfigPaginaModal";
 import { SeoDicas } from "@/app/(dashboard)/site/_components/SeoDica";
@@ -57,6 +58,7 @@ export default function PortfolioEditorPage({ params }: { params: Promise<{ id: 
   const [dominio, setDominio] = useState("seusite.usefokio.com.br");
   const [cfgSite, setCfgSite] = useState<ConfigUrl | null>(null);
 
+  const [marcaAtiva, setMarcaAtiva] = useState(false);   // site_config.marca_dagua
   const [fotos, setFotos] = useState<SitePortfolioFoto[]>([]);
   const [capaUrl, setCapaUrl] = useState<string | null>(null);
   const [fila, setFila] = useState<{ total: number; feitas: number } | null>(null);
@@ -99,8 +101,12 @@ export default function PortfolioEditorPage({ params }: { params: Promise<{ id: 
       setSeoNoindex(port.seo_noindex); setOgTitle(port.og_title ?? ""); setOgDesc(port.og_description ?? ""); setOgImage(port.og_image_url);
       setModoExibicao(port.modo_exibicao || "lista");
       setCapaUrl(port.capa_url);
-      const { data: cfg } = await supabase.from("site_config").select("subdominio, dominio_customizado, publicado").eq("fotografo_id", fotografo!.id).maybeSingle();
-      if (cfg) { setDominio(cfg.dominio_customizado || (cfg.subdominio ? `${cfg.subdominio}.usefokio.com.br` : "seusite.usefokio.com.br")); setCfgSite(cfg as ConfigUrl); }
+      const { data: cfg } = await supabase.from("site_config").select("subdominio, dominio_customizado, publicado, marca_dagua").eq("fotografo_id", fotografo!.id).maybeSingle();
+      if (cfg) {
+        setDominio(cfg.dominio_customizado || (cfg.subdominio ? `${cfg.subdominio}.usefokio.com.br` : "seusite.usefokio.com.br"));
+        setCfgSite(cfg as ConfigUrl);
+        setMarcaAtiva(!!cfg.marca_dagua);
+      }
       const { data: fts } = await supabase.from("site_portfolio_fotos").select("*").eq("portfolio_id", id).order("ordem");
       setFotos((fts as SitePortfolioFoto[]) ?? []);
       estado.inicializar(JSON.stringify([
@@ -189,9 +195,11 @@ export default function PortfolioEditorPage({ params }: { params: Promise<{ id: 
     let ordem = fotos.length > 0 ? Math.max(...fotos.map((f) => f.ordem)) + 1 : 0;
     // Flag local: sem ela, "!capaUrl" (closure fixa) seria true em toda iteração → capa viraria a última.
     let capaDefinida = !!capaUrl;
+    // Site nunca publica alta resolução: 1400px é bom em tela e ruim para impressão.
+    const marca = marcaDaguaSite(fotografo, marcaAtiva);
     for (const file of lista) {
       try {
-        const { blob } = await processarImagemEntrega(file, 1800, 0.85);
+        const { blob } = await processarImagemEntrega(file, SITE_MAX_PX, SITE_QUALIDADE, marca);
         const base = file.name.replace(/\.[a-z0-9]+$/i, "").normalize("NFD").replace(/[^\x20-\x7E]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "foto";
         const path = `site/${fotografo.id}/portfolios/${id}/${base}-${crypto.randomUUID().slice(0, 6)}.jpg`;
         const { storage_path, url_publica } = await uploadFileClient(path, blob);

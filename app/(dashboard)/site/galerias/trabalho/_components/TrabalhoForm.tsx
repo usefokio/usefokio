@@ -7,7 +7,8 @@ import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { uploadFileClient } from "@/lib/storage/uploadClient";
 import { deleteFilesClient } from "@/lib/storage/deleteClient";
-import { processarImagemEntrega } from "@/lib/imageResize";
+import { processarImagemEntrega, SITE_MAX_PX, SITE_QUALIDADE } from "@/lib/imageResize";
+import { marcaDaguaSite } from "@/lib/site/marcaDagua";
 import { RichTextEditor } from "@/app/(dashboard)/crm/_components/RichTextEditor";
 import { useEditorEstado, SeloEstado, BotaoSalvarEstado, ModalNaoSalvo } from "@/app/(dashboard)/_components/EditorEstado";
 import { ConfigPaginaModal } from "@/app/(dashboard)/site/_components/ConfigPaginaModal";
@@ -75,6 +76,7 @@ export function TrabalhoForm({ trabalhoId }: { trabalhoId?: string }) {
   const [capaUrl, setCapaUrl]       = useState<string | null>(null);
   const [legacyId, setLegacyId]     = useState<number | null>(null);
 
+  const [marcaAtiva, setMarcaAtiva] = useState(false);   // site_config.marca_dagua
   const [fotos, setFotos]           = useState<SiteTrabalhoFoto[]>([]);
   const [fila, setFila]             = useState<{ total: number; feitas: number } | null>(null);
   const inputFileRef                = useRef<HTMLInputElement>(null);
@@ -95,6 +97,14 @@ export function TrabalhoForm({ trabalhoId }: { trabalhoId?: string }) {
     if (!fotografo) return;
     createClient().from("site_categorias").select("*").eq("fotografo_id", fotografo.id).order("ordem")
       .then(({ data }) => setCats((data as SiteCategoria[]) ?? []));
+  }, [fotografo]);
+
+  // Liga/desliga da marca d'água — carregado SEMPRE (o upload também acontece em trabalho novo,
+  // onde o site_config do bloco de edição ainda não foi lido).
+  useEffect(() => {
+    if (!fotografo) return;
+    createClient().from("site_config").select("marca_dagua").eq("fotografo_id", fotografo.id).maybeSingle()
+      .then(({ data }) => setMarcaAtiva(!!data?.marca_dagua));
   }, [fotografo]);
 
   // slug da categoria: casa com existente por nome OU slug (lib/site/categorias); senão gera do nome.
@@ -242,9 +252,11 @@ export function TrabalhoForm({ trabalhoId }: { trabalhoId?: string }) {
     // Flag local: capaUrl é uma closure fixa do render; sem ela, "!capaUrl" seria true em
     // toda a iteração e a capa acabaria sendo a ÚLTIMA foto. A capa deve ser a PRIMEIRA.
     let capaDefinida = !!capaUrl;
+    // Site nunca publica alta resolução: 1400px é bom em tela e ruim para impressão.
+    const marca = marcaDaguaSite(fotografo, marcaAtiva);
     for (const file of lista) {
       try {
-        const { blob, largura, altura, tamanho_bytes } = await processarImagemEntrega(file, 1800, 0.85);
+        const { blob, largura, altura, tamanho_bytes } = await processarImagemEntrega(file, SITE_MAX_PX, SITE_QUALIDADE, marca);
         // Preserva o nome original do arquivo (descritivo = melhor pra SEO de imagem);
         // sufixo curto evita colisão entre arquivos de mesmo nome.
         const base = slugify(file.name.replace(/\.[a-z0-9]+$/i, "")) || "foto";

@@ -262,7 +262,16 @@ function NovaSelecaoConteudo() {
           canvas.width = processed.largura; canvas.height = processed.altura;
           const ctx = canvas.getContext("2d")!;
           ctx.drawImage(img, 0, 0);
-          await aplicarMarcaDagua(ctx, processed.largura, processed.altura, fotoAtual.watermark_url);
+          // Foto retrato usa a marca vertical (quando cadastrada) e respeita escala/opacidade da conta —
+          // antes esses três ajustes do painel de configuração não tinham efeito nenhum.
+          const wmUrl = processed.altura > processed.largura && fotoAtual.watermark_url_vertical
+            ? fotoAtual.watermark_url_vertical
+            : fotoAtual.watermark_url;
+          await aplicarMarcaDagua(
+            ctx, processed.largura, processed.altura, wmUrl,
+            fotoAtual.watermark_escala ?? undefined,
+            fotoAtual.watermark_opacidade ?? undefined,
+          );
           const watermarkedBlob = await new Promise<Blob>((res, rej) => canvas.toBlob((b) => b ? res(b) : rej(new Error("toBlob null")), "image/jpeg", 0.88));
           processed = { ...processed, blob: watermarkedBlob, tamanho_bytes: watermarkedBlob.size };
         }
