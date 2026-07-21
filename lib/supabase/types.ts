@@ -559,6 +559,11 @@ export type SiteLandingPage = {
   dados: SiteLandingDados;
   seo_title: string | null;
   seo_description: string | null;
+  seo_keywords: string | null;
+  seo_noindex: boolean;
+  og_title: string | null;
+  og_description: string | null;
+  og_image_url: string | null;
   created_at: string;
   updated_at: string;
 };

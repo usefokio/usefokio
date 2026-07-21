@@ -10,6 +10,8 @@ import { useUnsavedGuard } from "@/lib/hooks/useUnsavedGuard";
 import { dadosParaBlocos, type SiteBloco } from "@/lib/site/blocos";
 import { EditorBlocos } from "@/app/(dashboard)/site/_components/EditorBlocos";
 import { urlPublicaSite, type ConfigUrl } from "@/lib/site/urlPublica";
+import { ConfigPaginaModal } from "@/app/(dashboard)/site/_components/ConfigPaginaModal";
+import type { ConfigPaginaValores } from "@/lib/site/seo";
 import type { SiteLandingPage, SiteLandingDados } from "@/lib/supabase/types";
 
 const inputStyle: React.CSSProperties = {
@@ -47,6 +49,13 @@ export default function EditorLandingPage({ params }: { params: Promise<{ id: st
   const [publicado, setPublicado] = useState(false);
   const [seoTitle, setSeoTitle] = useState("");
   const [seoDesc, setSeoDesc] = useState("");
+  const [seoKw, setSeoKw] = useState("");
+  const [seoNoindex, setSeoNoindex] = useState(true);   // landing nasce fora do Google (opt-in a indexar)
+  const [ogTitle, setOgTitle] = useState("");
+  const [ogDesc, setOgDesc] = useState("");
+  const [ogImage, setOgImage] = useState<string | null>(null);
+  const [configAberto, setConfigAberto] = useState(false);
+  const [dominio, setDominio] = useState("seusite.usefokio.com.br");
 
   const [blocos, setBlocos] = useState<SiteBloco[]>([]);
   const [cfgSite, setCfgSite] = useState<ConfigUrl | null>(null);
@@ -54,26 +63,34 @@ export default function EditorLandingPage({ params }: { params: Promise<{ id: st
   useEffect(() => {
     if (!fotografo) return;
     const supabase = createClient();
-    supabase.from("site_config").select("subdominio, dominio_customizado, publicado").eq("fotografo_id", fotografo.id).maybeSingle().then(({ data }) => setCfgSite((data as ConfigUrl) ?? null));
+    supabase.from("site_config").select("subdominio, dominio_customizado, publicado").eq("fotografo_id", fotografo.id).maybeSingle().then(({ data }) => {
+      setCfgSite((data as ConfigUrl) ?? null);
+      if (data) setDominio(data.dominio_customizado || (data.subdominio ? `${data.subdominio}.usefokio.com.br` : "seusite.usefokio.com.br"));
+    });
     supabase.from("site_landing_pages").select("*").eq("id", id).maybeSingle().then(({ data }) => {
       if (!data) { setMsg("Erro: landing não encontrada."); setCarregando(false); return; }
       const lp = data as SiteLandingPage;
       setTitulo(lp.titulo); setSlug(lp.slug); setPublicado(lp.publicado);
       setSeoTitle(lp.seo_title ?? ""); setSeoDesc(lp.seo_description ?? "");
+      setSeoKw(lp.seo_keywords ?? ""); setSeoNoindex(lp.seo_noindex ?? true);
+      setOgTitle(lp.og_title ?? ""); setOgDesc(lp.og_description ?? ""); setOgImage(lp.og_image_url);
       const d = (lp.dados ?? {}) as SiteLandingDados;
       setDadosOriginais(d);
       const bl = d.blocos && d.blocos.length > 0 ? d.blocos : dadosParaBlocos(d);
       setBlocos(bl);
-      setBaseline(snapshot(lp.titulo, lp.slug, lp.publicado, lp.seo_title ?? "", lp.seo_description ?? "", bl));
+      setBaseline(snapshot(lp.titulo, lp.slug, lp.publicado, snapSeo(lp.seo_title ?? "", lp.seo_description ?? "", lp.seo_keywords ?? "", lp.seo_noindex ?? true, lp.og_title ?? "", lp.og_description ?? "", lp.og_image_url), bl));
       setCarregando(false);
     });
   }, [id, fotografo]);
 
   // Snapshot do estado editável → string, para comparar e detectar alterações não salvas.
-  function snapshot(t: string, s: string, pub: boolean, st: string, sd: string, bl: SiteBloco[]) {
-    return JSON.stringify({ t, s, pub, st, sd, bl });
+  function snapSeo(st: string, sd: string, kw: string, ni: boolean, ot: string, od: string, oi: string | null) {
+    return { st, sd, kw, ni, ot, od, oi };
   }
-  const estadoAtual = snapshot(titulo, slug, publicado, seoTitle, seoDesc, blocos);
+  function snapshot(t: string, s: string, pub: boolean, seo: ReturnType<typeof snapSeo>, bl: SiteBloco[]) {
+    return JSON.stringify({ t, s, pub, seo, bl });
+  }
+  const estadoAtual = snapshot(titulo, slug, publicado, snapSeo(seoTitle, seoDesc, seoKw, seoNoindex, ogTitle, ogDesc, ogImage), blocos);
   const temAlteracoes = !saiu && !carregando && estadoAtual !== baseline;
   const { modalAberto, setModalAberto, pedirSaida, irParaDestino } = useUnsavedGuard(temAlteracoes);
 
@@ -90,12 +107,17 @@ export default function EditorLandingPage({ params }: { params: Promise<{ id: st
       dados: { ...dadosOriginais, blocos },
       seo_title: seoTitle.trim() || null,
       seo_description: seoDesc.trim() || null,
+      seo_keywords: seoKw.trim() || null,
+      seo_noindex: seoNoindex,
+      og_title: ogTitle.trim() || null,
+      og_description: ogDesc.trim() || null,
+      og_image_url: ogImage,
       updated_at: new Date().toISOString(),
     }).eq("id", id);
     setSalvando(false);
     if (error) { setMsg("Erro: " + error.message); return false; }
     setSlug(s);
-    setBaseline(snapshot(titulo.trim() || "Landing page", s, publicado, seoTitle, seoDesc, blocos)); // zera o "não salvo"
+    setBaseline(snapshot(titulo.trim() || "Landing page", s, publicado, snapSeo(seoTitle, seoDesc, seoKw, seoNoindex, ogTitle, ogDesc, ogImage), blocos)); // zera o "não salvo"
     setMsg("Página salva!");
     return true;
   }
@@ -116,6 +138,22 @@ export default function EditorLandingPage({ params }: { params: Promise<{ id: st
     setSaiu(true);
     router.push("/site/landing-pages");
   }
+
+  // Ponte para o modal de Configurações (SEO/redes/indexação) — mesmo componente de posts/páginas.
+  const valores: ConfigPaginaValores = {
+    slug, mostrar_data: false, modo_exibicao: "lista",
+    seo_title: seoTitle, seo_description: seoDesc, seo_keywords: seoKw, seo_noindex: seoNoindex,
+    og_title: ogTitle, og_description: ogDesc, og_image_url: ogImage,
+  };
+  const setValores = (patch: Partial<ConfigPaginaValores>) => {
+    if (patch.seo_title !== undefined) setSeoTitle(patch.seo_title);
+    if (patch.seo_description !== undefined) setSeoDesc(patch.seo_description);
+    if (patch.seo_keywords !== undefined) setSeoKw(patch.seo_keywords);
+    if (patch.seo_noindex !== undefined) setSeoNoindex(patch.seo_noindex);
+    if (patch.og_title !== undefined) setOgTitle(patch.og_title);
+    if (patch.og_description !== undefined) setOgDesc(patch.og_description);
+    if (patch.og_image_url !== undefined) setOgImage(patch.og_image_url);
+  };
 
   if (carregando) return <div style={{ padding: 60, textAlign: "center", fontSize: 13, color: "var(--color-text-secondary)" }}>Carregando…</div>;
 
@@ -154,6 +192,9 @@ export default function EditorLandingPage({ params }: { params: Promise<{ id: st
               👁 Ver página
             </a>
           )}
+          <button onClick={() => setConfigAberto(true)} title="Configurações da página (SEO, redes sociais, indexação)" style={btnPeq}>
+            ⚙ Configurações
+          </button>
           {btnSalvar}
         </div>
       </div>
@@ -180,14 +221,7 @@ export default function EditorLandingPage({ params }: { params: Promise<{ id: st
         />
       )}
 
-      {/* SEO + ações */}
-      <details style={{ marginTop: 18 }}>
-        <summary style={{ fontSize: 12, fontWeight: 600, color: "var(--color-text-secondary)", cursor: "pointer" }}>SEO</summary>
-        <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 10 }}>
-          <input value={seoTitle} onChange={(e) => setSeoTitle(e.target.value)} style={inputStyle} placeholder="SEO title" />
-          <textarea value={seoDesc} onChange={(e) => setSeoDesc(e.target.value)} rows={2} style={{ ...inputStyle, resize: "vertical" }} placeholder="SEO description" />
-        </div>
-      </details>
+      {/* SEO/redes/indexação ficam no modal ⚙ Configurações (cabeçalho) — mesmo padrão de posts/páginas. */}
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 20 }}>
         <button onClick={excluir} style={{ ...btnPeq, color: "#DC2626", borderColor: "#DC2626" }}>Excluir landing</button>
@@ -196,6 +230,24 @@ export default function EditorLandingPage({ params }: { params: Promise<{ id: st
           {btnSalvar}
         </div>
       </div>
+
+      {/* Modal de Configurações da página (SEO, redes sociais, indexação) */}
+      {configAberto && fotografo && (
+        <ConfigPaginaModal
+          onFechar={() => setConfigAberto(false)}
+          onSalvar={async () => { if (await salvar()) setConfigAberto(false); }}
+          valores={valores}
+          onChange={setValores}
+          recursos={{}}
+          urlPublica={`/${slugifyUrl(slug)}`}
+          dominio={dominio}
+          tituloFallback={titulo}
+          descricaoFallback={seoDesc}
+          imagemFallback={ogImage}
+          fotografoId={fotografo.id}
+          salvando={salvando}
+        />
+      )}
 
       {/* Modal de alterações não salvas (ao tentar sair) */}
       {modalAberto && (

@@ -1,6 +1,6 @@
 // Rota dinâmica de 1 nível no host do fotógrafo (/{slug}) — as rotas estáticas
 // (portfolio, blog, sobre, contato…) têm precedência. Resolve, nesta ordem:
-// 1) LANDING PAGE (site_landing_pages) — motor de blocos, noindex (campanha/orçamento);
+// 1) LANDING PAGE (site_landing_pages) — motor de blocos, SEO/OG configurável (default noindex);
 // 2) PÁGINA CUSTOM (site_paginas) — motor de blocos, INDEXÁVEL (página institucional).
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
@@ -29,11 +29,16 @@ export async function generateMetadata({ params }: { params: Promise<{ fid: stri
   const { fid, slug } = await params;
   const lp = await buscarLanding(fid, slug);
   if (lp) {
-    // Landing tem finalidade específica (campanha/orçamento) → noindex por padrão (sobrepõe o robots do layout).
+    // Landing agora tem SEO/OG completo e index configurável (default noindex — campanha/orçamento).
+    // Só força robots quando o fotógrafo marca "não indexar"; caso contrário herda o robots do
+    // layout (que já gate por host/publicado/ambiente — a regra-mãe de SEO).
+    const m = resolverMetaPagina(lp, { titulo: lp.titulo, descricao: lp.seo_description ?? null, imagem: null });
     return {
-      title: lp.seo_title ?? lp.titulo,
-      description: lp.seo_description ?? undefined,
-      robots: { index: false, follow: true },
+      title: m.title,
+      description: m.description,
+      keywords: m.keywords,
+      ...(m.noindex ? { robots: { index: false, follow: true } } : {}),
+      openGraph: { title: m.ogTitle, description: m.ogDescription, images: m.ogImage ? [m.ogImage] : undefined },
     };
   }
   const pg = await buscarPaginaCustom(fid, slug);
