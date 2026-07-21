@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import FormPedido from "../_components/FormPedido";
+import { ModalConfirmacao } from "@/app/(dashboard)/_components/ModalConfirmacao";
 import { FIN_STATUS_MAP } from "@/lib/constants/statusMaps";
 import { carregarPedidoStatus, montarStatusMap, statusInfo } from "@/lib/crm/pedidoStatus";
 import type { CrmPedidoStatus } from "@/lib/supabase/types";
@@ -94,6 +95,8 @@ export default function PedidoDetailPage() {
   const [emailEnviado,        setEmailEnviado]        = useState(false);
   // Excluir contrato
   const [confirmExcluirContrato, setConfirmExcluirContrato] = useState<CrmContract | null>(null);
+  const [custoExcluir, setCustoExcluir] = useState<CrmFinancialEntry | null>(null);
+  const [excluindoCusto, setExcluindoCusto] = useState(false);
   const [excluindoContrato,      setExcluindoContrato]      = useState(false);
 
   const carregar = () => {
@@ -461,6 +464,12 @@ export default function PedidoDetailPage() {
                   <button onClick={() => { setReciboCopiado(false); setReciboModal(f); }} title="Reenviar recibo ao cliente"
                     style={{ padding: "4px 8px", borderRadius: 6, border: "0.5px solid rgba(37,99,235,0.3)", background: "transparent", cursor: "pointer", fontSize: 12 }}>
                     🧾
+                  </button>
+                )}
+                {!ehReceita && (f.status === "pendente" || f.status === "vencido") && (
+                  <button onClick={() => setCustoExcluir(f)} title="Excluir custo (provisionado)"
+                    style={{ padding: "4px 8px", borderRadius: 6, border: "0.5px solid rgba(239,68,68,0.3)", background: "transparent", cursor: "pointer", fontSize: 12, color: "#EF4444" }}>
+                    🗑
                   </button>
                 )}
               </div>
@@ -1106,6 +1115,25 @@ export default function PedidoDetailPage() {
           </div>
         </div>
       )}
+
+      {/* Modal excluir custo do pedido */}
+      <ModalConfirmacao
+        aberto={!!custoExcluir}
+        titulo="Excluir custo do pedido?"
+        mensagem={<>O custo <strong>{custoExcluir?.descricao}</strong> ({custoExcluir ? fmt(custoExcluir.valor) : ""}) será removido permanentemente e sai dos resultados. Esta ação é irreversível.</>}
+        textoConfirmar="Sim, excluir"
+        perigo
+        ocupado={excluindoCusto}
+        onConfirmar={async () => {
+          if (!custoExcluir) return;
+          setExcluindoCusto(true);
+          await createClient().from("crm_financial_entries").delete().eq("id", custoExcluir.id);
+          setExcluindoCusto(false);
+          setCustoExcluir(null);
+          carregar();
+        }}
+        onCancelar={() => setCustoExcluir(null)}
+      />
 
       {/* Modal excluir contrato */}
       {confirmExcluirContrato && (

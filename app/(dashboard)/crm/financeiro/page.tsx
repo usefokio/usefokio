@@ -762,7 +762,7 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
                       onMouseLeave={(ev) => (ev.currentTarget.style.opacity = "0.6")}>
                       ↩
                     </button>
-                  ) : !e.pedido_id && (
+                  ) : (!e.pedido_id || e.tipo === "despesa") && (
                     <button onClick={() => setModalExcluir(e)} title="Excluir"
                       style={btnIcon({ color: "#EF4444", border: "0.5px solid rgba(239,68,68,0.3)", opacity: 0.6 })}
                       onMouseEnter={(ev) => (ev.currentTarget.style.opacity = "1")}
