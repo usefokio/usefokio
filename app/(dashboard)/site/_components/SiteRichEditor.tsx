@@ -12,6 +12,7 @@ import { useEffect, useRef, useState } from "react";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { uploadFileClient } from "@/lib/storage/uploadClient";
 import { processarImagemEntrega } from "@/lib/imageResize";
+import { BotaoEscolherDoSite } from "./SeletorImagemSite";
 
 // Node de galeria: grid de imagens embutido no post. Serializa para <div data-galeria> com <img> filhos.
 const Galeria = Node.create({
@@ -128,6 +129,8 @@ export function SiteRichEditor({ value, onChange, minHeight = 320, pasta }: Prop
         <div style={{ width: 1, background: "var(--color-border-tertiary)", margin: "0 4px", alignSelf: "stretch" }} />
         <button type="button" onClick={() => imgRef.current?.click()} style={btn(false)} title="Inserir imagem">🖼 Imagem</button>
         <button type="button" onClick={() => galeriaRef.current?.click()} style={btn(false)} title="Inserir galeria (grid)">▦ Galeria</button>
+        <BotaoEscolherDoSite pasta={pasta} rotulo="Do site" estilo={btn(false)}
+          onEscolher={(u, meta) => editor?.chain().focus().setImage({ src: u, alt: meta.titulo }).run()} />
         {enviando && <span style={{ fontSize: 11, color: "var(--color-text-secondary)", marginLeft: 6 }}>{enviando}</span>}
         <input ref={imgRef} type="file" accept="image/*" style={{ display: "none" }} onChange={(e) => inserirImagem(e.target.files)} />
         <input ref={galeriaRef} type="file" accept="image/*" multiple style={{ display: "none" }} onChange={(e) => inserirGaleria(e.target.files)} />

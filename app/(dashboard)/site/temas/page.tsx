@@ -22,6 +22,7 @@ import { cfgContatoDe, cfgSobreDe, conteudoComCfg, LAYOUTS_CONTATO, LAYOUTS_SOBR
 import { normalizarConfig } from "@/lib/site/formulario";
 import { processarImagemEntrega } from "@/lib/imageResize";
 import { SiteRichEditor } from "@/app/(dashboard)/site/_components/SiteRichEditor";
+import { BotaoEscolherDoSite } from "@/app/(dashboard)/site/_components/SeletorImagemSite";
 import { FormularioConfigEditor } from "@/app/(dashboard)/site/_components/FormularioConfigEditor";
 import { SiteHeader } from "@/app/sites/[fid]/_components/SiteHeader";
 import { HomeBlocos } from "@/app/sites/[fid]/_components/home/HomeBlocos";
@@ -386,6 +387,11 @@ export default function AparenciaPage() {
     setEnviandoImgPagina(false);
     if (inputImgPagina.current) inputImgPagina.current.value = "";
   }
+  // Aplica uma imagem escolhida do site (já copiada) no mesmo campo que o upload alimentaria.
+  function aplicarImagemPagina(qual: "sobre" | "contato", campo: "foto" | "banner" | "fundo", url: string) {
+    if (qual === "sobre") setCfgSobre((c) => c ? { ...c, [campo === "foto" ? "foto" : "fundo"]: url } : c);
+    else setCfgContato((c) => c ? { ...c, [campo === "foto" ? "foto" : "banner"]: url } : c);
+  }
 
   const tema = getTema(temaId);
   const logo = design.logo_url ?? fotografo?.logo_url ?? null;
@@ -696,6 +702,7 @@ export default function AparenciaPage() {
                       <button onClick={() => pedirImagemPagina("sobre", "foto")} disabled={enviandoImgPagina} style={{ padding: "8px 14px", borderRadius: 8, border: "1px solid var(--color-border-secondary)", background: "transparent", fontSize: 12, fontWeight: 600, color: "var(--color-text-primary)", cursor: "pointer" }}>
                         {enviandoImgPagina ? "Enviando…" : cfgSobre.foto ? "Trocar foto" : "+ Enviar foto"}
                       </button>
+                      <BotaoEscolherDoSite pasta="paginas/sobre" onEscolher={(u) => aplicarImagemPagina("sobre", "foto", u)} />
                       {cfgSobre.foto && <button onClick={() => setCfgSobre((c) => c ? { ...c, foto: null } : c)} style={{ border: "none", background: "transparent", fontSize: 11, color: "#DC2626", cursor: "pointer" }}>Remover</button>}
                     </div>
                     {cfgSobre.foto && cfgSobre.layout === "foto_bio" && (
@@ -718,6 +725,7 @@ export default function AparenciaPage() {
                       <button onClick={() => pedirImagemPagina("sobre", "fundo")} disabled={enviandoImgPagina} style={{ padding: "8px 14px", borderRadius: 8, border: "1px solid var(--color-border-secondary)", background: "transparent", fontSize: 12, fontWeight: 600, color: "var(--color-text-primary)", cursor: "pointer" }}>
                         {enviandoImgPagina ? "Enviando…" : cfgSobre.fundo ? "Trocar imagem" : "+ Enviar imagem"}
                       </button>
+                      <BotaoEscolherDoSite pasta="paginas/sobre" onEscolher={(u) => aplicarImagemPagina("sobre", "fundo", u)} />
                       {cfgSobre.fundo && <button onClick={() => setCfgSobre((c) => c ? { ...c, fundo: null } : c)} style={{ border: "none", background: "transparent", fontSize: 11, color: "#DC2626", cursor: "pointer" }}>Remover</button>}
                     </div>
                     {cfgSobre.fundo && <div style={{ marginTop: 12 }}>{campo("Alinhamento do recorte", <Seg value={cfgSobre.ancora} options={ANC_OPTS} onChange={(v) => setCfgSobre((c) => c ? { ...c, ancora: v } : c)} />)}</div>}
@@ -753,6 +761,7 @@ export default function AparenciaPage() {
                       <button onClick={() => pedirImagemPagina("contato", "banner")} disabled={enviandoImgPagina} style={{ padding: "8px 14px", borderRadius: 8, border: "1px solid var(--color-border-secondary)", background: "transparent", fontSize: 12, fontWeight: 600, color: "var(--color-text-primary)", cursor: "pointer" }}>
                         {enviandoImgPagina ? "Enviando…" : cfgContato.banner ? "Trocar imagem" : "+ Enviar imagem"}
                       </button>
+                      <BotaoEscolherDoSite pasta="paginas/contato" onEscolher={(u) => aplicarImagemPagina("contato", "banner", u)} />
                       {cfgContato.banner && <button onClick={() => setCfgContato((c) => c ? { ...c, banner: null } : c)} style={{ border: "none", background: "transparent", fontSize: 11, color: "#DC2626", cursor: "pointer" }}>Remover</button>}
                     </div>
                     {cfgContato.banner && <div style={{ marginTop: 12 }}>{campo("Alinhamento do recorte", <Seg value={cfgContato.ancora} options={ANC_OPTS} onChange={(v) => setCfgContato((c) => c ? { ...c, ancora: v } : c)} />)}</div>}
@@ -765,6 +774,7 @@ export default function AparenciaPage() {
                       <button onClick={() => pedirImagemPagina("contato", "foto")} disabled={enviandoImgPagina} style={{ padding: "8px 14px", borderRadius: 8, border: "1px solid var(--color-border-secondary)", background: "transparent", fontSize: 12, fontWeight: 600, color: "var(--color-text-primary)", cursor: "pointer" }}>
                         {enviandoImgPagina ? "Enviando…" : cfgContato.foto ? "Trocar foto" : "+ Enviar foto"}
                       </button>
+                      <BotaoEscolherDoSite pasta="paginas/contato" onEscolher={(u) => aplicarImagemPagina("contato", "foto", u)} />
                       {cfgContato.foto && <button onClick={() => setCfgContato((c) => c ? { ...c, foto: null } : c)} style={{ border: "none", background: "transparent", fontSize: 11, color: "#DC2626", cursor: "pointer" }}>Remover</button>}
                     </div>
                     {cfgContato.foto && <div style={{ marginTop: 12 }}>{campo("Alinhamento do recorte", <Seg value={cfgContato.ancora} options={ANC_OPTS} onChange={(v) => setCfgContato((c) => c ? { ...c, ancora: v } : c)} />)}</div>}

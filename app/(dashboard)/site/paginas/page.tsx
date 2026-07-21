@@ -8,6 +8,7 @@ import { useFotografo } from "@/lib/context/FotografoContext";
 import { uploadFileClient } from "@/lib/storage/uploadClient";
 import { processarImagemEntrega } from "@/lib/imageResize";
 import { SiteRichEditor } from "@/app/(dashboard)/site/_components/SiteRichEditor";
+import { BotaoEscolherDoSite } from "@/app/(dashboard)/site/_components/SeletorImagemSite";
 import { FormularioConfigEditor } from "@/app/(dashboard)/site/_components/FormularioConfigEditor";
 import { useEditorEstado, SeloEstado, BotaoSalvarEstado, ModalNaoSalvo } from "@/app/(dashboard)/_components/EditorEstado";
 import { ConfigPaginaModal } from "@/app/(dashboard)/site/_components/ConfigPaginaModal";
@@ -210,6 +211,7 @@ function PaginasConteudo() {
                     style={{ padding: "8px 14px", borderRadius: 8, border: "1px solid var(--color-border-secondary)", background: "transparent", fontSize: 12, fontWeight: 600, color: "var(--color-text-primary)", cursor: "pointer" }}>
                     {enviandoFoto ? "Enviando…" : (imagens[0] ? "Trocar foto" : "+ Adicionar foto")}
                   </button>
+                  <BotaoEscolherDoSite pasta={`paginas/${editando?.slug ?? "pagina"}`} onEscolher={(u) => setImagens((prev) => [u, ...prev.slice(1)])} />
                   {imagens[0] && (
                     <button onClick={() => setImagens((prev) => prev.slice(1))}
                       style={{ padding: "6px 14px", borderRadius: 8, border: "none", background: "transparent", fontSize: 11, color: "#DC2626", cursor: "pointer", textAlign: "left" }}>

@@ -8,6 +8,7 @@ import { useFotografo } from "@/lib/context/FotografoContext";
 import { uploadFileClient } from "@/lib/storage/uploadClient";
 import { processarImagemEntrega } from "@/lib/imageResize";
 import { SiteRichEditor } from "@/app/(dashboard)/site/_components/SiteRichEditor";
+import { BotaoEscolherDoSite } from "@/app/(dashboard)/site/_components/SeletorImagemSite";
 import { useEditorEstado, SeloEstado, BotaoSalvarEstado, ModalNaoSalvo } from "@/app/(dashboard)/_components/EditorEstado";
 import { ConfigPaginaModal } from "@/app/(dashboard)/site/_components/ConfigPaginaModal";
 import { SeoDicas } from "@/app/(dashboard)/site/_components/SeoDica";
@@ -238,6 +239,7 @@ export function PostForm({ postId }: { postId?: string }) {
               style={{ padding: "8px 14px", borderRadius: 8, border: "1px solid var(--color-border-secondary)", background: "transparent", fontSize: 12, fontWeight: 600, color: "var(--color-text-primary)", cursor: "pointer" }}>
               {enviandoCapa ? "Enviando…" : (capaUrl ? "Trocar capa" : "+ Imagem de capa")}
             </button>
+            <BotaoEscolherDoSite pasta={`posts/${postId ?? "novo"}`} onEscolher={(u) => setCapaUrl(u)} />
             <input ref={inputCapaRef} type="file" accept="image/*" style={{ display: "none" }} onChange={(e) => enviarCapa(e.target.files)} />
           </div>
         </div>
