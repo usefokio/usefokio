@@ -12,7 +12,7 @@ type Stats = {
   oportunidades: number;
   oportunidades_abertas: number;
   pedidos: number;
-  pedidos_em_producao: number;
+  pedidos_em_aberto: number;
   produtos: number;
   a_receber: number;
   a_pagar: number;
@@ -131,7 +131,7 @@ export default function CrmDashboard() {
         oportunidades: opps.length,
         oportunidades_abertas: opps.filter(o => o.status === "em_aberto").length,
         pedidos: peds.length,
-        pedidos_em_producao: peds.filter(p => p.status === "em_producao").length,
+        pedidos_em_aberto: peds.filter(p => p.status === "em_aberto").length,
         produtos: prodRaw.count ?? 0,
         a_receber: fins.filter(f => f.tipo === "receita").length,
         a_pagar: fins.filter(f => f.tipo === "despesa").length,
@@ -169,7 +169,7 @@ export default function CrmDashboard() {
       descricao: "Controle contratos, serviços e status de entrega",
       cor: "#059669",
       bg: "rgba(5,150,105,0.07)",
-      badge: stats ? `${stats.pedidos_em_producao} em produção de ${stats.pedidos}` : null,
+      badge: stats ? `${stats.pedidos_em_aberto} em aberto de ${stats.pedidos}` : null,
       acao: "Novo pedido",
       acaoHref: "/crm/pedidos/novo",
     },

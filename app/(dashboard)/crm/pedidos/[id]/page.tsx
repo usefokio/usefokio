@@ -5,7 +5,9 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import FormPedido from "../_components/FormPedido";
-import { PEDIDO_STATUS_MAP, FIN_STATUS_MAP } from "@/lib/constants/statusMaps";
+import { FIN_STATUS_MAP } from "@/lib/constants/statusMaps";
+import { carregarPedidoStatus, montarStatusMap, statusInfo } from "@/lib/crm/pedidoStatus";
+import type { CrmPedidoStatus } from "@/lib/supabase/types";
 import { formatBRL, formatData, formatNum, mascaraValor, parsearValor, mascaraHora } from "@/lib/utils/format";
 import { usePersistState } from "@/lib/hooks/usePersistState";
 import { ClienteLink } from "@/components/ui/ClienteLink";
@@ -27,7 +29,6 @@ type OrderItem = {
 
 type ItemEdit = { key: string; produto_id: string | null; descricao: string; quantidade: number; preco_unit: number };
 
-const STATUS_MAP = PEDIDO_STATUS_MAP;
 const STATUS_FIN = FIN_STATUS_MAP;
 
 export default function PedidoDetailPage() {
@@ -140,6 +141,14 @@ export default function PedidoDetailPage() {
     if (!fid) return;
     createClient().from("crm_products").select("*").eq("fotografo_id", fid).eq("ativo", true).order("nome")
       .then(({ data }) => setProdutos((data ?? []) as CrmProduct[]));
+  }, [pedido?.fotografo_id]);
+
+  // Status do pedido (para o badge dinâmico)
+  const [statusDefs, setStatusDefs] = useState<CrmPedidoStatus[]>([]);
+  useEffect(() => {
+    const fid = pedido?.fotografo_id;
+    if (!fid) return;
+    carregarPedidoStatus(createClient(), fid).then(setStatusDefs);
   }, [pedido?.fotografo_id]);
 
   // ── Editor de produtos (isolado): grava só crm_order_items, sem tocar em nada financeiro ──
@@ -369,7 +378,7 @@ export default function PedidoDetailPage() {
     </div>
   );
 
-  const st  = STATUS_MAP[pedido.status] ?? STATUS_MAP.aguardando_sinal;
+  const st  = statusInfo(montarStatusMap(statusDefs), pedido.status);
   const fmt = formatBRL;
   const fmtData = formatData;
 

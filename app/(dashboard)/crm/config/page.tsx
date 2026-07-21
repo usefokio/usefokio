@@ -7,8 +7,9 @@ import { useUnsavedGuard } from "@/lib/hooks/useUnsavedGuard";
 import { SeloEstado, ModalNaoSalvo } from "@/app/(dashboard)/_components/EditorEstado";
 import type { CrmProductCategory, CrmChartOfAccount, CrmOportunidadeStatus, CrmFunnel, CrmFunnelStage, CrmAgendamentoCategoria } from "@/lib/supabase/types";
 import { AbaContratos } from "./_components/AbaContratos";
+import { PEDIDO_STATUS_SEED } from "@/lib/crm/pedidoStatus";
 
-type Tab = "produtos" | "plano" | "canais" | "opp_cats" | "status" | "funis" | "agenda_cats" | "email" | "contratos" | "notificacoes";
+type Tab = "produtos" | "plano" | "canais" | "opp_cats" | "status" | "pedido_status" | "funis" | "agenda_cats" | "email" | "contratos" | "notificacoes";
 
 // Handle exposto pelas abas Email/Notificações para o guard de troca de aba da página-mãe.
 type AbaHandle = { temAlteracoes: boolean; salvar: () => Promise<void> };
@@ -177,7 +178,12 @@ const STATUS_SEED = [
   { chave: "suspensa",       label: "Suspensa",        ordem: 4 },
 ];
 
-function AbaStatus({ fotografoId }: { fotografoId: string }) {
+function AbaStatus({ fotografoId, tabela, seed, descricao }: {
+  fotografoId: string;
+  tabela: "crm_oportunidade_status" | "crm_pedido_status";
+  seed: { chave: string; label: string; ordem: number; cor?: string }[];
+  descricao: string;
+}) {
   const [itens, setItens]       = useState<CrmOportunidadeStatus[]>([]);
   const [loading, setLoading]   = useState(true);
   const [editId, setEditId]       = useState<string | null>(null);
@@ -189,11 +195,11 @@ function AbaStatus({ fotografoId }: { fotografoId: string }) {
 
   const carregar = useCallback(async () => {
     setLoading(true);
-    const { data } = await sb.from("crm_oportunidade_status").select("*").eq("fotografo_id", fotografoId).order("ordem");
+    const { data } = await sb.from(tabela).select("*").eq("fotografo_id", fotografoId).order("ordem");
     if (!data || data.length === 0) {
       // Seed
-      const rows = STATUS_SEED.map(s => ({ fotografo_id: fotografoId, ...s, ativo: true }));
-      const { data: seeded } = await sb.from("crm_oportunidade_status").insert(rows).select("*").order("ordem");
+      const rows = seed.map(s => ({ fotografo_id: fotografoId, ...s, ativo: true }));
+      const { data: seeded } = await sb.from(tabela).insert(rows).select("*").order("ordem");
       setItens((seeded ?? []) as CrmOportunidadeStatus[]);
     } else {
       setItens(data as CrmOportunidadeStatus[]);
@@ -206,14 +212,14 @@ function AbaStatus({ fotografoId }: { fotografoId: string }) {
   async function salvarEdicao(id: string) {
     if (!editLabel.trim()) return;
     setSaving(true);
-    await sb.from("crm_oportunidade_status").update({ label: editLabel.trim(), cor: editCor || null }).eq("id", id);
+    await sb.from(tabela).update({ label: editLabel.trim(), cor: editCor || null }).eq("id", id);
     setEditId(null);
     setSaving(false);
     carregar();
   }
 
   async function toggle(item: CrmOportunidadeStatus) {
-    await sb.from("crm_oportunidade_status").update({ ativo: !item.ativo }).eq("id", item.id);
+    await sb.from(tabela).update({ ativo: !item.ativo }).eq("id", item.id);
     carregar();
   }
 
@@ -223,8 +229,8 @@ function AbaStatus({ fotografoId }: { fotografoId: string }) {
     if (dir === "down" && idx === itens.length - 1) return;
     const outro = itens[dir === "up" ? idx - 1 : idx + 1];
     await Promise.all([
-      sb.from("crm_oportunidade_status").update({ ordem: outro.ordem }).eq("id", id),
-      sb.from("crm_oportunidade_status").update({ ordem: itens[idx].ordem }).eq("id", outro.id),
+      sb.from(tabela).update({ ordem: outro.ordem }).eq("id", id),
+      sb.from(tabela).update({ ordem: itens[idx].ordem }).eq("id", outro.id),
     ]);
     carregar();
   }
@@ -234,7 +240,7 @@ function AbaStatus({ fotografoId }: { fotografoId: string }) {
     setSaving(true);
     const chave = novoLabel.trim().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/\s+/g, "_").replace(/[^a-z0-9_]/g, "");
     const ordem = itens.length;
-    await sb.from("crm_oportunidade_status").insert({ fotografo_id: fotografoId, chave, label: novoLabel.trim(), ordem, ativo: true });
+    await sb.from(tabela).insert({ fotografo_id: fotografoId, chave, label: novoLabel.trim(), ordem, ativo: true });
     setNovoLabel("");
     setSaving(false);
     carregar();
@@ -243,7 +249,7 @@ function AbaStatus({ fotografoId }: { fotografoId: string }) {
   return (
     <div>
       <p style={{ fontSize: 13, color: "var(--color-text-secondary)", marginBottom: 20 }}>
-        Personalize os nomes dos status das oportunidades. A chave (identificador interno) não pode ser alterada. Para adicionar novos status, use o campo abaixo.
+        {descricao}
       </p>
 
       {loading ? (
@@ -1218,7 +1224,8 @@ export default function CrmConfigPage() {
         <button style={TAB_ST(tab === "funis")} onClick={() => trocarTab("funis")}>🔀 Funis</button>
         <button style={TAB_ST(tab === "opp_cats")} onClick={() => trocarTab("opp_cats")}>🎯 Categorias</button>
         <button style={TAB_ST(tab === "canais")} onClick={() => trocarTab("canais")}>📍 Canais de Origem</button>
-        <button style={TAB_ST(tab === "status")} onClick={() => trocarTab("status")}>📋 Status</button>
+        <button style={TAB_ST(tab === "status")} onClick={() => trocarTab("status")}>📋 Status Oport.</button>
+        <button style={TAB_ST(tab === "pedido_status")} onClick={() => trocarTab("pedido_status")}>🧾 Status Pedido</button>
         <button style={TAB_ST(tab === "produtos")} onClick={() => trocarTab("produtos")}>🏷 Cat. Produtos</button>
         <button style={TAB_ST(tab === "agenda_cats")} onClick={() => trocarTab("agenda_cats")}>📅 Cat. Agendamento</button>
         <button style={TAB_ST(tab === "plano")} onClick={() => trocarTab("plano")}>📊 Plano de Contas</button>
@@ -1254,7 +1261,22 @@ export default function CrmConfigPage() {
 
       {/* ── Status das Oportunidades ── */}
       {tab === "status" && fotografo && (
-        <AbaStatus fotografoId={fotografo.id} />
+        <AbaStatus
+          fotografoId={fotografo.id}
+          tabela="crm_oportunidade_status"
+          seed={STATUS_SEED}
+          descricao="Personalize os nomes dos status das oportunidades. A chave (identificador interno) não pode ser alterada. Para adicionar novos status, use o campo abaixo."
+        />
+      )}
+
+      {/* ── Status dos Pedidos ── */}
+      {tab === "pedido_status" && fotografo && (
+        <AbaStatus
+          fotografoId={fotografo.id}
+          tabela="crm_pedido_status"
+          seed={PEDIDO_STATUS_SEED}
+          descricao="Status comercial/financeiro do pedido (não é gestão de projeto). Começa com Em aberto (contratação fechada, sem 1º pagamento) e Concluído (1º pagamento feito) — o sistema alterna entre eles automaticamente quando você marca/estorna a 1ª receita. Você pode renomear, mudar a cor, reordenar e adicionar outros."
+        />
       )}
 
       {/* ── Categorias de Produtos ── */}

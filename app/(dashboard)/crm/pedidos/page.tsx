@@ -7,12 +7,12 @@ import { fetchAllRows } from "@/lib/supabase/fetchAll";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { useWindowWidth, TABLET } from "@/lib/hooks/useWindowWidth";
 import { usePersistState } from "@/lib/hooks/usePersistState";
-import { PEDIDO_STATUS_MAP } from "@/lib/constants/statusMaps";
+import { carregarPedidoStatus, montarStatusMap, statusInfo } from "@/lib/crm/pedidoStatus";
 import { formatBRL, formatData } from "@/lib/utils/format";
 import { IcoEdit, IcoTrash, IcoOpen } from "@/app/(dashboard)/crm/_components/Icons";
 import { Paginacao } from "@/app/(dashboard)/crm/_components/Paginacao";
 import { ClienteLink } from "@/components/ui/ClienteLink";
-import type { CrmOrder } from "@/lib/supabase/types";
+import type { CrmOrder, CrmPedidoStatus } from "@/lib/supabase/types";
 
 const btnIcon = (extra?: React.CSSProperties): React.CSSProperties => ({
   display: "flex", alignItems: "center", justifyContent: "center",
@@ -29,8 +29,6 @@ type OrderWithCliente = CrmOrder & {
 
 type StatusFiltro = "" | CrmOrder["status"];
 
-const STATUS_MAP = PEDIDO_STATUS_MAP;
-
 export default function PedidosPage() {
   const router        = useRouter();
   const { fotografo } = useFotografo();
@@ -38,6 +36,8 @@ export default function PedidosPage() {
   const [pedidos,    setPedidos]    = useState<OrderWithCliente[]>([]);
   const [loading,    setLoading]    = useState(true);
   const [categorias, setCategorias] = useState<string[]>([]);
+  const [statusDefs, setStatusDefs] = useState<CrmPedidoStatus[]>([]);
+  const statusMap = montarStatusMap(statusDefs);
   const [page,     setPage]     = useState(1);
   const [pageSize, setPageSize] = usePersistState<25|50|100>("pedidos:pageSize", 50);
   const [busca,      setBusca]      = usePersistState("pedidos:busca",    "");
@@ -84,6 +84,10 @@ export default function PedidosPage() {
   }, [fotografo]);
 
   useEffect(() => { carregar(); }, [carregar]);
+  useEffect(() => {
+    if (!fotografo) return;
+    carregarPedidoStatus(createClient(), fotografo.id).then(setStatusDefs);
+  }, [fotografo]);
   useEffect(() => { setPage(1); }, [busca, status, catFiltro, sortCol, sortDir]);
 
   const filtrados = pedidos.filter(p => {
@@ -122,12 +126,9 @@ export default function PedidosPage() {
   for (const p of pedidos) contagens[p.status] = (contagens[p.status] ?? 0) + 1;
 
   const FILTROS: { id: StatusFiltro; label: string }[] = [
-    { id: "",                 label: `Todos (${contagens[""] ?? 0})` },
-    { id: "aguardando_sinal", label: `Aguardando (${contagens.aguardando_sinal ?? 0})` },
-    { id: "em_producao",      label: `Em produção (${contagens.em_producao ?? 0})` },
-    { id: "entregue",         label: `Entregues (${contagens.entregue ?? 0})` },
-    { id: "concluido",        label: `Concluídos (${contagens.concluido ?? 0})` },
-    { id: "cancelado",        label: `Cancelados (${contagens.cancelado ?? 0})` },
+    { id: "", label: `Todos (${contagens[""] ?? 0})` },
+    ...statusDefs.filter(s => s.ativo).sort((a, b) => a.ordem - b.ordem)
+      .map(s => ({ id: s.chave as StatusFiltro, label: `${s.label} (${contagens[s.chave] ?? 0})` })),
   ];
 
   const totalFiltrado = filtrados.reduce((s, p) => s + (p.total ?? 0), 0);
@@ -243,7 +244,7 @@ export default function PedidosPage() {
             ))}
           </div>
           {paginados.map((p, i) => {
-            const st = STATUS_MAP[p.status] ?? STATUS_MAP.aguardando_sinal;
+            const st = statusInfo(statusMap, p.status);
             return (
               <div
                 key={p.id}

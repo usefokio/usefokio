@@ -7,7 +7,8 @@ import { useFotografo } from "@/lib/context/FotografoContext";
 import { isValidDate, mascaraTelefone } from "@/lib/utils/format";
 import { useEditorEstado, SeloEstado, ModalNaoSalvo } from "@/app/(dashboard)/_components/EditorEstado";
 import { ModalContatoCliente } from "./_components/ModalContatoCliente";
-import type { Cliente, CrmOrder, GaleriaEntrega, GaleriaSelecao } from "@/lib/supabase/types";
+import { carregarPedidoStatus, montarStatusMap, statusInfo } from "@/lib/crm/pedidoStatus";
+import type { Cliente, CrmOrder, CrmPedidoStatus, GaleriaEntrega, GaleriaSelecao } from "@/lib/supabase/types";
 
 const TIPO_MAP: Record<string, { label: string; color: string; bg: string }> = {
   cliente:      { label: "Cliente",      color: "#2563EB", bg: "rgba(37,99,235,0.08)"  },
@@ -58,6 +59,7 @@ export default function ClienteDetailPage() {
   const [entrega,       setEntrega]       = useState<GaleriaEntrega[]>([]);
   const [selecao,       setSelecao]       = useState<GaleriaSelecao[]>([]);
   const [carregandoRel, setCarregandoRel] = useState(false);
+  const [statusDefs,    setStatusDefs]    = useState<CrmPedidoStatus[]>([]);
 
   // form state
   const [nome,          setNome]          = useState("");
@@ -157,6 +159,10 @@ export default function ClienteDetailPage() {
   }, [fid, id, router]);
 
   useEffect(() => { if (!editing) carregar(); }, [carregar, editing]);
+  useEffect(() => {
+    if (!fotografo) return;
+    carregarPedidoStatus(createClient(), fotografo.id).then(setStatusDefs);
+  }, [fotografo]);
 
   const salvar = async (): Promise<boolean> => {
     if (!nome.trim()) return false;
@@ -467,14 +473,7 @@ export default function ClienteDetailPage() {
                     </thead>
                     <tbody>
                       {(pedidos as Array<{ id: string; nome: string | null; categoria: string | null; status: string | null; total: number; data_lancamento: string | null }>).map(p => {
-                        const statusMap: Record<string, { label: string; color: string }> = {
-                          aguardando_sinal: { label: "Aguardando sinal", color: "#D97706" },
-                          em_producao:      { label: "Em produção",      color: "#2563EB" },
-                          entregue:         { label: "Entregue",         color: "#059669" },
-                          cancelado:        { label: "Cancelado",        color: "#EF4444" },
-                          concluido:        { label: "Concluído",        color: "#6B7280" },
-                        };
-                        const st = statusMap[p.status ?? ""] ?? { label: p.status ?? "—", color: "var(--color-text-secondary)" };
+                        const st = statusInfo(montarStatusMap(statusDefs), p.status ?? "");
                         return (
                           <tr key={p.id} onClick={() => router.push(`/crm/pedidos/${p.id}`)} style={{ cursor: "pointer" }}
                             onMouseEnter={e => (e.currentTarget.style.background = "var(--color-background-secondary)")}

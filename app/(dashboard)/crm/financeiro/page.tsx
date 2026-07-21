@@ -14,6 +14,7 @@ import { EmailModal } from "@/app/(dashboard)/crm/_components/EmailModal";
 import { ClienteSelect } from "@/components/ui/ClienteSelect";
 import { ComboSelect } from "@/components/ui/ComboSelect";
 import { ClienteLink } from "@/components/ui/ClienteLink";
+import { promoverPedidosPagos, rebaixarPedidosSemPago } from "@/lib/crm/recebimentos";
 import type { CrmFinancialEntry } from "@/lib/supabase/types";
 
 type EntryWithPedido = CrmFinancialEntry & {
@@ -309,6 +310,8 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
       .update(updates)
       .eq("id", entry.id);
     if (error) { setSalvandoPag(false); setErroPagamento(error.message); return; }
+    // Pedido "Em aberto" com 1ª receita paga → vira "Concluído" automaticamente.
+    if (entry.tipo === "receita") await promoverPedidosPagos(createClient(), [entry.pedido_id]);
     setSalvandoPag(false);
     const contaNome = contas.find(c => c.id === contaId)?.nome ?? "Conta";
     setModalReceber(null);
@@ -345,6 +348,7 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
       .in("id", sel.map(e => e.id));
     setSalvandoPag(false);
     if (error) { setErroPagamento(error.message); return; }
+    await promoverPedidosPagos(createClient(), sel.map(e => e.pedido_id));
     const contaNome = contas.find(c => c.id === contaId)?.nome ?? "Conta";
     setModalReceberLote(null);
     setSelecionadas(new Set());
@@ -409,6 +413,8 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
       .from("crm_financial_entries")
       .update({ status: "pendente", pago_em: null, conta_bancaria_id: null })
       .eq("id", e.id);
+    // Se o pedido ficou sem nenhuma receita paga, "Concluído" volta a "Em aberto".
+    if (e.tipo === "receita") await rebaixarPedidosSemPago(createClient(), [e.pedido_id]);
     carregar();
   };
 

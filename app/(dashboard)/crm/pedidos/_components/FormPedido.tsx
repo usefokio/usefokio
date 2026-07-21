@@ -11,7 +11,9 @@ import { ClienteSelect } from "@/components/ui/ClienteSelect";
 import { ComboSelect } from "@/components/ui/ComboSelect";
 import { ProdutoSearch } from "@/components/ui/ProdutoSearch";
 import { ehCategoriaEvento } from "@/lib/crm/casamento";
-import type { CrmOrder, CrmProduct, Cliente, CrmProductCategory } from "@/lib/supabase/types";
+import { carregarPedidoStatus, PEDIDO_STATUS_SEED } from "@/lib/crm/pedidoStatus";
+import { PEDIDO_STATUS_MAP } from "@/lib/constants/statusMaps";
+import type { CrmOrder, CrmProduct, Cliente, CrmProductCategory, CrmPedidoStatus } from "@/lib/supabase/types";
 import { useUnsavedGuard } from "@/lib/hooks/useUnsavedGuard";
 import { SeloEstado, ModalNaoSalvo } from "@/app/(dashboard)/_components/EditorEstado";
 import { ModalConfirmacao } from "@/app/(dashboard)/_components/ModalConfirmacao";
@@ -65,7 +67,7 @@ type ParcelaPreview = { vencimento: string; valor: number; label: string };
 // ── Constantes ────────────────────────────────────────────────────────────────
 
 const EMPTY: FormData = {
-  nome: "", cliente_id: "", categoria: "", status: "aguardando_sinal",
+  nome: "", cliente_id: "", categoria: "", status: "em_aberto",
   total: "", discount: "0", other_expenses: "0",
   data_evento: "", hora_evento: "", local_evento: "", convidados: "",
   local_cerimonia: "", local_recepcao: "", eh_casamento: false, observacoes: "",
@@ -154,6 +156,9 @@ export default function FormPedido({ inicial, onSalvo, onCancelar }: Props) {
   // Categorias (de produto = de pedido), com flags pede_data/pede_local/pede_horario
   const [pedCats,      setPedCats]      = useState<CrmProductCategory[]>([]);
 
+  // Status do pedido (dinâmico, configurável)
+  const [statusItens,  setStatusItens]  = useState<CrmPedidoStatus[]>([]);
+
   // Modal de produto
   const [modalProd,     setModalProd]     = useState<CrmProduct | null>(null);
   const [modalDescricao, setModalDescricao] = useState("");
@@ -227,6 +232,12 @@ export default function FormPedido({ inicial, onSalvo, onCancelar }: Props) {
       .then(({ data }) => setPedCats((data ?? []) as CrmProductCategory[]));
   }, [fid]);
 
+  // Status do pedido (lista configurável, com seed preguiçoso na fonte única)
+  useEffect(() => {
+    if (!fid) return;
+    carregarPedidoStatus(createClient(), fid).then(setStatusItens);
+  }, [fid]);
+
   // Captura o baseline do "não salvo" só DEPOIS que o carregamento assíncrono termina
   // (na edição os planos chegam via fetch; itens abrem vazios). baseline===null é o
   // sentinela de "ainda não capturado" — ele nunca volta a null.
@@ -246,6 +257,20 @@ export default function FormPedido({ inicial, onSalvo, onCancelar }: Props) {
     pede_local:   catAtual ? catAtual.pede_local : true,
     pede_horario: catAtual ? catAtual.pede_horario : true,
   };
+  // Opções do combo de status (ativos por ordem). Se o status atual não estiver na lista
+  // (legado/inativo), mantém no topo para não sumir da seleção. Fallback à semente.
+  const statusOptions = (() => {
+    const ativos = statusItens.filter(s => s.ativo)
+      .sort((a, b) => a.ordem - b.ordem)
+      .map(s => ({ id: s.chave, label: s.label }));
+    const base = ativos.length ? ativos : PEDIDO_STATUS_SEED.map(s => ({ id: s.chave, label: s.label }));
+    if (form.status && !base.some(o => o.id === form.status)) {
+      const conhecido = statusItens.find(s => s.chave === form.status);
+      base.unshift({ id: form.status, label: conhecido?.label ?? PEDIDO_STATUS_MAP[form.status]?.label ?? form.status });
+    }
+    return base;
+  })();
+
   // Bloqueia salvar sem nome ou — quando a categoria pede data — sem data (data obrigatória).
   const salvarBloqueado = saving || !form.nome.trim() || (flags.pede_data && !form.data_evento);
 
@@ -678,13 +703,7 @@ export default function FormPedido({ inicial, onSalvo, onCancelar }: Props) {
           </Field>
           <Field label="Status">
             <ComboSelect
-              options={[
-                { id: "aguardando_sinal", label: "Aguardando sinal" },
-                { id: "em_producao",      label: "Em produção" },
-                { id: "entregue",         label: "Entregue" },
-                { id: "concluido",        label: "Concluído" },
-                { id: "cancelado",        label: "Cancelado" },
-              ]}
+              options={statusOptions}
               value={form.status}
               onChange={v => upd("status", v as FormData["status"])}
             />

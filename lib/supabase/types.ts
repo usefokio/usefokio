@@ -854,6 +854,9 @@ export type CrmOportunidadeStatus = {
   cor: string | null;
 };
 
+// Status do PEDIDO (comercial/financeiro), configurável por fotógrafo — mesma forma do de oportunidade.
+export type CrmPedidoStatus = CrmOportunidadeStatus;
+
 export type CrmContaBancaria = {
   id: string;
   fotografo_id: string;
@@ -886,7 +889,7 @@ export type CrmOrder = {
   numero: string | null;
   unique_id: string | null;
   nome: string | null;
-  status: "aguardando_sinal" | "em_producao" | "entregue" | "cancelado" | "concluido";
+  status: string;   // chave de crm_pedido_status (lista dinâmica por fotógrafo)
   total: number;
   other_expenses: number;
   discount: number;

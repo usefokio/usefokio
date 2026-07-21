@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { fetchAllRows } from "@/lib/supabase/fetchAll";
 import { ClienteLink } from "@/components/ui/ClienteLink";
+import { rebaixarPedidosSemPago } from "@/lib/crm/recebimentos";
 import type { CrmContaBancaria, CrmFinancialEntry } from "@/lib/supabase/types";
 
 type Movimento = CrmFinancialEntry & {
@@ -53,6 +54,8 @@ export default function ExtratoConta() {
       .from("crm_financial_entries")
       .update({ status: "pendente", pago_em: null, conta_bancaria_id: null })
       .eq("id", confirmando.id);
+    // Se o pedido ficou sem receita paga, "Concluído" volta a "Em aberto".
+    if (confirmando.tipo === "receita") await rebaixarPedidosSemPago(createClient(), [confirmando.pedido_id]);
     setRevertendo(false);
     setConfirmando(null);
     carregar();
