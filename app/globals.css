@@ -229,6 +229,13 @@ a {
   display: block;
   margin: 14px auto;
 }
+/* Links dentro do conteúdo (posts/trabalhos/páginas) — padrão de link em azul sublinhado */
+.site-conteudo a {
+  color: #2563EB;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.site-conteudo a:hover { text-decoration: none; }
 .site-conteudo .post-galeria {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
