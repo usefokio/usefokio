@@ -71,7 +71,7 @@ export default function SaudeSeoPage() {
       }
       for (const p of portfolios.filter((x) => x.publicado)) {
         const a = auditarColecao(p, fotosPorPort.get(p.id) ?? []);
-        lista.push({ id: p.id, rotulo: p.titulo, grupo: "Portfólios", link: `/site/galerias/portfolio/${p.id}`, achados: a, nota: pontuar(a) });
+        lista.push({ id: p.id, rotulo: p.titulo, grupo: "Portfólios", link: `/site/portfolio/${p.id}`, achados: a, nota: pontuar(a) });
       }
       for (const p of posts.filter((x) => x.publicado)) {
         const a = auditarPost(p);

@@ -67,7 +67,7 @@ export default function PortfolioEditorPage({ params }: { params: Promise<{ id: 
 
   // Estado de salvamento claro (regra de sistema) — fotos ficam de fora (persistem na hora, por design)
   const snapshotAtual = JSON.stringify([titulo, catNome, descricao, publicado, seoTitle, seoDesc, seoKw, seoNoindex, ogTitle, ogDesc, ogImage, modoExibicao]);
-  const estado = useEditorEstado(snapshotAtual, "/site/galerias");
+  const estado = useEditorEstado(snapshotAtual, "/site/portfolio");
 
   // Análise de SEO ao vivo (motor único em lib/site/seoAudit)
   const achadosSeo = auditarColecao(

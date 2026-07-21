@@ -296,7 +296,7 @@ a {
 .site-esconde-scroll::-webkit-scrollbar { display: none; }
 
 /* Tela Site → Aparência: controles à esquerda, preview ao vivo (sticky) à direita; empilha no mobile. */
-.aparencia-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 440px); gap: 28px; align-items: start; }
+.aparencia-grid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); gap: 28px; align-items: start; }
 .aparencia-preview-wrap { position: sticky; top: 16px; }
 @media (max-width: 940px) {
   .aparencia-grid { grid-template-columns: 1fr; }

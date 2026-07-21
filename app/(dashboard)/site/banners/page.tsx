@@ -68,19 +68,23 @@ export default function BannersPage() {
     if (inputFileRef.current) inputFileRef.current.value = "";
   }
 
-  async function mover(banner: SiteBanner, dir: -1 | 1) {
-    const idx = banners.findIndex((b) => b.id === banner.id);
-    const alvo = banners[idx + dir];
-    if (!alvo) return;
-    const supabase = createClient();
+  // Reordenação por arrastar-e-soltar: solta na posição desejada e persiste tudo num único upsert.
+  const dragIdx = useRef<number | null>(null);
+  const [sobreIdx, setSobreIdx] = useState<number | null>(null);
+
+  async function soltar(destino: number) {
+    const origem = dragIdx.current;
+    dragIdx.current = null;
+    setSobreIdx(null);
+    if (origem === null || origem === destino || !fotografo) return;
     const novas = [...banners];
-    novas[idx] = { ...alvo, ordem: banner.ordem };
-    novas[idx + dir] = { ...banner, ordem: alvo.ordem };
-    setBanners(novas);
-    await Promise.all([
-      supabase.from("site_banners").update({ ordem: alvo.ordem }).eq("id", banner.id),
-      supabase.from("site_banners").update({ ordem: banner.ordem }).eq("id", alvo.id),
-    ]);
+    const [movido] = novas.splice(origem, 1);
+    novas.splice(destino, 0, movido);
+    const reordenados = novas.map((b, i) => ({ ...b, ordem: i }));
+    setBanners(reordenados);
+    const supabase = createClient();
+    await supabase.from("site_banners")
+      .upsert(reordenados.map((b) => ({ id: b.id, fotografo_id: fotografo.id, ordem: b.ordem })), { onConflict: "id" });
   }
 
   async function alternarPublicado(banner: SiteBanner) {
@@ -108,7 +112,7 @@ export default function BannersPage() {
         <input ref={inputFileRef} type="file" accept="image/*" multiple style={{ display: "none" }} onChange={(e) => enviar(e.target.files)} />
       </div>
       <p style={{ fontSize: 13, color: "var(--color-text-secondary)", margin: "0 0 24px" }}>
-        Imagens de destaque da home do site, na ordem abaixo. O primeiro banner publicado é o principal.
+        Imagens de destaque da home do site. Arraste os cards para reordenar; o primeiro banner publicado é o principal.
       </p>
 
       {loading ? (
@@ -116,13 +120,19 @@ export default function BannersPage() {
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 14 }}>
           {banners.map((b, idx) => (
-            <div key={b.id} style={{ borderRadius: 12, overflow: "hidden", border: "1px solid var(--color-border-tertiary)", background: "var(--color-background-secondary)", opacity: b.publicado ? 1 : 0.55 }}>
-              <img src={b.imagem_url} alt={b.titulo ?? ""} style={{ width: "100%", aspectRatio: "16/9", objectFit: "cover", display: "block" }} loading="lazy" />
+            <div
+              key={b.id}
+              draggable={editando !== b.id}
+              onDragStart={(e) => { if ((e.target as HTMLElement).tagName === "INPUT") { e.preventDefault(); return; } dragIdx.current = idx; }}
+              onDragOver={(e) => { e.preventDefault(); if (sobreIdx !== idx) setSobreIdx(idx); }}
+              onDragLeave={() => { if (sobreIdx === idx) setSobreIdx(null); }}
+              onDrop={(e) => { e.preventDefault(); soltar(idx); }}
+              onDragEnd={() => { dragIdx.current = null; setSobreIdx(null); }}
+              style={{ borderRadius: 12, overflow: "hidden", border: sobreIdx === idx ? "2px solid #2563EB" : "1px solid var(--color-border-tertiary)", background: "var(--color-background-secondary)", opacity: b.publicado ? 1 : 0.55, cursor: editando === b.id ? "default" : "grab" }}
+            >
+              <img src={b.imagem_url} alt={b.titulo ?? ""} style={{ width: "100%", aspectRatio: "16/9", objectFit: "cover", display: "block", pointerEvents: "none" }} loading="lazy" />
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 10px" }}>
-                <div style={{ display: "flex", gap: 2 }}>
-                  <button title="Mover para cima" onClick={() => mover(b, -1)} disabled={idx === 0} style={{ border: "none", background: "transparent", cursor: "pointer", fontSize: 14, color: "var(--color-text-secondary)", opacity: idx === 0 ? 0.3 : 1 }}>↑</button>
-                  <button title="Mover para baixo" onClick={() => mover(b, 1)} disabled={idx === banners.length - 1} style={{ border: "none", background: "transparent", cursor: "pointer", fontSize: 14, color: "var(--color-text-secondary)", opacity: idx === banners.length - 1 ? 0.3 : 1 }}>↓</button>
-                </div>
+                <span title="Arraste o card para reordenar" style={{ fontSize: 15, color: "var(--color-text-secondary)", cursor: "grab", userSelect: "none" }}>⠿</span>
                 <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 10, background: b.publicado ? "rgba(16,185,129,0.12)" : "rgba(245,158,11,0.15)", color: b.publicado ? "#059669" : "#B45309" }}>
                   {b.publicado ? (idx === 0 ? "Principal" : "Publicado") : "Oculto"}
                 </span>

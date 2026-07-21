@@ -22,6 +22,36 @@ function Seta({ dir, onClick, disabled }: { dir: "esq" | "dir"; onClick: () => v
   );
 }
 
+// Carrossel com LOOP contínuo: a faixa clona o 1º slide no fim; ao chegar no clone (índice = nReal),
+// salta instantaneamente (behavior:"auto") de volta ao início — invisível, pois o clone é idêntico ao 1º.
+// Antes o auto-avanço fazia (prev+1)%n e ao voltar do último para o 0 "rebobinava" a faixa toda à vista.
+function useLoopCarrossel(ref: React.RefObject<HTMLDivElement | null>, nReal: number, velocidade: number) {
+  const [i, setI] = useState(0);
+  const rolar = (idx: number, comportamento: ScrollBehavior) => {
+    const el = ref.current;
+    const filho = el?.children[idx] as HTMLElement | undefined;
+    if (el && filho) el.scrollTo({ left: filho.offsetLeft, behavior: comportamento });
+  };
+  // Rola quando o índice muda; ao atingir o clone (i === nReal), reposiciona no início sem animação.
+  useEffect(() => {
+    if (nReal <= 1) return;
+    rolar(i, "smooth");
+    if (i === nReal) {
+      const t = setTimeout(() => { rolar(0, "auto"); setI(0); }, 650);
+      return () => clearTimeout(t);
+    }
+  }, [i, nReal]);
+  // Auto-avanço: sempre para frente; passa pelo clone e volta ao 0 sem rebobinar.
+  useEffect(() => {
+    if (nReal <= 1) return;
+    const t = setInterval(() => setI((prev) => prev + 1), velocidade * 1000);
+    return () => clearInterval(t);
+  }, [nReal, velocidade]);
+  const proximo = () => setI((prev) => (prev >= nReal ? prev : prev + 1));
+  const anterior = () => setI((prev) => (prev - 1 + nReal) % nReal);
+  return { proximo, anterior };
+}
+
 export function BlocoBanner({ config, banners, base }: { config: HomeBloco; banners: SiteBanner[]; base: string }) {
   const tipo = config.tipo ?? "deslizante";
   const altura = config.altura ?? 300;
@@ -96,76 +126,45 @@ function GradePaginada({ paginas, cols, velocidade, celula }: {
   paginas: SiteBanner[][]; cols: number; velocidade: number;
   celula: (b: SiteBanner) => React.ReactNode;
 }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [i, setI] = useState(0);
+  const ref = useRef<HTMLDivElement | null>(null);
   const n = paginas.length;
-  const irPara = (idx: number) => {
-    const el = ref.current;
-    const filho = el?.children[idx] as HTMLElement | undefined;
-    if (el && filho) el.scrollTo({ left: filho.offsetLeft, behavior: "smooth" });
-    setI(idx);
-  };
-  useEffect(() => {
-    if (n <= 1) return;
-    const t = setInterval(() => setI((prev) => {
-      const nx = (prev + 1) % n;
-      const el = ref.current;
-      const filho = el?.children[nx] as HTMLElement | undefined;
-      if (el && filho) el.scrollTo({ left: filho.offsetLeft, behavior: "smooth" });
-      return nx;
-    }), velocidade * 1000);
-    return () => clearInterval(t);
-  }, [n, velocidade]);
+  const { proximo, anterior } = useLoopCarrossel(ref, n, velocidade);
+  const grade = (pagina: SiteBanner[], key: React.Key) => (
+    <div key={key} style={{ flex: "0 0 100%", scrollSnapAlign: "start" }}>
+      <div className="site-banner-grid" style={{ display: "grid", gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gap: 4 }}>
+        {pagina.map(celula)}
+      </div>
+    </div>
+  );
   return (
     <section style={{ position: "relative" }}>
       <div ref={ref} className="site-esconde-scroll" style={{ display: "flex", gap: 4, overflowX: "auto", scrollSnapType: "x mandatory" }}>
-        {paginas.map((pagina, pi) => (
-          <div key={pi} style={{ flex: "0 0 100%", scrollSnapAlign: "start" }}>
-            <div className="site-banner-grid" style={{ display: "grid", gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gap: 4 }}>
-              {pagina.map(celula)}
-            </div>
-          </div>
-        ))}
+        {paginas.map((pagina, pi) => grade(pagina, pi))}
+        {n > 1 && grade(paginas[0], "__clone__")}
       </div>
-      {n > 1 && <><Seta dir="esq" onClick={() => irPara((i - 1 + n) % n)} /><Seta dir="dir" onClick={() => irPara((i + 1) % n)} /></>}
+      {n > 1 && <><Seta dir="esq" onClick={anterior} /><Seta dir="dir" onClick={proximo} /></>}
     </section>
   );
 }
 
 function Deslizante({ banners, altura, velocidade, resolver, objPos }: { banners: SiteBanner[]; altura: number; velocidade: number; resolver: (l: string) => string; objPos: string }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [i, setI] = useState(0);
+  const ref = useRef<HTMLDivElement | null>(null);
   const n = banners.length;
-  const irPara = (idx: number) => {
-    const el = ref.current;
-    const filho = el?.children[idx] as HTMLElement | undefined;
-    if (el && filho) el.scrollTo({ left: filho.offsetLeft, behavior: "smooth" });
-    setI(idx);
-  };
-  useEffect(() => {
-    if (n <= 1) return;
-    const t = setInterval(() => setI((prev) => {
-      const nx = (prev + 1) % n;
-      const el = ref.current;
-      const filho = el?.children[nx] as HTMLElement | undefined;
-      if (el && filho) el.scrollTo({ left: filho.offsetLeft, behavior: "smooth" });
-      return nx;
-    }), velocidade * 1000);
-    return () => clearInterval(t);
-  }, [n, velocidade]);
-  const item = (b: SiteBanner) => {
+  const { proximo, anterior } = useLoopCarrossel(ref, n, velocidade);
+  const item = (b: SiteBanner, key: React.Key) => {
     const conteudo = b.imagem_url
       ? <img src={b.imagem_url} alt={b.titulo ?? ""} style={{ height: "100%", width: "auto", display: "block", objectFit: "cover", objectPosition: objPos }} loading="lazy" />
       : <div style={{ height: "100%", width: Math.round(altura * 1.5), background: gradPlaceholder(b.id) }} />;
     const st: React.CSSProperties = { flex: "0 0 auto", height: "100%", scrollSnapAlign: "center" };
-    return b.link ? <a key={b.id} href={resolver(b.link)} style={st}>{conteudo}</a> : <div key={b.id} style={st}>{conteudo}</div>;
+    return b.link ? <a key={key} href={resolver(b.link)} style={st}>{conteudo}</a> : <div key={key} style={st}>{conteudo}</div>;
   };
   return (
     <section style={{ position: "relative", background: "#111" }}>
       <div ref={ref} className="site-esconde-scroll" style={{ display: "flex", gap: 4, overflowX: "auto", scrollSnapType: "x mandatory", height: altura }}>
-        {banners.map(item)}
+        {banners.map((b) => item(b, b.id))}
+        {n > 1 && item(banners[0], "__clone__")}
       </div>
-      {n > 1 && <><Seta dir="esq" onClick={() => irPara((i - 1 + n) % n)} /><Seta dir="dir" onClick={() => irPara((i + 1) % n)} /></>}
+      {n > 1 && <><Seta dir="esq" onClick={anterior} /><Seta dir="dir" onClick={proximo} /></>}
     </section>
   );
 }
