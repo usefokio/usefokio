@@ -236,6 +236,13 @@ a {
   text-underline-offset: 2px;
 }
 .site-conteudo a:hover { text-decoration: none; }
+/* Hierarquia e ritmo do conteúdo: subtítulos claros e espaçamento entre blocos (posts/trabalhos/páginas) */
+.site-conteudo h2 { font-size: 1.7em; font-weight: 600; line-height: 1.25; margin: 1.9em 0 0.5em; }
+.site-conteudo h3 { font-size: 1.25em; font-weight: 600; line-height: 1.3; margin: 1.5em 0 0.35em; }
+.site-conteudo h2:first-child, .site-conteudo h3:first-child { margin-top: 0; }
+.site-conteudo p { margin: 0 0 1.1em; }
+.site-conteudo ul, .site-conteudo ol { margin: 0 0 1.1em; padding-left: 1.35em; }
+.site-conteudo li { margin-bottom: 0.5em; }
 .site-conteudo .post-galeria {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
