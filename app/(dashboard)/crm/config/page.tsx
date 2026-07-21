@@ -1263,6 +1263,7 @@ export default function CrmConfigPage() {
           <p style={{ fontSize: 13, color: "var(--color-text-secondary)", marginBottom: 20 }}>
             As categorias aparecem nos formulários de produto, nos pedidos e nos filtros de listagem.
             Marque em cada uma se o <strong>pedido</strong> daquela categoria pede <strong>data</strong>, <strong>local</strong> e <strong>horário</strong> (ex.: álbum pode ficar sem nenhum).
+            Quando <strong>data</strong> está marcada, ela vira <strong>obrigatória</strong> no pedido e gera o agendamento na agenda.
           </p>
           <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
             <input value={novaCat} onChange={(e) => setNovaCat(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") adicionarCategoria(); }} placeholder="Nome da nova categoria…" style={{ ...inputSt, flex: 1 }} />

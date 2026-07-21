@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
-import { isValidDate, formatNum, mascaraValor, parsearValor, mascaraHora } from "@/lib/utils/format";
+import { isValidDate, formatNum, formatData, mascaraValor, parsearValor, mascaraHora } from "@/lib/utils/format";
 import { Field } from "@/components/ui/Field";
 import { inputStyle } from "@/lib/styles";
 import { ClienteSelect } from "@/components/ui/ClienteSelect";
@@ -14,6 +14,8 @@ import { ehCategoriaEvento } from "@/lib/crm/casamento";
 import type { CrmOrder, CrmProduct, Cliente, CrmProductCategory } from "@/lib/supabase/types";
 import { useUnsavedGuard } from "@/lib/hooks/useUnsavedGuard";
 import { SeloEstado, ModalNaoSalvo } from "@/app/(dashboard)/_components/EditorEstado";
+import { ModalConfirmacao } from "@/app/(dashboard)/_components/ModalConfirmacao";
+import { criarAgendamentoDoPedido, recriarAgendamentosDoPedido } from "@/lib/crm/agendamentos";
 
 // ── Tipos locais ──────────────────────────────────────────────────────────────
 
@@ -168,6 +170,10 @@ export default function FormPedido({ inicial, onSalvo, onCancelar }: Props) {
   // Controla quais planos têm parcelas em modo de edição
   const [parcelasEmEdicao, setParcelasEmEdicao] = useState<Set<number>>(new Set());
 
+  // Confirmação ao mudar a data de um pedido que já tem agendamento (cancelar e recriar).
+  const [confirmAgenda, setConfirmAgenda] = useState<{ de: string | null; para: string; qtd: number } | null>(null);
+  const pendingNavegarRef = useRef(true);
+
   const isEditing = !!inicial?.id;
 
   // ── Estado "não salvo" (guard de saída) ───────────────────────────────────────
@@ -240,6 +246,8 @@ export default function FormPedido({ inicial, onSalvo, onCancelar }: Props) {
     pede_local:   catAtual ? catAtual.pede_local : true,
     pede_horario: catAtual ? catAtual.pede_horario : true,
   };
+  // Bloqueia salvar sem nome ou — quando a categoria pede data — sem data (data obrigatória).
+  const salvarBloqueado = saving || !form.nome.trim() || (flags.pede_data && !form.data_evento);
 
   // ── Helpers de UI ───────────────────────────────────────────────────────────
   const upd = <K extends keyof FormData>(k: K, v: FormData[K]) => setForm(f => ({ ...f, [k]: v }));
@@ -365,8 +373,9 @@ export default function FormPedido({ inicial, onSalvo, onCancelar }: Props) {
   // ── Salvar pedido ───────────────────────────────────────────────────────────
   // Retorna true só em caso de sucesso. `navegar` controla a navegação interna
   // pós-salvar (botões normais navegam; o "Salvar e sair" do modal decide o destino).
-  const handleSave = async (navegar = true): Promise<boolean> => {
+  const handleSave = async (navegar = true, agendaConfirmada = false): Promise<boolean> => {
     if (!form.nome.trim()) { setError("Nome é obrigatório."); return false; }
+    if (flags.pede_data && !form.data_evento) { setError("A data do evento é obrigatória para esta categoria."); return false; }
     if (form.data_evento && !isValidDate(form.data_evento)) { setError("Data do evento inválida."); return false; }
     for (const plano of planos) {
       if (plano.dataPrazo && !isValidDate(plano.dataPrazo)) { setError("Data de vencimento do plano de pagamento inválida."); return false; }
@@ -376,6 +385,22 @@ export default function FormPedido({ inicial, onSalvo, onCancelar }: Props) {
       }
     }
     if (!fotografo) return false;
+
+    // Mudança de data num pedido que JÁ tem agendamento → pergunta antes de cancelar e recriar
+    // (não aparece se a data não mudou; e um evento não pode ficar em duas datas).
+    const dataEventoAnterior = inicial?.data_evento ?? null;
+    const dataEventoNova = flags.pede_data ? (form.data_evento || null) : null;
+    const dataMudou = isEditing && !!inicial?.id && !!dataEventoNova && dataEventoNova !== dataEventoAnterior;
+    if (dataMudou && !agendaConfirmada) {
+      const { count } = await createClient()
+        .from("crm_schedules").select("id", { count: "exact", head: true }).eq("pedido_id", inicial!.id);
+      if ((count ?? 0) > 0) {
+        pendingNavegarRef.current = navegar;
+        setConfirmAgenda({ de: dataEventoAnterior, para: dataEventoNova!, qtd: count ?? 0 });
+        return false; // aguarda a decisão do modal
+      }
+    }
+
     setSaving(true);
     setError("");
 
@@ -419,8 +444,6 @@ export default function FormPedido({ inicial, onSalvo, onCancelar }: Props) {
       ...(!isEditing ? { data_lancamento: new Date().toISOString().slice(0, 10), crm_nativo: true } : {}),
     };
 
-    const dataEventoAnterior = inicial?.data_evento ?? null;
-    const dataEventoNova = flags.pede_data ? (form.data_evento || null) : null;
     let agendaAtualizado = false;
 
     let id = inicial?.id;
@@ -428,13 +451,16 @@ export default function FormPedido({ inicial, onSalvo, onCancelar }: Props) {
       const { error: err } = await sb.from("crm_orders").update(payload).eq("id", id);
       if (err) { setError(err.message); setSaving(false); return false; }
 
-      // Atualizar agendamento vinculado se data_evento mudou
-      if (dataEventoNova && dataEventoNova !== dataEventoAnterior) {
-        const { data: sched } = await sb.from("crm_schedules").select("id").eq("pedido_id", id).maybeSingle();
-        if (sched) {
-          await sb.from("crm_schedules").update({ inicio: dataEventoNova + "T08:00:00", fim: dataEventoNova + "T18:00:00" }).eq("id", sched.id);
-          agendaAtualizado = true;
-        }
+      // Data mudou → cancela e recria o(s) agendamento(s) na nova data (o modal já confirmou quando
+      // havia agendamento; se não havia, apenas cria — corrige o furo de a edição nunca criar).
+      // Data removida → apaga o agendamento.
+      if (dataMudou) {
+        await recriarAgendamentosDoPedido(sb, {
+          fotografo_id: fotografo.id, pedido_id: id, cliente_id: form.cliente_id || null,
+          titulo: form.nome, categoria: form.categoria || null,
+          data_evento: dataEventoNova!, hora_evento: flags.pede_horario ? form.hora_evento : null,
+        });
+        agendaAtualizado = true;
       } else if (!dataEventoNova && dataEventoAnterior) {
         await sb.from("crm_schedules").delete().eq("pedido_id", id);
         agendaAtualizado = true;
@@ -477,16 +503,10 @@ export default function FormPedido({ inicial, onSalvo, onCancelar }: Props) {
 
       // Criar agendamento vinculado ao pedido se tiver data do evento
       if (dataEventoNova && id) {
-        await sb.from("crm_schedules").insert({
-          fotografo_id: fotografo.id,
-          pedido_id:    id,
-          cliente_id:   form.cliente_id || null,
-          titulo:       form.nome.trim() || "Evento",
-          descricao:    form.categoria || null,
-          inicio:       dataEventoNova + "T08:00:00",
-          fim:          dataEventoNova + "T18:00:00",
-          dia_todo:     false,
-          tipo:         "evento",
+        await criarAgendamentoDoPedido(sb, {
+          fotografo_id: fotografo.id, pedido_id: id, cliente_id: form.cliente_id || null,
+          titulo: form.nome, categoria: form.categoria || null,
+          data_evento: dataEventoNova, hora_evento: flags.pede_horario ? form.hora_evento : null,
         });
       }
 
@@ -630,8 +650,8 @@ export default function FormPedido({ inicial, onSalvo, onCancelar }: Props) {
 
       {/* ── Botões topo ── */}
       <div style={{ display: "flex", gap: 10, marginBottom: 28, alignItems: "center" }}>
-        <button onClick={() => handleSave()} disabled={saving || !form.nome.trim()}
-          style={{ padding: "10px 28px", borderRadius: 8, background: saving || !form.nome.trim() ? "#93C5FD" : "#111", color: "#fff", border: "none", fontSize: 13, fontWeight: 700, cursor: saving || !form.nome.trim() ? "not-allowed" : "pointer" }}>
+        <button onClick={() => handleSave()} disabled={salvarBloqueado}
+          style={{ padding: "10px 28px", borderRadius: 8, background: salvarBloqueado ? "#93C5FD" : "#111", color: "#fff", border: "none", fontSize: 13, fontWeight: 700, cursor: salvarBloqueado ? "not-allowed" : "pointer" }}>
           {saving ? "Salvando…" : isEditing ? "Salvar alterações" : "Criar pedido"}
         </button>
         <button onClick={pedirSair}
@@ -675,9 +695,10 @@ export default function FormPedido({ inicial, onSalvo, onCancelar }: Props) {
           <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
             {flags.pede_data && (
               <div style={{ flex: "1 1 160px" }}>
-                <Field label="Data do evento">
+                <Field label="Data do evento *">
                   <input type="date" value={form.data_evento} onChange={e => upd("data_evento", e.target.value)} style={inputStyle} />
                 </Field>
+                {!form.data_evento && <div style={{ fontSize: 11, color: "#B45309", marginTop: 4 }}>Obrigatória para esta categoria</div>}
               </div>
             )}
             {flags.pede_horario && (
@@ -943,8 +964,8 @@ export default function FormPedido({ inicial, onSalvo, onCancelar }: Props) {
 
       {/* ── Botões ── */}
       <div style={{ marginTop: 24, display: "flex", gap: 10, alignItems: "center" }}>
-        <button onClick={() => handleSave()} disabled={saving || !form.nome.trim()}
-          style={{ padding: "10px 28px", borderRadius: 8, background: saving || !form.nome.trim() ? "#93C5FD" : "#111", color: "#fff", border: "none", fontSize: 13, fontWeight: 700, cursor: saving || !form.nome.trim() ? "not-allowed" : "pointer" }}>
+        <button onClick={() => handleSave()} disabled={salvarBloqueado}
+          style={{ padding: "10px 28px", borderRadius: 8, background: salvarBloqueado ? "#93C5FD" : "#111", color: "#fff", border: "none", fontSize: 13, fontWeight: 700, cursor: salvarBloqueado ? "not-allowed" : "pointer" }}>
           {saving ? "Salvando…" : isEditing ? "Salvar alterações" : "Criar pedido"}
         </button>
         <button onClick={pedirSair}
@@ -958,6 +979,26 @@ export default function FormPedido({ inicial, onSalvo, onCancelar }: Props) {
         onSalvarESair={salvarESair}
         onSairSemSalvar={confirmarSairSemSalvar}
         onContinuar={continuarEditando} />
+
+      {/* Mudança de data com agendamento existente → confirmar recriação */}
+      <ModalConfirmacao
+        aberto={!!confirmAgenda}
+        titulo="A data do evento mudou"
+        perigo
+        ocupado={saving}
+        textoConfirmar="Cancelar e recriar na nova data"
+        textoCancelar="Continuar editando"
+        onConfirmar={() => { setConfirmAgenda(null); handleSave(pendingNavegarRef.current, true); }}
+        onCancelar={() => setConfirmAgenda(null)}
+        mensagem={confirmAgenda ? (
+          <>
+            Este pedido tem {confirmAgenda.qtd === 1 ? "um agendamento" : `${confirmAgenda.qtd} agendamentos`} na
+            agenda{confirmAgenda.de ? <> em <strong>{formatData(confirmAgenda.de)}</strong></> : null}.{" "}
+            Deseja cancelar {confirmAgenda.qtd === 1 ? "esse agendamento" : "esses agendamentos"} e recriar em{" "}
+            <strong>{formatData(confirmAgenda.para)}</strong>?
+          </>
+        ) : ""}
+      />
 
       {/* ════════════════════════════════════════════════════════════════════════
           MODAL — Detalhes do Produto

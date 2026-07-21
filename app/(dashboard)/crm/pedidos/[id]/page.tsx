@@ -576,7 +576,7 @@ export default function PedidoDetailPage() {
               .then(({ data }) => {
                 setPedido(data as OrderWithCliente | null);
                 setEditing(false);
-                if (agendaAtualizado) setAgendaMsg("O agendamento foi atualizado com a nova data do evento.");
+                if (agendaAtualizado) setAgendaMsg("A agenda foi atualizada com a nova data do evento.");
               });
           }}
           onCancelar={() => setEditing(false)}
