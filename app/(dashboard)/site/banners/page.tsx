@@ -1,6 +1,6 @@
 "use client";
 
-// Banners da home do site: upload, ordem, publicar/ocultar, excluir.
+// Banners da home do site: upload, ordem (arrastar + Salvar), publicar/ocultar, excluir.
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
@@ -14,6 +14,9 @@ type TrabalhoOpcao = { id: string; titulo: string; categoria: string; slug: stri
 export default function BannersPage() {
   const { fotografo } = useFotografo();
   const [banners, setBanners] = useState<SiteBanner[]>([]);
+  const [ordemBase, setOrdemBase] = useState<string[]>([]); // ordem de ids como está salva no banco
+  const [salvandoOrdem, setSalvandoOrdem] = useState(false);
+  const [erroOrdem, setErroOrdem] = useState("");
   const [loading, setLoading] = useState(true);
   const [fila, setFila] = useState<{ total: number; feitas: number } | null>(null);
   const [trabalhos, setTrabalhos] = useState<TrabalhoOpcao[]>([]);
@@ -26,11 +29,19 @@ export default function BannersPage() {
     if (!fotografo) return;
     const supabase = createClient();
     supabase.from("site_banners").select("*").eq("fotografo_id", fotografo.id).order("ordem")
-      .then(({ data }) => { setBanners((data as SiteBanner[]) ?? []); setLoading(false); });
+      .then(({ data }) => {
+        const lista = (data as SiteBanner[]) ?? [];
+        setBanners(lista);
+        setOrdemBase(lista.map((b) => b.id));
+        setLoading(false);
+      });
     supabase.from("site_trabalhos").select("id, titulo, categoria, slug, legacy_id")
       .eq("fotografo_id", fotografo.id).eq("publicado", true).order("titulo")
       .then(({ data }) => setTrabalhos((data as TrabalhoOpcao[]) ?? []));
   }, [fotografo]);
+
+  // Ordem alterada mas ainda não salva? (compara a ordem atual dos ids com a última salva)
+  const ordemMudou = banners.length === ordemBase.length && banners.some((b, i) => b.id !== ordemBase[i]);
 
   const urlDoTrabalho = (t: TrabalhoOpcao) => `/portfolio/${t.categoria}/${t.legacy_id ? `${t.legacy_id}-` : ""}${t.slug}`;
 
@@ -58,7 +69,10 @@ export default function BannersPage() {
         const { data } = await supabase.from("site_banners")
           .insert({ fotografo_id: fotografo.id, imagem_url: url_publica, storage_path, ordem: ordem++, tamanho_bytes })
           .select("*").single();
-        if (data) setBanners((prev) => [...prev, data as SiteBanner]);
+        if (data) {
+          setBanners((prev) => [...prev, data as SiteBanner]);
+          setOrdemBase((prev) => [...prev, (data as SiteBanner).id]);
+        }
       } catch (e) {
         console.error("[site] upload banner falhou:", e instanceof Error ? e.message : e);
       }
@@ -68,23 +82,41 @@ export default function BannersPage() {
     if (inputFileRef.current) inputFileRef.current.value = "";
   }
 
-  // Reordenação por arrastar-e-soltar: solta na posição desejada e persiste tudo num único upsert.
+  // Reordenação por arrastar-e-soltar: só mexe na ordem LOCAL; persiste ao clicar em "Salvar ordem".
   const dragIdx = useRef<number | null>(null);
   const [sobreIdx, setSobreIdx] = useState<number | null>(null);
 
-  async function soltar(destino: number) {
+  function soltar(destino: number) {
     const origem = dragIdx.current;
     dragIdx.current = null;
     setSobreIdx(null);
-    if (origem === null || origem === destino || !fotografo) return;
-    const novas = [...banners];
-    const [movido] = novas.splice(origem, 1);
-    novas.splice(destino, 0, movido);
-    const reordenados = novas.map((b, i) => ({ ...b, ordem: i }));
-    setBanners(reordenados);
+    if (origem === null || origem === destino) return;
+    setBanners((prev) => {
+      const novas = [...prev];
+      const [movido] = novas.splice(origem, 1);
+      novas.splice(destino, 0, movido);
+      return novas;
+    });
+  }
+
+  async function salvarOrdem() {
+    if (!fotografo || salvandoOrdem) return;
+    setSalvandoOrdem(true); setErroOrdem("");
     const supabase = createClient();
-    await supabase.from("site_banners")
-      .upsert(reordenados.map((b) => ({ id: b.id, fotografo_id: fotografo.id, ordem: b.ordem })), { onConflict: "id" });
+    // UPDATE puro de `ordem` (nunca upsert — imagem_url é NOT NULL e quebraria o INSERT).
+    const resultados = await Promise.all(
+      banners.map((b, i) => supabase.from("site_banners").update({ ordem: i }).eq("id", b.id))
+    );
+    setSalvandoOrdem(false);
+    if (resultados.some((r) => r.error)) { setErroOrdem("Falha ao salvar a ordem. Tente de novo."); return; }
+    setBanners((prev) => prev.map((b, i) => ({ ...b, ordem: i })));
+    setOrdemBase(banners.map((b) => b.id));
+  }
+
+  function desfazerOrdem() {
+    // volta à última ordem salva (ordemBase)
+    setBanners((prev) => [...prev].sort((a, b) => ordemBase.indexOf(a.id) - ordemBase.indexOf(b.id)));
+    setErroOrdem("");
   }
 
   async function alternarPublicado(banner: SiteBanner) {
@@ -99,6 +131,7 @@ export default function BannersPage() {
     await supabase.from("site_banners").delete().eq("id", banner.id);
     if (banner.storage_path) await deleteFilesClient([{ storage_path: banner.storage_path, url_publica: banner.imagem_url }]);
     setBanners((prev) => prev.filter((b) => b.id !== banner.id));
+    setOrdemBase((prev) => prev.filter((id) => id !== banner.id));
   }
 
   return (
@@ -111,9 +144,27 @@ export default function BannersPage() {
         </button>
         <input ref={inputFileRef} type="file" accept="image/*" multiple style={{ display: "none" }} onChange={(e) => enviar(e.target.files)} />
       </div>
-      <p style={{ fontSize: 13, color: "var(--color-text-secondary)", margin: "0 0 24px" }}>
-        Imagens de destaque da home do site. Arraste os cards para reordenar; o primeiro banner publicado é o principal.
+      <p style={{ fontSize: 13, color: "var(--color-text-secondary)", margin: "0 0 16px" }}>
+        Imagens de destaque da home do site. Arraste os cards para reordenar e clique em <strong>Salvar ordem</strong>; o primeiro banner publicado é o principal.
       </p>
+
+      {/* Barra de ordem: só aparece quando há mudança pendente (selo âmbar + Salvar/Desfazer) */}
+      {ordemMudou && (
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, padding: "10px 14px", borderRadius: 10, background: "rgba(245,158,11,0.10)", border: "1px solid rgba(245,158,11,0.35)" }}>
+          <span style={{ fontSize: 12.5, fontWeight: 700, color: "#B45309" }}>● Ordem não salva</span>
+          {erroOrdem && <span style={{ fontSize: 12.5, color: "#DC2626" }}>{erroOrdem}</span>}
+          <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
+            <button onClick={desfazerOrdem} disabled={salvandoOrdem}
+              style={{ padding: "7px 14px", borderRadius: 8, border: "1px solid var(--color-border-secondary)", background: "transparent", fontSize: 12.5, fontWeight: 600, color: "var(--color-text-primary)", cursor: "pointer" }}>
+              Desfazer
+            </button>
+            <button onClick={salvarOrdem} disabled={salvandoOrdem}
+              style={{ padding: "7px 16px", borderRadius: 8, border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", fontSize: 12.5, fontWeight: 700, cursor: salvandoOrdem ? "default" : "pointer", opacity: salvandoOrdem ? 0.6 : 1 }}>
+              {salvandoOrdem ? "Salvando…" : "Salvar ordem"}
+            </button>
+          </div>
+        </div>
+      )}
 
       {loading ? (
         <div style={{ padding: 40, textAlign: "center", fontSize: 13, color: "var(--color-text-secondary)" }}>Carregando…</div>
@@ -123,14 +174,13 @@ export default function BannersPage() {
             <div
               key={b.id}
               draggable={editando !== b.id}
-              onDragStart={(e) => { if ((e.target as HTMLElement).tagName === "INPUT") { e.preventDefault(); return; } dragIdx.current = idx; }}
-              onDragOver={(e) => { e.preventDefault(); if (sobreIdx !== idx) setSobreIdx(idx); }}
-              onDragLeave={() => { if (sobreIdx === idx) setSobreIdx(null); }}
+              onDragStart={(e) => { if ((e.target as HTMLElement).tagName === "INPUT") { e.preventDefault(); return; } dragIdx.current = idx; e.dataTransfer.effectAllowed = "move"; }}
+              onDragOver={(e) => { e.preventDefault(); if (dragIdx.current !== null && sobreIdx !== idx) setSobreIdx(idx); }}
               onDrop={(e) => { e.preventDefault(); soltar(idx); }}
               onDragEnd={() => { dragIdx.current = null; setSobreIdx(null); }}
               style={{ borderRadius: 12, overflow: "hidden", border: sobreIdx === idx ? "2px solid #2563EB" : "1px solid var(--color-border-tertiary)", background: "var(--color-background-secondary)", opacity: b.publicado ? 1 : 0.55, cursor: editando === b.id ? "default" : "grab" }}
             >
-              <img src={b.imagem_url} alt={b.titulo ?? ""} style={{ width: "100%", aspectRatio: "16/9", objectFit: "cover", display: "block", pointerEvents: "none" }} loading="lazy" />
+              <img src={b.imagem_url} alt={b.titulo ?? ""} draggable={false} style={{ width: "100%", aspectRatio: "16/9", objectFit: "cover", display: "block", pointerEvents: "none" }} loading="lazy" />
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 10px" }}>
                 <span title="Arraste o card para reordenar" style={{ fontSize: 15, color: "var(--color-text-secondary)", cursor: "grab", userSelect: "none" }}>⠿</span>
                 <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 10, background: b.publicado ? "rgba(16,185,129,0.12)" : "rgba(245,158,11,0.15)", color: b.publicado ? "#059669" : "#B45309" }}>
