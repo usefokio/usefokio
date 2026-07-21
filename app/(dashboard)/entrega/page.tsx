@@ -176,7 +176,7 @@ export default function EntregaPage() {
       fetchAllRows<any>(
         (sbc, f, t) => sbc
           .from("respostas_campanha")
-          .select("galeria_id, token, estagio, resposta, respondido_em, email_1_em, email_2_em")
+          .select("galeria_id, token, estagio, resposta, respondido_em, email_1_em, email_2_em, ignorar_funil")
           .eq("fotografo_id", fotografo.id)
           .range(f, t),
         supabase
@@ -224,6 +224,46 @@ export default function EntregaPage() {
       return ehSuspensa || ehExpirada;
     });
     semFunil.forEach((g) => fetch(`/api/campanha/galeria/${g.id}`).catch(() => {}));
+
+    // Notificar re-expiração pós-renovação: galeria que renovou (respostas_campanha.estagio='encerrado')
+    // e expirou de novo. Idempotente: só cria se ainda não houver notificação DESTE ciclo — a notificação
+    // é criada depois do expires_at, então `created_at > expires_at` marca "já avisei desta expiração";
+    // numa nova renovação o expires_at avança e a notificação antiga passa a ser "de antes" → avisa de novo.
+    const reexpiradas = lista.filter((g) => {
+      const rc = (g.respostas_campanha as any[])[0];
+      const expirada = !g.suspensa && g.expires_at && new Date(g.expires_at) < new Date();
+      return expirada && rc && rc.estagio === "encerrado";
+    });
+    if (reexpiradas.length > 0) {
+      const ids = reexpiradas.map((g) => g.id);
+      const { data: jaNotif } = await supabase
+        .from("notificacoes")
+        .select("acao_ref, created_at")
+        .eq("fotografo_id", fotografo.id)
+        .eq("tipo", "entrega_reexpirada")
+        .in("acao_ref", ids);
+      const ultimaPorGaleria: Record<string, string> = {};
+      for (const n of (jaNotif ?? []) as { acao_ref: string; created_at: string }[]) {
+        if (!ultimaPorGaleria[n.acao_ref] || n.created_at > ultimaPorGaleria[n.acao_ref]) {
+          ultimaPorGaleria[n.acao_ref] = n.created_at;
+        }
+      }
+      const novas = reexpiradas
+        .filter((g) => {
+          const ultima = ultimaPorGaleria[g.id];
+          return !ultima || new Date(ultima) < new Date(g.expires_at as string);
+        })
+        .map((g) => ({
+          fotografo_id: fotografo.id,
+          tipo: "entrega_reexpirada",
+          titulo: "Galeria expirou de novo",
+          corpo: `A galeria de ${g.clientes?.nome ?? "cliente"} (${g.titulo}) expirou novamente — envie ao funil para reconquistar a renovação.`,
+          href: `/entrega/${g.id}`,
+          acao_tipo: "enviar_funil",
+          acao_ref: g.id,
+        }));
+      if (novas.length > 0) await supabase.from("notificacoes").insert(novas);
+    }
   }
 
   useEffect(() => { carregar(); }, [fotografo, recarregarKey]);
@@ -234,6 +274,12 @@ export default function EntregaPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ estagio: "nao_contatado" }),
     });
+    setRecarregarKey((k) => k + 1);
+  }
+
+  // Reenviar ao funil uma galeria re-expirada (ciclo concluído): zera o ciclo p/ "sem contato".
+  async function reenviarAoFunil(id: string) {
+    await fetch(`/api/campanha/galeria/${id}/reset`, { method: "POST" });
     setRecarregarKey((k) => k + 1);
   }
 
@@ -611,6 +657,11 @@ export default function EntregaPage() {
                           </span>
                         ) : null;
                       }
+                      // Galeria expirada cujo ciclo de campanha já foi CONCLUÍDO (renovou → encerrado)
+                      // ou que saiu do funil (ignorar_funil): não mostrar badge de funil antigo — a coluna
+                      // de status à direita já mostra "Expirado". Corrige "quer renovar"/"campanha" stale
+                      // após uma re-expiração (ex.: aniversário Santiago, pré-wedding Mariana).
+                      if (rc && (rc.estagio === "encerrado" || rc.ignorar_funil)) return null;
                       if (!rc && !elegivel) return null;
                       if (!rc) return (
                         <span title="Na campanha de reativação — sem contato ainda" style={{ flexShrink: 0, fontSize: 10, fontWeight: 600, padding: "2px 7px", borderRadius: 20, background: "rgba(245,158,11,0.10)", color: "#B45309" }}>
@@ -710,6 +761,16 @@ export default function EntregaPage() {
                       onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(245,158,11,0.16)")}
                       onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(245,158,11,0.08)")}
                     >🔄</button>
+                  )}
+
+                  {isExpirado && ((g.respostas_campanha?.[0] as any)?.estagio === "encerrado" || (g.respostas_campanha?.[0] as any)?.ignorar_funil) && (
+                    <button
+                      onClick={() => reenviarAoFunil(g.id)}
+                      title="Reenviar ao funil de reativação (novo ciclo)"
+                      style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 26, height: 26, borderRadius: 6, border: "0.5px solid rgba(37,99,235,0.4)", color: "#2563EB", background: "rgba(37,99,235,0.06)", cursor: "pointer", fontSize: 13 }}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(37,99,235,0.14)")}
+                      onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(37,99,235,0.06)")}
+                    >📢</button>
                   )}
 
                   <button

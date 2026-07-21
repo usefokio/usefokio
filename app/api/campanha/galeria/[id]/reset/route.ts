@@ -22,14 +22,17 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
   const { data: atualizado, error } = await admin
     .from("respostas_campanha")
     .update({
-      estagio:        "nao_contatado",
-      resposta:       null,
-      respondido_em:  null,
-      respondido_nome: null,
+      estagio:          "nao_contatado",
+      resposta:         null,
+      respondido_em:    null,
+      respondido_nome:  null,
       respondido_email: null,
-      email_1_em:     null,
-      email_2_em:     null,
-      whatsapp_em:    null,
+      email_1_em:       null,
+      email_2_em:       null,
+      whatsapp_em:      null,
+      agradecimento_em: null,
+      drive_revogado:   false,
+      ignorar_funil:    false,   // volta ao funil "sem contato" (reenviar ao funil)
     })
     .eq("id", registro.id)
     .select("estagio, email_1_em, email_2_em, whatsapp_em, resposta, respondido_em, respondido_nome")

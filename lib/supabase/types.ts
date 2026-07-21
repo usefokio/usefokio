@@ -682,6 +682,8 @@ export type Notificacao = {
   titulo: string;
   corpo: string | null;
   href: string | null;
+  acao_tipo: string | null;
+  acao_ref: string | null;
   lida: boolean;
   lida_em: string | null;
   created_at: string;

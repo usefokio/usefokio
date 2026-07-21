@@ -533,11 +533,15 @@ export default function EntregaDetailPage() {
           whatsapp:      { label: "WhatsApp enviado",   icone: "📱", cor: "#15803D", bg: "rgba(34,197,94,0.07)",  border: "rgba(34,197,94,0.25)" },
           encerrado:     { label: "Encerrado",          icone: "✓",  cor: "#059669", bg: "rgba(16,185,129,0.07)", border: "rgba(16,185,129,0.25)" },
         };
-        const info = funilInfo.resposta === "tem_arquivos"
-          ? { label: "Cliente: já tem os arquivos", icone: "✓", cor: "#059669", bg: "rgba(16,185,129,0.07)", border: "rgba(16,185,129,0.25)" }
-          : funilInfo.resposta === "renovar"
-            ? { label: "Cliente: quer renovar", icone: "🔄", cor: "#2563EB", bg: "rgba(37,99,235,0.07)", border: "rgba(37,99,235,0.25)" }
-            : ESTAGIO_INFO[funilInfo.estagio] ?? ESTAGIO_INFO.nao_contatado;
+        // Ciclo encerrado (ex.: renovou) tem precedência: não mostrar "quer renovar"/resposta do ciclo
+        // anterior como se ainda estivesse pendente. A timeline abaixo mantém o histórico completo.
+        const info = funilInfo.estagio === "encerrado"
+          ? ESTAGIO_INFO.encerrado
+          : funilInfo.resposta === "tem_arquivos"
+            ? { label: "Cliente: já tem os arquivos", icone: "✓", cor: "#059669", bg: "rgba(16,185,129,0.07)", border: "rgba(16,185,129,0.25)" }
+            : funilInfo.resposta === "renovar"
+              ? { label: "Cliente: quer renovar", icone: "🔄", cor: "#2563EB", bg: "rgba(37,99,235,0.07)", border: "rgba(37,99,235,0.25)" }
+              : ESTAGIO_INFO[funilInfo.estagio] ?? ESTAGIO_INFO.nao_contatado;
 
         const ultimoContato = funilInfo.whatsapp_em ?? funilInfo.email_2_em ?? funilInfo.email_1_em ?? null;
         const fmtData = (iso: string) => new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });

@@ -23,6 +23,7 @@ export function SinoNotificacoes() {
   const { fotografo } = useFotografo();
   const [aberto, setAberto] = useState(false);
   const [notifs, setNotifs] = useState<Notificacao[]>([]);
+  const [acaoEmCurso, setAcaoEmCurso] = useState<string | null>(null);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -60,6 +61,22 @@ export function SinoNotificacoes() {
     if (!fotografo || naoLidas === 0) return;
     setNotifs((prev) => prev.map((x) => ({ ...x, lida: true })));
     await createClient().from("notificacoes").update({ lida: true, lida_em: new Date().toISOString() }).eq("fotografo_id", fotografo.id).eq("lida", false);
+  }
+
+  // Ação embutida "Enviar ao funil": reinicia o ciclo de campanha da galeria e marca a notificação lida.
+  async function enviarAoFunil(n: Notificacao) {
+    if (!n.acao_ref || acaoEmCurso) return;
+    setAcaoEmCurso(n.id);
+    try {
+      const res = await fetch(`/api/campanha/galeria/${n.acao_ref}/reset`, { method: "POST" });
+      if (!res.ok) throw new Error();
+      setNotifs((prev) => prev.map((x) => (x.id === n.id ? { ...x, lida: true } : x)));
+      await createClient().from("notificacoes").update({ lida: true, lida_em: new Date().toISOString() }).eq("id", n.id);
+    } catch {
+      alert("Não foi possível enviar ao funil. Tente novamente.");
+    } finally {
+      setAcaoEmCurso(null);
+    }
   }
 
   return (
@@ -104,24 +121,40 @@ export function SinoNotificacoes() {
               <div style={{ padding: "28px 16px", textAlign: "center", fontSize: 12, color: "var(--color-text-secondary)" }}>Nenhuma notificação</div>
             ) : (
               notifs.map((n) => (
-                <button
+                <div
                   key={n.id}
-                  onClick={() => abrirNotif(n)}
-                  style={{
-                    display: "block", width: "100%", textAlign: "left", border: "none", cursor: "pointer",
-                    padding: "10px 14px", borderBottom: "0.5px solid var(--color-border-tertiary)",
-                    background: n.lida ? "transparent" : "rgba(37,99,235,0.05)",
-                  }}
-                  onMouseEnter={(e) => (e.currentTarget.style.background = "var(--color-background-secondary)")}
-                  onMouseLeave={(e) => (e.currentTarget.style.background = n.lida ? "transparent" : "rgba(37,99,235,0.05)")}
+                  style={{ borderBottom: "0.5px solid var(--color-border-tertiary)", background: n.lida ? "transparent" : "rgba(37,99,235,0.05)" }}
                 >
-                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    {!n.lida && <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#2563EB", flexShrink: 0 }} />}
-                    <span style={{ fontSize: 13, fontWeight: n.lida ? 500 : 700, color: "var(--color-text-primary)", flex: 1 }}>{n.titulo}</span>
-                    <span style={{ fontSize: 10, color: "var(--color-text-secondary)", flexShrink: 0 }}>{formatarQuando(n.created_at)}</span>
-                  </div>
-                  {n.corpo && <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginTop: 3, lineHeight: 1.4 }}>{n.corpo}</div>}
-                </button>
+                  <button
+                    onClick={() => abrirNotif(n)}
+                    style={{
+                      display: "block", width: "100%", textAlign: "left", border: "none", cursor: "pointer",
+                      padding: "10px 14px 8px", background: "transparent",
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      {!n.lida && <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#2563EB", flexShrink: 0 }} />}
+                      <span style={{ fontSize: 13, fontWeight: n.lida ? 500 : 700, color: "var(--color-text-primary)", flex: 1 }}>{n.titulo}</span>
+                      <span style={{ fontSize: 10, color: "var(--color-text-secondary)", flexShrink: 0 }}>{formatarQuando(n.created_at)}</span>
+                    </div>
+                    {n.corpo && <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginTop: 3, lineHeight: 1.4 }}>{n.corpo}</div>}
+                  </button>
+                  {n.acao_tipo === "enviar_funil" && n.acao_ref && (
+                    <div style={{ padding: "0 14px 10px" }}>
+                      <button
+                        onClick={() => enviarAoFunil(n)}
+                        disabled={acaoEmCurso === n.id}
+                        style={{
+                          border: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-primary)",
+                          color: "#2563EB", cursor: acaoEmCurso === n.id ? "default" : "pointer", fontSize: 11, fontWeight: 700,
+                          padding: "5px 12px", borderRadius: 7, opacity: acaoEmCurso === n.id ? 0.6 : 1,
+                        }}
+                      >
+                        {acaoEmCurso === n.id ? "Enviando…" : "📢 Enviar ao funil"}
+                      </button>
+                    </div>
+                  )}
+                </div>
               ))
             )}
           </div>
