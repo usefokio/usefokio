@@ -66,8 +66,9 @@ export function PostForm({ postId }: { postId?: string }) {
   const [enviandoCapa, setEnviandoCapa] = useState(false);
   const inputCapaRef = useRef<HTMLInputElement>(null);
 
-  // Estado de salvamento claro (regra de sistema) — capa fica de fora (upload persiste na hora)
-  const snapshotAtual = JSON.stringify([titulo, slug, categoria, tags, resumo, corpo, publicado, publicadoEm, seoTitle, seoDesc, seoKw, seoNoindex, ogTitle, ogDesc, ogImage, mostrarData]);
+  // Estado de salvamento claro (regra de sistema). A capa ENTRA no snapshot: trocar a capa marca "não salvo"
+  // e habilita o Salvar (o upload só sobe o arquivo; o capa_url é gravado no salvar()).
+  const snapshotAtual = JSON.stringify([titulo, slug, categoria, tags, resumo, corpo, capaUrl, publicado, publicadoEm, seoTitle, seoDesc, seoKw, seoNoindex, ogTitle, ogDesc, ogImage, mostrarData]);
   const estado = useEditorEstado(snapshotAtual, "/site/blog");
 
   // Análise de SEO ao vivo (motor único em lib/site/seoAudit)
@@ -76,7 +77,7 @@ export function PostForm({ postId }: { postId?: string }) {
 
   useEffect(() => {
     if (!editando) {
-      estado.inicializar(JSON.stringify(["", "", "", "", "", "", false, new Date().toISOString().slice(0, 10), "", "", "", false, "", "", null, true]));
+      estado.inicializar(JSON.stringify(["", "", "", "", "", "", null, false, new Date().toISOString().slice(0, 10), "", "", "", false, "", "", null, true]));
       return;
     }
     if (!fotografo) return;
@@ -97,7 +98,7 @@ export function PostForm({ postId }: { postId?: string }) {
       const { data: cfg } = await supabase.from("site_config").select("subdominio, dominio_customizado").eq("fotografo_id", fotografo!.id).maybeSingle();
       if (cfg) setDominio(cfg.dominio_customizado || (cfg.subdominio ? `${cfg.subdominio}.usefokio.com.br` : "seusite.usefokio.com.br"));
       estado.inicializar(JSON.stringify([
-        p.titulo, p.slug, p.categoria ?? "", p.tags ?? "", p.resumo ?? "", p.corpo ?? "", p.publicado,
+        p.titulo, p.slug, p.categoria ?? "", p.tags ?? "", p.resumo ?? "", p.corpo ?? "", p.capa_url, p.publicado,
         p.publicado_em ? p.publicado_em.slice(0, 10) : new Date().toISOString().slice(0, 10),
         p.seo_title ?? "", p.seo_description ?? "", p.seo_keywords ?? "",
         p.seo_noindex, p.og_title ?? "", p.og_description ?? "", p.og_image_url, p.mostrar_data,
