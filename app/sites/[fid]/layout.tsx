@@ -10,6 +10,7 @@ import { normalizarDesign, getPar, type BarraConfig } from "@/lib/site/design";
 import { classesFontes, FONTE_VAR } from "./_fontes";
 import { SiteHeader } from "./_components/SiteHeader";
 import { ProtecaoImagem } from "./_components/ProtecaoImagem";
+import { BotaoWhatsAppFlutuante } from "./_components/BotaoWhatsAppFlutuante";
 
 // Fundo de uma barra (header/rodapé): cor própria (ou a do tema) + opacidade (transparência).
 function fundoBarra(b: BarraConfig, corTema: string): string {
@@ -204,6 +205,7 @@ export default async function SitePublicoLayout({ children, params }: { children
       </div>
       </div>
     </div>
+    {design.whatsapp_flutuante && fotografo?.whatsapp && <BotaoWhatsAppFlutuante numero={fotografo.whatsapp} />}
     {/* Aviso exibido só na impressão (o resto do site fica oculto via @media print) */}
     <div className="print-bloqueio" aria-hidden>Conteúdo protegido — impressão desabilitada.</div>
     </>

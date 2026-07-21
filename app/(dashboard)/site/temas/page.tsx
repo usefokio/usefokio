@@ -659,6 +659,15 @@ export default function AparenciaPage() {
                 galerias e blocos alinham juntos. Menor = mais respiro nas bordas.
               </p>
             </Card>
+
+            {/* Botão flutuante de WhatsApp — vale para o site inteiro (usa o WhatsApp do cadastro) */}
+            <Card titulo="Botão de WhatsApp" aberto onToggle={() => {}}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <Chave on={design.whatsapp_flutuante} onChange={(v) => setDesign((d) => ({ ...d, whatsapp_flutuante: v }))} titulo="Mostrar botão flutuante de WhatsApp" />
+                <span style={{ fontSize: 12.5, color: "var(--color-text-primary)", fontWeight: 500 }}>Botão flutuante de WhatsApp no site</span>
+              </div>
+              <p style={{ ...mini, marginTop: 6 }}>Fica no canto inferior direito de todas as páginas e usa o número de WhatsApp do seu cadastro.</p>
+            </Card>
             </>)}
 
             {/* ── Exibição das grades (Portfólio /colecoes, Trabalhos /portfolio e Vídeos /videos) ── */}

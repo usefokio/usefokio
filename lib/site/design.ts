@@ -206,6 +206,7 @@ export type ConfigDesign = {
   rodape: BarraConfig;
   blocos: HomeBloco[];      // ordem = ordem de render na home
   grades: GradesConfig;     // exibição das listagens públicas (Portfólio/Trabalhos)
+  whatsapp_flutuante: boolean; // botão flutuante de WhatsApp no site público (usa o número do cadastro)
 };
 
 export const DESIGN_PADRAO: ConfigDesign = {
@@ -217,6 +218,7 @@ export const DESIGN_PADRAO: ConfigDesign = {
   rodape: { cor: null, opacidade: 100, altura: 44 },
   blocos: BLOCOS_PADRAO,
   grades: { portfolio: { ...GRADE_PADRAO }, trabalhos: { ...GRADE_PADRAO }, videos: { ...GRADE_VIDEO_PADRAO } },
+  whatsapp_flutuante: true,
 };
 
 function num(v: unknown, def: number, min: number, max: number): number {
@@ -353,5 +355,6 @@ export function normalizarDesign(raw: unknown): ConfigDesign {
     rodape: normalizarBarra(d.rodape, DESIGN_PADRAO.rodape),
     blocos: normalizarBlocos(d.blocos),
     grades: { portfolio: normalizarGrade(grades.portfolio), trabalhos: normalizarGrade(grades.trabalhos), videos: normalizarGrade(grades.videos, GRADE_VIDEO_PADRAO) },
+    whatsapp_flutuante: d.whatsapp_flutuante !== false,
   };
 }

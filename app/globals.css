@@ -309,6 +309,19 @@ a {
 .site-esconde-scroll { scrollbar-width: none; -ms-overflow-style: none; }
 .site-esconde-scroll::-webkit-scrollbar { display: none; }
 
+/* Botão flutuante de WhatsApp do site público (canto inferior direito). */
+.site-whats-flutuante {
+  position: fixed; right: 20px; bottom: 20px; z-index: 900;
+  width: 56px; height: 56px; border-radius: 50%;
+  background: #25D366; color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.site-whats-flutuante:hover { transform: scale(1.06); box-shadow: 0 8px 22px rgba(0, 0, 0, 0.34); }
+@media (max-width: 640px) { .site-whats-flutuante { width: 52px; height: 52px; right: 16px; bottom: 16px; } }
+@media print { .site-whats-flutuante { display: none !important; } }
+
 /* Tela Site → Aparência: controles à esquerda, preview ao vivo (sticky) à direita; empilha no mobile. */
 .aparencia-grid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); gap: 28px; align-items: start; }
 .aparencia-preview-wrap { position: sticky; top: 16px; }
