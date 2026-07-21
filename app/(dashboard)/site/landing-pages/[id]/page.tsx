@@ -146,6 +146,7 @@ export default function EditorLandingPage({ params }: { params: Promise<{ id: st
     og_title: ogTitle, og_description: ogDesc, og_image_url: ogImage,
   };
   const setValores = (patch: Partial<ConfigPaginaValores>) => {
+    if (patch.slug !== undefined) setSlug(patch.slug);
     if (patch.seo_title !== undefined) setSeoTitle(patch.seo_title);
     if (patch.seo_description !== undefined) setSeoDesc(patch.seo_description);
     if (patch.seo_keywords !== undefined) setSeoKw(patch.seo_keywords);
@@ -238,8 +239,8 @@ export default function EditorLandingPage({ params }: { params: Promise<{ id: st
           onSalvar={async () => { if (await salvar()) setConfigAberto(false); }}
           valores={valores}
           onChange={setValores}
-          recursos={{}}
-          urlPublica={`/${slugifyUrl(slug)}`}
+          recursos={{ url: true }}
+          urlPublica={`/${slug}`}
           dominio={dominio}
           tituloFallback={titulo}
           descricaoFallback={seoDesc}
