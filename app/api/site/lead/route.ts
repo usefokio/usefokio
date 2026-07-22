@@ -4,6 +4,12 @@ import type { NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { rateLimitOk, clientIp } from "@/lib/rate-limit";
 import { isValidDate } from "@/lib/utils/format";
+import { enviarEmailCliente } from "@/lib/email/send";
+
+// Escapa HTML (os campos vêm do visitante) para o corpo do email ao fotógrafo.
+function esc(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
 
 // Sanitiza os campos extras (jsonb): objeto plano, valores coagidos a string, com limites.
 function limparDados(dados: unknown): Record<string, string> | null {
@@ -37,7 +43,7 @@ export async function POST(request: NextRequest) {
 
   const admin = createAdminClient();
   // Só aceita lead para fotógrafo que realmente tem site
-  const { data: fotografo } = await admin.from("fotografos").select("id").eq("id", fid).maybeSingle();
+  const { data: fotografo } = await admin.from("fotografos").select("id, email, smtp_from").eq("id", fid).maybeSingle();
   if (!fotografo) return NextResponse.json({ erro: "Site não encontrado." }, { status: 404 });
 
   const dataEvento = typeof data_evento === "string" && isValidDate(data_evento) ? data_evento : null;
@@ -54,5 +60,24 @@ export async function POST(request: NextRequest) {
     origem: "contato",
   });
   if (error) return NextResponse.json({ erro: error.message }, { status: 500 });
+
+  // Notifica o fotógrafo por email com a solicitação. Não bloqueia o lead: se o SMTP não
+  // estiver configurado ou o envio falhar, o lead já foi salvo e a resposta continua ok.
+  const destino = fotografo.email || fotografo.smtp_from;
+  if (destino) {
+    const linhas: string[] = [`<p><strong>Nome:</strong> ${esc(String(nome).trim())}</p>`];
+    if (email?.trim()) linhas.push(`<p><strong>Email:</strong> ${esc(email.trim())}</p>`);
+    if (telefone?.trim()) linhas.push(`<p><strong>Telefone:</strong> ${esc(telefone.trim())}</p>`);
+    if (tipo_evento?.toString().trim()) linhas.push(`<p><strong>Tipo de evento:</strong> ${esc(String(tipo_evento).trim())}</p>`);
+    if (dataEvento) linhas.push(`<p><strong>Data do evento:</strong> ${esc(dataEvento)}</p>`);
+    if (mensagem?.trim()) linhas.push(`<p><strong>Mensagem:</strong><br/>${esc(mensagem.trim()).replace(/\n/g, "<br/>")}</p>`);
+    if (dadosLimpo) for (const [k, v] of Object.entries(dadosLimpo)) linhas.push(`<p><strong>${esc(k)}:</strong> ${esc(v)}</p>`);
+    const html = `<h2>Nova solicitação pelo site</h2>${linhas.join("")}<hr/><p style="color:#888;font-size:12px">Enviado automaticamente pelo formulário de contato do seu site.</p>`;
+    try {
+      await enviarEmailCliente({ fotografoId: fid, to: destino, subject: `Novo contato pelo site — ${String(nome).trim().slice(0, 80)}`, html });
+    } catch (e) {
+      console.error("[site/lead] email ao fotógrafo falhou:", e instanceof Error ? e.message : e);
+    }
+  }
   return NextResponse.json({ ok: true });
 }
