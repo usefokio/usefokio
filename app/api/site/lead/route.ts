@@ -4,7 +4,7 @@ import type { NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { rateLimitOk, clientIp } from "@/lib/rate-limit";
 import { isValidDate } from "@/lib/utils/format";
-import { enviarEmailCliente } from "@/lib/email/send";
+import { getResend, FROM_DEFAULT } from "@/lib/email/resend";
 
 // Escapa HTML (os campos vêm do visitante) para o corpo do email ao fotógrafo.
 function esc(s: string): string {
@@ -74,7 +74,13 @@ export async function POST(request: NextRequest) {
     if (dadosLimpo) for (const [k, v] of Object.entries(dadosLimpo)) linhas.push(`<p><strong>${esc(k)}:</strong> ${esc(v)}</p>`);
     const html = `<h2>Nova solicitação pelo site</h2>${linhas.join("")}<hr/><p style="color:#888;font-size:12px">Enviado automaticamente pelo formulário de contato do seu site.</p>`;
     try {
-      await enviarEmailCliente({ fotografoId: fid, to: destino, subject: `Novo contato pelo site — ${String(nome).trim().slice(0, 80)}`, html });
+      await getResend().emails.send({
+        from: FROM_DEFAULT,
+        to: destino,
+        subject: `Novo contato pelo site — ${String(nome).trim().slice(0, 80)}`,
+        html,
+        ...(email?.trim() ? { replyTo: email.trim() } : {}),
+      });
     } catch (e) {
       console.error("[site/lead] email ao fotógrafo falhou:", e instanceof Error ? e.message : e);
     }
