@@ -312,6 +312,32 @@ export function TrabalhoForm({ trabalhoId }: { trabalhoId?: string }) {
     }
   }
 
+  // Exclui o trabalho inteiro: arquivos (R2/Supabase) + fotos + registro. Permanente.
+  async function excluirTrabalho() {
+    if (!idAtual) return;
+    const n = fotos.length;
+    const ok = confirm(
+      `Excluir o trabalho "${titulo || "sem título"}" e ${n} foto${n !== 1 ? "s" : ""}?\n\n` +
+      "Esta ação é PERMANENTE: a página sai do ar e as fotos são apagadas.",
+    );
+    if (!ok) return;
+    setSalvando(true); setMsg(null);
+    const supabase = createClient();
+    try {
+      const arquivos = fotos
+        .filter((f): f is SiteTrabalhoFoto & { storage_path: string } => !!f.storage_path)
+        .map((f) => ({ storage_path: f.storage_path, url_publica: f.url_publica }));
+      if (arquivos.length > 0) await deleteFilesClient(arquivos);
+      await supabase.from("site_trabalho_fotos").delete().eq("trabalho_id", idAtual);
+      const { error } = await supabase.from("site_trabalhos").delete().eq("id", idAtual);
+      if (error) throw error;
+      estado.sairAgora(); // desliga o guard de "não salvo" e volta para /site/galerias
+    } catch (e) {
+      setSalvando(false);
+      setMsg({ tipo: "erro", texto: e instanceof Error ? e.message : "Erro ao excluir." });
+    }
+  }
+
   if (carregando) return (
     <div style={{ padding: 60, textAlign: "center", fontSize: 13, color: "var(--color-text-secondary)" }}>Carregando…</div>
   );
@@ -351,9 +377,17 @@ export function TrabalhoForm({ trabalhoId }: { trabalhoId?: string }) {
           {btnSalvar}
         </div>
       </div>
-      <button onClick={estado.sair} style={{ border: "none", background: "transparent", color: "var(--color-text-secondary)", fontSize: 12, cursor: "pointer", padding: 0, marginBottom: 20 }}>
-        ← Voltar para Galerias
-      </button>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20, gap: 10 }}>
+        <button onClick={estado.sair} style={{ border: "none", background: "transparent", color: "var(--color-text-secondary)", fontSize: 12, cursor: "pointer", padding: 0 }}>
+          ← Voltar para Galerias
+        </button>
+        {existe && (
+          <button onClick={excluirTrabalho} disabled={salvando} title="Excluir este trabalho e todas as fotos"
+            style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: 8, border: "1px solid rgba(220,38,38,0.4)", background: "transparent", fontSize: 12, fontWeight: 600, color: "#DC2626", cursor: salvando ? "default" : "pointer" }}>
+            🗑 Excluir trabalho
+          </button>
+        )}
+      </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
         <div>
