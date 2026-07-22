@@ -128,6 +128,7 @@ export type Categoria = {
   nome: string;
   ordem: number;
   taxa_renovacao_padrao: number | null;
+  taxa_renovacao_anual: number | null;
   created_at: string;
 };
 
@@ -173,6 +174,8 @@ export type GaleriaEntrega = {
   suspensa: boolean;
   rascunho: boolean;
   renovacao_dias: number;
+  renovacao_anual_ativa: boolean;
+  renovacao_anual_valor: number | null;
   ordenacao_fotos: "envio" | "nome" | "nome_desc" | "data";
   foto_capa_url: string | null;
   categoria_id: string | null;

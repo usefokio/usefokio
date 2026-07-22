@@ -19,7 +19,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     return NextResponse.json({ erro: "Muitas tentativas. Aguarde um instante e tente novamente." }, { status: 429 });
   }
 
-  const { nome, email, cpf } = await request.json().catch(() => ({}));
+  const { nome, email, cpf, anual } = await request.json().catch(() => ({}));
 
   if (!nome?.trim() || !EMAIL_RE.test(email?.trim() ?? "")) {
     return NextResponse.json({ erro: "Informe nome e um e-mail válido." }, { status: 400 });
@@ -28,7 +28,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const admin = createAdminClient();
   const { data: galeria } = await admin
     .from("galerias_entrega")
-    .select("id, titulo, renewal_fee, renovacao_dias, fotografo_id, rascunho")
+    .select("id, titulo, renewal_fee, renovacao_dias, renovacao_anual_ativa, renovacao_anual_valor, fotografo_id, rascunho")
     .eq("id", id)
     .maybeSingle();
 
@@ -40,10 +40,15 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     .eq("id", galeria.fotografo_id)
     .maybeSingle();
 
-  // Taxa efetiva: a da galeria; se não houver, a taxa padrão do fotógrafo (fallback).
-  const taxa = galeria.renewal_fee && galeria.renewal_fee > 0
-    ? galeria.renewal_fee
-    : (fotografo?.renewal_fee_padrao ?? 0);
+  // Opção anual (1 ano): só quando o cliente escolheu E a galeria tem a anual ativa com valor.
+  const usarAnual = !!anual && galeria.renovacao_anual_ativa && (galeria.renovacao_anual_valor ?? 0) > 0;
+
+  // Taxa e prazo efetivos. Anual → valor anual + 365 dias; senão → taxa da galeria (ou padrão do
+  // fotógrafo como fallback) + o prazo padrão (30 dias).
+  const taxa = usarAnual
+    ? galeria.renovacao_anual_valor!
+    : (galeria.renewal_fee && galeria.renewal_fee > 0 ? galeria.renewal_fee : (fotografo?.renewal_fee_padrao ?? 0));
+  const dias = usarAnual ? 365 : (galeria.renovacao_dias ?? 30);
   if (!taxa || taxa <= 0) {
     return NextResponse.json({ erro: "Esta galeria não tem taxa de renovação configurada." }, { status: 400 });
   }
@@ -70,7 +75,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       valor:         taxa,
       status:        "pendente",
       gateway:       "pix_manual",
-      dias_liberados: galeria.renovacao_dias ?? 30,
+      dias_liberados: dias,
       pagador_nome:  nome.trim(),
       pagador_email: emailNorm,
     }).select("id").single();
@@ -209,7 +214,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       status:           "pendente",
       invoice_url:      invoiceUrl,
       gateway,
-      dias_liberados:   galeria.renovacao_dias ?? 30,
+      dias_liberados:   dias,
       pagador_nome:     nome.trim(),
       pagador_email:    emailNorm,
     }).select("id").single();

@@ -320,7 +320,7 @@ export default function AcessoEntregaPage() {
     }
   }, [tela]);
 
-  async function gerarCobrancaRenovacao() {
+  async function gerarCobrancaRenovacao(anual: boolean = false) {
     const pagadorNome  = renovNome.trim();
     const pagadorEmail = renovEmail.trim();
     const pagadorCpf   = renovCpf.trim();
@@ -336,7 +336,7 @@ export default function AcessoEntregaPage() {
       const res = await fetch(`/api/entrega/${id}/renovar`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nome: pagadorNome, email: pagadorEmail, cpf: pagadorCpf || undefined }),
+        body: JSON.stringify({ nome: pagadorNome, email: pagadorEmail, cpf: pagadorCpf || undefined, anual }),
       });
       const json = await res.json();
       if (!res.ok) { setRenovMsg(json.erro ?? "Erro ao gerar pagamento."); return; }
@@ -450,17 +450,36 @@ export default function AcessoEntregaPage() {
                 )}
               </div>
             )}
-            <button
-              onClick={() => gerarCobrancaRenovacao()}
-              disabled={renovGerando}
-              style={{ padding: "12px 24px", borderRadius: 9, border: "none", background: "#fff", color: "#000", fontSize: 14, fontWeight: 700, cursor: "pointer" }}
-            >
-              {renovGerando ? "Gerando pagamento…" : `💳 Renovar acesso — R$ ${taxaEfetiva.toFixed(2).replace(".", ",")}`}
-            </button>
+            {galeria?.renovacao_anual_ativa && (galeria?.renovacao_anual_valor ?? 0) > 0 ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <button
+                  onClick={() => gerarCobrancaRenovacao(false)}
+                  disabled={renovGerando}
+                  style={{ padding: "12px 24px", borderRadius: 9, border: "none", background: "#fff", color: "#000", fontSize: 14, fontWeight: 700, cursor: "pointer" }}
+                >
+                  {renovGerando ? "Gerando pagamento…" : `💳 Renovar 30 dias — R$ ${taxaEfetiva.toFixed(2).replace(".", ",")}`}
+                </button>
+                <button
+                  onClick={() => gerarCobrancaRenovacao(true)}
+                  disabled={renovGerando}
+                  style={{ padding: "12px 24px", borderRadius: 9, border: "1px solid rgba(255,255,255,0.35)", background: "rgba(255,255,255,0.08)", color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer" }}
+                >
+                  {renovGerando ? "Gerando pagamento…" : `⭐ Renovar 1 ano — R$ ${(galeria.renovacao_anual_valor as number).toFixed(2).replace(".", ",")}`}
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => gerarCobrancaRenovacao(false)}
+                disabled={renovGerando}
+                style={{ padding: "12px 24px", borderRadius: 9, border: "none", background: "#fff", color: "#000", fontSize: 14, fontWeight: 700, cursor: "pointer" }}
+              >
+                {renovGerando ? "Gerando pagamento…" : `💳 Renovar acesso — R$ ${taxaEfetiva.toFixed(2).replace(".", ",")}`}
+              </button>
+            )}
           </div>
         )}
         {renovMsg && <div style={{ fontSize: 12, color: cor, marginTop: 10, lineHeight: 1.5 }}>{renovMsg}</div>}
-        {galeria.renovacao_dias > 0 && !renovInvoiceUrl && (
+        {galeria.renovacao_dias > 0 && !renovInvoiceUrl && !(galeria?.renovacao_anual_ativa && (galeria?.renovacao_anual_valor ?? 0) > 0) && (
           <div style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", marginTop: 8 }}>
             O pagamento libera o acesso por mais {galeria.renovacao_dias} dias.
           </div>

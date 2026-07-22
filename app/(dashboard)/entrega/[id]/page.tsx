@@ -10,6 +10,7 @@ import { useFotografo } from "@/lib/context/FotografoContext";
 import { ClienteLink } from "@/components/ui/ClienteLink";
 import type { GaleriaEntrega, GaleriaEntregaFoto, ContatoCategoria, Pagamento } from "@/lib/supabase/types";
 import { ModalEnviarAcesso } from "../_components/ModalEnviarAcesso";
+import { ModalEnviarFunil } from "../_components/ModalEnviarFunil";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -275,6 +276,7 @@ export default function EntregaDetailPage() {
   const { fotografo } = useFotografo();
 
   const [galeria,  setGaleria]  = useState<any>(null);
+  const [modalFunil, setModalFunil] = useState(false);
   const [fotos,    setFotos]    = useState<GaleriaEntregaFoto[]>([]);
   const [acessos,  setAcessos]  = useState<{ id: string; nome: string; email: string; acessado_em: string }[]>([]);
   const [funilInfo, setFunilInfo] = useState<{ estagio: string; resposta: string | null; respondido_em: string | null; respondido_nome: string | null; email_1_em: string | null; email_2_em: string | null; whatsapp_em: string | null; ignorar_funil: boolean } | null | undefined>(undefined);
@@ -509,14 +511,7 @@ export default function EntregaDetailPage() {
         <div style={{ border: "0.5px solid var(--color-border-secondary)", borderRadius: 10, padding: "14px 18px", marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <span style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>Esta galeria não está no funil de campanha.</span>
           <button
-            onClick={async (e) => {
-              const btn = e.currentTarget;
-              btn.textContent = "Adicionando…";
-              btn.setAttribute("disabled", "true");
-              const res = await fetch(`/api/campanha/galeria/${id}`);
-              if (!res.ok) { btn.textContent = "Erro — tente novamente"; btn.removeAttribute("disabled"); return; }
-              router.push("/entrega/campanha");
-            }}
+            onClick={() => setModalFunil(true)}
             style={{ fontSize: 11, fontWeight: 600, color: "#2563EB", padding: "4px 10px", borderRadius: 7, border: "0.5px solid rgba(37,99,235,0.35)", background: "transparent", cursor: "pointer" }}
           >
             + Adicionar ao funil
@@ -594,6 +589,13 @@ export default function EntregaDetailPage() {
                 )}
               </div>
               <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                <button
+                  onClick={() => setModalFunil(true)}
+                  title="Configurar renovação (30 dias sempre; 1 ano opcional)"
+                  style={{ fontSize: 11, fontWeight: 600, color: info.cor, whiteSpace: "nowrap", padding: "4px 10px", borderRadius: 7, border: `0.5px solid ${info.border}`, background: "transparent", cursor: "pointer" }}
+                >
+                  {galeria?.renovacao_anual_ativa ? "⭐ Renovação: 1 ano" : "Renovação"}
+                </button>
                 {!funilInfo.respondido_em && !funilInfo.ignorar_funil && (
                   <Link href="/entrega/campanha" style={{ fontSize: 11, fontWeight: 600, color: alertaAcao ? "#B45309" : info.cor, textDecoration: "none", whiteSpace: "nowrap", padding: "4px 12px", borderRadius: 7, border: `0.5px solid ${alertaAcao ? "rgba(245,158,11,0.4)" : info.border}`, background: "transparent" }}>
                     Ver funil →
@@ -942,6 +944,15 @@ export default function EntregaDetailPage() {
 
       {modalEnviar && (
         <ModalEnviarAcesso galeria={g} onFechar={() => setModalEnviar(false)} />
+      )}
+
+      {modalFunil && galeria && (
+        <ModalEnviarFunil
+          galeria={galeria}
+          jaNoFunil={funilInfo !== null && funilInfo !== undefined}
+          onFechar={() => setModalFunil(false)}
+          onConfirmado={() => window.location.reload()}
+        />
       )}
     </div>
   );

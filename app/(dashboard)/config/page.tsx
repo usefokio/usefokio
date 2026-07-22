@@ -65,6 +65,13 @@ function Categorias() {
     setLista((l) => l.map((c) => c.id === id ? { ...c, taxa_renovacao_padrao: taxa } : c));
   }
 
+  async function salvarTaxaAnual(id: string, valor: string) {
+    const taxa = parseMoeda(valor) || null;
+    const supabase = createClient();
+    await supabase.from("categorias").update({ taxa_renovacao_anual: taxa }).eq("id", id);
+    setLista((l) => l.map((c) => c.id === id ? { ...c, taxa_renovacao_anual: taxa } : c));
+  }
+
   async function excluir(id: string) {
     const supabase = createClient();
     await supabase.from("categorias").delete().eq("id", id);
@@ -74,7 +81,7 @@ function Categorias() {
   return (
     <div>
       <p style={{ fontSize: 13, color: "var(--color-text-secondary)", marginTop: 0, marginBottom: 20 }}>
-        Categorias organizam suas galerias. Configure uma taxa de renovação padrão por categoria — ela será preenchida automaticamente ao criar uma galeria de entrega.
+        Categorias organizam suas galerias. Configure a taxa de renovação por categoria: <strong>30 dias</strong> (usada por padrão ao criar a galeria) e <strong>1 ano</strong> (opção anual que você pode ativar ao enviar a galeria ao funil).
       </p>
 
       {/* Adicionar nova */}
@@ -135,8 +142,8 @@ function Categorias() {
                 onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
                 style={{ ...inputStyle, flex: 1, padding: "5px 10px", fontSize: 13 }}
               />
-              <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
-                <span style={{ fontSize: 11, color: "var(--color-text-secondary)" }}>Renovação:</span>
+              <div style={{ display: "flex", alignItems: "center", gap: 5, flexShrink: 0 }}>
+                <span style={{ fontSize: 11, color: "var(--color-text-secondary)" }} title="Valor da renovação de acesso por 30 dias">30 dias:</span>
                 <input
                   value={cat.taxa_renovacao_padrao != null ? formatarMoeda(cat.taxa_renovacao_padrao) : ""}
                   onChange={(e) => {
@@ -146,7 +153,19 @@ function Categorias() {
                   onBlur={(e) => salvarTaxa(cat.id, e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
                   placeholder="—"
-                  style={{ ...inputStyle, width: 110, padding: "4px 8px", fontSize: 12, textAlign: "right" }}
+                  style={{ ...inputStyle, width: 92, padding: "4px 8px", fontSize: 12, textAlign: "right" }}
+                />
+                <span style={{ fontSize: 11, color: "var(--color-text-secondary)" }} title="Valor da renovação de acesso por 1 ano (opção anual)">1 ano:</span>
+                <input
+                  value={cat.taxa_renovacao_anual != null ? formatarMoeda(cat.taxa_renovacao_anual) : ""}
+                  onChange={(e) => {
+                    const v = mascaraMoeda(e.target.value);
+                    setLista((l) => l.map((c) => c.id === cat.id ? { ...c, taxa_renovacao_anual: parseMoeda(v) || null } : c));
+                  }}
+                  onBlur={(e) => salvarTaxaAnual(cat.id, e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+                  placeholder="—"
+                  style={{ ...inputStyle, width: 92, padding: "4px 8px", fontSize: 12, textAlign: "right" }}
                 />
               </div>
 
