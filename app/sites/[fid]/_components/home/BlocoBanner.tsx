@@ -41,12 +41,39 @@ function useLoopCarrossel(ref: React.RefObject<HTMLDivElement | null>, nReal: nu
       return () => clearTimeout(t);
     }
   }, [i, nReal]);
-  // Auto-avanço: sempre para frente; passa pelo clone e volta ao 0 sem rebobinar.
+  // Auto-avanço: REINICIA a cada mudança de i (manual ou automática) — cada slide fica
+  // `velocidade` segundos em tela. Assim, se o visitante passa a foto (seta ou swipe), o
+  // contador zera e não dispara um avanço logo depois (o que "quebrava" a visualização,
+  // passando duas fotos em seguida).
   useEffect(() => {
     if (nReal <= 1) return;
     const t = setInterval(() => setI((prev) => prev + 1), velocidade * 1000);
     return () => clearInterval(t);
-  }, [nReal, velocidade]);
+  }, [i, nReal, velocidade]);
+
+  // Arrastar/rolar manualmente (swipe): sincroniza i com a foto que ficou em tela depois que a
+  // rolagem assenta — o que também zera o timer acima (via dependência de i).
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || nReal <= 1) return;
+    let t: ReturnType<typeof setTimeout> | null = null;
+    const onScroll = () => {
+      if (t) clearTimeout(t);
+      t = setTimeout(() => {
+        let best = 0, dist = Infinity;
+        for (let k = 0; k <= nReal; k++) {
+          const c = el.children[k] as HTMLElement | undefined;
+          if (!c) continue;
+          const d = Math.abs(c.offsetLeft - el.scrollLeft);
+          if (d < dist) { dist = d; best = k; }
+        }
+        setI((prev) => (best !== prev ? best : prev));
+      }, 150);
+    };
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => { el.removeEventListener("scroll", onScroll); if (t) clearTimeout(t); };
+  }, [nReal]);
+
   const proximo = () => setI((prev) => (prev >= nReal ? prev : prev + 1));
   const anterior = () => setI((prev) => (prev - 1 + nReal) % nReal);
   return { proximo, anterior };
