@@ -32,6 +32,11 @@ export const DADOS_EXEMPLO: DadosHome = {
     trab("ex-t5", "Carol e Mateus", "Águas de Sta. Bárbara"),
     trab("ex-t6", "Isabela e Rafael", "Morro do Gavião"),
   ],
+  destaques: [
+    trab("ex-dest1", "Bianca e Vinícius", "Espaço 22 · Ourinhos"),
+    trab("ex-dest2", "Ana e Gabriel", "Chalé Arco-Íris"),
+    trab("ex-dest3", "Isabela e Rafael", "Morro do Gavião"),
+  ],
   videos: [
     video("ex-v1", "Bianca e Vinícius — Trailer"),
     video("ex-v2", "Maria e Diego — Same Day Edit"),

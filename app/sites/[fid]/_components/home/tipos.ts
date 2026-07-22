@@ -5,6 +5,7 @@ import type { SiteBanner, SiteDepoimento, SitePost, SiteTrabalho, SiteSelo, Site
 export type DadosHome = {
   banners: SiteBanner[];
   trabalhos: SiteTrabalho[];
+  destaques: SiteTrabalho[];   // trabalhos marcados como "destaque na home" (bloco próprio)
   videos: SiteVideo[];
   posts: SitePost[];
   depoimentos: SiteDepoimento[];

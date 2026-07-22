@@ -64,7 +64,7 @@ export type HeaderConfig = BarraConfig & {
 // Conjunto FIXO de blocos (não é lista livre como as landing pages). Cada bloco
 // tem on/off; a ORDEM do array define a ordem de render na home. Campos por bloco
 // num "saco" plano com nomes distintos (evita colisão de tipo entre blocos).
-export type HomeBlocoKey = "banner" | "trabalhos" | "videos" | "blog" | "depoimentos" | "selos" | "cta";
+export type HomeBlocoKey = "banner" | "trabalhos" | "destaques" | "videos" | "blog" | "depoimentos" | "selos" | "cta";
 
 export type BannerTipo = "foto_unica" | "deslizante" | "grid";
 export type BannerAjuste = "manter_proporcao" | "preencher";
@@ -151,11 +151,12 @@ export function aspectAchatado(proporcao: ProporcaoCapa, achatamento: number): s
   return String(ASPECT_NUM[proporcao] * (1 + a / 100));
 }
 
-export const BLOCOS_ORDEM_PADRAO: HomeBlocoKey[] = ["banner", "trabalhos", "videos", "blog", "depoimentos", "selos", "cta"];
+export const BLOCOS_ORDEM_PADRAO: HomeBlocoKey[] = ["banner", "trabalhos", "destaques", "videos", "blog", "depoimentos", "selos", "cta"];
 
 export const BLOCO_DEFAULTS: Record<HomeBlocoKey, HomeBloco> = {
   banner:      { key: "banner",      on: true, tipo: "deslizante", ajuste: "manter_proporcao", altura: 300, velocidade: 4, colunas: 3, linhas: 0, proporcao: "horizontal_3x2", ancora: "centro" },
   trabalhos:   { key: "trabalhos",   on: true, colunas: 3, proporcao: "horizontal_3x2", titulo_pos: "abaixo", texto_card: "titulo_subtitulo" },
+  destaques:   { key: "destaques",   on: true, colunas: 3, proporcao: "horizontal_3x2", titulo_pos: "abaixo", texto_card: "titulo_subtitulo", titulo_secao: "Destaques" },
   videos:      { key: "videos",      on: true, colunas: 3, proporcao: "horizontal_16x9", titulo_pos: "abaixo", texto_card: "so_titulo" },
   blog:        { key: "blog",        on: true, layout: "capa_esquerda", colunas: 3, proporcao: "horizontal_3x2", titulo_pos: "abaixo", descricao: true },
   depoimentos: { key: "depoimentos", on: true, layout: "lista_vertical", colunas: 3, mostrar_foto: true, mostrar_nome: true, mostrar_texto: true },
@@ -168,6 +169,7 @@ export const BLOCOS_PADRAO: HomeBloco[] = BLOCOS_ORDEM_PADRAO.map((k) => ({ ...B
 export const BLOCO_LABEL: Record<HomeBlocoKey, string> = {
   banner: "Banner",
   trabalhos: "Trabalhos recentes",
+  destaques: "Destaques",
   videos: "Vídeos",
   blog: "Blog",
   depoimentos: "Depoimentos",
@@ -282,6 +284,13 @@ function normalizarBloco(key: HomeBlocoKey, raw: unknown): HomeBloco {
         proporcao: umDe(r.proporcao, PROPORCOES, d.proporcao!),
         titulo_pos: umDe(r.titulo_pos, POS_TITULO, d.titulo_pos!),
         titulo_secao: str(r.titulo_secao, "", 80),
+        texto_card: umDe(r.texto_card, ["titulo_subtitulo", "so_titulo"] as const, d.texto_card!) };
+    case "destaques":
+      return { key, on,
+        colunas: num(r.colunas, d.colunas!, 1, 6),
+        proporcao: umDe(r.proporcao, PROPORCOES, d.proporcao!),
+        titulo_pos: umDe(r.titulo_pos, POS_TITULO, d.titulo_pos!),
+        titulo_secao: str(r.titulo_secao, "Destaques", 80),
         texto_card: umDe(r.texto_card, ["titulo_subtitulo", "so_titulo"] as const, d.texto_card!) };
     case "videos":
       return { key, on,

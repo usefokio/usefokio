@@ -241,7 +241,7 @@ function Preview({ design, menu, nome, logoUrl, disp, tema, children }: {
   );
 }
 
-const DADOS_VAZIO: DadosHome = { banners: [], trabalhos: [], videos: [], posts: [], depoimentos: [], selos: [] };
+const DADOS_VAZIO: DadosHome = { banners: [], trabalhos: [], destaques: [], videos: [], posts: [], depoimentos: [], selos: [] };
 
 export default function AparenciaPage() {
   const { fotografo } = useFotografo();
@@ -297,8 +297,7 @@ export default function AparenciaPage() {
         fetchAllRows<SitePortfolio>((s, f, t) => s.from("site_portfolios").select("*").eq("fotografo_id", fid).eq("publicado", true).order("ordem").range(f, t), sb),
         fetchAllRows<SiteVideo>((s, f, t) => s.from("site_videos").select("*").eq("fotografo_id", fid).eq("publicado", true).order("ordem").range(f, t), sb),
       ]);
-      const trabDestac = trabalhos.filter((t) => t.destaque_home);
-      setDados({ banners, trabalhos: (trabDestac.length ? trabDestac : trabalhos).slice(0, 9), videos: videosRows.slice(0, 6), posts: posts.slice(0, 6), depoimentos, selos });
+      setDados({ banners, trabalhos: trabalhos.slice(0, 9), destaques: trabalhos.filter((t) => t.destaque_home).slice(0, 9), videos: videosRows.slice(0, 6), posts: posts.slice(0, 6), depoimentos, selos });
       setVideosSite(videosRows);
       setMenu(menuRows.filter((m) => m.visivel !== false).map((m) => ({ id: String(m.id), label: m.label, href: m.href })));
       // Sobre/Contato: config de modelo fixo derivada do conteudo (padrão da home — sem blocos).
@@ -413,6 +412,7 @@ export default function AparenciaPage() {
   const dadosPreview: DadosHome = {
     banners: dados.banners.length ? dados.banners : DADOS_EXEMPLO.banners,
     trabalhos: dados.trabalhos.length ? dados.trabalhos : DADOS_EXEMPLO.trabalhos,
+    destaques: dados.destaques.length ? dados.destaques : DADOS_EXEMPLO.destaques,
     videos: dados.videos.length ? dados.videos : DADOS_EXEMPLO.videos,
     posts: dados.posts.length ? dados.posts : DADOS_EXEMPLO.posts,
     depoimentos: dados.depoimentos.length ? dados.depoimentos : DADOS_EXEMPLO.depoimentos,
@@ -492,6 +492,17 @@ export default function AparenciaPage() {
             {campo("Proporção da capa", <Seg value={b.proporcao ?? "horizontal_3x2"} options={PROP_OPTS} onChange={(v) => setBloco("trabalhos", { proporcao: v })} />)}
             {campo("Posição do título", <Seg value={b.titulo_pos ?? "abaixo"} options={POS_OPTS} onChange={(v) => setBloco("trabalhos", { titulo_pos: v })} />)}
             {campo("Texto do card", <Seg value={b.texto_card ?? "titulo_subtitulo"} options={[{ v: "titulo_subtitulo", l: "Título + subtítulo" }, { v: "so_titulo", l: "Só título" }] as const} onChange={(v) => setBloco("trabalhos", { texto_card: v })} />)}
+          </>
+        );
+      case "destaques":
+        return (
+          <>
+            <p style={{ ...mini, marginTop: 0, marginBottom: 10 }}>Mostra os trabalhos marcados como <strong>“Destaque na home”</strong> (no editor de cada trabalho). Sem nenhum marcado, o bloco não aparece.</p>
+            {campo("Título da seção", <input value={b.titulo_secao ?? ""} onChange={(e) => setBloco("destaques", { titulo_secao: e.target.value })} placeholder="Destaques" style={inp} />)}
+            {campo("Colunas do grid", <Range label="Colunas" value={b.colunas ?? 3} min={1} max={6} onChange={(v) => setBloco("destaques", { colunas: v })} />)}
+            {campo("Proporção da capa", <Seg value={b.proporcao ?? "horizontal_3x2"} options={PROP_OPTS} onChange={(v) => setBloco("destaques", { proporcao: v })} />)}
+            {campo("Posição do título", <Seg value={b.titulo_pos ?? "abaixo"} options={POS_OPTS} onChange={(v) => setBloco("destaques", { titulo_pos: v })} />)}
+            {campo("Texto do card", <Seg value={b.texto_card ?? "titulo_subtitulo"} options={[{ v: "titulo_subtitulo", l: "Título + subtítulo" }, { v: "so_titulo", l: "Só título" }] as const} onChange={(v) => setBloco("destaques", { texto_card: v })} />)}
           </>
         );
       case "videos":
