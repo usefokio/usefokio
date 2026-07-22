@@ -27,9 +27,12 @@ export default async function HomeSite({ params }: { params: Promise<{ fid: stri
     infoCategorias(fid),
   ]);
 
+  // Bloco "Trabalhos" da home: se o fotógrafo marcou algum como "destaque na home", mostra esses;
+  // senão, cai no comportamento antigo (os mais recentes).
+  const destacados = trabalhos.filter((t) => t.destaque_home);
   const dados: DadosHome = {
     banners,
-    trabalhos: trabalhos.slice(0, 9),
+    trabalhos: (destacados.length ? destacados : trabalhos).slice(0, 9),
     videos: videos.slice(0, 6),
     posts: posts.slice(0, 6),
     depoimentos,

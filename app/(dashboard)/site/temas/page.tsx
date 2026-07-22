@@ -297,7 +297,8 @@ export default function AparenciaPage() {
         fetchAllRows<SitePortfolio>((s, f, t) => s.from("site_portfolios").select("*").eq("fotografo_id", fid).eq("publicado", true).order("ordem").range(f, t), sb),
         fetchAllRows<SiteVideo>((s, f, t) => s.from("site_videos").select("*").eq("fotografo_id", fid).eq("publicado", true).order("ordem").range(f, t), sb),
       ]);
-      setDados({ banners, trabalhos: trabalhos.slice(0, 9), videos: videosRows.slice(0, 6), posts: posts.slice(0, 6), depoimentos, selos });
+      const trabDestac = trabalhos.filter((t) => t.destaque_home);
+      setDados({ banners, trabalhos: (trabDestac.length ? trabDestac : trabalhos).slice(0, 9), videos: videosRows.slice(0, 6), posts: posts.slice(0, 6), depoimentos, selos });
       setVideosSite(videosRows);
       setMenu(menuRows.filter((m) => m.visivel !== false).map((m) => ({ id: String(m.id), label: m.label, href: m.href })));
       // Sobre/Contato: config de modelo fixo derivada do conteudo (padrão da home — sem blocos).
@@ -316,7 +317,16 @@ export default function AparenciaPage() {
 
   const setHeader = (patch: Partial<HeaderConfig>) => setDesign((d) => ({ ...d, header: { ...d.header, ...patch } }));
   const setRodape = (patch: Partial<BarraConfig>) => setDesign((d) => ({ ...d, rodape: { ...d.rodape, ...patch } }));
-  const setBloco = (key: HomeBlocoKey, patch: Partial<HomeBloco>) => setDesign((d) => ({ ...d, blocos: d.blocos.map((bl) => bl.key === key ? { ...bl, ...patch } : bl) }));
+  // Atualiza um bloco por ID DE INSTÂNCIA. Blocos únicos têm id = key (legado), então chamadas
+  // com a key literal (ex.: setBloco("banner", …)) continuam funcionando; os CTAs duplicados usam o id próprio.
+  const setBloco = (id: string, patch: Partial<HomeBloco>) => setDesign((d) => ({ ...d, blocos: d.blocos.map((bl) => (bl.id ?? bl.key) === id ? { ...bl, ...patch } : bl) }));
+  const duplicarBloco = (b: HomeBloco) => setDesign((d) => {
+    const i = d.blocos.findIndex((x) => (x.id ?? x.key) === (b.id ?? b.key));
+    const arr = [...d.blocos];
+    arr.splice(i + 1, 0, { ...b, id: crypto.randomUUID() });
+    return { ...d, blocos: arr };
+  });
+  const removerBloco = (id: string) => setDesign((d) => ({ ...d, blocos: d.blocos.filter((x) => (x.id ?? x.key) !== id) }));
   const setGrade = (k: "portfolio" | "trabalhos" | "videos", patch: Partial<GradeConfig>) => setDesign((d) => ({ ...d, grades: { ...d.grades, [k]: { ...d.grades[k], ...patch } } }));
   const toggle = (k: string) => setAberto((a) => ({ ...a, [k]: !a[k] }));
 
@@ -526,15 +536,28 @@ export default function AparenciaPage() {
             <p style={{ ...mini, marginTop: 4 }}>Adicione os selos em <strong>Site → Selos</strong>.</p>
           </>
         );
-      case "cta":
+      case "cta": {
+        const bid = b.id ?? b.key;
+        const qtdCta = design.blocos.filter((x) => x.key === "cta").length;
         return (
           <>
-            {campo("Título", <input value={b.cta_titulo ?? ""} onChange={(e) => setBloco("cta", { cta_titulo: e.target.value })} placeholder="Vamos registrar a sua história?" style={inp} />)}
-            {campo("Subtítulo", <input value={b.cta_subtitulo ?? ""} onChange={(e) => setBloco("cta", { cta_subtitulo: e.target.value })} placeholder="Entre em contato e solicite seu orçamento." style={inp} />)}
-            {campo("Texto do botão", <input value={b.cta_botao ?? ""} onChange={(e) => setBloco("cta", { cta_botao: e.target.value })} placeholder="Solicitar orçamento" style={inp} />)}
-            <p style={{ ...mini, marginTop: 4 }}>O botão leva à página de Contato.</p>
+            {campo("Título", <input value={b.cta_titulo ?? ""} onChange={(e) => setBloco(bid, { cta_titulo: e.target.value })} placeholder="Vamos registrar a sua história?" style={inp} />)}
+            {campo("Subtítulo", <input value={b.cta_subtitulo ?? ""} onChange={(e) => setBloco(bid, { cta_subtitulo: e.target.value })} placeholder="Entre em contato e solicite seu orçamento." style={inp} />)}
+            {campo("Texto do botão", <input value={b.cta_botao ?? ""} onChange={(e) => setBloco(bid, { cta_botao: e.target.value })} placeholder="Solicitar orçamento" style={inp} />)}
+            <p style={{ ...mini, marginTop: 4 }}>O botão leva à página de Contato. Você pode ter várias chamadas em pontos diferentes da home.</p>
+            <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+              <button onClick={() => duplicarBloco(b)} style={{ padding: "7px 14px", borderRadius: 8, border: "1px solid var(--color-border-secondary)", background: "transparent", fontSize: 12, fontWeight: 600, color: "var(--color-text-primary)", cursor: "pointer" }}>
+                + Duplicar chamada
+              </button>
+              {qtdCta > 1 && (
+                <button onClick={() => removerBloco(bid)} style={{ padding: "7px 14px", borderRadius: 8, border: "1px solid rgba(239,68,68,0.35)", background: "transparent", fontSize: 12, fontWeight: 600, color: "#DC2626", cursor: "pointer" }}>
+                  Remover esta chamada
+                </button>
+              )}
+            </div>
           </>
         );
+      }
     }
   }
 
@@ -627,22 +650,26 @@ export default function AparenciaPage() {
 
             {/* Blocos reordenáveis */}
             <div style={{ ...lbl, margin: "18px 0 8px", color: "var(--color-text-tertiary)" }}>Blocos da página (arraste para reordenar)</div>
-            {design.blocos.map((b, idx) => (
-              <Card key={b.key} titulo={BLOCO_LABEL[b.key]} aberto={!!aberto[b.key]} onToggle={() => toggle(b.key)} destaque={sobreIdx === idx}
+            {design.blocos.map((b, idx) => {
+              const bid = b.id ?? b.key;
+              const rotulo = b.key === "cta" && b.cta_titulo?.trim() ? `Chamada — ${b.cta_titulo.trim().slice(0, 28)}` : BLOCO_LABEL[b.key];
+              return (
+              <Card key={bid} titulo={rotulo} aberto={!!aberto[bid]} onToggle={() => toggle(bid)} destaque={sobreIdx === idx}
                 alca={<span onClick={(e) => e.stopPropagation()} title="Arraste para reordenar" style={{ cursor: "grab", color: "var(--color-text-secondary)", fontSize: 15, lineHeight: 1 }}>⠿</span>}
-                chave={<Chave on={b.on} onChange={(v) => setBloco(b.key, { on: v })} titulo={b.on ? "Ocultar bloco" : "Mostrar bloco"} />}
+                chave={<Chave on={b.on} onChange={(v) => setBloco(bid, { on: v })} titulo={b.on ? "Ocultar bloco" : "Mostrar bloco"} />}
                 rootProps={{
-                  draggable: !aberto[b.key],
+                  draggable: !aberto[bid],
                   onDragStart: () => { dragIdx.current = idx; },
                   onDragOver: (e) => { e.preventDefault(); if (sobreIdx !== idx) setSobreIdx(idx); },
                   onDragLeave: () => { if (sobreIdx === idx) setSobreIdx(null); },
                   onDrop: (e) => { e.preventDefault(); soltar(idx); setSobreIdx(null); },
                   onDragEnd: () => { dragIdx.current = null; setSobreIdx(null); },
-                  style: { cursor: aberto[b.key] ? "default" : "grab", opacity: b.on ? 1 : 0.55 },
+                  style: { cursor: aberto[bid] ? "default" : "grab", opacity: b.on ? 1 : 0.55 },
                 }}>
                 {camposBloco(b)}
               </Card>
-            ))}
+              );
+            })}
 
             {/* Rodapé */}
             <Card titulo="Rodapé" aberto={!!aberto.rodape} onToggle={() => toggle("rodape")}>

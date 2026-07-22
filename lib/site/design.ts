@@ -79,6 +79,7 @@ export type DepoLayout = "lista_vertical" | "horizontal" | "grade";
 
 export type HomeBloco = {
   key: HomeBlocoKey;
+  id?: string;   // id de instância (permite duplicar um bloco, ex.: várias chamadas de orçamento). Legado: = key.
   on: boolean;
   // banner
   tipo?: BannerTipo;
@@ -313,19 +314,24 @@ function normalizarBloco(key: HomeBlocoKey, raw: unknown): HomeBloco {
   }
 }
 
-// Normaliza a lista de blocos: mantém a ordem salva (chaves conhecidas, sem duplicar),
-// e acrescenta ao FIM os blocos que faltarem (defaults) para nunca perder um bloco.
+// Normaliza a lista de blocos: mantém a ordem salva, deduplicando por ID DE INSTÂNCIA (não por key,
+// para permitir vários blocos do mesmo tipo — ex.: várias chamadas de orçamento). Legado sem id → id = key.
+// Acrescenta ao FIM os blocos padrão que faltarem (por key) para nunca perder um bloco.
 function normalizarBlocos(raw: unknown): HomeBloco[] {
   const arr = Array.isArray(raw) ? raw : [];
-  const vistos = new Set<HomeBlocoKey>();
+  const vistosId = new Set<string>();
   const out: HomeBloco[] = [];
   for (const item of arr) {
     const k = (item && typeof item === "object" ? (item as { key?: unknown }).key : null) as HomeBlocoKey;
-    if (!BLOCOS_ORDEM_PADRAO.includes(k) || vistos.has(k)) continue;
-    vistos.add(k);
-    out.push(normalizarBloco(k, item));
+    if (!BLOCOS_ORDEM_PADRAO.includes(k)) continue;
+    const rawId = item && typeof item === "object" ? (item as { id?: unknown }).id : null;
+    const id = typeof rawId === "string" && rawId ? rawId : k;
+    if (vistosId.has(id)) continue;
+    vistosId.add(id);
+    out.push({ id, ...normalizarBloco(k, item) });
   }
-  for (const k of BLOCOS_ORDEM_PADRAO) if (!vistos.has(k)) out.push({ ...BLOCO_DEFAULTS[k] });
+  const keysPresentes = new Set(out.map((b) => b.key));
+  for (const k of BLOCOS_ORDEM_PADRAO) if (!keysPresentes.has(k)) out.push({ id: k, ...BLOCO_DEFAULTS[k] });
   return out;
 }
 
