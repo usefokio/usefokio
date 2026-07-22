@@ -151,6 +151,8 @@ export default async function SitePublicoLayout({ children, params }: { children
         // Largura do conteúdo = margem lateral do site. Uma var só, herdada por header, rodapé,
         // listagens e blocos — todos alinham juntos (Aparência → Espaçamento).
         "--site-largura": `${design.largura_maxima}px`,
+        "--site-largura-menu": `${design.largura_menu}px`,
+        "--site-espaco-blocos": `${design.espaco_blocos}px`,
         background: "var(--site-fundo)",
         color: "var(--site-texto)",
         fontFamily: "var(--site-fonte-corpo), Georgia, serif",

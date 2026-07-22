@@ -75,7 +75,7 @@ export function SiteHeader({
 
   return (
     <header className="site-header" style={{ position: "sticky", top: 0, zIndex: 50, background: fundo ?? "color-mix(in srgb, var(--site-fundo) 97%, transparent)", backdropFilter: "blur(6px)", borderBottom: "1px solid var(--site-borda)", boxShadow: "0 1px 12px rgba(0,0,0,0.04)" }}>
-      <div style={{ maxWidth: "var(--site-largura)", margin: "0 auto", padding: `${padY}px 24px` }}>
+      <div style={{ maxWidth: "var(--site-largura-menu, var(--site-largura))", margin: "0 auto", padding: `${padY}px 24px` }}>
         {desk}
         <div className="site-header-mobile" style={{ display: "none", alignItems: "center", justifyContent: "space-between", gap: 16, width: "100%" }}>
           {Logo}

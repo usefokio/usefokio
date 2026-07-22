@@ -222,6 +222,8 @@ function Preview({ design, menu, nome, logoUrl, disp, tema, children }: {
           ["--site-fonte-corpo" as string]: fTexto,
           // Espelha a var do site real (layout.tsx) para a prévia refletir a largura ao vivo
           ["--site-largura" as string]: `${design.largura_maxima}px`,
+          ["--site-largura-menu" as string]: `${design.largura_menu}px`,
+          ["--site-espaco-blocos" as string]: `${design.espaco_blocos}px`,
           background: "var(--site-fundo)", color: "var(--site-texto)", fontFamily: "var(--site-fonte-corpo), Georgia, serif",
           containerType: "inline-size", // paridade com .site-root: o corpo/menu respondem à largura virtual
         } as React.CSSProperties}>
@@ -694,9 +696,16 @@ export default function AparenciaPage() {
             {/* Espaçamento — vale para o site inteiro (header, rodapé, listagens e blocos) */}
             <Card titulo="Espaçamento" aberto={!!aberto.espacamento} onToggle={() => toggle("espacamento")}>
               {campo("Largura do conteúdo", <Range label="Largura" value={design.largura_maxima} min={900} max={1440} unidade="px" onChange={(v) => setDesign((d) => ({ ...d, largura_maxima: v }))} />)}
+              <p style={{ ...mini, margin: "4px 0 14px" }}>
+                Margem em relação às laterais do <strong>conteúdo</strong> (blocos, galerias, rodapé). Menor = mais respiro nas bordas.
+              </p>
+              {campo("Largura do menu", <Range label="Largura" value={design.largura_menu} min={900} max={1600} unidade="px" onChange={(v) => setDesign((d) => ({ ...d, largura_menu: v }))} />)}
+              <p style={{ ...mini, margin: "4px 0 14px" }}>
+                Largura do <strong>menu/topo</strong>, independente do conteúdo (pode ser mais largo ou estreito que o resto).
+              </p>
+              {campo("Espaço entre blocos", <Range label="Espaço" value={design.espaco_blocos} min={0} max={160} unidade="px" onChange={(v) => setDesign((d) => ({ ...d, espaco_blocos: v }))} />)}
               <p style={{ ...mini, marginTop: 4 }}>
-                Define a <strong>margem em relação às laterais</strong>. Vale para o site todo — header, rodapé,
-                galerias e blocos alinham juntos. Menor = mais respiro nas bordas.
+                Espaçamento vertical entre os <strong>blocos da home</strong> (trabalhos, blog, depoimentos…).
               </p>
             </Card>
 

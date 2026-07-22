@@ -207,6 +207,8 @@ export type ConfigDesign = {
   logo_url: string | null;  // logo próprio do site (null = usa o logo global do fotógrafo)
   logo_altura: number;      // altura da logo no header, em px
   largura_maxima: number;   // largura do conteúdo em px = margem lateral do site (via --site-largura)
+  largura_menu: number;     // largura do menu/header — independente do conteúdo (via --site-largura-menu)
+  espaco_blocos: number;    // espaçamento vertical entre os blocos da home, em px (via --site-espaco-blocos)
   header: HeaderConfig;
   rodape: BarraConfig;
   blocos: HomeBloco[];      // ordem = ordem de render na home
@@ -219,6 +221,8 @@ export const DESIGN_PADRAO: ConfigDesign = {
   logo_url: null,
   logo_altura: 46,
   largura_maxima: 1180, // o valor que era hardcoded em todo o site — default preserva o visual atual
+  largura_menu: 1180,   // default = largura do conteúdo (menu alinhado, como antes)
+  espaco_blocos: 56,    // padding vertical padrão dos blocos da home (valor antigo hardcoded)
   header: { cor: null, opacidade: 97, altura: 18, orientacao: "topo", logo_pos: "esquerda", cor_texto: null, largura: 200 },
   rodape: { cor: null, opacidade: 100, altura: 44 },
   blocos: BLOCOS_PADRAO,
@@ -370,6 +374,9 @@ export function normalizarDesign(raw: unknown): ConfigDesign {
     logo_url: typeof d.logo_url === "string" && d.logo_url.trim() ? d.logo_url.trim() : null,
     logo_altura: num(d.logo_altura, DESIGN_PADRAO.logo_altura, 16, 160),
     largura_maxima: num(d.largura_maxima, DESIGN_PADRAO.largura_maxima, 900, 1440),
+    // Menu: default = largura do conteúdo (alinhado, como antes) até o fotógrafo separar.
+    largura_menu: num(d.largura_menu, num(d.largura_maxima, DESIGN_PADRAO.largura_maxima, 900, 1440), 900, 1600),
+    espaco_blocos: num(d.espaco_blocos, DESIGN_PADRAO.espaco_blocos, 0, 160),
     header: normalizarHeader(d.header),
     rodape: normalizarBarra(d.rodape, DESIGN_PADRAO.rodape),
     blocos: normalizarBlocos(d.blocos),

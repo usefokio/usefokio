@@ -30,7 +30,7 @@ export function BlocoDepoimentos({ config, depoimentos }: { config: HomeBloco; d
   if (depoimentos.length === 0) return null;
 
   return (
-    <section style={{ background: "var(--site-superficie)", padding: "60px 24px" }}>
+    <section style={{ background: "var(--site-superficie)", padding: "var(--site-espaco-blocos, 56px) 24px" }}>
       <div style={{ maxWidth: 1000, margin: "0 auto" }}>
         <h2 className="site-secao-titulo" style={{ fontSize: 30, textAlign: "center", margin: "0 0 40px" }}>Depoimentos</h2>
         {layout === "lista_vertical"

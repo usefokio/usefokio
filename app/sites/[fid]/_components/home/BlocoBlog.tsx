@@ -30,7 +30,7 @@ export function BlocoBlog({ config, posts, base }: { config: HomeBloco; posts: S
   // capa_esquerda: lista empilhada, capa à esquerda + título/descrição à direita (sem posição de título)
   if (layout === "capa_esquerda") {
     return (
-      <section style={{ maxWidth: 1080, margin: "0 auto", padding: "56px 24px" }}>
+      <section style={{ maxWidth: 1080, margin: "0 auto", padding: "var(--site-espaco-blocos, 56px) 24px" }}>
         <h2 className="site-secao-titulo" style={{ fontSize: 30, textAlign: "center", margin: "0 0 44px" }}>Do blog</h2>
         <div style={{ display: "flex", flexDirection: "column", gap: 26 }}>
           {posts.map((p) => (
@@ -58,7 +58,7 @@ export function BlocoBlog({ config, posts, base }: { config: HomeBloco; posts: S
   );
 
   return (
-    <section style={{ maxWidth: "var(--site-largura)", margin: "0 auto", padding: "56px 24px" }}>
+    <section style={{ maxWidth: "var(--site-largura)", margin: "0 auto", padding: "var(--site-espaco-blocos, 56px) 24px" }}>
       <h2 className="site-secao-titulo" style={{ fontSize: 30, textAlign: "center", margin: "0 0 44px" }}>Do blog</h2>
       {horizontal ? (
         <div className="site-esconde-scroll" style={{ display: "flex", gap: 24, overflowX: "auto", scrollSnapType: "x mandatory", paddingBottom: 8 }}>{posts.map(card)}</div>
