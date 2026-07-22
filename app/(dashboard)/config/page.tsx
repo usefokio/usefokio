@@ -81,7 +81,7 @@ function Categorias() {
   return (
     <div>
       <p style={{ fontSize: 13, color: "var(--color-text-secondary)", marginTop: 0, marginBottom: 20 }}>
-        Categorias organizam suas galerias. Configure a taxa de renovação por categoria: <strong>30 dias</strong> (usada por padrão ao criar a galeria) e <strong>1 ano</strong> (opção anual que você pode ativar ao enviar a galeria ao funil).
+        Categorias organizam suas galerias. Configure a taxa de renovação por categoria: <strong>30 dias</strong> e <strong>1 ano</strong>. Os dois valores são preenchidos automaticamente ao criar a galeria; na tela de renovação, o cliente escolhe entre 30 dias e 1 ano (quando a galeria tiver o valor anual).
       </p>
 
       {/* Adicionar nova */}
@@ -127,53 +127,51 @@ function Categorias() {
             <div
               key={cat.id}
               style={{
-                display: "flex", alignItems: "center", gap: 10,
                 padding: "10px 14px",
                 borderBottom: i < lista.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none",
                 background: "var(--color-background-primary)",
               }}
             >
-              {/* Ícone drag (futuro) */}
-              <span style={{ fontSize: 14, opacity: 0.3, cursor: "grab", flexShrink: 0 }}>⠿</span>
-
-              <input
-                defaultValue={cat.nome}
-                onBlur={(e) => salvarNome(cat.id, e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
-                style={{ ...inputStyle, flex: 1, padding: "5px 10px", fontSize: 13 }}
-              />
-              <div style={{ display: "flex", alignItems: "center", gap: 5, flexShrink: 0 }}>
-                <span style={{ fontSize: 11, color: "var(--color-text-secondary)" }} title="Valor da renovação de acesso por 30 dias">30 dias:</span>
+              {/* Linha 1: nome (largura toda) + excluir */}
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ fontSize: 14, opacity: 0.3, cursor: "grab", flexShrink: 0 }}>⠿</span>
                 <input
-                  value={cat.taxa_renovacao_padrao != null ? formatarMoeda(cat.taxa_renovacao_padrao) : ""}
-                  onChange={(e) => {
-                    const v = mascaraMoeda(e.target.value);
-                    setLista((l) => l.map((c) => c.id === cat.id ? { ...c, taxa_renovacao_padrao: parseMoeda(v) || null } : c));
-                  }}
-                  onBlur={(e) => salvarTaxa(cat.id, e.target.value)}
+                  defaultValue={cat.nome}
+                  onBlur={(e) => salvarNome(cat.id, e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
-                  placeholder="—"
-                  style={{ ...inputStyle, width: 92, padding: "4px 8px", fontSize: 12, textAlign: "right" }}
+                  style={{ ...inputStyle, flex: 1, padding: "6px 10px", fontSize: 13 }}
                 />
-                <span style={{ fontSize: 11, color: "var(--color-text-secondary)" }} title="Valor da renovação de acesso por 1 ano (opção anual)">1 ano:</span>
-                <input
-                  value={cat.taxa_renovacao_anual != null ? formatarMoeda(cat.taxa_renovacao_anual) : ""}
-                  onChange={(e) => {
-                    const v = mascaraMoeda(e.target.value);
-                    setLista((l) => l.map((c) => c.id === cat.id ? { ...c, taxa_renovacao_anual: parseMoeda(v) || null } : c));
-                  }}
-                  onBlur={(e) => salvarTaxaAnual(cat.id, e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
-                  placeholder="—"
-                  style={{ ...inputStyle, width: 92, padding: "4px 8px", fontSize: 12, textAlign: "right" }}
-                />
+                <button
+                  onClick={() => excluir(cat.id)}
+                  title="Excluir categoria"
+                  style={{ padding: "5px 11px", borderRadius: 6, background: "rgba(239,68,68,0.06)", border: "0.5px solid rgba(239,68,68,0.2)", fontSize: 12, cursor: "pointer", color: "#EF4444", flexShrink: 0 }}
+                >🗑</button>
               </div>
-
-              <button
-                onClick={() => excluir(cat.id)}
-                title="Excluir categoria"
-                style={{ padding: "4px 10px", borderRadius: 6, background: "rgba(239,68,68,0.06)", border: "0.5px solid rgba(239,68,68,0.2)", fontSize: 12, cursor: "pointer", color: "#EF4444", flexShrink: 0 }}
-              >🗑</button>
+              {/* Linha 2: taxas de renovação (30 dias e 1 ano) */}
+              <div style={{ display: "flex", alignItems: "center", gap: 16, marginTop: 8, paddingLeft: 24, flexWrap: "wrap" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ fontSize: 11, color: "var(--color-text-secondary)" }}>Renovação 30 dias:</span>
+                  <input
+                    value={cat.taxa_renovacao_padrao != null ? formatarMoeda(cat.taxa_renovacao_padrao) : ""}
+                    onChange={(e) => { const v = mascaraMoeda(e.target.value); setLista((l) => l.map((c) => c.id === cat.id ? { ...c, taxa_renovacao_padrao: parseMoeda(v) || null } : c)); }}
+                    onBlur={(e) => salvarTaxa(cat.id, e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+                    placeholder="—"
+                    style={{ ...inputStyle, width: 100, padding: "4px 8px", fontSize: 12, textAlign: "right" }}
+                  />
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ fontSize: 11, color: "var(--color-text-secondary)" }}>1 ano:</span>
+                  <input
+                    value={cat.taxa_renovacao_anual != null ? formatarMoeda(cat.taxa_renovacao_anual) : ""}
+                    onChange={(e) => { const v = mascaraMoeda(e.target.value); setLista((l) => l.map((c) => c.id === cat.id ? { ...c, taxa_renovacao_anual: parseMoeda(v) || null } : c)); }}
+                    onBlur={(e) => salvarTaxaAnual(cat.id, e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+                    placeholder="—"
+                    style={{ ...inputStyle, width: 100, padding: "4px 8px", fontSize: 12, textAlign: "right" }}
+                  />
+                </div>
+              </div>
             </div>
           ))}
         </div>
