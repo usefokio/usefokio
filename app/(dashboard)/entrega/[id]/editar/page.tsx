@@ -357,10 +357,16 @@ export default function EditarEntregaPage() {
         </Field>
 
         {categorias.length > 0 && (
-          <Field label="Categoria" hint="A taxa de renovação padrão da categoria é aplicada ao criar galerias novas">
+          <Field label="Categoria" hint="Ao selecionar, as taxas de renovação (30 dias e 1 ano) da categoria são preenchidas">
             <select
               value={categoriaId}
-              onChange={(e) => setCategoriaId(e.target.value)}
+              onChange={(e) => {
+                const id = e.target.value;
+                setCategoriaId(id);
+                const cat = categorias.find((c) => c.id === id);
+                if (cat?.taxa_renovacao_padrao != null) setRenovacao(formatarMoeda(cat.taxa_renovacao_padrao));
+                if (cat?.taxa_renovacao_anual != null) setRenovacaoAnual(formatarMoeda(cat.taxa_renovacao_anual));
+              }}
               style={inputStyle}
             >
               <option value="">— Sem categoria —</option>
