@@ -14,6 +14,8 @@ export type CfgContato = {
   banner: string | null;      // conteudo.banner_url — topo (duas_colunas) ou fundo (banner_fundo)
   ancora: AncoraFoto;         // alinhamento do recorte das imagens da página (vertical/horizontal)
   proporcao: ProporcaoCapa;   // proporção da foto (duas_colunas) — permite horizontal/vertical/quadrado
+  whatsapp_ativo: boolean;    // botão dedicado "Chamar no WhatsApp" na página (usa o WhatsApp do cadastro)
+  whatsapp_texto: string;     // texto do botão de WhatsApp
   formulario?: ConfigFormulario;
 };
 
@@ -57,7 +59,7 @@ export function cfgContatoDe(conteudo: unknown): CfgContato {
   const layout = LAYOUTS_CONTATO.some((o) => o.v === c.layout)
     ? (c.layout as LayoutContato)
     : (foto ? "duas_colunas" : "minimalista");
-  return { layout, html: str(c.html), foto, banner: str(c.banner_url), ancora: ancoraDe(c.ancora), proporcao: proporcaoDe(c.proporcao), formulario: c.formulario as ConfigFormulario | undefined };
+  return { layout, html: str(c.html), foto, banner: str(c.banner_url), ancora: ancoraDe(c.ancora), proporcao: proporcaoDe(c.proporcao), whatsapp_ativo: c.whatsapp_ativo === true, whatsapp_texto: str(c.whatsapp_texto) ?? "Chamar no WhatsApp", formulario: c.formulario as ConfigFormulario | undefined };
 }
 
 export function cfgSobreDe(conteudo: unknown): CfgSobre {
@@ -86,6 +88,7 @@ export function conteudoComCfg(conteudoOriginal: unknown, cfg: CfgContato | CfgS
     banner_url: "banner" in cfg ? cfg.banner : cfg.fundo,
     ancora: cfg.ancora,
     ...("proporcao" in cfg ? { proporcao: (cfg as CfgContato).proporcao } : {}),
+    ...("whatsapp_ativo" in cfg ? { whatsapp_ativo: (cfg as CfgContato).whatsapp_ativo, whatsapp_texto: (cfg as CfgContato).whatsapp_texto } : {}),
     ...("foto_largura" in cfg ? { foto_largura: cfg.foto_largura } : {}),
     ...("cta_ativo" in cfg ? { cta_ativo: cfg.cta_ativo, cta_botao: cfg.cta_botao } : {}),
     ...("formulario" in cfg && cfg.formulario !== undefined ? { formulario: cfg.formulario } : {}),

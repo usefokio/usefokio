@@ -36,6 +36,15 @@ export function PaginaContato({ cfg, titulo, canais, fid, categorias }: {
     ? <div className="site-conteudo" style={{ fontSize: 15, color: "var(--site-suave)", lineHeight: 1.8, margin: "0 0 20px" }} dangerouslySetInnerHTML={{ __html: cfg.html }} />
     : null;
 
+  // Botão dedicado de WhatsApp (usa o WhatsApp do cadastro, o mesmo do canal "WhatsApp").
+  const whatsHref = canais.find((c) => c.label === "WhatsApp")?.href ?? null;
+  const botaoWhats = cfg.whatsapp_ativo && whatsHref ? (
+    <a href={whatsHref} target="_blank" rel="noopener noreferrer"
+      style={{ display: "inline-flex", alignItems: "center", gap: 9, padding: "13px 26px", borderRadius: 999, background: "#25D366", color: "#fff", fontSize: 15, fontWeight: 700, textDecoration: "none" }}>
+      <span style={{ fontSize: 18 }}>💬</span>{cfg.whatsapp_texto || "Chamar no WhatsApp"}
+    </a>
+  ) : null;
+
   // ── Banner de fundo: título + texto + formulário sobrepostos à imagem ──
   if (cfg.layout === "banner_fundo") {
     return (
@@ -48,8 +57,9 @@ export function PaginaContato({ cfg, titulo, canais, fid, categorias }: {
             <div className="lp-hero-form">{form}</div>
           </div>
         </section>
-        {canais.length > 0 && (
-          <div style={{ display: "flex", justifyContent: "center", padding: "26px 24px 0" }}>
+        {(canais.length > 0 || botaoWhats) && (
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, padding: "26px 24px 0" }}>
+            {botaoWhats}
             <Canais canais={canais} />
           </div>
         )}
@@ -68,6 +78,7 @@ export function PaginaContato({ cfg, titulo, canais, fid, categorias }: {
           </p>
         )}
         <Canais canais={canais} />
+        {botaoWhats && <div style={{ margin: "0 0 18px" }}>{botaoWhats}</div>}
         {form}
       </div>
     );
@@ -85,6 +96,7 @@ export function PaginaContato({ cfg, titulo, canais, fid, categorias }: {
         <div>
           <h1 style={h1Style}>{titulo}</h1>
           <Canais canais={canais} />
+          {botaoWhats && <div style={{ margin: "0 0 20px" }}>{botaoWhats}</div>}
           {cfg.foto && <img src={cfg.foto} alt="" style={{ width: "100%", aspectRatio: ASPECT[cfg.proporcao], objectFit: "cover", objectPosition: objPos, borderRadius: 12, display: "block", margin: "0 0 18px" }} />}
           {textoEl}
         </div>

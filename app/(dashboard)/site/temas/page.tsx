@@ -803,6 +803,11 @@ export default function AparenciaPage() {
                   {campo("Escolha o modelo", <Seg value={cfgContato.layout} options={LAYOUTS_CONTATO} onChange={(v) => setCfgContato((c) => c ? { ...c, layout: v } : c)} />)}
                   <p style={{ ...mini, marginTop: 4 }}>O título e os canais (WhatsApp/e-mail do seu cadastro) aparecem em todos os modelos.</p>
                 </Card>
+                <Card titulo="Botão de WhatsApp" aberto onToggle={() => {}}>
+                  {campo("Mostrar botão", linhaChave("Botão “Chamar no WhatsApp” na página de Contato", cfgContato.whatsapp_ativo, (v) => setCfgContato((c) => c ? { ...c, whatsapp_ativo: v } : c)))}
+                  {cfgContato.whatsapp_ativo && campo("Texto do botão", <input value={cfgContato.whatsapp_texto} onChange={(e) => setCfgContato((c) => c ? { ...c, whatsapp_texto: e.target.value } : c)} placeholder="Chamar no WhatsApp" style={inp} />)}
+                  <p style={{ ...mini, marginTop: 4 }}>Usa o WhatsApp do seu cadastro. Sem número cadastrado, o botão não aparece.</p>
+                </Card>
                 {cfgContato.layout !== "minimalista" && (
                   <Card titulo={cfgContato.layout === "banner_fundo" ? "Imagem de fundo" : "Banner do topo (opcional)"} aberto onToggle={() => {}}>
                     <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
