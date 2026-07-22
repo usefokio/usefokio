@@ -48,6 +48,8 @@ type ModalReceber = {
   dataPagamento: string;
   contaId: string;
   contaPlanoId: string;
+  liquido: string;        // valor recebido (líquido) — só usado no recebimento
+  contaDespesaId: string; // conta de despesa onde a taxa (bruto−líquido) é lançada
 };
 
 type ModalEditar = {
@@ -281,6 +283,8 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
       dataPagamento: hoje,
       contaId: contas.find(c => c.principal)?.id ?? (contas.length === 1 ? contas[0].id : ""),
       contaPlanoId: e.conta_id ?? "",
+      liquido: e.valor.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+      contaDespesaId: "",
     });
     setErroPagamento("");
   };
@@ -288,30 +292,65 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
   // Confirmar pagamento
   const confirmarPagamento = async () => {
     if (!modalReceber) return;
-    if (aba === "pagar" && !modalReceber.entry.conta_id && !modalReceber.contaPlanoId) {
-      setErroPagamento("Selecione o plano de contas para registrar a despesa.");
+    if (!modalReceber.entry.conta_id && !modalReceber.contaPlanoId) {
+      setErroPagamento(aba === "pagar"
+        ? "Selecione o plano de contas para registrar a despesa."
+        : "Selecione o plano de contas (receita) para ela aparecer no relatório.");
       return;
     }
     if (!isValidDate(modalReceber.dataPagamento)) {
       setErroPagamento("Data de pagamento inválida.");
       return;
     }
+    const { entry, dataPagamento, contaId, contaPlanoId, liquido, contaDespesaId } = modalReceber;
+    // Taxa no recebimento: a diferença entre o valor bruto e o líquido recebido vira uma despesa vinculada.
+    const ehReceber = aba === "receber";
+    const bruto = entry.valor;
+    const liq = ehReceber ? parsearValor(liquido) : bruto;
+    const taxa = Math.round((bruto - liq) * 100) / 100;
+    if (ehReceber) {
+      if (liq <= 0) { setErroPagamento("Informe o valor líquido recebido."); return; }
+      if (taxa < 0) { setErroPagamento("O valor líquido não pode ser maior que o valor da conta."); return; }
+      if (taxa > 0 && !contaDespesaId) { setErroPagamento("Selecione a conta de despesa para lançar a taxa."); return; }
+    }
     setSalvandoPag(true);
     setErroPagamento("");
-    const { entry, dataPagamento, contaId, contaPlanoId } = modalReceber;
+    const grupo = taxa > 0 ? (entry.recibo_grupo_id ?? crypto.randomUUID()) : null;
     const updates: Record<string, string | null> = {
       status: "pago",
       pago_em: dataPagamento,
       conta_bancaria_id: contaId || null,
     };
-    if (aba === "pagar" && contaPlanoId) updates.conta_id = contaPlanoId;
-    const { error } = await createClient()
+    if (contaPlanoId && !entry.conta_id) updates.conta_id = contaPlanoId;
+    if (grupo) updates.recibo_grupo_id = grupo;
+    const sb = createClient();
+    const { error } = await sb
       .from("crm_financial_entries")
       .update(updates)
       .eq("id", entry.id);
     if (error) { setSalvandoPag(false); setErroPagamento(error.message); return; }
+    // Lança a taxa/tarifa como DESPESA paga, vinculada à receita pelo mesmo recibo_grupo_id.
+    if (ehReceber && taxa > 0 && grupo) {
+      const { error: errTaxa } = await sb.from("crm_financial_entries").insert({
+        fotografo_id: fotografo!.id,
+        tipo: "despesa",
+        descricao: `Taxa de recebimento — ${entry.descricao}`,
+        valor: taxa,
+        vencimento: dataPagamento,
+        pago_em: dataPagamento,
+        status: "pago",
+        conta_id: contaDespesaId,
+        conta_bancaria_id: contaId || null,
+        cliente_id: entry.cliente_id ?? null,
+        pedido_id: entry.pedido_id ?? null,
+        recibo_grupo_id: grupo,
+        num_documento: entry.num_documento ?? null,
+        forma_pagamento: entry.forma_pagamento ?? null,
+      });
+      if (errTaxa) { setSalvandoPag(false); setErroPagamento(`Recebimento salvo, mas o lançamento da taxa falhou: ${errTaxa.message}`); return; }
+    }
     // Pedido "Em aberto" com 1ª receita paga → vira "Concluído" automaticamente.
-    if (entry.tipo === "receita") await promoverPedidosPagos(createClient(), [entry.pedido_id]);
+    if (entry.tipo === "receita") await promoverPedidosPagos(sb, [entry.pedido_id]);
     setSalvandoPag(false);
     const contaNome = contas.find(c => c.id === contaId)?.nome ?? "Conta";
     setModalReceber(null);
@@ -824,6 +863,59 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
                 style={{ padding: "9px 12px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", fontSize: 13, color: "var(--color-text-primary)", outline: "none", width: "100%", boxSizing: "border-box" }}
               />
             </div>
+
+            {/* Plano de contas — receita sem categoria (senão o DRE descarta o recebimento) */}
+            {aba === "receber" && !modalReceber.entry.conta_id && (
+              <div style={{ marginBottom: 18 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>
+                  Plano de contas (receita) *
+                </div>
+                <div style={{ fontSize: 12, color: "#D97706", marginBottom: 8, background: "rgba(217,119,6,0.08)", border: "0.5px solid rgba(217,119,6,0.3)", borderRadius: 8, padding: "8px 12px" }}>
+                  Esta receita não tem categoria — selecione para ela aparecer no relatório.
+                </div>
+                <ComboSelect
+                  options={chartAccounts.filter(c => c.codigo.startsWith("3")).map(c => ({ id: c.id, label: `${c.codigo} — ${c.nome}` }))}
+                  value={modalReceber.contaPlanoId}
+                  onChange={v => setModalReceber(m => m ? { ...m, contaPlanoId: v } : m)}
+                  placeholder="Selecione a categoria da receita…"
+                />
+              </div>
+            )}
+
+            {/* Taxa/tarifa no recebimento: a diferença bruto−líquido vira uma despesa */}
+            {aba === "receber" && (() => {
+              const bruto = modalReceber.entry.valor;
+              const taxa = Math.round((bruto - parsearValor(modalReceber.liquido)) * 100) / 100;
+              return (
+                <div style={{ marginBottom: 18 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>
+                    Valor recebido (líquido)
+                  </div>
+                  <input
+                    value={modalReceber.liquido}
+                    inputMode="decimal"
+                    onChange={e => setModalReceber(m => m ? { ...m, liquido: mascaraValor(e.target.value) } : m)}
+                    style={{ padding: "9px 12px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", fontSize: 13, color: "var(--color-text-primary)", outline: "none", width: "100%", boxSizing: "border-box" }}
+                  />
+                  <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 6 }}>
+                    Bruto {fmt(bruto)}. Deixe igual ao bruto se não houve taxa; abaixo dele, a diferença vira despesa (ex.: tarifa de cartão).
+                  </div>
+                  {taxa > 0 && (
+                    <div style={{ marginTop: 12 }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>
+                        Lançar a taxa de {fmt(taxa)} em (despesa) *
+                      </div>
+                      <ComboSelect
+                        options={chartAccounts.filter(c => c.codigo.startsWith("4") || c.codigo.startsWith("5")).map(c => ({ id: c.id, label: `${c.codigo} — ${c.nome}` }))}
+                        value={modalReceber.contaDespesaId}
+                        onChange={v => setModalReceber(m => m ? { ...m, contaDespesaId: v } : m)}
+                        placeholder="Selecione a conta de despesa…"
+                      />
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* Plano de contas — só para despesas sem categoria */}
             {aba === "pagar" && !modalReceber.entry.conta_id && (
