@@ -69,6 +69,38 @@ async function resolverTenant(host: string, rotulo: string | null): Promise<Tena
   return tenant;
 }
 
+// ── Mapa de 301 por fotógrafo (migração de site indexado) — cache em memória ──
+type Redirect301 = { origem: string; destino: string; code: number };
+type CacheRedir = { lista: Redirect301[]; exp: number };
+const cacheRedir = new Map<string, CacheRedir>();
+
+function normPath(p: string): string {
+  return p.length > 1 && p.endsWith("/") ? p.slice(0, -1) : p;
+}
+
+async function redirectsDoTenant(fid: string): Promise<Redirect301[]> {
+  const agora = Date.now();
+  const emCache = cacheRedir.get(fid);
+  if (emCache && emCache.exp > agora) return emCache.lista;
+
+  const supabaseUrl = urlSupabase();
+  const anonKey = anonSupabase();
+  let lista: Redirect301[] = [];
+  if (supabaseUrl && anonKey) {
+    try {
+      const r = await fetch(
+        `${supabaseUrl}/rest/v1/site_redirects?select=origem,destino,code&fotografo_id=eq.${fid}&ativo=eq.true`,
+        { headers: { apikey: anonKey, Authorization: `Bearer ${anonKey}` } },
+      );
+      if (r.ok) lista = (await r.json()) as Redirect301[];
+    } catch {
+      lista = [];
+    }
+  }
+  cacheRedir.set(fid, { lista, exp: agora + TTL_POSITIVO });
+  return lista;
+}
+
 export async function proxy(request: NextRequest) {
   const host = hostDaRequisicao(request.headers);
   const { pathname, search } = request.nextUrl;
@@ -93,6 +125,17 @@ export async function proxy(request: NextRequest) {
     // 1d) domínio próprio: host diferente do canônico salvo (www vs apex) → redirect
     if (tenant.hostCanonico && tenant.hostCanonico !== host) {
       return NextResponse.redirect(`https://${tenant.hostCanonico}${pathname}${search}`, 308);
+    }
+
+    // 1d-bis) mapa de 301 (migração de site indexado): URL antiga sem 1:1 → destino novo
+    const redirs = await redirectsDoTenant(tenant.fid);
+    if (redirs.length) {
+      const alvo = normPath(pathname);
+      const hit = redirs.find((rd) => normPath(rd.origem) === alvo);
+      if (hit) {
+        const destino = /^https?:\/\//.test(hit.destino) ? hit.destino : `https://${host}${hit.destino}`;
+        return NextResponse.redirect(destino, hit.code === 302 ? 302 : 301);
+      }
     }
 
     // 1e) rewrite interno para as rotas do site, marcando o tenant nos headers
