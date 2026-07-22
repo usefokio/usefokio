@@ -61,6 +61,7 @@ export default function EditarEntregaPage() {
   const [dataEvento,  setDataEvento] = useState(hoje);
   const [driveLink,   setDriveLink]  = useState("");
   const [renovacao,   setRenovacao]  = useState("");
+  const [renovacaoAnual, setRenovacaoAnual] = useState("");
   const [renovacaoDias, setRenovacaoDias] = useState("30");
   const [mensagem,    setMensagem]   = useState("");
   const [apenaZip,              setApenaZip]              = useState(false);
@@ -119,6 +120,7 @@ export default function EditarEntregaPage() {
         setDataEvento(g.data_evento ?? hoje);
         setDriveLink(g.drive_link ?? "");
         setRenovacao(g.renewal_fee != null ? formatarMoeda(g.renewal_fee) : "");
+        setRenovacaoAnual(g.renovacao_anual_valor != null ? formatarMoeda(g.renovacao_anual_valor) : "");
         setMensagem(g.mensagem ?? fotografo.mensagem_padrao_entrega ?? "");
         setCapaUrl(g.foto_capa_url ?? null);
         setCapaPreview(g.foto_capa_url ?? null);
@@ -152,6 +154,7 @@ export default function EditarEntregaPage() {
     dataEvento !== (original.data_evento ?? hoje) ||
     driveLink !== (original.drive_link ?? "") ||
     renovacao !== (original.renewal_fee != null ? formatarMoeda(original.renewal_fee) : "") ||
+    renovacaoAnual !== (original.renovacao_anual_valor != null ? formatarMoeda(original.renovacao_anual_valor) : "") ||
     renovacaoDias !== String(original.renovacao_dias ?? 30) ||
     mensagem !== (original.mensagem ?? fotografo?.mensagem_padrao_entrega ?? "") ||
     apenaZip !== (original.apenas_zip ?? false) ||
@@ -209,6 +212,7 @@ export default function EditarEntregaPage() {
         drive_link:  driveLink.trim() || null,
         expires_at:  expiresAt ? expiresAt.toISOString() : null,
         renewal_fee: parseMoeda(renovacao),
+        renovacao_anual_valor: parseMoeda(renovacaoAnual) || null,
         renovacao_dias: parseInt(renovacaoDias) || 30,
         mensagem:    mensagem.trim() || null,
         apenas_zip:                 apenaZip,
@@ -399,6 +403,23 @@ export default function EditarEntregaPage() {
               />
             </div>
           )}
+          <div style={{ marginTop: 14 }}>
+            <label style={{ fontSize: 12, fontWeight: 600, color: "var(--color-text-secondary)", display: "block", marginBottom: 6 }}>
+              Renovação por 1 ano (opcional)
+            </label>
+            <div style={{ position: "relative", width: 200 }}>
+              <span style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", fontSize: 13, color: "var(--color-text-secondary)", pointerEvents: "none" }}>R$</span>
+              <input
+                type="text" inputMode="numeric"
+                value={renovacaoAnual} onChange={(e) => setRenovacaoAnual(mascaraMoeda(e.target.value))}
+                placeholder="0,00"
+                style={{ ...inputStyle, width: "100%", paddingLeft: 34 }}
+              />
+            </div>
+            <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: "4px 0 0" }}>
+              Se preenchido, o cliente também poderá renovar por 1 ano (além dos 30 dias).
+            </p>
+          </div>
         </Field>
 
         <Field label="Mensagem para o cliente">

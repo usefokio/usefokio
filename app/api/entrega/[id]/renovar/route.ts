@@ -28,7 +28,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const admin = createAdminClient();
   const { data: galeria } = await admin
     .from("galerias_entrega")
-    .select("id, titulo, renewal_fee, renovacao_dias, renovacao_anual_ativa, renovacao_anual_valor, fotografo_id, rascunho")
+    .select("id, titulo, renewal_fee, renovacao_dias, renovacao_anual_valor, fotografo_id, rascunho")
     .eq("id", id)
     .maybeSingle();
 
@@ -40,8 +40,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     .eq("id", galeria.fotografo_id)
     .maybeSingle();
 
-  // Opção anual (1 ano): só quando o cliente escolheu E a galeria tem a anual ativa com valor.
-  const usarAnual = !!anual && galeria.renovacao_anual_ativa && (galeria.renovacao_anual_valor ?? 0) > 0;
+  // Opção anual (1 ano): quando o cliente escolheu e a galeria tem valor de 1 ano configurado.
+  const usarAnual = !!anual && (galeria.renovacao_anual_valor ?? 0) > 0;
 
   // Taxa e prazo efetivos. Anual → valor anual + 365 dias; senão → taxa da galeria (ou padrão do
   // fotógrafo como fallback) + o prazo padrão (30 dias).

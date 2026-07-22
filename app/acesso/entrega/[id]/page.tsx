@@ -450,7 +450,7 @@ export default function AcessoEntregaPage() {
                 )}
               </div>
             )}
-            {galeria?.renovacao_anual_ativa && (galeria?.renovacao_anual_valor ?? 0) > 0 ? (
+            {(galeria?.renovacao_anual_valor ?? 0) > 0 ? (
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 <button
                   onClick={() => gerarCobrancaRenovacao(false)}
@@ -479,7 +479,7 @@ export default function AcessoEntregaPage() {
           </div>
         )}
         {renovMsg && <div style={{ fontSize: 12, color: cor, marginTop: 10, lineHeight: 1.5 }}>{renovMsg}</div>}
-        {galeria.renovacao_dias > 0 && !renovInvoiceUrl && !(galeria?.renovacao_anual_ativa && (galeria?.renovacao_anual_valor ?? 0) > 0) && (
+        {galeria.renovacao_dias > 0 && !renovInvoiceUrl && !((galeria?.renovacao_anual_valor ?? 0) > 0) && (
           <div style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", marginTop: 8 }}>
             O pagamento libera o acesso por mais {galeria.renovacao_dias} dias.
           </div>

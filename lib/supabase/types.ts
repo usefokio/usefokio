@@ -174,7 +174,6 @@ export type GaleriaEntrega = {
   suspensa: boolean;
   rascunho: boolean;
   renovacao_dias: number;
-  renovacao_anual_ativa: boolean;
   renovacao_anual_valor: number | null;
   ordenacao_fotos: "envio" | "nome" | "nome_desc" | "data";
   foto_capa_url: string | null;
