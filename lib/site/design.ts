@@ -110,6 +110,8 @@ export type HomeBloco = {
   cta_titulo?: string;
   cta_subtitulo?: string;
   cta_botao?: string;
+  cta_padding?: number;   // espaçamento vertical do bloco (px)
+  cta_escala?: number;    // tamanho do texto/botão em % (100 = padrão)
 };
 
 export const PROPORCOES: readonly ProporcaoCapa[] = ["horizontal_16x9", "horizontal_3x2", "horizontal_4x3", "vertical_2x3", "quadrado_1x1"];
@@ -161,7 +163,7 @@ export const BLOCO_DEFAULTS: Record<HomeBlocoKey, HomeBloco> = {
   blog:        { key: "blog",        on: true, layout: "capa_esquerda", colunas: 3, proporcao: "horizontal_3x2", titulo_pos: "abaixo", descricao: true },
   depoimentos: { key: "depoimentos", on: true, layout: "lista_vertical", colunas: 3, mostrar_foto: true, mostrar_nome: true, mostrar_texto: true },
   selos:       { key: "selos",       on: true, mostrar_titulo: true },
-  cta:         { key: "cta",         on: true, cta_titulo: "Vamos registrar a sua história?", cta_subtitulo: "Entre em contato e solicite seu orçamento.", cta_botao: "Solicitar orçamento" },
+  cta:         { key: "cta",         on: true, cta_titulo: "Vamos registrar a sua história?", cta_subtitulo: "Entre em contato e solicite seu orçamento.", cta_botao: "Solicitar orçamento", cta_padding: 72, cta_escala: 100 },
 };
 
 export const BLOCOS_PADRAO: HomeBloco[] = BLOCOS_ORDEM_PADRAO.map((k) => ({ ...BLOCO_DEFAULTS[k] }));
@@ -319,7 +321,9 @@ function normalizarBloco(key: HomeBlocoKey, raw: unknown): HomeBloco {
       return { key, on,
         cta_titulo: str(r.cta_titulo, d.cta_titulo!, 120),
         cta_subtitulo: str(r.cta_subtitulo, d.cta_subtitulo!, 200),
-        cta_botao: str(r.cta_botao, d.cta_botao!, 40) };
+        cta_botao: str(r.cta_botao, d.cta_botao!, 40),
+        cta_padding: num(r.cta_padding, d.cta_padding!, 20, 200),
+        cta_escala: num(r.cta_escala, d.cta_escala!, 70, 180) };
   }
 }
 

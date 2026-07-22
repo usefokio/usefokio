@@ -555,6 +555,8 @@ export default function AparenciaPage() {
             {campo("Título", <input value={b.cta_titulo ?? ""} onChange={(e) => setBloco(bid, { cta_titulo: e.target.value })} placeholder="Vamos registrar a sua história?" style={inp} />)}
             {campo("Subtítulo", <input value={b.cta_subtitulo ?? ""} onChange={(e) => setBloco(bid, { cta_subtitulo: e.target.value })} placeholder="Entre em contato e solicite seu orçamento." style={inp} />)}
             {campo("Texto do botão", <input value={b.cta_botao ?? ""} onChange={(e) => setBloco(bid, { cta_botao: e.target.value })} placeholder="Solicitar orçamento" style={inp} />)}
+            {campo("Espaçamento (altura)", <Range label="Espaçamento" value={b.cta_padding ?? 72} min={20} max={200} unidade="px" onChange={(v) => setBloco(bid, { cta_padding: v })} />)}
+            {campo("Tamanho do texto", <Range label="Tamanho" value={b.cta_escala ?? 100} min={70} max={180} unidade="%" onChange={(v) => setBloco(bid, { cta_escala: v })} />)}
             <p style={{ ...mini, marginTop: 4 }}>O botão leva à página de Contato. Você pode ter várias chamadas em pontos diferentes da home.</p>
             <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
               <button onClick={() => duplicarBloco(b)} style={{ padding: "7px 14px", borderRadius: 8, border: "1px solid var(--color-border-secondary)", background: "transparent", fontSize: 12, fontWeight: 600, color: "var(--color-text-primary)", cursor: "pointer" }}>
