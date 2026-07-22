@@ -166,7 +166,7 @@ function Card({ titulo, aberto, onToggle, alca, chave, destaque, rootProps, chil
 }) {
   const { style: rootStyle, ...restRoot } = rootProps ?? {};
   return (
-    <div {...restRoot} style={{ ...cardBox, ...(destaque ? { borderColor: "#2563EB", boxShadow: "0 0 0 1px #2563EB" } : {}), ...(rootStyle || {}) }}>
+    <div {...restRoot} style={{ ...cardBox, ...(destaque ? { border: "1px solid #2563EB", boxShadow: "0 0 0 1px #2563EB" } : {}), ...(rootStyle || {}) }}>
       <div onClick={onToggle} style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", userSelect: "none" }}>
         <span style={{ fontSize: 12, color: "var(--color-text-secondary)", transition: "transform .15s", transform: aberto ? "none" : "rotate(-90deg)", display: "inline-block" }}>▾</span>
         {alca}
