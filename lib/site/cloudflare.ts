@@ -85,6 +85,24 @@ export async function statusCustomHostname(id: string): Promise<CfCustomHostname
   return cfFetch<CfCustomHostname>(`/zones/${cfg.zone}/custom_hostnames/${id}`, { method: "GET" });
 }
 
+// Busca o Custom Hostname pelo nome (ex.: quando foi criado manualmente no painel).
+export async function acharCustomHostname(hostname: string): Promise<CfCustomHostname | null> {
+  const cfg = cfConfig()!;
+  const lista = await cfFetch<CfCustomHostname[]>(
+    `/zones/${cfg.zone}/custom_hostnames?hostname=${encodeURIComponent(hostname)}`, { method: "GET" });
+  return lista?.[0] ?? null;
+}
+
+// Troca a CA do certificado (google/lets_encrypt/ssl_com) e reemite. method:"http" valida
+// automático (o domínio já passa pelo Cloudflare) — sem precisar de TXT novo.
+export async function atualizarCAHostname(id: string, ca: "google" | "lets_encrypt" | "ssl_com"): Promise<CfCustomHostname> {
+  const cfg = cfConfig()!;
+  return cfFetch<CfCustomHostname>(`/zones/${cfg.zone}/custom_hostnames/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify({ ssl: { method: "http", type: "dv", certificate_authority: ca, settings: { min_tls_version: "1.2" } } }),
+  });
+}
+
 export async function removerCustomHostname(id: string): Promise<void> {
   const cfg = cfConfig()!;
   try {
