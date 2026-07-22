@@ -826,7 +826,10 @@ export default function AparenciaPage() {
                       <BotaoEscolherDoSite pasta="paginas/contato" onEscolher={(u) => aplicarImagemPagina("contato", "foto", u)} />
                       {cfgContato.foto && <button onClick={() => setCfgContato((c) => c ? { ...c, foto: null } : c)} style={{ border: "none", background: "transparent", fontSize: 11, color: "#DC2626", cursor: "pointer" }}>Remover</button>}
                     </div>
-                    {cfgContato.foto && <div style={{ marginTop: 12 }}>{campo("Alinhamento do recorte", <Seg value={cfgContato.ancora} options={ANC_OPTS} onChange={(v) => setCfgContato((c) => c ? { ...c, ancora: v } : c)} />)}</div>}
+                    {cfgContato.foto && <div style={{ marginTop: 12 }}>
+                      {campo("Proporção da foto", <Seg value={cfgContato.proporcao} options={PROP_OPTS} onChange={(v) => setCfgContato((c) => c ? { ...c, proporcao: v } : c)} />)}
+                      {campo("Alinhamento do recorte", <Seg value={cfgContato.ancora} options={ANC_OPTS} onChange={(v) => setCfgContato((c) => c ? { ...c, ancora: v } : c)} />)}
+                    </div>}
                   </Card>
                 )}
                 <Card titulo={cfgContato.layout === "minimalista" ? "Texto (opcional)" : "Texto / biografia"} aberto onToggle={() => {}}>
