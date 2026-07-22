@@ -43,7 +43,7 @@ export function GradeCards({ itens, config }: { itens: ItemGrade[]; config: Grad
             {/* eslint-disable-next-line @next/next/no-img-element */}
             {item.capa_url && <img src={item.capa_url} alt={item.titulo} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} loading="lazy" />}
             {item.rodape && (
-              <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, display: "flex", gap: 14, padding: "20px 12px 8px", fontSize: 12, fontWeight: 600, color: "#fff", background: "linear-gradient(to top, rgba(0,0,0,0.55), rgba(0,0,0,0))" }}>
+              <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, display: "flex", justifyContent: "center", gap: 30, padding: "48px 12px 16px", fontSize: 36, fontWeight: 700, color: "#fff", background: "linear-gradient(to top, rgba(0,0,0,0.6), rgba(0,0,0,0))" }}>
                 <span>👁 {item.rodape.views.toLocaleString("pt-BR")}</span>
                 <span>♥ {item.rodape.likes.toLocaleString("pt-BR")}</span>
               </div>
