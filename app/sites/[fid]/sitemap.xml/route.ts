@@ -1,7 +1,7 @@
 // Sitemap dinâmico por fotógrafo, com as URLs preservadas do Alboom.
 // Prévia: /sites/{fid}/sitemap.xml — Produção (domínio próprio): dominio.com/sitemap.xml (via rewrite).
 import { createAdminClient } from "@/lib/supabase/admin";
-import { siteBaseUrl } from "@/lib/site/publico";
+import { siteBaseUrl, hostDaRequisicao } from "@/lib/site/publico";
 import type { SitePortfolio, SitePost, SiteTrabalho } from "@/lib/supabase/types";
 
 export const dynamic = "force-dynamic";
@@ -12,7 +12,7 @@ function xmlEscape(s: string) {
 
 export async function GET(request: Request, { params }: { params: Promise<{ fid: string }> }) {
   const { fid } = await params;
-  const host = request.headers.get("host") ?? "localhost:3001";
+  const host = hostDaRequisicao(request.headers) || "localhost:3001";
   const b = siteBaseUrl(host, fid);
   const admin = createAdminClient();
 

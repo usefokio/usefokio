@@ -1,13 +1,13 @@
 // robots.txt dinâmico por fotógrafo. Só permite indexação no domínio próprio;
 // na prévia dentro do app (/sites/{fid}) bloqueia, para não indexar a URL interna.
 import { createAdminClient } from "@/lib/supabase/admin";
-import { siteBaseUrl, ehAppHost } from "@/lib/site/publico";
+import { siteBaseUrl, ehAppHost, hostDaRequisicao } from "@/lib/site/publico";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request, { params }: { params: Promise<{ fid: string }> }) {
   const { fid } = await params;
-  const host = request.headers.get("host") ?? "localhost:3001";
+  const host = hostDaRequisicao(request.headers) || "localhost:3001";
   const admin = createAdminClient();
   const { data: config } = await admin.from("site_config").select("publicado").eq("fotografo_id", fid).maybeSingle();
 
