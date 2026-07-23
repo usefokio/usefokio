@@ -87,12 +87,25 @@ async function redirectsDoTenant(fid: string): Promise<Redirect301[]> {
   const anonKey = anonSupabase();
   let lista: Redirect301[] = [];
   if (supabaseUrl && anonKey) {
+    const h = { apikey: anonKey, Authorization: `Bearer ${anonKey}` };
     try {
-      const r = await fetch(
-        `${supabaseUrl}/rest/v1/site_redirects?select=origem,destino,code&fotografo_id=eq.${fid}&ativo=eq.true`,
-        { headers: { apikey: anonKey, Authorization: `Bearer ${anonKey}` } },
-      );
-      if (r.ok) lista = (await r.json()) as Redirect301[];
+      // CONTEÚDO VENCE O REDIRECT: um 301 da migração nunca pode sequestrar uma landing/página
+      // publicada com aquele mesmo slug (aconteceu com /orcamentooo-casamento-2026, que existia
+      // no site novo e caía no 301 → /contato). Filtra na carga, dentro do mesmo cache.
+      const [rRed, rLand, rPag] = await Promise.all([
+        fetch(`${supabaseUrl}/rest/v1/site_redirects?select=origem,destino,code&fotografo_id=eq.${fid}&ativo=eq.true`, { headers: h }),
+        fetch(`${supabaseUrl}/rest/v1/site_landing_pages?select=slug&fotografo_id=eq.${fid}&publicado=eq.true`, { headers: h }),
+        fetch(`${supabaseUrl}/rest/v1/site_paginas?select=slug&fotografo_id=eq.${fid}&publicado=eq.true`, { headers: h }),
+      ]);
+      if (rRed.ok) lista = (await rRed.json()) as Redirect301[];
+      const publicados = new Set<string>();
+      for (const r of [rLand, rPag]) {
+        if (!r.ok) continue;
+        for (const x of (await r.json()) as { slug: string }[]) {
+          if (x?.slug) publicados.add(normPath(`/${x.slug}`));
+        }
+      }
+      if (publicados.size) lista = lista.filter((rd) => !publicados.has(normPath(rd.origem)));
     } catch {
       lista = [];
     }
