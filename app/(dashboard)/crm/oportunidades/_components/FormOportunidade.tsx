@@ -202,6 +202,15 @@ export default function FormOportunidade({ inicial, onSalvo }: Props) {
       id = (data as { id: string }).id;
     }
 
+    // Data de conclusão: é ela que alimenta a linha de fechamentos do Relatório de Leads.
+    // Preenche com hoje ao sair de "em aberto" (sem sobrescrever uma data já existente) e
+    // limpa se a oportunidade voltar a ficar aberta.
+    if (form.status === "em_aberto") {
+      await sb.from("crm_opportunities").update({ data_fechamento: null }).eq("id", id!).not("data_fechamento", "is", null);
+    } else {
+      await sb.from("crm_opportunities").update({ data_fechamento: new Date().toISOString().slice(0, 10) }).eq("id", id!).is("data_fechamento", null);
+    }
+
     setSaving(false);
     guarda.marcarSaiu();
     onSalvo ? onSalvo(id!) : router.push(`/crm/oportunidades/${id}`);

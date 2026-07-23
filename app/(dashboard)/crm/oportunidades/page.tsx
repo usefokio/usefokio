@@ -197,12 +197,20 @@ export default function OportunidadesPage() {
             {loading ? "Carregando…" : `${filtradas.length} oportunidade${filtradas.length !== 1 ? "s" : ""}`}
           </p>
         </div>
-        <button
-          onClick={() => router.push("/crm/oportunidades/nova")}
-          style={{ padding: "9px 18px", borderRadius: 8, background: "#111", color: "#fff", border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer", flexShrink: 0 }}
-        >
-          + Nova oportunidade
-        </button>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
+          <a
+            href="/crm/resultados/leads"
+            style={{ padding: "9px 16px", borderRadius: 8, border: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-primary)", color: "var(--color-text-primary)", fontSize: 13, fontWeight: 600, cursor: "pointer", textDecoration: "none", whiteSpace: "nowrap" }}
+          >
+            🎯 Relatório de Leads
+          </a>
+          <button
+            onClick={() => router.push("/crm/oportunidades/nova")}
+            style={{ padding: "9px 18px", borderRadius: 8, background: "#111", color: "#fff", border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}
+          >
+            + Nova oportunidade
+          </button>
+        </div>
       </div>
 
       {/* Status pills */}

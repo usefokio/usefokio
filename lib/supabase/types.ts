@@ -810,6 +810,7 @@ export type CrmOpportunity = {
   valor_estimado: number | null;
   data_evento: string | null;
   status: string;
+  data_fechamento: string | null; // data em que foi concluída (ganha ou perdida); null enquanto em aberto
   observacoes: string | null;
   // campos de evento
   nome_noiva: string | null;

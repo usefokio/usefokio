@@ -513,17 +513,21 @@ export default function FormPedido({ inicial, onSalvo, onCancelar }: Props) {
       if (err) { setError(err.message); setSaving(false); return false; }
       id = (data as { id: string }).id;
 
-      // Mover oportunidade para última etapa do funil e gravar venda_efetuada
+      // Mover oportunidade para última etapa do funil e gravar venda_efetuada.
+      // data_fechamento = data de lançamento do pedido: é ela que alimenta a linha de
+      // fechamentos do Relatório de Leads.
       if (inicial?.oportunidade_id) {
         const { data: opp } = await sb.from("crm_opportunities").select("funil_id").eq("id", inicial.oportunidade_id).single();
+        let ultimaEtapaId: string | null = null;
         if (opp?.funil_id) {
           const { data: etapas } = await sb.from("crm_funnel_stages").select("id, ordem").eq("funil_id", opp.funil_id).order("ordem", { ascending: false }).limit(1);
-          const ultimaEtapa = etapas?.[0];
-          await sb.from("crm_opportunities").update({
-            status:   "venda_efetuada",
-            etapa_id: ultimaEtapa?.id ?? null,
-          }).eq("id", inicial.oportunidade_id);
+          ultimaEtapaId = etapas?.[0]?.id ?? null;
         }
+        await sb.from("crm_opportunities").update({
+          status:          "venda_efetuada",
+          data_fechamento: new Date().toISOString().slice(0, 10),
+          ...(ultimaEtapaId ? { etapa_id: ultimaEtapaId } : {}),
+        }).eq("id", inicial.oportunidade_id);
       }
 
       // Criar agendamento vinculado ao pedido se tiver data do evento

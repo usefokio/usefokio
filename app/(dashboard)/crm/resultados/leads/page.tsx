@@ -4,16 +4,19 @@
 // "quantos fechamentos/mês/ano" e "qual origem gera qual status" (ex.: Google Ads
 // com muitos não-qualificados), para decidir onde investir em marketing.
 //
-// Fontes e limites (medidos em produção):
-//  - Oportunidades (leads/origem/status) existem só a partir de jun/2026 — o CRM antigo
-//    NÃO teve oportunidades importadas.
-//  - Pedidos (crm_orders) têm 12 anos de histórico (2014→2026), mas os importados não
-//    têm oportunidade vinculada; por isso a série de fechamentos usa os pedidos e a
-//    atribuição por canal só existe quando o pedido nasce da oportunidade.
+// As três métricas, na definição do Fernando — todas saem de crm_opportunities:
+//  1. Origem dos orçamentos → matriz Origem × Status.
+//  2. Orçamentos recebidos no mês → oportunidades por data de CRIAÇÃO (barras).
+//  3. Fechamentos no mês → oportunidades venda_efetuada por data_fechamento (linha).
+//
+// crm_orders NÃO entra na série temporal: 450 dos 586 pedidos não têm data_lancamento e o
+// created_at deles é a data da importação (tudo empilhado num mês só). Os pedidos servem
+// só à receita atribuída, que depende do pedido nascer da oportunidade (oportunidade_id).
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { fetchAllRows } from "@/lib/supabase/fetchAll";
 import { useFotografo } from "@/lib/context/FotografoContext";
+import { usePersistState } from "@/lib/hooks/usePersistState";
 import { GraficoLeads, type LeadsMesItem } from "../_components/GraficoLeads";
 
 type Oportunidade = {
@@ -24,6 +27,7 @@ type Oportunidade = {
   status: string;
   valor_estimado: number | null;
   data_evento: string | null;
+  data_fechamento: string | null;
   created_at: string;
 };
 type StatusCfg = { chave: string; label: string; cor: string | null; ordem: number };
@@ -48,6 +52,50 @@ function fmtData(d: string | null) {
   if (!d) return "—";
   const [y, m, day] = d.slice(0, 10).split("-");
   return `${day}/${m}/${y}`;
+}
+
+// ── Período ───────────────────────────────────────────────────────────────────
+type Preset = "ano" | "ano_passado" | "12m" | "tudo" | "custom";
+const PRESETS: { id: Preset; label: string }[] = [
+  { id: "ano",         label: "Este ano" },
+  { id: "ano_passado", label: "Ano passado" },
+  { id: "12m",         label: "Últimos 12 meses" },
+  { id: "tudo",        label: "Tudo" },
+  { id: "custom",      label: "Personalizado" },
+];
+
+function iso(d: Date) { return d.toISOString().slice(0, 10); }
+
+// Devolve {de, ate} em YYYY-MM-DD. `primeiraData` é o lead mais antigo (usado no "Tudo").
+function intervaloDoPreset(preset: Preset, de: string, ate: string, primeiraData: string): { de: string; ate: string } {
+  const hoje = new Date();
+  const ano = hoje.getFullYear();
+  if (preset === "ano")         return { de: `${ano}-01-01`, ate: `${ano}-12-31` };
+  if (preset === "ano_passado") return { de: `${ano - 1}-01-01`, ate: `${ano - 1}-12-31` };
+  if (preset === "12m") {
+    const ini = new Date(hoje.getFullYear(), hoje.getMonth() - 11, 1);
+    return { de: iso(ini), ate: iso(hoje) };
+  }
+  if (preset === "tudo") return { de: primeiraData || `${ano}-01-01`, ate: iso(hoje) };
+  return { de: de || `${ano}-01-01`, ate: ate || `${ano}-12-31` };
+}
+
+// Meses do intervalo, em ordem. Rótulo curto quando cabe num ano só; com o ano quando cruza.
+function bucketsDoIntervalo(de: string, ate: string): { chave: string; mes: string }[] {
+  const [ay, am] = de.split("-").map(Number);
+  const [by, bm] = ate.split("-").map(Number);
+  const mesmoAno = ay === by;
+  const out: { chave: string; mes: string }[] = [];
+  let y = ay, m = am;
+  // trava de segurança: no máximo 10 anos de buckets
+  for (let i = 0; i < 120 && (y < by || (y === by && m <= bm)); i++) {
+    out.push({
+      chave: `${y}-${String(m).padStart(2, "0")}`,
+      mes: mesmoAno ? MESES[m - 1] : `${MESES[m - 1]}/${String(y).slice(2)}`,
+    });
+    m++; if (m > 12) { m = 1; y++; }
+  }
+  return out;
 }
 
 function Card({ label, valor, cor, sub }: { label: string; valor: string; cor: string; sub?: string }) {
@@ -78,7 +126,9 @@ export default function RelatorioLeadsPage() {
   const [oports, setOports] = useState<Oportunidade[]>([]);
   const [statusCfg, setStatusCfg] = useState<StatusCfg[]>([]);
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
-  const [ano, setAno] = useState<number>(new Date().getFullYear());
+  const [preset, setPreset] = usePersistState<Preset>("leads:preset", "ano");
+  const [customDe, setCustomDe] = usePersistState("leads:de", "");
+  const [customAte, setCustomAte] = usePersistState("leads:ate", "");
   const [drill, setDrill] = useState<{ titulo: string; itens: Oportunidade[] } | null>(null);
 
   const carregar = useCallback(async () => {
@@ -88,7 +138,7 @@ export default function RelatorioLeadsPage() {
     const fid = fotografo.id;
     const [ops, peds, { data: st }] = await Promise.all([
       fetchAllRows<Oportunidade>((s, from, to) =>
-        s.from("crm_opportunities").select("id, titulo, canal_origem, categoria, status, valor_estimado, data_evento, created_at")
+        s.from("crm_opportunities").select("id, titulo, canal_origem, categoria, status, valor_estimado, data_evento, data_fechamento, created_at")
           .eq("fotografo_id", fid).range(from, to), sb),
       fetchAllRows<Pedido>((s, from, to) =>
         s.from("crm_orders").select("id, oportunidade_id, total, data_lancamento, created_at")
@@ -112,32 +162,42 @@ export default function RelatorioLeadsPage() {
     return [...doBanco, ...extras];
   }, [statusCfg, oports]);
 
-  // Anos disponíveis: dos pedidos (12 anos) + das oportunidades
-  const anosDisponiveis = useMemo(() => {
-    const set = new Set<number>();
-    for (const p of pedidos) { const d = p.data_lancamento ?? p.created_at; if (d) set.add(Number(d.slice(0, 4))); }
-    for (const o of oports) set.add(Number(o.created_at.slice(0, 4)));
-    return Array.from(set).sort((a, b) => a - b);
-  }, [pedidos, oports]);
+  // Período selecionado (vale para TODOS os blocos, não só o gráfico)
+  const primeiraData = useMemo(() => {
+    let min = "";
+    for (const o of oports) { const d = o.created_at.slice(0, 10); if (!min || d < min) min = d; }
+    return min;
+  }, [oports]);
 
-  useEffect(() => {
-    if (anosDisponiveis.length && !anosDisponiveis.includes(ano)) setAno(anosDisponiveis[anosDisponiveis.length - 1]);
-  }, [anosDisponiveis, ano]);
+  const periodo = useMemo(
+    () => intervaloDoPreset(preset, customDe, customAte, primeiraData),
+    [preset, customDe, customAte, primeiraData],
+  );
+  const noPeriodo = useCallback((d: string | null) => {
+    if (!d) return false;
+    const dia = d.slice(0, 10);
+    return dia >= periodo.de && dia <= periodo.ate;
+  }, [periodo]);
 
-  // Série mensal do ano: leads (created_at da oportunidade) x fechamentos (pedidos)
+  // Coorte do período: leads CRIADOS no período. Alimenta KPIs, matriz e ranking.
+  const oportsPeriodo = useMemo(() => oports.filter(o => noPeriodo(o.created_at)), [oports, noPeriodo]);
+
+  // Série mensal: barras = orçamentos recebidos (data de criação);
+  // linha = fechamentos (oportunidades venda_efetuada pela data de conclusão).
   const serie = useMemo((): LeadsMesItem[] => {
-    const base = MESES.map((m) => ({ mes: m, leads: 0, fechamentos: 0 }));
+    const buckets = bucketsDoIntervalo(periodo.de, periodo.ate);
+    const idx: Record<string, LeadsMesItem> = {};
+    const base = buckets.map(b => (idx[b.chave] = { mes: b.mes, leads: 0, fechamentos: 0 }));
     for (const o of oports) {
-      if (Number(o.created_at.slice(0, 4)) !== ano) continue;
-      base[Number(o.created_at.slice(5, 7)) - 1].leads++;
-    }
-    for (const p of pedidos) {
-      const d = p.data_lancamento ?? p.created_at;
-      if (!d || Number(d.slice(0, 4)) !== ano) continue;
-      base[Number(d.slice(5, 7)) - 1].fechamentos++;
+      const criada = o.created_at.slice(0, 7);
+      if (noPeriodo(o.created_at) && idx[criada]) idx[criada].leads++;
+      if (GANHOS.has(o.status) && noPeriodo(o.data_fechamento)) {
+        const fechada = (o.data_fechamento as string).slice(0, 7);
+        if (idx[fechada]) idx[fechada].fechamentos++;
+      }
     }
     return base;
-  }, [oports, pedidos, ano]);
+  }, [oports, periodo, noPeriodo]);
 
   // Receita fechada por oportunidade (via pedido vinculado)
   const receitaPorOport = useMemo(() => {
@@ -148,24 +208,24 @@ export default function RelatorioLeadsPage() {
 
   // Matriz origem × status
   const origens = useMemo(() => {
-    const set = new Set(oports.map(o => o.canal_origem?.trim() || SEM_ORIGEM));
+    const set = new Set(oportsPeriodo.map(o => o.canal_origem?.trim() || SEM_ORIGEM));
     return Array.from(set).sort((a, b) => a === SEM_ORIGEM ? 1 : b === SEM_ORIGEM ? -1 : a.localeCompare(b, "pt-BR"));
-  }, [oports]);
+  }, [oportsPeriodo]);
 
   const matriz = useMemo(() => {
     const m: Record<string, Record<string, Oportunidade[]>> = {};
-    for (const o of oports) {
+    for (const o of oportsPeriodo) {
       const org = o.canal_origem?.trim() || SEM_ORIGEM;
       (m[org] ??= {});
       (m[org][o.status] ??= []).push(o);
     }
     return m;
-  }, [oports]);
+  }, [oportsPeriodo]);
 
   // Ranking por canal
   const ranking = useMemo(() => {
     return origens.map((org) => {
-      const doCanal = oports.filter(o => (o.canal_origem?.trim() || SEM_ORIGEM) === org);
+      const doCanal = oportsPeriodo.filter(o => (o.canal_origem?.trim() || SEM_ORIGEM) === org);
       const ganhos = doCanal.filter(o => GANHOS.has(o.status));
       const abertos = doCanal.filter(o => ABERTOS.has(o.status));
       const perdidos = doCanal.length - ganhos.length - abertos.length;
@@ -177,14 +237,19 @@ export default function RelatorioLeadsPage() {
         receitaPorLead: doCanal.length ? receita / doCanal.length : 0,
       };
     }).sort((a, b) => b.receita - a.receita || b.leads - a.leads);
-  }, [origens, oports, receitaPorOport]);
+  }, [origens, oportsPeriodo, receitaPorOport]);
 
-  const totalLeads = oports.length;
-  const totalGanhos = oports.filter(o => GANHOS.has(o.status)).length;
-  const totalAbertos = oports.filter(o => ABERTOS.has(o.status)).length;
-  const semOrigem = oports.filter(o => !o.canal_origem?.trim()).length;
-  const receitaTotal = Object.values(receitaPorOport).reduce((s, v) => s + v, 0);
+  const totalLeads = oportsPeriodo.length;
+  const totalGanhos = oportsPeriodo.filter(o => GANHOS.has(o.status)).length;
+  const totalAbertos = oportsPeriodo.filter(o => ABERTOS.has(o.status)).length;
+  const semOrigem = oportsPeriodo.filter(o => !o.canal_origem?.trim()).length;
+  const receitaTotal = oportsPeriodo.reduce((s, o) => s + (receitaPorOport[o.id] ?? 0), 0);
   const pedidosVinculados = pedidos.filter(p => p.oportunidade_id).length;
+  // Fechamentos do período pela data de conclusão (não é a coorte: pode fechar um lead de antes)
+  const fechamentosNoPeriodo = useMemo(
+    () => oports.filter(o => GANHOS.has(o.status) && noPeriodo(o.data_fechamento)).length,
+    [oports, noPeriodo],
+  );
 
   const exportarCSV = () => {
     const linhas: string[] = [];
@@ -196,9 +261,11 @@ export default function RelatorioLeadsPage() {
     const blob = new Blob(["﻿" + linhas.join("\n")], { type: "text/csv;charset=utf-8;" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = `leads-origem-status-${ano}.csv`;
+    a.download = `leads-origem-status-${periodo.de}_a_${periodo.ate}.csv`;
     a.click();
   };
+
+  const rotuloPeriodo = `${fmtData(periodo.de)} a ${fmtData(periodo.ate)}`;
 
   return (
     <div style={{ maxWidth: 1200, margin: "0 auto", padding: "40px 24px" }}>
@@ -212,14 +279,38 @@ export default function RelatorioLeadsPage() {
           </p>
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <button onClick={() => setAno(a => a - 1)} style={{ ...btn, padding: "7px 10px" }}>‹</button>
-            <span style={{ fontSize: 13, fontWeight: 700, color: "var(--color-text-primary)", minWidth: 44, textAlign: "center" }}>{ano}</span>
-            <button onClick={() => setAno(a => a + 1)} style={{ ...btn, padding: "7px 10px" }}>›</button>
-          </div>
           <button onClick={exportarCSV} style={btn}>📥 Exportar CSV</button>
-          <a href="/crm/resultados" style={btn}>📈 Resultados</a>
+          <a href="/crm/oportunidades" style={btn}>← Oportunidades</a>
         </div>
+      </div>
+
+      {/* Filtro de período — vale para TODOS os blocos da tela */}
+      <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", margin: "16px 0 4px" }}>
+        {PRESETS.map(p => (
+          <button
+            key={p.id}
+            onClick={() => setPreset(p.id)}
+            style={{
+              padding: "5px 14px", borderRadius: 20, fontSize: 12, fontWeight: preset === p.id ? 700 : 500,
+              cursor: "pointer", border: "0.5px solid",
+              borderColor: preset === p.id ? "var(--color-text-primary)" : "var(--color-border-secondary)",
+              background: preset === p.id ? "var(--color-text-primary)" : "transparent",
+              color: preset === p.id ? "var(--color-background-primary)" : "var(--color-text-secondary)",
+            }}
+          >
+            {p.label}
+          </button>
+        ))}
+        {preset === "custom" && (
+          <>
+            <input type="date" value={customDe} onChange={e => setCustomDe(e.target.value)}
+              style={{ ...btn, padding: "6px 10px", cursor: "text" }} />
+            <span style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>até</span>
+            <input type="date" value={customAte} onChange={e => setCustomAte(e.target.value)}
+              style={{ ...btn, padding: "6px 10px", cursor: "text" }} />
+          </>
+        )}
+        <span style={{ fontSize: 11, color: "var(--color-text-secondary)", marginLeft: 4 }}>{rotuloPeriodo}</span>
       </div>
 
       {loading ? (
@@ -228,8 +319,9 @@ export default function RelatorioLeadsPage() {
         <>
           {/* KPIs */}
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap", margin: "20px 0" }}>
-            <Card label="Leads (total)" valor={String(totalLeads)} cor="#2563EB" sub={`${totalAbertos} em aberto`} />
-            <Card label="Fechados" valor={String(totalGanhos)} cor="#059669" sub={`taxa ${pct(totalGanhos, totalLeads)}`} />
+            <Card label="Orçamentos recebidos" valor={String(totalLeads)} cor="#2563EB" sub={`${totalAbertos} em aberto`} />
+            <Card label="Fechados (da coorte)" valor={String(totalGanhos)} cor="#059669" sub={`taxa ${pct(totalGanhos, totalLeads)}`} />
+            <Card label="Fechamentos no período" valor={String(fechamentosNoPeriodo)} cor="#059669" sub="pela data de conclusão" />
             <Card label="Receita atribuída" valor={fmtBRL(receitaTotal)} cor="#059669" sub={`${pedidosVinculados} pedido(s) vinculado(s)`} />
             <Card label="Sem origem" valor={`${semOrigem}`} cor={semOrigem ? "#D97706" : "#6B7280"} sub={`${pct(semOrigem, totalLeads)} dos leads`} />
           </div>
@@ -244,9 +336,11 @@ export default function RelatorioLeadsPage() {
 
           {/* Série mensal */}
           <div style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 12, padding: "20px 24px", marginBottom: 20 }}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: "var(--color-text-primary)", marginBottom: 4 }}>Pedidos de orçamento × Fechamentos — {ano}</div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: "var(--color-text-primary)", marginBottom: 4 }}>Pedidos de orçamento × Fechamentos — {rotuloPeriodo}</div>
             <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginBottom: 14 }}>
-              Barras = oportunidades criadas no mês. Linha = pedidos fechados no mês (inclui histórico importado).
+              Barras = orçamentos recebidos no mês (data de criação da oportunidade).
+              Linha = fechamentos no mês (oportunidades com venda efetivada, pela data de conclusão) —
+              um fechamento pode ser de um orçamento recebido em outro mês.
             </div>
             <GraficoLeads dados={serie} />
           </div>
@@ -254,6 +348,7 @@ export default function RelatorioLeadsPage() {
           {/* Matriz Origem × Status */}
           <div style={{ marginBottom: 8, fontSize: 14, fontWeight: 700, color: "var(--color-text-primary)" }}>Origem × Status</div>
           <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginBottom: 10 }}>
+            Orçamentos recebidos no período ({rotuloPeriodo}) e o status em que estão hoje.
             Quantidade e % da linha. Clique numa célula para ver as oportunidades.
           </div>
           <div style={{ overflowX: "auto", marginBottom: 24 }}>
