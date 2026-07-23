@@ -31,7 +31,26 @@ type Oportunidade = {
   created_at: string;
 };
 type StatusCfg = { chave: string; label: string; cor: string | null; ordem: number };
-type Pedido = { id: string; oportunidade_id: string | null; total: number | null; data_lancamento: string | null; created_at: string };
+type Pedido = {
+  id: string; oportunidade_id: string | null; total: number | null;
+  data_lancamento: string | null; created_at: string;
+  nome: string | null; categoria: string | null; canal_origem: string | null; status: string;
+};
+
+// Modelo único do relatório: uma oportunidade OU um pedido que nasceu sem oportunidade
+// (venda direta). Assim origem, status, período e receita têm um só caminho de cálculo.
+type Lead = {
+  id: string;
+  tipo: "oportunidade" | "pedido";
+  titulo: string | null;
+  canal_origem: string | null;
+  categoria: string | null;
+  status: string;
+  data_evento: string | null;
+  created_at: string;          // data em que a demanda entrou
+  data_fechamento: string | null;
+  receita: number;
+};
 
 const SEM_ORIGEM = "(sem origem)";
 const MESES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
@@ -129,7 +148,8 @@ export default function RelatorioLeadsPage() {
   const [preset, setPreset] = usePersistState<Preset>("leads:preset", "ano");
   const [customDe, setCustomDe] = usePersistState("leads:de", "");
   const [customAte, setCustomAte] = usePersistState("leads:ate", "");
-  const [drill, setDrill] = useState<{ titulo: string; itens: Oportunidade[] } | null>(null);
+  const [incluirDiretos, setIncluirDiretos] = usePersistState("leads:diretos", true);
+  const [drill, setDrill] = useState<{ titulo: string; itens: Lead[] } | null>(null);
 
   const carregar = useCallback(async () => {
     if (!fotografo) return;
@@ -141,7 +161,7 @@ export default function RelatorioLeadsPage() {
         s.from("crm_opportunities").select("id, titulo, canal_origem, categoria, status, valor_estimado, data_evento, data_fechamento, created_at")
           .eq("fotografo_id", fid).range(from, to), sb),
       fetchAllRows<Pedido>((s, from, to) =>
-        s.from("crm_orders").select("id, oportunidade_id, total, data_lancamento, created_at")
+        s.from("crm_orders").select("id, oportunidade_id, total, data_lancamento, created_at, nome, categoria, canal_origem, status")
           .eq("fotografo_id", fid).range(from, to), sb),
       sb.from("crm_oportunidade_status").select("chave, label, cor, ordem").eq("fotografo_id", fid).eq("ativo", true).order("ordem"),
     ]);
@@ -153,21 +173,57 @@ export default function RelatorioLeadsPage() {
 
   useEffect(() => { carregar(); }, [carregar]);
 
+  // Receita fechada por oportunidade (via pedido vinculado)
+  const receitaPorOport = useMemo(() => {
+    const m: Record<string, number> = {};
+    for (const p of pedidos) if (p.oportunidade_id) m[p.oportunidade_id] = (m[p.oportunidade_id] ?? 0) + (p.total ?? 0);
+    return m;
+  }, [pedidos]);
+
+  // Pedidos que nasceram SEM oportunidade = venda direta. Entram no relatório como um lead
+  // que já chegou fechado: entrou e fechou na data de lançamento do pedido. Os que não têm
+  // data de lançamento ficam de fora (não dá para situá-los no tempo) e são avisados na tela.
+  const diretos = useMemo(() => pedidos.filter(p => !p.oportunidade_id), [pedidos]);
+  const diretosSemData = useMemo(() => diretos.filter(p => !p.data_lancamento).length, [diretos]);
+
+  const leads = useMemo((): Lead[] => {
+    const doOport: Lead[] = oports.map(o => ({
+      id: o.id, tipo: "oportunidade", titulo: o.titulo, canal_origem: o.canal_origem,
+      categoria: o.categoria, status: o.status, data_evento: o.data_evento,
+      created_at: o.created_at.slice(0, 10), data_fechamento: o.data_fechamento,
+      receita: receitaPorOport[o.id] ?? 0,
+    }));
+    if (!incluirDiretos) return doOport;
+    const doPedido: Lead[] = diretos
+      .filter(p => p.data_lancamento)
+      .map(p => ({
+        id: p.id, tipo: "pedido", titulo: p.nome, canal_origem: p.canal_origem,
+        categoria: p.categoria,
+        // pedido cancelado conta como perdido; o resto é venda efetivada
+        status: p.status === "cancelado" ? "perdido" : "venda_efetuada",
+        data_evento: null,
+        created_at: p.data_lancamento as string,
+        data_fechamento: p.status === "cancelado" ? null : (p.data_lancamento as string),
+        receita: p.total ?? 0,
+      }));
+    return [...doOport, ...doPedido];
+  }, [oports, diretos, incluirDiretos, receitaPorOport]);
+
   // Status presentes (config + os que aparecem nos dados, para não esconder nada)
   const statusLista = useMemo(() => {
     const doBanco = statusCfg.map(s => ({ chave: s.chave, label: s.label, cor: s.cor }));
     const conhecidos = new Set(doBanco.map(s => s.chave));
-    const extras = Array.from(new Set(oports.map(o => o.status).filter(s => s && !conhecidos.has(s))))
+    const extras = Array.from(new Set(leads.map(o => o.status).filter(s => s && !conhecidos.has(s))))
       .map(s => ({ chave: s, label: s.replace(/_/g, " "), cor: null as string | null }));
     return [...doBanco, ...extras];
-  }, [statusCfg, oports]);
+  }, [statusCfg, leads]);
 
   // Período selecionado (vale para TODOS os blocos, não só o gráfico)
   const primeiraData = useMemo(() => {
     let min = "";
-    for (const o of oports) { const d = o.created_at.slice(0, 10); if (!min || d < min) min = d; }
+    for (const o of leads) { const d = o.created_at.slice(0, 10); if (!min || d < min) min = d; }
     return min;
-  }, [oports]);
+  }, [leads]);
 
   const periodo = useMemo(
     () => intervaloDoPreset(preset, customDe, customAte, primeiraData),
@@ -179,16 +235,16 @@ export default function RelatorioLeadsPage() {
     return dia >= periodo.de && dia <= periodo.ate;
   }, [periodo]);
 
-  // Coorte do período: leads CRIADOS no período. Alimenta KPIs, matriz e ranking.
-  const oportsPeriodo = useMemo(() => oports.filter(o => noPeriodo(o.created_at)), [oports, noPeriodo]);
+  // Coorte do período: leads que ENTRARAM no período. Alimenta KPIs, matriz e ranking.
+  const leadsPeriodo = useMemo(() => leads.filter(o => noPeriodo(o.created_at)), [leads, noPeriodo]);
 
-  // Série mensal: barras = orçamentos recebidos (data de criação);
-  // linha = fechamentos (oportunidades venda_efetuada pela data de conclusão).
+  // Série mensal: barras = orçamentos recebidos (data de entrada);
+  // linha = fechamentos (venda efetivada, pela data de conclusão).
   const serie = useMemo((): LeadsMesItem[] => {
     const buckets = bucketsDoIntervalo(periodo.de, periodo.ate);
     const idx: Record<string, LeadsMesItem> = {};
     const base = buckets.map(b => (idx[b.chave] = { mes: b.mes, leads: 0, fechamentos: 0 }));
-    for (const o of oports) {
+    for (const o of leads) {
       const criada = o.created_at.slice(0, 7);
       if (noPeriodo(o.created_at) && idx[criada]) idx[criada].leads++;
       if (GANHOS.has(o.status) && noPeriodo(o.data_fechamento)) {
@@ -197,39 +253,32 @@ export default function RelatorioLeadsPage() {
       }
     }
     return base;
-  }, [oports, periodo, noPeriodo]);
-
-  // Receita fechada por oportunidade (via pedido vinculado)
-  const receitaPorOport = useMemo(() => {
-    const m: Record<string, number> = {};
-    for (const p of pedidos) if (p.oportunidade_id) m[p.oportunidade_id] = (m[p.oportunidade_id] ?? 0) + (p.total ?? 0);
-    return m;
-  }, [pedidos]);
+  }, [leads, periodo, noPeriodo]);
 
   // Matriz origem × status
   const origens = useMemo(() => {
-    const set = new Set(oportsPeriodo.map(o => o.canal_origem?.trim() || SEM_ORIGEM));
+    const set = new Set(leadsPeriodo.map(o => o.canal_origem?.trim() || SEM_ORIGEM));
     return Array.from(set).sort((a, b) => a === SEM_ORIGEM ? 1 : b === SEM_ORIGEM ? -1 : a.localeCompare(b, "pt-BR"));
-  }, [oportsPeriodo]);
+  }, [leadsPeriodo]);
 
   const matriz = useMemo(() => {
-    const m: Record<string, Record<string, Oportunidade[]>> = {};
-    for (const o of oportsPeriodo) {
+    const m: Record<string, Record<string, Lead[]>> = {};
+    for (const o of leadsPeriodo) {
       const org = o.canal_origem?.trim() || SEM_ORIGEM;
       (m[org] ??= {});
       (m[org][o.status] ??= []).push(o);
     }
     return m;
-  }, [oportsPeriodo]);
+  }, [leadsPeriodo]);
 
   // Ranking por canal
   const ranking = useMemo(() => {
     return origens.map((org) => {
-      const doCanal = oportsPeriodo.filter(o => (o.canal_origem?.trim() || SEM_ORIGEM) === org);
+      const doCanal = leadsPeriodo.filter(o => (o.canal_origem?.trim() || SEM_ORIGEM) === org);
       const ganhos = doCanal.filter(o => GANHOS.has(o.status));
       const abertos = doCanal.filter(o => ABERTOS.has(o.status));
       const perdidos = doCanal.length - ganhos.length - abertos.length;
-      const receita = doCanal.reduce((s, o) => s + (receitaPorOport[o.id] ?? 0), 0);
+      const receita = doCanal.reduce((s, o) => s + o.receita, 0);
       return {
         org, leads: doCanal.length, ganhos: ganhos.length, abertos: abertos.length, perdidos,
         conv: doCanal.length ? ganhos.length / doCanal.length : 0,
@@ -237,18 +286,19 @@ export default function RelatorioLeadsPage() {
         receitaPorLead: doCanal.length ? receita / doCanal.length : 0,
       };
     }).sort((a, b) => b.receita - a.receita || b.leads - a.leads);
-  }, [origens, oportsPeriodo, receitaPorOport]);
+  }, [origens, leadsPeriodo]);
 
-  const totalLeads = oportsPeriodo.length;
-  const totalGanhos = oportsPeriodo.filter(o => GANHOS.has(o.status)).length;
-  const totalAbertos = oportsPeriodo.filter(o => ABERTOS.has(o.status)).length;
-  const semOrigem = oportsPeriodo.filter(o => !o.canal_origem?.trim()).length;
-  const receitaTotal = oportsPeriodo.reduce((s, o) => s + (receitaPorOport[o.id] ?? 0), 0);
+  const totalLeads = leadsPeriodo.length;
+  const totalGanhos = leadsPeriodo.filter(o => GANHOS.has(o.status)).length;
+  const totalAbertos = leadsPeriodo.filter(o => ABERTOS.has(o.status)).length;
+  const semOrigem = leadsPeriodo.filter(o => !o.canal_origem?.trim()).length;
+  const receitaTotal = leadsPeriodo.reduce((s, o) => s + o.receita, 0);
+  const diretosNoPeriodo = leadsPeriodo.filter(o => o.tipo === "pedido").length;
   const pedidosVinculados = pedidos.filter(p => p.oportunidade_id).length;
   // Fechamentos do período pela data de conclusão (não é a coorte: pode fechar um lead de antes)
   const fechamentosNoPeriodo = useMemo(
-    () => oports.filter(o => GANHOS.has(o.status) && noPeriodo(o.data_fechamento)).length,
-    [oports, noPeriodo],
+    () => leads.filter(o => GANHOS.has(o.status) && noPeriodo(o.data_fechamento)).length,
+    [leads, noPeriodo],
   );
 
   const exportarCSV = () => {
@@ -311,6 +361,10 @@ export default function RelatorioLeadsPage() {
           </>
         )}
         <span style={{ fontSize: 11, color: "var(--color-text-secondary)", marginLeft: 4 }}>{rotuloPeriodo}</span>
+        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--color-text-secondary)", cursor: "pointer", marginLeft: "auto" }}>
+          <input type="checkbox" checked={incluirDiretos} onChange={e => setIncluirDiretos(e.target.checked)} />
+          Incluir vendas diretas (pedido sem oportunidade)
+        </label>
       </div>
 
       {loading ? (
@@ -319,17 +373,19 @@ export default function RelatorioLeadsPage() {
         <>
           {/* KPIs */}
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap", margin: "20px 0" }}>
-            <Card label="Orçamentos recebidos" valor={String(totalLeads)} cor="#2563EB" sub={`${totalAbertos} em aberto`} />
+            <Card label="Orçamentos recebidos" valor={String(totalLeads)} cor="#2563EB"
+              sub={incluirDiretos ? `${totalAbertos} em aberto · ${diretosNoPeriodo} venda(s) direta(s)` : `${totalAbertos} em aberto`} />
             <Card label="Fechados (da coorte)" valor={String(totalGanhos)} cor="#059669" sub={`taxa ${pct(totalGanhos, totalLeads)}`} />
             <Card label="Fechamentos no período" valor={String(fechamentosNoPeriodo)} cor="#059669" sub="pela data de conclusão" />
-            <Card label="Receita atribuída" valor={fmtBRL(receitaTotal)} cor="#059669" sub={`${pedidosVinculados} pedido(s) vinculado(s)`} />
+            <Card label="Receita atribuída" valor={fmtBRL(receitaTotal)} cor="#059669" sub={`${pedidosVinculados} pedido(s) vinculado(s) a oportunidade`} />
             <Card label="Sem origem" valor={`${semOrigem}`} cor={semOrigem ? "#D97706" : "#6B7280"} sub={`${pct(semOrigem, totalLeads)} dos leads`} />
           </div>
 
           {/* Avisos de qualidade do dado — o relatório só é tão bom quanto o preenchimento */}
-          {(semOrigem > 0 || pedidosVinculados === 0) && (
+          {(semOrigem > 0 || pedidosVinculados === 0 || (incluirDiretos && diretosSemData > 0)) && (
             <div style={{ background: "rgba(217,119,6,0.08)", border: "0.5px solid rgba(217,119,6,0.3)", borderRadius: 10, padding: "12px 16px", fontSize: 12, color: "#B45309", marginBottom: 20, lineHeight: 1.6 }}>
-              {semOrigem > 0 && <div><strong>{semOrigem} de {totalLeads} leads sem origem</strong> — preencha "Como nos conheceu" na oportunidade, senão não dá para comparar canais.</div>}
+              {semOrigem > 0 && <div><strong>{semOrigem} de {totalLeads} leads sem origem</strong> — preencha "Como nos conheceu" na oportunidade (ou o canal de origem no pedido), senão não dá para comparar canais.</div>}
+              {incluirDiretos && diretosSemData > 0 && <div><strong>{diretosSemData} pedidos sem oportunidade ficaram de fora</strong> — não têm data de lançamento, então não dá para situá-los em nenhum período.</div>}
               {pedidosVinculados === 0 && <div><strong>Nenhum pedido vinculado a uma oportunidade.</strong> Para o fechamento e a receita serem atribuídos ao canal, gere o pedido pelo botão da própria oportunidade.</div>}
             </div>
           )}
@@ -338,8 +394,8 @@ export default function RelatorioLeadsPage() {
           <div style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 12, padding: "20px 24px", marginBottom: 20 }}>
             <div style={{ fontSize: 14, fontWeight: 700, color: "var(--color-text-primary)", marginBottom: 4 }}>Pedidos de orçamento × Fechamentos — {rotuloPeriodo}</div>
             <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginBottom: 14 }}>
-              Barras = orçamentos recebidos no mês (data de criação da oportunidade).
-              Linha = fechamentos no mês (oportunidades com venda efetivada, pela data de conclusão) —
+              Barras = orçamentos recebidos no mês (data de criação da oportunidade{incluirDiretos ? "; nas vendas diretas, a data de lançamento do pedido" : ""}).
+              Linha = fechamentos no mês (venda efetivada, pela data de conclusão) —
               um fechamento pode ser de um orçamento recebido em outro mês.
             </div>
             <GraficoLeads dados={serie} />
@@ -441,11 +497,16 @@ export default function RelatorioLeadsPage() {
               <button onClick={() => setDrill(null)} style={{ ...btn, padding: "4px 10px" }}>✕</button>
             </div>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead><tr><th style={th}>Oportunidade</th><th style={th}>Categoria</th><th style={th}>Evento</th><th style={th}>Criada em</th></tr></thead>
+              <thead><tr><th style={th}>Oportunidade</th><th style={th}>Categoria</th><th style={th}>Evento</th><th style={th}>Entrou em</th></tr></thead>
               <tbody>
                 {drill.itens.map(o => (
-                  <tr key={o.id}>
-                    <td style={td}><a href={`/crm/oportunidades/${o.id}`} style={{ color: "#2563EB", textDecoration: "none" }}>{o.titulo || "(sem título)"}</a></td>
+                  <tr key={`${o.tipo}-${o.id}`}>
+                    <td style={td}>
+                      <a href={o.tipo === "pedido" ? `/crm/pedidos/${o.id}` : `/crm/oportunidades/${o.id}`} style={{ color: "#2563EB", textDecoration: "none" }}>
+                        {o.titulo || "(sem título)"}
+                      </a>
+                      {o.tipo === "pedido" && <span style={{ fontSize: 10, color: "var(--color-text-secondary)", marginLeft: 6 }}>venda direta</span>}
+                    </td>
                     <td style={td}>{o.categoria || "—"}</td>
                     <td style={td}>{fmtData(o.data_evento)}</td>
                     <td style={td}>{fmtData(o.created_at)}</td>
