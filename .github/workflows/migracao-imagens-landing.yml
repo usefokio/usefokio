@@ -1,0 +1,39 @@
+# Migração pontual: copia as imagens da landing de gestante (CDN Alboom) para o R2 do site,
+# chamando /api/storage/copy com o CRON_SECRET (fonte da verdade, mesmo valor do Railway).
+# Disparo manual (workflow_dispatch). Pode ser removido depois da migração.
+name: migracao-imagens-landing
+
+on:
+  workflow_dispatch:
+
+jobs:
+  copiar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Copiar imagens Alboom -> R2 do site
+        run: |
+          FID="aa617132-dd2d-4cd2-aa58-686a0fe20eaa"
+          APP="https://www.usefokio.com.br"
+          CDN="https://cdn.alboompro.com/5f0bfc1e25241f0001826183"
+          copiar () {
+            local src="$1" dest="$2"
+            for tentativa in 1 2 3; do
+              code=$(curl -s -o /tmp/resp.json -w "%{http_code}" -X POST "$APP/api/storage/copy" \
+                -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+                -H "Content-Type: application/json" \
+                -d "{\"sourceUrl\":\"$src\",\"path\":\"site/$FID/landing/proposta-ensaio-gestante/$dest\"}")
+              echo "$dest -> HTTP $code $(cat /tmp/resp.json | head -c 200)"
+              [ "$code" = "200" ] && return 0
+              sleep 20
+            done
+            echo "FALHOU: $dest"; return 1
+          }
+          copiar "$CDN"_670861636d9ca300014c2ab8/xlarge/faf0093.jpg "hero-faf0093.jpg"
+          copiar "$CDN"_6706e4b7c363fe000101b55e/xlarge/fas03046.jpg "faixa-fas03046.jpg"
+          copiar "$CDN"_67072ae2ae2bd30001568ccd/xlarge/lgoobrancavazado.png "logo-branca.png"
+          copiar "$CDN"_670861646d9ca300014c2ad8/xlarge/ensaio-gestante-vanessa-1028.jpg "pacote-basic-vanessa-1028.jpg"
+          copiar "$CDN"_6708c6f2c437b700015293a8/xlarge/faf5192-editar.jpg "pacote-pro-faf5192.jpg"
+          copiar "$CDN"_670861636d9ca300014c2ac0/xlarge/ensaio-gestante-ana-e-rice-1007.jpg "pacote-premium-ana-e-rice-1007.jpg"
+          copiar "$CDN"_670861646d9ca300014c2ad0/xlarge/ensaio-gestante-vanessa-e-joao-1018.jpg "card-vanessa-e-joao-1018.jpg"
+          copiar "$CDN"_670861636d9ca300014c2aca/xlarge/ensaio-gestante-nathalia-e-rafael-7-meses-1013.jpg "card-nathalia-e-rafael-1013.jpg"
+          copiar "$CDN"_6708c72cc437b700015293aa/xlarge/faf5163-editar.jpg "card-thais-e-thiago-faf5163.jpg"
