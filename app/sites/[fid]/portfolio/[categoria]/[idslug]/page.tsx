@@ -4,7 +4,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { baseLinks, infoCategorias, nomeCategoria, legacyDoSlug } from "@/lib/site/publico";
+import { baseLinks, baseAbsoluta, infoCategorias, nomeCategoria, legacyDoSlug } from "@/lib/site/publico";
 import { resolverMetaPagina } from "@/lib/site/seo";
 import { youtubeEmbedUrl } from "@/lib/utils/youtube";
 import { FotosTrabalho } from "../../../_components/FotosTrabalho";
@@ -49,6 +49,8 @@ export default async function TrabalhoPage({ params }: { params: Promise<{ fid: 
   ]);
   const catLabel = nomeCategoria(t.categoria, info.map);
   const b = await baseLinks(fid);
+  // JSON-LD exige URL absoluta em `item` (o Search Console recusa caminho relativo)
+  const abs = await baseAbsoluta(fid);
   const dataFmt = t.data_evento && t.mostrar_data
     ? new Date(t.data_evento + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" })
     : null;
@@ -71,9 +73,9 @@ export default async function TrabalhoPage({ params }: { params: Promise<{ fid: 
         "@context": "https://schema.org",
         "@type": "BreadcrumbList",
         itemListElement: [
-          { "@type": "ListItem", position: 1, name: "Trabalhos", item: `${b}/portfolio` },
-          { "@type": "ListItem", position: 2, name: catLabel, item: `${b}/portfolio/${t.categoria}` },
-          { "@type": "ListItem", position: 3, name: t.titulo },
+          { "@type": "ListItem", position: 1, name: "Trabalhos", item: `${abs}/portfolio` },
+          { "@type": "ListItem", position: 2, name: catLabel, item: `${abs}/portfolio/${t.categoria}` },
+          { "@type": "ListItem", position: 3, name: t.titulo, item: `${abs}/portfolio/${t.categoria}/${idslug}` },
         ],
       }} />
       {t.capa_url && (

@@ -22,6 +22,19 @@ export async function baseLinks(fid: string): Promise<string> {
   return h.get("x-site-tenant") === fid ? "" : `/sites/${fid}`;
 }
 
+// Base ABSOLUTA (https://host + prefixo) para o que exige URL completa: JSON-LD do
+// schema.org (item do BreadcrumbList, url/@id), og:url e canonical. O `baseLinks` devolve
+// caminho relativo no domínio próprio ("" + "/portfolio"), que o Search Console recusa
+// com "O URL do campo id não é válido (em itemListElement.item)".
+export async function baseAbsoluta(fid: string): Promise<string> {
+  const { headers } = await import("next/headers");
+  const h = await headers();
+  const host = hostDaRequisicao(h);
+  const proto = host.startsWith("localhost") || host.startsWith("127.0.0.1") ? "http" : "https";
+  const prefixo = h.get("x-site-tenant") === fid ? "" : `/sites/${fid}`;
+  return `${proto}://${host}${prefixo}`;
+}
+
 // ── Multi-tenant por host ────────────────────────────────────────────────────
 
 // Subdomínios que nunca podem ser de fotógrafo (rotas/serviços do próprio UseFokio).
