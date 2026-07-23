@@ -1,0 +1,20 @@
+# Preenche tamanho_bytes das mídias antigas (importações gravaram só a URL).
+# Disparo manual; repete até não sobrar pendência.
+name: backfill-tamanhos
+
+on:
+  workflow_dispatch:
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ler tamanho real e gravar
+        run: |
+          for i in $(seq 1 12); do
+            resp=$(curl -s -X POST "https://www.usefokio.com.br/api/webmaster/backfill-tamanhos" \
+              -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+              -H "Content-Type: application/json" -d '{"limite":400}')
+            echo "rodada $i: $resp"
+            echo "$resp" | grep -q '"rodar_novamente":true' || break
+          done
