@@ -8,8 +8,10 @@ import { limiteEfetivoMax } from "@/lib/planos";
 export const maxDuration = 60;
 
 // Allowlist anti-SSRF: só copiamos imagens que já são do storage do próprio site.
+// cdn.alboompro.com entra como origem de MIGRAÇÃO (conteúdo legado do próprio fotógrafo
+// no CDN público do Alboom) — sem risco de alcançar rede interna.
 function hostsPermitidos(): Set<string> {
-  const hosts = new Set<string>();
+  const hosts = new Set<string>(["cdn.alboompro.com"]);
   for (const u of [process.env.R2_SITE_PUBLIC_URL, process.env.R2_PUBLIC_URL, process.env.NEXT_PUBLIC_SUPABASE_URL]) {
     if (u) { try { hosts.add(new URL(u).host); } catch { /* ignora URL malformada de env */ } }
   }
@@ -17,9 +19,14 @@ function hostsPermitidos(): Set<string> {
 }
 
 export async function POST(req: Request) {
+  // Auth alternativa por CRON_SECRET (mesmo padrão dos crons): permite operações de
+  // migração server-to-server sem sessão de navegador.
+  const bearer = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
+  const viaCron = !!process.env.CRON_SECRET && bearer === process.env.CRON_SECRET;
+
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user && process.env.NODE_ENV !== "development") {
+  if (!user && !viaCron && process.env.NODE_ENV !== "development") {
     return Response.json({ error: "unauthorized" }, { status: 401 });
   }
 
