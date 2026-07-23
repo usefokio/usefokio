@@ -137,6 +137,7 @@ export default function OportunidadeDetailPage() {
     if (opp.cliente_id)      params.set("cliente_id",  opp.cliente_id);
     if (opp.titulo)          params.set("nome",         opp.titulo);
     if (opp.categoria)       params.set("categoria",    opp.categoria);
+    if (opp.canal_origem)    params.set("canal_origem", opp.canal_origem);
     if (opp.data_evento)     params.set("data_evento",  opp.data_evento);
     if (opp.valor_estimado)  params.set("total",        String(opp.valor_estimado));
     if (opp.observacoes)     params.set("observacoes",  opp.observacoes);

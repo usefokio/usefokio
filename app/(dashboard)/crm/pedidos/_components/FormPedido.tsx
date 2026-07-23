@@ -25,6 +25,7 @@ type FormData = {
   nome: string;
   cliente_id: string;
   categoria: string;
+  canal_origem: string;
   status: CrmOrder["status"];
   total: string;
   discount: string;
@@ -67,7 +68,7 @@ type ParcelaPreview = { vencimento: string; valor: number; label: string };
 // ── Constantes ────────────────────────────────────────────────────────────────
 
 const EMPTY: FormData = {
-  nome: "", cliente_id: "", categoria: "", status: "em_aberto",
+  nome: "", cliente_id: "", categoria: "", canal_origem: "", status: "em_aberto",
   total: "", discount: "0", other_expenses: "0",
   data_evento: "", hora_evento: "", local_evento: "", convidados: "",
   local_cerimonia: "", local_recepcao: "", eh_casamento: false, observacoes: "",
@@ -155,6 +156,7 @@ export default function FormPedido({ inicial, onSalvo, onCancelar }: Props) {
 
   // Categorias (de produto = de pedido), com flags pede_data/pede_local/pede_horario
   const [pedCats,      setPedCats]      = useState<CrmProductCategory[]>([]);
+  const [canais,       setCanais]       = useState<string[]>([]);
 
   // Status do pedido (dinâmico, configurável)
   const [statusItens,  setStatusItens]  = useState<CrmPedidoStatus[]>([]);
@@ -236,6 +238,15 @@ export default function FormPedido({ inicial, onSalvo, onCancelar }: Props) {
   useEffect(() => {
     if (!fid) return;
     carregarPedidoStatus(createClient(), fid).then(setStatusItens);
+  }, [fid]);
+
+  // Canais de origem — mesma lista da oportunidade (Config → Canais de Origem).
+  // No pedido é redundância proposital: pedido criado sem passar por oportunidade
+  // (venda direta, cliente recorrente) também registra de onde veio.
+  useEffect(() => {
+    if (!fid) return;
+    createClient().from("crm_canais_origem").select("nome").eq("fotografo_id", fid).eq("ativo", true).order("ordem")
+      .then(({ data }) => setCanais(((data ?? []) as { nome: string }[]).map(c => c.nome)));
   }, [fid]);
 
   // Captura o baseline do "não salvo" só DEPOIS que o carregamento assíncrono termina
@@ -451,6 +462,7 @@ export default function FormPedido({ inicial, onSalvo, onCancelar }: Props) {
       oportunidade_id: inicial?.oportunidade_id ?? null,
       ...(proximoNumero !== null ? { legacy_id: proximoNumero, numero: String(proximoNumero) } : {}),
       categoria:       form.categoria || null,
+      canal_origem:    form.canal_origem || null,
       status:          form.status,
       total:           itens.length > 0 ? totalItens : parseMoney(form.total),
       discount:        parseMoney(form.discount),
@@ -710,6 +722,14 @@ export default function FormPedido({ inicial, onSalvo, onCancelar }: Props) {
               options={statusOptions}
               value={form.status}
               onChange={v => upd("status", v as FormData["status"])}
+            />
+          </Field>
+          <Field label="Canal de origem">
+            <ComboSelect
+              options={canais.map(c => ({ id: c, label: c }))}
+              value={form.canal_origem}
+              onChange={v => upd("canal_origem", v)}
+              placeholder="De onde veio este pedido…"
             />
           </Field>
         </div>

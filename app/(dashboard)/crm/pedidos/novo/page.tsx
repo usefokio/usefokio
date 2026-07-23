@@ -13,6 +13,7 @@ function NovoPedidoForm() {
     cliente_id:      params.get("cliente_id")      ?? undefined,
     nome:            params.get("nome")             ?? undefined,
     categoria:       params.get("categoria")        ?? undefined,
+    canal_origem:    params.get("canal_origem")     ?? undefined,
     data_evento:     params.get("data_evento")      ?? undefined,
     total:           params.get("total")            ?? undefined,
     observacoes:     params.get("observacoes")      ?? undefined,

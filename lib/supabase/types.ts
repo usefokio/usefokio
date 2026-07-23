@@ -905,6 +905,7 @@ export type CrmOrder = {
   discount: number;
   payment_method: string | null;
   categoria: string | null;
+  canal_origem: string | null; // redundância proposital: pedido criado sem oportunidade também registra a origem
   data_evento: string | null;
   hora_evento: string | null;
   local_evento: string | null;

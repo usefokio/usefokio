@@ -523,6 +523,7 @@ export default function PedidoDetailPage() {
           <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginBottom: 10 }}>
             {pedido.clientes?.nome && <span style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>👤 <ClienteLink id={pedido.cliente_id} nome={pedido.clientes.nome} /></span>}
             {pedido.categoria      && <span style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>{pedido.categoria}</span>}
+            {pedido.canal_origem   && <span style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>📍 {pedido.canal_origem}</span>}
             {pedido.data_evento    && <span style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>📅 Evento: {fmtData(pedido.data_evento)}</span>}
             {pedido.data_entrega   && <span style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>🚚 Entrega: {fmtData(pedido.data_entrega)}</span>}
             {pedido.payment_method && <span style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>💳 {pedido.payment_method}</span>}
@@ -576,6 +577,7 @@ export default function PedidoDetailPage() {
             nome:           pedido.nome ?? "",
             cliente_id:     pedido.cliente_id ?? "",
             categoria:      pedido.categoria ?? "",
+            canal_origem:   pedido.canal_origem ?? "",
             status:         pedido.status,
             total:          pedido.total != null ? formatNum(pedido.total) : "",
             discount:       formatNum(pedido.discount ?? 0),
