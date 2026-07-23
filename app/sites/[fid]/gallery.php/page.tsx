@@ -2,7 +2,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { resolverMetaPagina } from "@/lib/site/seo";
+import { resolverMetaPagina, ogPagina } from "@/lib/site/seo";
 import { GaleriaFotos } from "../_components/GaleriaFotos";
 import { JsonLd } from "../_components/JsonLd";
 import type { SitePortfolio, SitePortfolioFoto } from "@/lib/supabase/types";
@@ -28,7 +28,7 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
     description: m.description,
     keywords: m.keywords,
     ...(m.noindex ? { robots: { index: false, follow: true } } : {}),
-    openGraph: { title: m.ogTitle, description: m.ogDescription, images: m.ogImage ? [m.ogImage] : undefined },
+    openGraph: await ogPagina({ title: m.ogTitle, description: m.ogDescription, image: m.ogImage }),
   };
 }
 

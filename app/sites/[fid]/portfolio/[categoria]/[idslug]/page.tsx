@@ -5,7 +5,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { baseLinks, baseAbsoluta, infoCategorias, nomeCategoria, legacyDoSlug } from "@/lib/site/publico";
-import { resolverMetaPagina } from "@/lib/site/seo";
+import { resolverMetaPagina, ogPagina } from "@/lib/site/seo";
 import { youtubeEmbedUrl } from "@/lib/utils/youtube";
 import { FotosTrabalho } from "../../../_components/FotosTrabalho";
 import { JsonLd } from "../../../_components/JsonLd";
@@ -33,7 +33,7 @@ export async function generateMetadata({ params }: { params: Promise<{ fid: stri
     description: m.description,
     keywords: m.keywords,
     ...(m.noindex ? { robots: { index: false, follow: true } } : {}),
-    openGraph: { title: m.ogTitle, description: m.ogDescription, images: m.ogImage ? [m.ogImage] : undefined },
+    openGraph: await ogPagina({ title: m.ogTitle, description: m.ogDescription, image: m.ogImage }),
   };
 }
 

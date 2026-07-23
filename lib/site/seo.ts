@@ -51,6 +51,39 @@ export function slugifySite(texto: string): string {
     .slice(0, 90);
 }
 
+// Bloco Open Graph COMPLETO para as páginas internas do site.
+// Cada página redefine `openGraph`, o que SOBRESCREVE o bloco do layout — então `url`,
+// `type` e `locale` se perdiam: todo post saía como og:type=website e sem og:url.
+// A `url` é a mesma do canonical (o proxy já redireciona host não-canônico para o canônico,
+// então o host da requisição É o canônico) e o `type` vem por página.
+// Import dinâmico de propósito: este arquivo também é importado por componentes client.
+export async function ogPagina(dados: {
+  title?: string;
+  description?: string;
+  image?: string | null;
+  type?: "website" | "article";
+  publicadoEm?: string | null;   // só faz sentido em article
+}) {
+  const { headers } = await import("next/headers");
+  const { hostDaRequisicao } = await import("./publico");
+  const h = await headers();
+  const host = hostDaRequisicao(h);
+  const path = h.get("x-site-path");
+  // Sem x-site-path é a prévia dentro do app (/sites/{fid}), que é noindex: não emite url.
+  const url = host && path && process.env.NODE_ENV !== "development"
+    ? `https://${host}${path === "/" ? "" : path}`
+    : undefined;
+  return {
+    type: dados.type ?? "website",
+    locale: "pt_BR",
+    url,
+    title: dados.title,
+    description: dados.description,
+    images: dados.image ? [dados.image] : undefined,
+    ...(dados.type === "article" && dados.publicadoEm ? { publishedTime: dados.publicadoEm } : {}),
+  };
+}
+
 // Campos de SEO/OG como vêm do banco (nullable) — aceita os registros Site* diretamente.
 export type CfgSeoOg = {
   seo_title?: string | null;

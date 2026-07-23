@@ -4,7 +4,7 @@
 import type { Metadata } from "next";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { baseLinks } from "@/lib/site/publico";
-import { resolverMetaPagina } from "@/lib/site/seo";
+import { resolverMetaPagina, ogPagina } from "@/lib/site/seo";
 import { cfgSobreDe } from "@/lib/site/paginaCfg";
 import { PaginaSobre } from "../_components/PaginaSobre";
 import type { SitePagina } from "@/lib/supabase/types";
@@ -27,7 +27,7 @@ export async function generateMetadata({ params }: { params: Promise<{ fid: stri
     description: m.description,
     keywords: m.keywords,
     ...(m.noindex ? { robots: { index: false, follow: true } } : {}),
-    openGraph: { title: m.ogTitle, description: m.ogDescription, images: m.ogImage ? [m.ogImage] : undefined },
+    openGraph: await ogPagina({ title: m.ogTitle, description: m.ogDescription, image: m.ogImage }),
   };
 }
 

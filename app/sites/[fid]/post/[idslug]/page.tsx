@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { legacyDoSlug } from "@/lib/site/publico";
-import { resolverMetaPagina } from "@/lib/site/seo";
+import { resolverMetaPagina, ogPagina } from "@/lib/site/seo";
 import { JsonLd } from "../../_components/JsonLd";
 import type { SitePost } from "@/lib/supabase/types";
 
@@ -28,7 +28,8 @@ export async function generateMetadata({ params }: { params: Promise<{ fid: stri
     description: m.description,
     keywords: m.keywords ?? p.tags ?? undefined,
     ...(m.noindex ? { robots: { index: false, follow: true } } : {}),
-    openGraph: { title: m.ogTitle, description: m.ogDescription, images: m.ogImage ? [m.ogImage] : undefined },
+    // post de blog é "article", não "website" (que era o que herdava do layout)
+    openGraph: await ogPagina({ title: m.ogTitle, description: m.ogDescription, image: m.ogImage, type: "article", publicadoEm: p.publicado_em }),
   };
 }
 

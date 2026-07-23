@@ -1,11 +1,12 @@
 // Lista de trabalhos de uma categoria.
 import type { Metadata } from "next";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { baseLinks, carregarSite, infoCategorias, categoriasParaNav, nomeCategoria } from "@/lib/site/publico";
-import { metaPaginaGenerica } from "@/lib/site/seo";
+import { baseLinks, baseAbsoluta, carregarSite, infoCategorias, categoriasParaNav, nomeCategoria } from "@/lib/site/publico";
+import { metaPaginaGenerica, ogPagina } from "@/lib/site/seo";
 import { normalizarDesign } from "@/lib/site/design";
 import { GradeCards } from "../../_components/GradeCards";
 import { PortfolioNav } from "../../_components/PortfolioNav";
+import { JsonLd } from "../../_components/JsonLd";
 import type { SiteTrabalho } from "@/lib/supabase/types";
 
 export async function generateMetadata({ params }: { params: Promise<{ fid: string; categoria: string }> }): Promise<Metadata> {
@@ -20,7 +21,7 @@ export async function generateMetadata({ params }: { params: Promise<{ fid: stri
   });
   return {
     title: m.title, description: m.description, keywords: m.keywords,
-    openGraph: { title: m.title, description: m.description, images: m.ogImage ? [m.ogImage] : undefined },
+    openGraph: await ogPagina({ title: m.title, description: m.description, image: m.ogImage }),
   };
 }
 
@@ -42,10 +43,37 @@ export default async function CategoriaPage({ params }: { params: Promise<{ fid:
   const categorias = categoriasParaNav([...new Set(todos.map((t) => t.categoria))], info, categoria);
   const lista = todos.filter((t) => t.categoria === categoria);
   const grade = normalizarDesign(cfg?.design).grades.trabalhos; // exibição configurada na Aparência
+  const catLabel = nomeCategoria(categoria, info.map);
+  const abs = await baseAbsoluta(fid); // JSON-LD exige URL absoluta
 
   return (
     <div style={{ maxWidth: "var(--site-largura)", margin: "0 auto", padding: "48px 24px" }}>
-      <h1 className="site-secao-titulo" style={{ fontSize: 30, textAlign: "center", margin: "0 0 24px" }}>{nomeCategoria(categoria, info.map)}</h1>
+      {/* Página de coleção: diz ao Google que isto é uma lista de trabalhos da categoria */}
+      <JsonLd data={{
+        "@context": "https://schema.org",
+        "@type": "CollectionPage",
+        name: catLabel,
+        url: `${abs}/portfolio/${categoria}`,
+        mainEntity: {
+          "@type": "ItemList",
+          numberOfItems: lista.length,
+          itemListElement: lista.slice(0, 30).map((t, i) => ({
+            "@type": "ListItem",
+            position: i + 1,
+            name: t.titulo,
+            url: `${abs}/portfolio/${t.categoria}/${t.legacy_id ? `${t.legacy_id}-` : ""}${t.slug}`,
+          })),
+        },
+      }} />
+      <JsonLd data={{
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        itemListElement: [
+          { "@type": "ListItem", position: 1, name: "Trabalhos", item: `${abs}/portfolio` },
+          { "@type": "ListItem", position: 2, name: catLabel, item: `${abs}/portfolio/${categoria}` },
+        ],
+      }} />
+      <h1 className="site-secao-titulo" style={{ fontSize: 30, textAlign: "center", margin: "0 0 24px" }}>{catLabel}</h1>
       <PortfolioNav base={b} categorias={categorias} ativa={categoria} catMap={info.map} />
       <GradeCards
         config={grade}

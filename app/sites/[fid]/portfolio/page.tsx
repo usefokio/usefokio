@@ -2,7 +2,7 @@
 import type { Metadata } from "next";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { baseLinks, carregarSite, infoCategorias, categoriasParaNav, nomeCategoria } from "@/lib/site/publico";
-import { metaPaginaGenerica } from "@/lib/site/seo";
+import { metaPaginaGenerica, ogPagina } from "@/lib/site/seo";
 import { normalizarDesign } from "@/lib/site/design";
 import { GradeCards } from "../_components/GradeCards";
 import { PortfolioNav } from "../_components/PortfolioNav";
@@ -18,7 +18,7 @@ export async function generateMetadata({ params }: { params: Promise<{ fid: stri
   });
   return {
     title: m.title, description: m.description, keywords: m.keywords,
-    openGraph: { title: m.title, description: m.description, images: m.ogImage ? [m.ogImage] : undefined },
+    openGraph: await ogPagina({ title: m.title, description: m.description, image: m.ogImage }),
   };
 }
 

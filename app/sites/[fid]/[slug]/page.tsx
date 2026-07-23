@@ -7,7 +7,7 @@ import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { baseLinks, infoCategorias, categoriasParaNav, nomeCategoria, contextoBlocos } from "@/lib/site/publico";
 import { dadosParaBlocos, conteudoParaBlocos, type SiteBloco } from "@/lib/site/blocos";
-import { resolverMetaPagina } from "@/lib/site/seo";
+import { resolverMetaPagina, ogPagina } from "@/lib/site/seo";
 import { RenderBlocos } from "../_components/RenderBlocos";
 import type { SiteLandingPage, SiteLandingDados, SiteDepoimento, SitePagina } from "@/lib/supabase/types";
 
@@ -38,7 +38,7 @@ export async function generateMetadata({ params }: { params: Promise<{ fid: stri
       description: m.description,
       keywords: m.keywords,
       ...(m.noindex ? { robots: { index: false, follow: true } } : {}),
-      openGraph: { title: m.ogTitle, description: m.ogDescription, images: m.ogImage ? [m.ogImage] : undefined },
+      openGraph: await ogPagina({ title: m.ogTitle, description: m.ogDescription, image: m.ogImage }),
     };
   }
   const pg = await buscarPaginaCustom(fid, slug);
@@ -52,7 +52,7 @@ export async function generateMetadata({ params }: { params: Promise<{ fid: stri
     description: m.description,
     keywords: m.keywords,
     ...(m.noindex ? { robots: { index: false, follow: true } } : {}),
-    openGraph: { title: m.ogTitle, description: m.ogDescription, images: m.ogImage ? [m.ogImage] : undefined },
+    openGraph: await ogPagina({ title: m.ogTitle, description: m.ogDescription, image: m.ogImage }),
   };
 }
 
