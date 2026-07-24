@@ -58,7 +58,13 @@ export type SiteBloco = {
     invertido?: boolean;
     nome?: string | null;
     itens?: string[];
+    // Estilo da lista de itens: bolinha (padrão), número, traço ou sem marcador
+    lista_estilo?: "bolinha" | "numero" | "traco" | "nenhum";
+    // Valor: número mascarado ("510,00"). O "R$" é automático na exibição.
+    // `valor_prefixo` guarda o que vem antes do número (ex.: "10x", "a partir de").
+    // Compatibilidade: valores antigos gravados com "R$" no texto são exibidos como estão.
     valor?: string | null;
+    valor_prefixo?: string | null;
     // cards
     cards?: { nome: string; foto_url?: string | null; href?: string | null }[];
     // galeria
@@ -93,11 +99,33 @@ export const CATALOGO_BLOCOS: { tipo: TipoBloco; label: string; icone: string }[
   { tipo: "formulario",   label: "Formulário de contato", icone: "✉" },
 ];
 
+// Valor do pacote como aparece na página: "R$" automático + prefixo opcional ("10x").
+// Compatibilidade: valores gravados antes disso já vinham com "R$" escrito no texto
+// (ex.: "R$ 10x 510,00") — esses são exibidos exatamente como estão.
+export function valorExibido(d: SiteBloco["dados"]): string | null {
+  const bruto = (d.valor ?? "").trim();
+  if (!bruto) return null;
+  if (/r\$/i.test(bruto)) return bruto;              // legado: já tem o símbolo
+  const pre = (d.valor_prefixo ?? "").trim();
+  return `R$ ${pre ? pre + " " : ""}${bruto}`;
+}
+
+// Separa um valor legado ("R$ 10x 510,00") em { prefixo: "10x", numero: "510,00" },
+// para o editor mostrar nos campos certos sem o fotógrafo redigitar.
+export function separarValor(v: string | null | undefined): { prefixo: string; numero: string } {
+  const s = (v ?? "").trim();
+  if (!s) return { prefixo: "", numero: "" };
+  const semSimbolo = s.replace(/r\$\s*/i, "");
+  const m = semSimbolo.match(/^(.*?)([\d.]+(?:,\d{1,2})?)\s*$/); // último número da string
+  if (!m) return { prefixo: "", numero: semSimbolo.trim() };
+  return { prefixo: m[1].trim(), numero: m[2].trim() };
+}
+
 export function novoBloco(tipo: TipoBloco): SiteBloco {
   const base: SiteBloco = { id: crypto.randomUUID(), tipo, dados: {} };
   if (tipo === "titulo") base.dados.texto = "Novo título";
   if (tipo === "texto") base.dados.html = "<p>Escreva aqui…</p>";
-  if (tipo === "pacote") base.dados = { nome: "Novo pacote", itens: ["Item 1;", "Item 2;"], valor: "R$ " };
+  if (tipo === "pacote") base.dados = { nome: "Novo pacote", itens: ["Item 1", "Item 2"], valor: "", lista_estilo: "bolinha" };
   if (tipo === "cards") base.dados.cards = [];
   if (tipo === "galeria") { base.dados.fotos = []; base.dados.colunas = 3; }
   if (tipo === "espaco") base.dados.altura = 40;

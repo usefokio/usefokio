@@ -2,7 +2,7 @@
 // Reusa as classes .lp-* (responsivas) do tema Editorial.
 import Link from "next/link";
 import type { CSSProperties } from "react";
-import type { SiteBloco } from "@/lib/site/blocos";
+import { valorExibido, type SiteBloco } from "@/lib/site/blocos";
 import { ASPECT, OBJECT_POSITION } from "@/lib/site/design";
 import type { SiteDepoimento } from "@/lib/supabase/types";
 import { ContatoForm } from "./ContatoForm";
@@ -27,6 +27,11 @@ function estiloImagem(d: SiteBloco["dados"]): CSSProperties {
     aspectRatio: ASPECT[d.proporcao],
     objectFit: d.ajuste === "manter_proporcao" ? "contain" : "cover",
     objectPosition: OBJECT_POSITION[d.ancora ?? "centro"],
+    // inline vence o CSS das classes/media queries (ex.: .lp-duas-img usa width:auto no mobile),
+    // senão a proporção escolhida não aparecia
+    width: "100%",
+    height: "auto",
+    maxHeight: "none",
   };
 }
 
@@ -79,8 +84,9 @@ function Bloco({ bloco, ctx }: { bloco: SiteBloco; ctx: ContextoBlocos }) {
         ? <img className="lp-full-img" src={d.url} alt="" loading="lazy" style={est} />
         : (
           <div className="lp-secao" style={{ paddingTop: 24, paddingBottom: 24 }}>
+            {/* est vem primeiro: a largura escolhida no editor tem que vencer o width:100% da proporção */}
             <img src={d.url} alt="" loading="lazy"
-              style={{ width: `${Math.min(100, Math.max(20, d.largura ?? 100))}%`, height: d.proporcao ? undefined : "auto", display: "block", borderRadius: 4, margin: "0 auto", ...est }} />
+              style={{ ...est, width: `${Math.min(100, Math.max(20, d.largura ?? 100))}%`, height: "auto", display: "block", borderRadius: 4, margin: "0 auto" }} />
           </div>
         );
     }
@@ -96,19 +102,27 @@ function Bloco({ bloco, ctx }: { bloco: SiteBloco; ctx: ContextoBlocos }) {
         </div>
       );
 
-    case "pacote":
+    case "pacote": {
+      const itens = (d.itens ?? []).filter(Boolean);
+      const estilo = d.lista_estilo ?? "bolinha";
+      const valor = valorExibido(d);
+      // marcador da lista escolhido no editor (número usa <ol>, o resto <ul>)
+      const Lista = estilo === "numero" ? "ol" : "ul";
       return (
         <div className={`lp-duas${d.invertido ? " invertido" : ""}`}>
           <div className="lp-duas-txt">
             {d.nome && <h2 className="lp-pacote-nome">{d.nome}</h2>}
-            {(d.itens?.length ?? 0) > 0 && (
-              <ul className="lp-pacote-itens">{d.itens!.filter(Boolean).map((it, j) => <li key={j}>{it}</li>)}</ul>
+            {itens.length > 0 && (
+              <Lista className={`lp-pacote-itens lp-lista-${estilo}`}>
+                {itens.map((it, j) => <li key={j}>{it}</li>)}
+              </Lista>
             )}
-            {d.valor && (<><div className="lp-valor-label">Valor</div><div className="lp-valor">{d.valor}</div></>)}
+            {valor && (<><div className="lp-valor-label">Valor</div><div className="lp-valor">{valor}</div></>)}
           </div>
-          {d.imagem_url && <img className="lp-duas-img" src={d.imagem_url} alt={d.nome ?? ""} loading="lazy" />}
+          {d.imagem_url && <img className="lp-duas-img" src={d.imagem_url} alt={d.nome ?? ""} loading="lazy" style={estiloImagem(d)} />}
         </div>
       );
+    }
 
     case "cards":
       return (d.cards?.length ?? 0) > 0 ? (

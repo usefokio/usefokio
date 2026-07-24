@@ -10,7 +10,8 @@ import { SiteRichEditor } from "@/app/(dashboard)/site/_components/SiteRichEdito
 import { FormularioConfigEditor } from "@/app/(dashboard)/site/_components/FormularioConfigEditor";
 import { normalizarConfig } from "@/lib/site/formulario";
 import { normalizarVideoUrl } from "@/lib/utils/youtube";
-import { CATALOGO_BLOCOS, novoBloco, type SiteBloco, type TipoBloco } from "@/lib/site/blocos";
+import { CATALOGO_BLOCOS, novoBloco, valorExibido, separarValor, type SiteBloco, type TipoBloco } from "@/lib/site/blocos";
+import { mascaraValor } from "@/lib/utils/format";
 import { Seg, Range, campo, PROP_OPTS, ANC_OPTS, mini } from "@/app/(dashboard)/site/_components/ControlesUI";
 import type { ProporcaoCapa, AncoraFoto, BannerAjuste } from "@/lib/site/design";
 
@@ -248,17 +249,40 @@ export function EditorBlocos({ blocos, onChange, fotografoId, pasta, acaoBloco }
             {opcoesImagem(b)}
           </div>
         );
-      case "pacote":
+      case "pacote": {
+        // Valor legado ("R$ 10x 510,00") aparece separado nos campos certos, sem redigitar.
+        const val = /r\$/i.test(d.valor ?? "") ? separarValor(d.valor) : { prefixo: d.valor_prefixo ?? "", numero: d.valor ?? "" };
         return (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 10 }}>
-              <div><label style={labelStyle}>Nome do pacote</label><input value={d.nome ?? ""} onChange={(e) => mudar(b.id, { nome: e.target.value })} style={inputStyle} /></div>
-              <div><label style={labelStyle}>Valor (texto livre)</label><input value={d.valor ?? ""} onChange={(e) => mudar(b.id, { valor: e.target.value })} style={inputStyle} placeholder="R$ 10x 510,00" /></div>
+            <div><label style={labelStyle}>Nome do pacote</label><input value={d.nome ?? ""} onChange={(e) => mudar(b.id, { nome: e.target.value })} style={inputStyle} /></div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1.4fr", gap: 10 }}>
+              <div>
+                <label style={labelStyle}>Antes do valor (opcional)</label>
+                <input value={val.prefixo}
+                  onChange={(e) => mudar(b.id, { valor_prefixo: e.target.value, valor: val.numero })}
+                  style={inputStyle} placeholder="10x" />
+              </div>
+              <div>
+                <label style={labelStyle}>Valor</label>
+                <div style={{ display: "flex", alignItems: "stretch" }}>
+                  <span style={{ display: "flex", alignItems: "center", padding: "0 10px", border: "1px solid var(--color-border-secondary)", borderRight: "none", borderRadius: "8px 0 0 8px", background: "var(--color-background-secondary)", fontSize: 13, fontWeight: 700, color: "var(--color-text-secondary)" }}>R$</span>
+                  <input value={val.numero}
+                    onChange={(e) => mudar(b.id, { valor: mascaraValor(e.target.value), valor_prefixo: val.prefixo || undefined })}
+                    inputMode="numeric" placeholder="0,00"
+                    style={{ ...inputStyle, borderRadius: "0 8px 8px 0" }} />
+                </div>
+              </div>
+            </div>
+            <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginTop: -4 }}>
+              Sai na página como <strong>{valorExibido({ ...d, valor: val.numero, valor_prefixo: val.prefixo }) ?? "—"}</strong>
             </div>
             <div>
               <label style={labelStyle}>Itens (um por linha)</label>
               <textarea value={(d.itens ?? []).join("\n")} onChange={(e) => mudar(b.id, { itens: e.target.value.split("\n") })} rows={Math.max(3, (d.itens ?? []).length)} style={{ ...inputStyle, resize: "vertical" }} />
             </div>
+            {campo("Marcador da lista", <Seg value={d.lista_estilo ?? "bolinha"}
+              options={[{ v: "bolinha", l: "• Bolinha" }, { v: "numero", l: "1. Número" }, { v: "traco", l: "– Traço" }, { v: "nenhum", l: "Sem marcador" }] as const}
+              onChange={(v) => mudar(b.id, { lista_estilo: v })} />)}
             {btnImagem({ blocoId: b.id, campo: "imagem_url", urlAtual: d.imagem_url, rotulo: "imagem" })}
             <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--color-text-primary)", cursor: "pointer" }}>
               <input type="checkbox" checked={d.invertido ?? false} onChange={(e) => mudar(b.id, { invertido: e.target.checked })} />
@@ -267,6 +291,7 @@ export function EditorBlocos({ blocos, onChange, fotografoId, pasta, acaoBloco }
             {opcoesImagem(b)}
           </div>
         );
+      }
       case "cards":
         return (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
