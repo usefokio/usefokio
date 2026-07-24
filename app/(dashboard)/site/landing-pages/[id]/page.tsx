@@ -159,12 +159,14 @@ export default function EditorLandingPage({ params }: { params: Promise<{ id: st
   // Primeiro Salvar de uma landing nova = INSERT (com o id gerado no cliente); depois, UPDATE.
   async function salvar(): Promise<boolean> {
     if (!fotografo) return false;
-    const s = slugifyUrl(slug);
-    if (!s) { setMsg("Erro: informe um slug válido."); return false; }
+    // O NOME é obrigatório: é ele que dá título à página e gera o endereço (/nome-da-pagina).
+    if (!titulo.trim()) { setMsg("Erro: dê um nome para a página antes de salvar."); return false; }
+    const s = slugifyUrl(slug) || slugifyUrl(titulo);
+    if (!s) { setMsg("Erro: o nome precisa ter letras ou números (é ele que vira o endereço)."); return false; }
     setSalvando(true); setMsg(null);
     const supabase = createClient();
     const campos = {
-      titulo: titulo.trim() || "Landing page",
+      titulo: titulo.trim(),
       slug: s,
       publicado,
       dados: { ...dadosOriginais, blocos },
@@ -188,7 +190,8 @@ export default function EditorLandingPage({ params }: { params: Promise<{ id: st
       window.history.replaceState(null, "", `/site/landing-pages/${id}`);
     }
     setSlug(s);
-    setBaseline(snapshot(titulo.trim() || "Landing page", s, publicado, snapSeo(seoTitle, seoDesc, seoKw, seoNoindex, ogTitle, ogDesc, ogImage), blocos)); // zera o "não salvo"
+    setTitulo(titulo.trim());
+    setBaseline(snapshot(titulo.trim(), s, publicado, snapSeo(seoTitle, seoDesc, seoKw, seoNoindex, ogTitle, ogDesc, ogImage), blocos)); // zera o "não salvo"
     setMsg("Página salva!");
     return true;
   }
@@ -232,15 +235,19 @@ export default function EditorLandingPage({ params }: { params: Promise<{ id: st
   if (carregando) return <div style={{ padding: 60, textAlign: "center", fontSize: 13, color: "var(--color-text-secondary)" }}>Carregando…</div>;
 
   // Botão Salvar reflete o estado: destacado quando há alterações; "Salvo ✓" (esmaecido) quando limpo.
+  // Sem nome não dá para salvar (é ele que gera o endereço) — o botão explica o porquê.
+  const semNome = !titulo.trim();
+  const podeSalvar = temAlteracoes && !semNome;
   const btnSalvar = (
-    <button onClick={() => salvar()} disabled={salvando || !temAlteracoes}
+    <button onClick={() => salvar()} disabled={salvando || !podeSalvar}
+      title={semNome ? "Dê um nome para a página antes de salvar" : undefined}
       style={{
         padding: "10px 22px", borderRadius: 9, border: "none", fontSize: 13, fontWeight: 700,
-        cursor: salvando || !temAlteracoes ? "default" : "pointer",
-        background: temAlteracoes ? "#2563EB" : "var(--color-background-tertiary)",
-        color: temAlteracoes ? "#fff" : "var(--color-text-secondary)",
+        cursor: salvando || !podeSalvar ? "default" : "pointer",
+        background: podeSalvar ? "#2563EB" : "var(--color-background-tertiary)",
+        color: podeSalvar ? "#fff" : "var(--color-text-secondary)",
       }}>
-      {salvando ? "Salvando…" : temAlteracoes ? "Salvar alterações" : "Salvo ✓"}
+      {salvando ? "Salvando…" : semNome ? "Dê um nome à página" : temAlteracoes ? "Salvar alterações" : "Salvo ✓"}
     </button>
   );
 
@@ -294,9 +301,36 @@ export default function EditorLandingPage({ params }: { params: Promise<{ id: st
           {btnSalvar}
         </div>
       </div>
-      <button onClick={handleSair} style={{ border: "none", background: "transparent", color: "var(--color-text-secondary)", fontSize: 12, cursor: "pointer", padding: 0, marginBottom: 18 }}>
+      <button onClick={handleSair} style={{ border: "none", background: "transparent", color: "var(--color-text-secondary)", fontSize: 12, cursor: "pointer", padding: 0, marginBottom: 14 }}>
         ← Voltar para a lista
       </button>
+
+      {/* NOME — obrigatório e é ele que gera o endereço (/nome-da-pagina). Numa landing já
+          salva o endereço NÃO muda sozinho: link publicado nunca quebra por renomear (SEO). */}
+      <div style={{ background: "var(--color-background-primary)", border: "1px solid var(--color-border-tertiary)", borderRadius: 12, padding: "16px 18px", marginBottom: 18 }}>
+        <label style={labelStyle}>Nome da página *</label>
+        <input
+          value={titulo}
+          onChange={(e) => {
+            const v = e.target.value;
+            setTitulo(v);
+            // enquanto não foi salva, o endereço acompanha o nome; depois, só muda no ⚙ Configurações
+            if (!criada) setSlug(slugifyUrl(v));
+          }}
+          placeholder="Ex.: Orçamento de Casamento 2026"
+          autoFocus={!criada}
+          style={{ ...inputStyle, fontSize: 15, fontWeight: 600 }}
+        />
+        <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginTop: 8, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+          <span>Endereço:</span>
+          <code style={{ background: "var(--color-background-secondary)", padding: "2px 7px", borderRadius: 6, fontSize: 12 }}>
+            {dominio}/{slugifyUrl(slug) || slugifyUrl(titulo) || "…"}
+          </code>
+          {criada
+            ? <button onClick={() => setConfigAberto(true)} style={{ background: "none", border: "none", color: "#2563EB", fontSize: 12, cursor: "pointer", padding: 0 }}>alterar</button>
+            : <span style={{ opacity: 0.75 }}>— gerado a partir do nome</span>}
+        </div>
+      </div>
 
       {/* Coluna estreita: prévia ACIMA dos controles (para ver o resultado sem rolar até o fim) */}
       {!duasColunas && <div style={{ marginBottom: 22 }}>{previa}</div>}
@@ -315,12 +349,13 @@ export default function EditorLandingPage({ params }: { params: Promise<{ id: st
               fotografoId={fotografo.id}
               pasta={`landing/${id}`}
               acaoBloco={
-                <button onClick={() => salvar()} disabled={salvando || !temAlteracoes}
+                <button onClick={() => salvar()} disabled={salvando || !podeSalvar}
+                  title={semNome ? "Dê um nome para a página antes de salvar" : undefined}
                   style={{ padding: "6px 16px", borderRadius: 8, border: "none", fontSize: 12, fontWeight: 700,
-                    cursor: salvando || !temAlteracoes ? "default" : "pointer",
-                    background: temAlteracoes ? "#2563EB" : "var(--color-background-tertiary)",
-                    color: temAlteracoes ? "#fff" : "var(--color-text-secondary)" }}>
-                  {salvando ? "Salvando…" : temAlteracoes ? "Salvar" : "Salvo ✓"}
+                    cursor: salvando || !podeSalvar ? "default" : "pointer",
+                    background: podeSalvar ? "#2563EB" : "var(--color-background-tertiary)",
+                    color: podeSalvar ? "#fff" : "var(--color-text-secondary)" }}>
+                  {salvando ? "Salvando…" : semNome ? "Falta o nome" : temAlteracoes ? "Salvar" : "Salvo ✓"}
                 </button>
               }
             />

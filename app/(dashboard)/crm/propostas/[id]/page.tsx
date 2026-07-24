@@ -145,7 +145,8 @@ export default function EditorPropostaPage() {
   async function salvar(): Promise<boolean> {
     if (!fotografo || !id) return false;
     if (!titulo.trim()) { setMsg("Erro: informe o título."); return false; }
-    const s = slug.trim() ? slugifySite(slug) : null;
+    // sem slug digitado, o endereço sai do título (mesma regra das landings)
+    const s = slug.trim() ? slugifySite(slug) : (publicado ? slugifySite(titulo) : null);
     if (publicado && !s) { setMsg("Erro: para publicar a página, informe o endereço (slug)."); return false; }
     setSalvando(true); setMsg(null);
     const sb = createClient();
@@ -282,7 +283,7 @@ export default function EditorPropostaPage() {
               🔗 Ver página
             </a>
           )}
-          <BotaoSalvarEstado temAlteracoes={estado.temAlteracoes} salvando={salvando} onClick={salvar} compacto />
+          <BotaoSalvarEstado temAlteracoes={estado.temAlteracoes && !!titulo.trim()} salvando={salvando} onClick={salvar} compacto />
         </div>
       </div>
 
@@ -417,7 +418,7 @@ export default function EditorPropostaPage() {
       {/* Salvar no rodapé */}
       <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, alignItems: "center" }}>
         <SeloEstado temAlteracoes={estado.temAlteracoes} />
-        <BotaoSalvarEstado temAlteracoes={estado.temAlteracoes} salvando={salvando} onClick={salvar} />
+        <BotaoSalvarEstado temAlteracoes={estado.temAlteracoes && !!titulo.trim()} salvando={salvando} onClick={salvar} />
       </div>
 
       {modalCopiar && (
