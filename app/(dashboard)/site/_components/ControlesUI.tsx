@@ -90,10 +90,13 @@ export function campo(titulo: string, node: React.ReactNode) {
 }
 
 // Linha "label ————— [toggle]".
-export function linhaChave(label: string, on: boolean, onChange: (v: boolean) => void) {
+export function linhaChave(label: string, on: boolean, onChange: (v: boolean) => void, ajuda?: string) {
   return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "5px 0" }}>
-      <span style={mini}>{label}</span>
+      <span style={mini}>
+        {label}
+        {ajuda && <span style={{ display: "block", opacity: 0.8, textTransform: "none", letterSpacing: 0, marginTop: 2 }}>{ajuda}</span>}
+      </span>
       <Chave on={on} onChange={onChange} />
     </div>
   );

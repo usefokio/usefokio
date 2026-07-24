@@ -51,7 +51,10 @@ a {
 .lp-hero::after { content: ""; position: absolute; inset: 0; background: rgba(44, 55, 44, 0.62); }
 .lp-hero-inner { position: relative; z-index: 1; text-align: center; padding: 40px 24px; display: flex; flex-direction: column; align-items: center; gap: 22px; }
 .lp-hero-inner img.lp-logo { height: 120px; width: auto; max-width: 80vw; }
-.lp-hero-inner h1 { color: #fff; font-family: var(--site-fonte-titulo), Georgia, serif; font-size: calc(50px * var(--lp-esc-tit, 1)); font-weight: 700; line-height: 1.15; margin: 0; }
+.lp-hero-inner h1, .lp-hero-inner h2 { color: #fff; font-family: var(--site-fonte-titulo), Georgia, serif; font-size: calc(50px * var(--lp-esc-tit, 1)); font-weight: 700; line-height: 1.15; margin: 0; }
+/* Faixa de título com imagem de fundo (o "topo" aplicado ao título de um pacote):
+   mesma cara do hero, mas com altura própria em vez dos 78vh da tela cheia. */
+.lp-hero.lp-hero-faixa { min-height: 0; height: var(--lp-faixa-altura, 260px); }
 /* Texto e formulário SOBREPOSTOS ao hero (layout "banner de fundo" de Contato/Sobre).
    Sobre a foto (dentro de .lp-hero-inner) o texto é claro; sem foto, cor neutra do tema. */
 .lp-hero-texto { color: var(--site-suave); font-size: 17px; line-height: 1.7; max-width: 640px; margin: 0; }
@@ -66,6 +69,9 @@ a {
 /* Pacotes / álbuns — 2 colunas (texto + imagem) que empilham no mobile */
 .lp-duas { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: center; max-width: 1120px; margin: 0 auto; padding: 48px 24px; }
 .lp-duas.invertido .lp-duas-txt { order: 2; }
+/* Imagem ACIMA do texto: uma coluna só e a foto sobe (a ordem no HTML é texto → imagem) */
+.lp-duas.imagem-acima { grid-template-columns: 1fr; gap: 28px; }
+.lp-duas.imagem-acima .lp-duas-img { order: -1; }
 /* Imagem em proporção natural (como no Alboom, cada imagem tem a sua) — nunca corta */
 .lp-duas-img { width: 100%; height: auto; display: block; border-radius: 4px; }
 .lp-pacote-nome { font-family: var(--site-fonte-titulo), Georgia, serif; font-size: calc(44px * var(--lp-esc-tit, 1)); color: var(--site-titulo); margin: 0 0 18px; }
@@ -85,6 +91,16 @@ a {
 .lp-pacote-itens.lp-lista-numero { counter-reset: lp-item; }
 .lp-pacote-itens.lp-lista-numero li { counter-increment: lp-item; }
 .lp-pacote-itens.lp-lista-numero li::before { content: counter(lp-item) "."; }
+/* Pacotes lado a lado — colunas comparáveis (2 a 4), empilham no celular */
+.lp-planos { display: grid; grid-template-columns: repeat(var(--lp-cols, 3), 1fr); gap: 24px; align-items: stretch; }
+.lp-plano { display: flex; flex-direction: column; border: 1px solid var(--site-borda, rgba(0,0,0,0.1)); border-radius: 10px; padding: 26px 22px; background: var(--site-fundo); }
+.lp-plano.destaque { border-width: 2px; border-color: var(--site-titulo); box-shadow: 0 10px 34px rgba(0, 0, 0, 0.09); }
+.lp-plano-etiqueta { align-self: flex-start; font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; padding: 4px 10px; border-radius: 999px; background: var(--site-contraste); color: var(--site-titulo); margin-bottom: 12px; }
+.lp-plano-img { width: 100%; border-radius: 6px; display: block; margin-bottom: 16px; }
+.lp-plano-nome { font-family: var(--site-fonte-titulo), Georgia, serif; font-size: calc(28px * var(--lp-esc-tit, 1)); color: var(--site-titulo); margin: 0 0 14px; }
+.lp-plano .lp-pacote-itens { flex: 1; }
+.lp-plano .lp-valor-label { font-size: 13px; }
+.lp-plano .lp-valor { font-size: 30px; }
 .lp-valor-label { font-size: 22px; letter-spacing: 0.18em; text-transform: uppercase; color: #8c8c8c; margin: 0 0 4px; font-family: var(--site-fonte-titulo), Georgia, serif; }
 .lp-valor { font-family: var(--site-fonte-titulo), Georgia, serif; font-size: 26px; color: var(--site-titulo); }
 
@@ -125,6 +141,7 @@ a {
   .lp-duas.invertido .lp-duas-txt { order: 0; } /* texto sempre acima da imagem no mobile */
   .lp-duas-img { max-height: 80vh; width: auto; max-width: 100%; margin: 0 auto; } /* retrato não domina a tela */
   .lp-casais { grid-template-columns: repeat(2, 1fr); gap: 18px; }
+  .lp-planos { grid-template-columns: 1fr; gap: 18px; }
   .lp-reviews { grid-template-columns: repeat(2, 1fr); }
   .gr-faixa { justify-content: center; text-align: center; }
   .lp-secao { padding: 44px 20px; }

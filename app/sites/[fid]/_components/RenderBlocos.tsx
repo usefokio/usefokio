@@ -43,6 +43,26 @@ function estiloTitulo(d: SiteBloco["dados"]): CSSProperties | undefined {
   return { "--lp-esc-tit": e / 100 } as CSSProperties;
 }
 
+// Lista de itens de um pacote, com o marcador escolhido no editor (número usa <ol>).
+function ListaItens({ itens, estilo }: { itens?: string[]; estilo: NonNullable<SiteBloco["dados"]["lista_estilo"]> }) {
+  const limpos = (itens ?? []).filter(Boolean);
+  if (limpos.length === 0) return null;
+  const Lista = estilo === "numero" ? "ol" : "ul";
+  return (
+    <Lista className={`lp-pacote-itens lp-lista-${estilo}`}>
+      {limpos.map((it, j) => <li key={j}>{it}</li>)}
+    </Lista>
+  );
+}
+
+// Classe de posição da imagem nos blocos de 2 colunas. Sem escolha explícita, cai no
+// `invertido` legado — as landings antigas continuam exatamente como estão.
+function classeDuas(d: SiteBloco["dados"]): string {
+  const pos = d.imagem_posicao ?? (d.invertido ? "esquerda" : "direita");
+  if (pos === "acima") return "lp-duas imagem-acima";
+  return pos === "esquerda" ? "lp-duas invertido" : "lp-duas";
+}
+
 function Bloco({ bloco, ctx }: { bloco: SiteBloco; ctx: ContextoBlocos }) {
   const d = bloco.dados;
   const estTit = estiloTitulo(d);
@@ -102,7 +122,7 @@ function Bloco({ bloco, ctx }: { bloco: SiteBloco; ctx: ContextoBlocos }) {
 
     case "duas_colunas":
       return (
-        <div className={`lp-duas${d.invertido ? " invertido" : ""}`}>
+        <div className={classeDuas(d)}>
           <div className="lp-duas-txt">
             {d.titulo && <h2 className="lp-pacote-nome" style={estTit}>{d.titulo}</h2>}
             {d.html && <div className="site-conteudo" style={{ fontSize: 16, lineHeight: 1.8 }} dangerouslySetInnerHTML={{ __html: d.html }} />}
@@ -112,24 +132,57 @@ function Bloco({ bloco, ctx }: { bloco: SiteBloco; ctx: ContextoBlocos }) {
       );
 
     case "pacote": {
-      const itens = (d.itens ?? []).filter(Boolean);
       const estilo = d.lista_estilo ?? "bolinha";
       const valor = valorExibido(d);
-      // marcador da lista escolhido no editor (número usa <ol>, o resto <ul>)
-      const Lista = estilo === "numero" ? "ol" : "ul";
+      // Título em FAIXA de destaque (mesma cara do topo/hero, com imagem de fundo própria).
+      // Quando ligado, o nome sai de dentro das colunas e vira o cabeçalho do bloco.
+      const faixa = d.titulo_hero && d.nome ? (
+        <section className="lp-hero lp-hero-faixa"
+          style={{ "--lp-faixa-altura": `${d.titulo_bg_altura ?? 260}px` } as CSSProperties}>
+          {d.titulo_bg_url && (
+            <img className="lp-hero-bg" src={d.titulo_bg_url} alt="" loading="lazy"
+              style={{ objectPosition: OBJECT_POSITION[d.titulo_bg_ancora ?? "centro"] }} />
+          )}
+          <div className="lp-hero-inner"><h2 style={estTit}>{d.nome}</h2></div>
+        </section>
+      ) : null;
       return (
-        <div className={`lp-duas${d.invertido ? " invertido" : ""}`}>
-          <div className="lp-duas-txt">
-            {d.nome && <h2 className="lp-pacote-nome" style={estTit}>{d.nome}</h2>}
-            {itens.length > 0 && (
-              <Lista className={`lp-pacote-itens lp-lista-${estilo}`}>
-                {itens.map((it, j) => <li key={j}>{it}</li>)}
-              </Lista>
-            )}
-            {valor && (<><div className="lp-valor-label">Valor</div><div className="lp-valor">{valor}</div></>)}
+        <>
+          {faixa}
+          <div className={classeDuas(d)}>
+            <div className="lp-duas-txt">
+              {!faixa && d.nome && <h2 className="lp-pacote-nome" style={estTit}>{d.nome}</h2>}
+              <ListaItens itens={d.itens} estilo={estilo} />
+              {valor && (<><div className="lp-valor-label">Valor</div><div className="lp-valor">{valor}</div></>)}
+            </div>
+            {d.imagem_url && <img className="lp-duas-img" src={d.imagem_url} alt={d.nome ?? ""} loading="lazy" style={estiloImagem(d)} />}
           </div>
-          {d.imagem_url && <img className="lp-duas-img" src={d.imagem_url} alt={d.nome ?? ""} loading="lazy" style={estiloImagem(d)} />}
-        </div>
+        </>
+      );
+    }
+
+    case "pacotes": {
+      const lista = (d.pacotes ?? []).filter((p) => p.nome || (p.itens?.length ?? 0) > 0);
+      if (lista.length === 0) return null;
+      const estilo = d.lista_estilo ?? "bolinha";
+      return (
+        <section className="lp-secao">
+          {d.titulo && <h2 className="lp-titulo" style={estTit}>{d.titulo}</h2>}
+          <div className="lp-planos" style={{ "--lp-cols": Math.min(4, Math.max(1, d.colunas ?? lista.length)) } as CSSProperties}>
+            {lista.map((p, i) => {
+              const valor = valorExibido({ valor: p.valor, valor_prefixo: p.valor_prefixo });
+              return (
+                <div key={i} className={`lp-plano${p.destaque ? " destaque" : ""}`}>
+                  {p.etiqueta && <span className="lp-plano-etiqueta">{p.etiqueta}</span>}
+                  {p.imagem_url && <img className="lp-plano-img" src={p.imagem_url} alt={p.nome} loading="lazy" style={estiloImagem(d)} />}
+                  {p.nome && <h3 className="lp-plano-nome" style={estTit}>{p.nome}</h3>}
+                  <ListaItens itens={p.itens} estilo={estilo} />
+                  {valor && (<><div className="lp-valor-label">Valor</div><div className="lp-valor">{valor}</div></>)}
+                </div>
+              );
+            })}
+          </div>
+        </section>
       );
     }
 

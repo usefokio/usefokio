@@ -12,10 +12,13 @@ import { normalizarConfig } from "@/lib/site/formulario";
 import { normalizarVideoUrl } from "@/lib/utils/youtube";
 import { CATALOGO_BLOCOS, novoBloco, valorExibido, separarValor, type SiteBloco, type TipoBloco } from "@/lib/site/blocos";
 import { mascaraValor } from "@/lib/utils/format";
-import { Seg, Range, campo, PROP_OPTS, ANC_OPTS, mini } from "@/app/(dashboard)/site/_components/ControlesUI";
+import { Seg, Range, campo, linhaChave, PROP_OPTS, ANC_OPTS, mini } from "@/app/(dashboard)/site/_components/ControlesUI";
 import { BotaoEscolherDoSite } from "@/app/(dashboard)/site/_components/SeletorImagemSite";
 import { PaletaBlocos } from "@/app/(dashboard)/site/_components/PaletaBlocos";
 import type { ProporcaoCapa, AncoraFoto, BannerAjuste } from "@/lib/site/design";
+
+// Campos do bloco que guardam uma imagem (o alvo do upload / do "escolher do site").
+type CampoImagem = "imagem_url" | "logo_url" | "url" | "titulo_bg_url";
 
 const inputStyle: React.CSSProperties = {
   width: "100%", padding: "9px 11px", borderRadius: 8, boxSizing: "border-box",
@@ -54,7 +57,8 @@ export function EditorBlocos({ blocos, onChange, fotografoId, pasta, acaoBloco }
   const [sobreIdx, setSobreIdx] = useState<number | null>(null);
   const inputImgRef = useRef<HTMLInputElement>(null);
   const inputGaleriaRef = useRef<HTMLInputElement>(null);
-  const alvoUpload = useRef<{ blocoId: string; campo: "imagem_url" | "logo_url" | "url"; cardIdx?: number } | null>(null);
+  const alvoUpload = useRef<{ blocoId: string; campo: CampoImagem; cardIdx?: number; pacoteIdx?: number } | null>(null);
+  const alvoPacote = useRef<number | null>(null); // coluna do bloco "pacotes" que pediu o upload
   const alvoGaleria = useRef<string | null>(null);
   const [filaGaleria, setFilaGaleria] = useState<{ total: number; feitas: number } | null>(null);
 
@@ -83,14 +87,22 @@ export function EditorBlocos({ blocos, onChange, fotografoId, pasta, acaoBloco }
     });
   }
 
-  function pedirUpload(blocoId: string, campo: "imagem_url" | "logo_url" | "url", cardIdx?: number) {
-    alvoUpload.current = { blocoId, campo, cardIdx };
+  function pedirUpload(blocoId: string, campo: CampoImagem, cardIdx?: number) {
+    alvoUpload.current = { blocoId, campo, cardIdx, pacoteIdx: alvoPacote.current ?? undefined };
+    alvoPacote.current = null;
     inputImgRef.current?.click();
   }
 
   // Grava a URL escolhida no campo certo do bloco — serve tanto ao upload quanto ao "escolher do site".
-  function aplicarImagem(blocoId: string, campo: "imagem_url" | "logo_url" | "url", url: string, cardIdx?: number) {
-    if (cardIdx !== undefined) {
+  function aplicarImagem(blocoId: string, campo: CampoImagem, url: string, cardIdx?: number, pacoteIdx?: number) {
+    if (pacoteIdx !== undefined) {
+      aplicar((prev) => prev.map((b) => {
+        if (b.id !== blocoId) return b;
+        const pacotes = [...(b.dados.pacotes ?? [])];
+        if (pacotes[pacoteIdx]) pacotes[pacoteIdx] = { ...pacotes[pacoteIdx], imagem_url: url };
+        return { ...b, dados: { ...b.dados, pacotes } };
+      }));
+    } else if (cardIdx !== undefined) {
       aplicar((prev) => prev.map((b) => {
         if (b.id !== blocoId) return b;
         const cards = [...(b.dados.cards ?? [])];
@@ -112,7 +124,7 @@ export function EditorBlocos({ blocos, onChange, fotografoId, pasta, acaoBloco }
       const nome = files[0].name.replace(/\.[a-z0-9]+$/i, "").normalize("NFD").replace(/[^\x20-\x7E]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-") || "img";
       const path = `site/${fotografoId}/${pasta}/${nome}-${crypto.randomUUID().slice(0, 6)}.${ehLogo ? "png" : "jpg"}`;
       const { url_publica } = await uploadFileClient(path, blob);
-      aplicarImagem(alvo.blocoId, alvo.campo, url_publica, alvo.cardIdx);
+      aplicarImagem(alvo.blocoId, alvo.campo, url_publica, alvo.cardIdx, alvo.pacoteIdx);
     } catch (e) {
       setMsg("Erro no upload: " + (e instanceof Error ? e.message : ""));
     }
@@ -145,7 +157,7 @@ export function EditorBlocos({ blocos, onChange, fotografoId, pasta, acaoBloco }
 
   // Funções que retornam JSX (NÃO componentes): definidas dentro do componente-pai, se fossem
   // componentes o React as remontaria a cada render e os inputs perderiam o foco a cada tecla.
-  function btnImagem({ blocoId, campo, urlAtual, rotulo, cardIdx }: { blocoId: string; campo: "imagem_url" | "logo_url" | "url"; urlAtual?: string | null; rotulo: string; cardIdx?: number }) {
+  function btnImagem({ blocoId, campo, urlAtual, rotulo, cardIdx }: { blocoId: string; campo: CampoImagem; urlAtual?: string | null; rotulo: string; cardIdx?: number }) {
     return (
       <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
         {urlAtual && <img src={urlAtual} alt="" style={{ width: 84, height: 56, objectFit: "cover", borderRadius: 6 }} />}
@@ -270,10 +282,9 @@ export function EditorBlocos({ blocos, onChange, fotografoId, pasta, acaoBloco }
             {opcaoTitulo(b)}
             <div><label style={labelStyle}>Texto</label><SiteRichEditor value={d.html ?? ""} onChange={(html) => mudar(b.id, { html })} minHeight={120} pasta={pasta} /></div>
             {btnImagem({ blocoId: b.id, campo: "imagem_url", urlAtual: d.imagem_url, rotulo: "imagem" })}
-            <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--color-text-primary)", cursor: "pointer" }}>
-              <input type="checkbox" checked={d.invertido ?? false} onChange={(e) => mudar(b.id, { invertido: e.target.checked })} />
-              Imagem à esquerda (invertido)
-            </label>
+            {campo("Posição da imagem", <Seg value={d.imagem_posicao ?? (d.invertido ? "esquerda" : "direita")}
+              options={[{ v: "direita", l: "À direita" }, { v: "esquerda", l: "À esquerda" }, { v: "acima", l: "Acima do texto" }] as const}
+              onChange={(v) => mudar(b.id, { imagem_posicao: v, invertido: v === "esquerda" })} />)}
             {opcoesImagem(b)}
           </div>
         );
@@ -284,6 +295,23 @@ export function EditorBlocos({ blocos, onChange, fotografoId, pasta, acaoBloco }
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             <div><label style={labelStyle}>Nome do pacote</label><input value={d.nome ?? ""} onChange={(e) => mudar(b.id, { nome: e.target.value })} style={inputStyle} /></div>
             {opcaoTitulo(b)}
+            {/* Nome do pacote virando faixa de destaque com foto de fundo (mesmo visual do topo) */}
+            {linhaChave("Nome em faixa com imagem de fundo", d.titulo_hero ?? false,
+              (v) => mudar(b.id, { titulo_hero: v }),
+              "O nome sai de dentro do texto e vira uma faixa larga, com foto de fundo e o nome por cima — igual ao bloco Topo.")}
+            {d.titulo_hero && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: "12px 14px", borderRadius: 8, background: "var(--color-background-secondary)" }}>
+                <div>
+                  <label style={labelStyle}>Imagem de fundo da faixa</label>
+                  {btnImagem({ blocoId: b.id, campo: "titulo_bg_url", urlAtual: d.titulo_bg_url, rotulo: "imagem" })}
+                </div>
+                {campo("Altura da faixa", <Range label="Altura" value={d.titulo_bg_altura ?? 260} min={120} max={600} unidade="px"
+                  onChange={(v) => mudar(b.id, { titulo_bg_altura: v })} />)}
+                {campo("Alinhamento do recorte",
+                  <Seg value={d.titulo_bg_ancora ?? "centro"} options={ANC_OPTS as readonly { v: AncoraFoto; l: string }[]}
+                    onChange={(v) => mudar(b.id, { titulo_bg_ancora: v })} />)}
+              </div>
+            )}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1.4fr", gap: 10 }}>
               <div>
                 <label style={labelStyle}>Antes do valor (opcional)</label>
@@ -313,11 +341,92 @@ export function EditorBlocos({ blocos, onChange, fotografoId, pasta, acaoBloco }
               <textarea value={(d.itens ?? []).join("\n")} onChange={(e) => mudar(b.id, { itens: e.target.value.split("\n") })} rows={Math.max(3, (d.itens ?? []).length)} style={{ ...inputStyle, resize: "vertical" }} />
             </div>
             {btnImagem({ blocoId: b.id, campo: "imagem_url", urlAtual: d.imagem_url, rotulo: "imagem" })}
-            <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--color-text-primary)", cursor: "pointer" }}>
-              <input type="checkbox" checked={d.invertido ?? false} onChange={(e) => mudar(b.id, { invertido: e.target.checked })} />
-              Imagem à esquerda (invertido)
-            </label>
+            {campo("Posição da imagem", <Seg value={d.imagem_posicao ?? (d.invertido ? "esquerda" : "direita")}
+              options={[{ v: "direita", l: "À direita" }, { v: "esquerda", l: "À esquerda" }, { v: "acima", l: "Acima do texto" }] as const}
+              onChange={(v) => mudar(b.id, { imagem_posicao: v, invertido: v === "esquerda" })} />)}
             {opcoesImagem(b)}
+          </div>
+        );
+      }
+      case "pacotes": {
+        const lista = d.pacotes ?? [];
+        // altera UM pacote da lista sem mexer nos outros
+        const mudarPac = (i: number, patch: Partial<NonNullable<SiteBloco["dados"]["pacotes"]>[number]>) => {
+          const novos = [...lista];
+          novos[i] = { ...novos[i], ...patch };
+          mudar(b.id, { pacotes: novos });
+        };
+        return (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <div><label style={labelStyle}>Título da seção</label><input value={d.titulo ?? ""} onChange={(e) => mudar(b.id, { titulo: e.target.value })} style={inputStyle} placeholder="Escolha o seu pacote" /></div>
+            {opcaoTitulo(b)}
+            {campo("Colunas", <Range label="Colunas" value={d.colunas ?? 3} min={1} max={4}
+              onChange={(v) => mudar(b.id, { colunas: v })} />)}
+            {campo("Marcador da lista", <Seg value={d.lista_estilo ?? "bolinha"}
+              options={[{ v: "bolinha", l: "• Bolinha" }, { v: "numero", l: "1. Número" }, { v: "traco", l: "– Traço" }, { v: "nenhum", l: "Sem marcador" }] as const}
+              onChange={(v) => mudar(b.id, { lista_estilo: v })} />)}
+
+            {lista.map((p, i) => {
+              // valor legado com "R$" escrito aparece separado nos campos certos
+              const val = /r\$/i.test(p.valor ?? "") ? separarValor(p.valor) : { prefixo: p.valor_prefixo ?? "", numero: p.valor ?? "" };
+              return (
+                <div key={i} style={{ border: "1px solid var(--color-border-secondary)", borderRadius: 10, padding: 12, display: "flex", flexDirection: "column", gap: 10, background: "var(--color-background-secondary)" }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                    <span style={{ ...mini, fontWeight: 700 }}>Pacote {i + 1}</span>
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <button style={btnPeq} disabled={i === 0} title="Mover para a esquerda"
+                        onClick={() => { const n = [...lista]; [n[i - 1], n[i]] = [n[i], n[i - 1]]; mudar(b.id, { pacotes: n }); }}>←</button>
+                      <button style={btnPeq} disabled={i === lista.length - 1} title="Mover para a direita"
+                        onClick={() => { const n = [...lista]; [n[i + 1], n[i]] = [n[i], n[i + 1]]; mudar(b.id, { pacotes: n }); }}>→</button>
+                      <button style={{ ...btnPeq, color: "#DC2626", borderColor: "#DC2626" }} title="Remover pacote"
+                        onClick={() => mudar(b.id, { pacotes: lista.filter((_, j) => j !== i) })}>🗑</button>
+                    </div>
+                  </div>
+                  <div><label style={labelStyle}>Nome</label><input value={p.nome} onChange={(e) => mudarPac(i, { nome: e.target.value })} style={inputStyle} /></div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1.4fr", gap: 10 }}>
+                    <div>
+                      <label style={labelStyle}>Antes do valor</label>
+                      <input value={val.prefixo} onChange={(e) => mudarPac(i, { valor_prefixo: e.target.value, valor: val.numero })} style={inputStyle} placeholder="10x" />
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Valor</label>
+                      <div style={{ display: "flex", alignItems: "stretch" }}>
+                        <span style={{ display: "flex", alignItems: "center", padding: "0 10px", border: "1px solid var(--color-border-secondary)", borderRight: "none", borderRadius: "8px 0 0 8px", background: "var(--color-background-primary)", fontSize: 13, fontWeight: 700, color: "var(--color-text-secondary)" }}>R$</span>
+                        <input value={val.numero} inputMode="numeric" placeholder="0,00"
+                          onChange={(e) => mudarPac(i, { valor: mascaraValor(e.target.value), valor_prefixo: val.prefixo || undefined })}
+                          style={{ ...inputStyle, borderRadius: "0 8px 8px 0" }} />
+                      </div>
+                    </div>
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Itens (um por linha)</label>
+                    <textarea value={(p.itens ?? []).join("\n")} onChange={(e) => mudarPac(i, { itens: e.target.value.split("\n") })}
+                      rows={Math.max(3, (p.itens ?? []).length)} style={{ ...inputStyle, resize: "vertical" }} />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Foto (opcional)</label>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                      {p.imagem_url && <img src={p.imagem_url} alt="" style={{ width: 84, height: 56, objectFit: "cover", borderRadius: 6 }} />}
+                      <button style={btnPeq} disabled={enviandoImg} onClick={() => { alvoPacote.current = i; pedirUpload(b.id, "imagem_url"); }}>
+                        {enviandoImg ? "Enviando…" : p.imagem_url ? "Trocar foto" : "+ foto"}
+                      </button>
+                      <BotaoEscolherDoSite pasta={pasta} rotulo="Do site" estilo={btnPeq}
+                        onEscolher={(url) => mudarPac(i, { imagem_url: url })} />
+                      {p.imagem_url && <button style={{ ...btnPeq, color: "#DC2626", borderColor: "#DC2626" }} onClick={() => mudarPac(i, { imagem_url: null })}>Remover foto</button>}
+                    </div>
+                  </div>
+                  <div><label style={labelStyle}>Etiqueta (opcional)</label><input value={p.etiqueta ?? ""} onChange={(e) => mudarPac(i, { etiqueta: e.target.value || null })} style={inputStyle} placeholder="Mais escolhido" /></div>
+                  {linhaChave("Coluna em destaque", p.destaque ?? false, (v) => mudarPac(i, { destaque: v }),
+                    "Deixa a borda mais forte, para puxar o olho do cliente para este pacote.")}
+                </div>
+              );
+            })}
+
+            <button style={btnPeq} disabled={lista.length >= 4}
+              onClick={() => mudar(b.id, { pacotes: [...lista, { nome: `Pacote ${lista.length + 1}`, itens: ["Item 1"], valor: "" }] })}>
+              + Pacote {lista.length >= 4 && "(máximo de 4)"}
+            </button>
+            {opcoesImagem(b, { semAjuste: true })}
           </div>
         );
       }

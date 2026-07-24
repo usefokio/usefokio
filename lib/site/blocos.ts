@@ -12,6 +12,7 @@ export type TipoBloco =
   | "imagem"        // imagem única (proporção natural)
   | "duas_colunas"  // texto rico + imagem lado a lado (empilha no mobile)
   | "pacote"        // nome + itens + VALOR + imagem (particularidade dos orçamentos)
+  | "pacotes"       // 2 a 4 pacotes lado a lado, para comparar as opções
   | "cards"         // grade de cards com foto + nome + link (ex.: casais/trabalhos)
   | "galeria"       // grade de fotos (sem texto), colunas configuráveis
   | "video"         // vídeo embed (YouTube)
@@ -58,7 +59,9 @@ export type SiteBloco = {
     largura_total?: boolean;
     largura?: number; // largura da imagem em % (20-100); largura_total ignora e ocupa 100%
     // duas_colunas / pacote
-    invertido?: boolean;
+    invertido?: boolean;          // legado: equivale a imagem_posicao = "esquerda"
+    // Onde a imagem fica em relação ao texto. Sem escolha, cai no `invertido` legado.
+    imagem_posicao?: "direita" | "esquerda" | "acima";
     nome?: string | null;
     itens?: string[];
     // Estilo da lista de itens: bolinha (padrão), número, traço ou sem marcador
@@ -68,6 +71,21 @@ export type SiteBloco = {
     // Compatibilidade: valores antigos gravados com "R$" no texto são exibidos como estão.
     valor?: string | null;
     valor_prefixo?: string | null;
+    // pacote — título em faixa de destaque, com imagem de fundo (mesmo visual do topo/hero)
+    titulo_hero?: boolean;
+    titulo_bg_url?: string | null;
+    titulo_bg_altura?: number;    // altura da faixa em px (padrão 260)
+    titulo_bg_ancora?: AncoraFoto;
+    // pacotes (lado a lado) — cada coluna é um pacote completo
+    pacotes?: {
+      nome: string;
+      itens?: string[];
+      valor?: string | null;
+      valor_prefixo?: string | null;
+      imagem_url?: string | null;
+      destaque?: boolean;         // coluna em evidência (ex.: o pacote mais vendido)
+      etiqueta?: string | null;   // selo acima do nome (ex.: "Mais escolhido")
+    }[];
     // cards
     cards?: { nome: string; foto_url?: string | null; href?: string | null }[];
     // galeria
@@ -92,7 +110,8 @@ export const CATALOGO_BLOCOS: { tipo: TipoBloco; label: string; icone: string }[
   { tipo: "imagem",       label: "Imagem",             icone: "🏞" },
   { tipo: "duas_colunas", label: "Texto + Imagem",     icone: "◫" },
   { tipo: "pacote",       label: "Pacote (orçamento)", icone: "💍" },
-  { tipo: "cards",        label: "Cards com foto",     icone: "▦" },
+  { tipo: "pacotes",      label: "Pacotes lado a lado", icone: "▥" },
+  { tipo: "cards",        label: "Galeria com links",  icone: "▦" },
   { tipo: "galeria",      label: "Galeria de fotos",   icone: "🖽" },
   { tipo: "video",        label: "Vídeo",              icone: "▶" },
   { tipo: "depoimentos",  label: "Depoimentos",        icone: "⭐" },
@@ -129,6 +148,16 @@ export function novoBloco(tipo: TipoBloco): SiteBloco {
   if (tipo === "titulo") base.dados.texto = "Novo título";
   if (tipo === "texto") base.dados.html = "<p>Escreva aqui…</p>";
   if (tipo === "pacote") base.dados = { nome: "Novo pacote", itens: ["Item 1", "Item 2"], valor: "", lista_estilo: "bolinha" };
+  if (tipo === "pacotes") base.dados = {
+    titulo: "Escolha o seu pacote",
+    colunas: 3,
+    lista_estilo: "bolinha",
+    pacotes: [
+      { nome: "Essencial", itens: ["Item 1", "Item 2"], valor: "" },
+      { nome: "Completo", itens: ["Item 1", "Item 2"], valor: "", destaque: true, etiqueta: "Mais escolhido" },
+      { nome: "Premium", itens: ["Item 1", "Item 2"], valor: "" },
+    ],
+  };
   if (tipo === "cards") base.dados.cards = [];
   if (tipo === "galeria") { base.dados.fotos = []; base.dados.colunas = 3; }
   if (tipo === "espaco") base.dados.altura = 40;

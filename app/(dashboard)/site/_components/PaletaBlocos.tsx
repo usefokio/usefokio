@@ -73,6 +73,17 @@ const MINIATURAS: Record<TipoBloco, React.ReactNode> = {
       <Foto />
     </div>
   ),
+  pacotes: (
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6, height: "100%" }}>
+      {[0, 1, 2].map((i) => (
+        <Coluna key={i} gap={4} style={{ border: `${i === 1 ? 2 : 1}px solid ${i === 1 ? TINTA : BORDA}`, borderRadius: 4, padding: 6, justifyContent: "center" }}>
+          <Barra w="70%" h={5} style={{ opacity: 0.55 }} />
+          <Barra w="90%" h={3} /><Barra w="80%" h={3} /><Barra w="85%" h={3} />
+          <Barra w="55%" h={6} style={{ opacity: 0.6, marginTop: 2 }} />
+        </Coluna>
+      ))}
+    </div>
+  ),
   cards: (
     <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6, height: "100%", alignContent: "center" }}>
       {[0, 1, 2].map((i) => (
@@ -137,9 +148,10 @@ const DESCRICOES: Record<TipoBloco, string> = {
   texto: "Um trecho de texto com negrito, links e listas. Use para explicar o serviço, contar sua história ou responder dúvidas.",
   imagem: "Uma foto sozinha. Você escolhe a largura, a proporção e se ela ocupa a página de ponta a ponta.",
   duas_colunas: "Texto de um lado e foto do outro (dá para inverter). Bom para “Sobre o ensaio” ou “Como funciona”.",
-  pacote: "O bloco do orçamento: nome do pacote, lista do que está incluso, valor em destaque e foto ao lado.",
-  cards: "Grade de fotos com nome embaixo, cada uma podendo levar a um link. Bom para listar casais atendidos ou tipos de ensaio.",
-  galeria: "Grade só de fotos, sem texto. Você escolhe quantas colunas — de 1 a 6.",
+  pacote: "UM pacote por vez: nome, lista do que está incluso, valor em destaque e foto (à direita, à esquerda ou acima). O nome pode virar uma faixa com foto de fundo.",
+  pacotes: "Até 4 pacotes lado a lado, para o cliente comparar. Cada coluna tem nome, itens, valor e pode ganhar etiqueta (“Mais escolhido”) e destaque.",
+  cards: "Galeria com links: cada foto tem um nome embaixo e leva para onde você apontar — um trabalho, um post do blog ou qualquer endereço.",
+  galeria: "Grade só de fotos, sem nome e sem link. Você escolhe quantas colunas — de 1 a 6.",
   video: "Um vídeo do YouTube dentro da página. Cole o link e ele aparece no tamanho certo.",
   depoimentos: "Mostra os depoimentos cadastrados em Site → Depoimentos, com um botão para o cliente escrever a avaliação dele.",
   divisor: "Uma linha fina separando duas partes da página. Sem nada para preencher.",
