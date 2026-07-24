@@ -71,14 +71,20 @@ a {
 .lp-pacote-nome { font-family: var(--site-fonte-titulo), Georgia, serif; font-size: 44px; color: var(--site-titulo); margin: 0 0 18px; }
 .lp-pacote-itens { list-style: none; padding: 0; margin: 0 0 22px; display: flex; flex-direction: column; gap: 10px; }
 .lp-pacote-itens li { font-size: 17px; line-height: 1.5; color: var(--site-texto); }
-/* Marcador da lista escolhido no editor (bolinha é o padrão; "nenhum" mantém sem marcador) */
-.lp-pacote-itens.lp-lista-bolinha,
-.lp-pacote-itens.lp-lista-numero { display: block; padding-left: 22px; }
-.lp-pacote-itens.lp-lista-bolinha { list-style: disc; }
-.lp-pacote-itens.lp-lista-numero { list-style: decimal; }
+/* Marcador da lista escolhido no editor (bolinha é o padrão; "nenhum" fica sem marcador).
+   Desenhado com ::before em vez de list-style: a lista é flex (gap entre itens) e marcador
+   nativo não aparece em item flex — o pseudo-elemento funciona nos dois casos. */
 .lp-pacote-itens.lp-lista-bolinha li,
-.lp-pacote-itens.lp-lista-numero li { margin-bottom: 10px; }
-.lp-pacote-itens.lp-lista-traco li::before { content: "– "; }
+.lp-pacote-itens.lp-lista-numero li,
+.lp-pacote-itens.lp-lista-traco li { padding-left: 22px; position: relative; }
+.lp-pacote-itens.lp-lista-bolinha li::before,
+.lp-pacote-itens.lp-lista-numero li::before,
+.lp-pacote-itens.lp-lista-traco li::before { position: absolute; left: 0; top: 0; color: inherit; }
+.lp-pacote-itens.lp-lista-bolinha li::before { content: "•"; }
+.lp-pacote-itens.lp-lista-traco li::before { content: "–"; }
+.lp-pacote-itens.lp-lista-numero { counter-reset: lp-item; }
+.lp-pacote-itens.lp-lista-numero li { counter-increment: lp-item; }
+.lp-pacote-itens.lp-lista-numero li::before { content: counter(lp-item) "."; }
 .lp-valor-label { font-size: 22px; letter-spacing: 0.18em; text-transform: uppercase; color: #8c8c8c; margin: 0 0 4px; font-family: var(--site-fonte-titulo), Georgia, serif; }
 .lp-valor { font-family: var(--site-fonte-titulo), Georgia, serif; font-size: 26px; color: var(--site-titulo); }
 

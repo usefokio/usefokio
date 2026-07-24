@@ -13,6 +13,7 @@ import { normalizarVideoUrl } from "@/lib/utils/youtube";
 import { CATALOGO_BLOCOS, novoBloco, valorExibido, separarValor, type SiteBloco, type TipoBloco } from "@/lib/site/blocos";
 import { mascaraValor } from "@/lib/utils/format";
 import { Seg, Range, campo, PROP_OPTS, ANC_OPTS, mini } from "@/app/(dashboard)/site/_components/ControlesUI";
+import { BotaoEscolherDoSite } from "@/app/(dashboard)/site/_components/SeletorImagemSite";
 import type { ProporcaoCapa, AncoraFoto, BannerAjuste } from "@/lib/site/design";
 
 const inputStyle: React.CSSProperties = {
@@ -86,6 +87,20 @@ export function EditorBlocos({ blocos, onChange, fotografoId, pasta, acaoBloco }
     inputImgRef.current?.click();
   }
 
+  // Grava a URL escolhida no campo certo do bloco — serve tanto ao upload quanto ao "escolher do site".
+  function aplicarImagem(blocoId: string, campo: "imagem_url" | "logo_url" | "url", url: string, cardIdx?: number) {
+    if (cardIdx !== undefined) {
+      aplicar((prev) => prev.map((b) => {
+        if (b.id !== blocoId) return b;
+        const cards = [...(b.dados.cards ?? [])];
+        if (cards[cardIdx]) cards[cardIdx] = { ...cards[cardIdx], foto_url: url };
+        return { ...b, dados: { ...b.dados, cards } };
+      }));
+    } else {
+      mudar(blocoId, { [campo]: url } as Partial<SiteBloco["dados"]>);
+    }
+  }
+
   async function subirImagem(files: FileList | null) {
     const alvo = alvoUpload.current;
     if (!files || files.length === 0 || !alvo) return;
@@ -96,16 +111,7 @@ export function EditorBlocos({ blocos, onChange, fotografoId, pasta, acaoBloco }
       const nome = files[0].name.replace(/\.[a-z0-9]+$/i, "").normalize("NFD").replace(/[^\x20-\x7E]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-") || "img";
       const path = `site/${fotografoId}/${pasta}/${nome}-${crypto.randomUUID().slice(0, 6)}.${ehLogo ? "png" : "jpg"}`;
       const { url_publica } = await uploadFileClient(path, blob);
-      if (alvo.cardIdx !== undefined) {
-        aplicar((prev) => prev.map((b) => {
-          if (b.id !== alvo.blocoId) return b;
-          const cards = [...(b.dados.cards ?? [])];
-          if (cards[alvo.cardIdx!]) cards[alvo.cardIdx!] = { ...cards[alvo.cardIdx!], foto_url: url_publica };
-          return { ...b, dados: { ...b.dados, cards } };
-        }));
-      } else {
-        mudar(alvo.blocoId, { [alvo.campo]: url_publica } as Partial<SiteBloco["dados"]>);
-      }
+      aplicarImagem(alvo.blocoId, alvo.campo, url_publica, alvo.cardIdx);
     } catch (e) {
       setMsg("Erro no upload: " + (e instanceof Error ? e.message : ""));
     }
@@ -140,11 +146,14 @@ export function EditorBlocos({ blocos, onChange, fotografoId, pasta, acaoBloco }
   // componentes o React as remontaria a cada render e os inputs perderiam o foco a cada tecla.
   function btnImagem({ blocoId, campo, urlAtual, rotulo, cardIdx }: { blocoId: string; campo: "imagem_url" | "logo_url" | "url"; urlAtual?: string | null; rotulo: string; cardIdx?: number }) {
     return (
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
         {urlAtual && <img src={urlAtual} alt="" style={{ width: 84, height: 56, objectFit: "cover", borderRadius: 6 }} />}
         <button style={btnPeq} disabled={enviandoImg} onClick={() => pedirUpload(blocoId, campo, cardIdx)}>
           {enviandoImg ? "Enviando…" : (urlAtual ? `Trocar ${rotulo}` : `+ ${rotulo}`)}
         </button>
+        {/* Reaproveita uma imagem que já está no site (banner/trabalho/coleção/blog) — copia p/ a pasta do destino */}
+        <BotaoEscolherDoSite pasta={pasta} rotulo="Do site" estilo={btnPeq}
+          onEscolher={(url) => aplicarImagem(blocoId, campo, url, cardIdx)} />
       </div>
     );
   }
@@ -302,8 +311,12 @@ export function EditorBlocos({ blocos, onChange, fotografoId, pasta, acaoBloco }
                   {c.foto_url && <img src={c.foto_url} alt="" style={{ width: "100%", aspectRatio: "3/2", objectFit: "cover", borderRadius: 6, marginBottom: 6 }} />}
                   <input value={c.nome} onChange={(e) => { const cards = [...(d.cards ?? [])]; cards[i] = { ...cards[i], nome: e.target.value }; mudar(b.id, { cards }); }} style={{ ...inputStyle, marginBottom: 6 }} placeholder="Nome" />
                   <input value={c.href ?? ""} onChange={(e) => { const cards = [...(d.cards ?? [])]; cards[i] = { ...cards[i], href: e.target.value }; mudar(b.id, { cards }); }} style={{ ...inputStyle, fontFamily: "monospace", fontSize: 11, marginBottom: 6 }} placeholder="Link (ex.: /portfolio/…)" />
-                  <div style={{ display: "flex", justifyContent: "space-between" }}>
-                    <button style={btnPeq} disabled={enviandoImg} onClick={() => pedirUpload(b.id, "imagem_url", i)}>Foto</button>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                      <button style={btnPeq} disabled={enviandoImg} onClick={() => pedirUpload(b.id, "imagem_url", i)}>Foto</button>
+                      <BotaoEscolherDoSite pasta={pasta} rotulo="Do site" estilo={btnPeq}
+                        onEscolher={(url) => aplicarImagem(b.id, "imagem_url", url, i)} />
+                    </div>
                     <button style={{ ...btnPeq, color: "#DC2626", borderColor: "#DC2626" }} onClick={() => mudar(b.id, { cards: (d.cards ?? []).filter((_, j) => j !== i) })}>🗑</button>
                   </div>
                 </div>
@@ -331,10 +344,15 @@ export function EditorBlocos({ blocos, onChange, fotografoId, pasta, acaoBloco }
                 </div>
               ))}
             </div>
-            <button style={btnPeq} disabled={!!filaGaleria}
-              onClick={() => { alvoGaleria.current = b.id; inputGaleriaRef.current?.click(); }}>
-              {filaGaleria ? `Enviando ${filaGaleria.feitas}/${filaGaleria.total}…` : "+ Adicionar fotos"}
-            </button>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <button style={btnPeq} disabled={!!filaGaleria}
+                onClick={() => { alvoGaleria.current = b.id; inputGaleriaRef.current?.click(); }}>
+                {filaGaleria ? `Enviando ${filaGaleria.feitas}/${filaGaleria.total}…` : "+ Adicionar fotos"}
+              </button>
+              {/* uma foto por vez, anexada ao fim da galeria */}
+              <BotaoEscolherDoSite pasta={pasta} rotulo="Do site" estilo={btnPeq}
+                onEscolher={(url) => aplicar((prev) => prev.map((x) => x.id === b.id ? { ...x, dados: { ...x.dados, fotos: [...(x.dados.fotos ?? []), url] } } : x))} />
+            </div>
             {opcoesImagem(b, { semAjuste: true })}
           </div>
         );
