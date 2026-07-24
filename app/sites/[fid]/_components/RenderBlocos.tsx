@@ -3,6 +3,7 @@
 import Link from "next/link";
 import type { CSSProperties } from "react";
 import type { SiteBloco } from "@/lib/site/blocos";
+import { ASPECT, OBJECT_POSITION } from "@/lib/site/design";
 import type { SiteDepoimento } from "@/lib/supabase/types";
 import { ContatoForm } from "./ContatoForm";
 
@@ -16,6 +17,17 @@ export type ContextoBlocos = {
 
 function linkInterno(base: string, href: string) {
   return href.startsWith("/") ? `${base}${href}` : href;
+}
+
+// Estilo de imagem a partir das opções do bloco (mesmo vocabulário da Aparência).
+// Sem `proporcao` escolhida, devolve {} — a imagem sai exatamente como saía antes.
+function estiloImagem(d: SiteBloco["dados"]): CSSProperties {
+  if (!d.proporcao) return {};
+  return {
+    aspectRatio: ASPECT[d.proporcao],
+    objectFit: d.ajuste === "manter_proporcao" ? "contain" : "cover",
+    objectPosition: OBJECT_POSITION[d.ancora ?? "centro"],
+  };
 }
 
 function Bloco({ bloco, ctx }: { bloco: SiteBloco; ctx: ContextoBlocos }) {
@@ -37,8 +49,9 @@ function Bloco({ bloco, ctx }: { bloco: SiteBloco; ctx: ContextoBlocos }) {
       );
       if (d.imagem_url) {
         return (
-          <section className="lp-hero">
-            <img className="lp-hero-bg" src={d.imagem_url} alt={d.titulo ?? ""} />
+          <section className="lp-hero" style={d.altura ? { minHeight: d.altura } : undefined}>
+            <img className="lp-hero-bg" src={d.imagem_url} alt={d.titulo ?? ""}
+              style={{ objectPosition: OBJECT_POSITION[d.ancora ?? "centro"] }} />
             <div className="lp-hero-inner">{miolo}</div>
           </section>
         );
@@ -59,12 +72,18 @@ function Bloco({ bloco, ctx }: { bloco: SiteBloco; ctx: ContextoBlocos }) {
         </section>
       ) : null;
 
-    case "imagem":
-      return d.url ? (
-        d.largura_total
-          ? <img className="lp-full-img" src={d.url} alt="" loading="lazy" />
-          : <div className="lp-secao" style={{ paddingTop: 24, paddingBottom: 24 }}><img src={d.url} alt="" style={{ width: `${Math.min(100, Math.max(20, d.largura ?? 100))}%`, height: "auto", display: "block", borderRadius: 4, margin: "0 auto" }} loading="lazy" /></div>
-      ) : null;
+    case "imagem": {
+      if (!d.url) return null;
+      const est = estiloImagem(d);
+      return d.largura_total
+        ? <img className="lp-full-img" src={d.url} alt="" loading="lazy" style={est} />
+        : (
+          <div className="lp-secao" style={{ paddingTop: 24, paddingBottom: 24 }}>
+            <img src={d.url} alt="" loading="lazy"
+              style={{ width: `${Math.min(100, Math.max(20, d.largura ?? 100))}%`, height: d.proporcao ? undefined : "auto", display: "block", borderRadius: 4, margin: "0 auto", ...est }} />
+          </div>
+        );
+    }
 
     case "duas_colunas":
       return (
@@ -73,7 +92,7 @@ function Bloco({ bloco, ctx }: { bloco: SiteBloco; ctx: ContextoBlocos }) {
             {d.titulo && <h2 className="lp-pacote-nome">{d.titulo}</h2>}
             {d.html && <div className="site-conteudo" style={{ fontSize: 16, lineHeight: 1.8 }} dangerouslySetInnerHTML={{ __html: d.html }} />}
           </div>
-          {d.imagem_url && <img className="lp-duas-img" src={d.imagem_url} alt={d.titulo ?? ""} loading="lazy" />}
+          {d.imagem_url && <img className="lp-duas-img" src={d.imagem_url} alt={d.titulo ?? ""} loading="lazy" style={estiloImagem(d)} />}
         </div>
       );
 
@@ -95,11 +114,11 @@ function Bloco({ bloco, ctx }: { bloco: SiteBloco; ctx: ContextoBlocos }) {
       return (d.cards?.length ?? 0) > 0 ? (
         <section className="lp-secao">
           {d.titulo && <h2 className="lp-titulo">{d.titulo}</h2>}
-          <div className="lp-casais">
+          <div className="lp-casais" style={d.colunas ? ({ "--lp-cols": Math.min(6, Math.max(1, d.colunas)) } as CSSProperties) : undefined}>
             {d.cards!.map((c, i) => {
               const conteudo = (
                 <>
-                  {c.foto_url && <img src={c.foto_url} alt={c.nome} loading="lazy" />}
+                  {c.foto_url && <img src={c.foto_url} alt={c.nome} loading="lazy" style={estiloImagem(d)} />}
                   <div className="lp-casal-nome">{c.nome}</div>
                 </>
               );
@@ -115,9 +134,9 @@ function Bloco({ bloco, ctx }: { bloco: SiteBloco; ctx: ContextoBlocos }) {
       return (d.fotos?.length ?? 0) > 0 ? (
         <section className="lp-secao">
           {d.titulo && <h2 className="lp-titulo">{d.titulo}</h2>}
-          <div className="lp-galeria" style={{ "--lp-cols": Math.min(4, Math.max(2, d.colunas ?? 3)) } as CSSProperties}>
+          <div className="lp-galeria" style={{ "--lp-cols": Math.min(6, Math.max(1, d.colunas ?? 3)) } as CSSProperties}>
             {d.fotos!.map((f, i) => (
-              <img key={i} src={f} alt="" loading="lazy" />
+              <img key={i} src={f} alt="" loading="lazy" style={estiloImagem(d)} />
             ))}
           </div>
         </section>
@@ -187,10 +206,33 @@ function Bloco({ bloco, ctx }: { bloco: SiteBloco; ctx: ContextoBlocos }) {
   }
 }
 
+// Envelope de cada bloco: espaçamento e largura configurados no editor.
+// Sem configuração, não gera wrapper nenhum — o bloco sai igual ao que já saía.
+function Envelope({ bloco, children }: { bloco: SiteBloco; children: React.ReactNode }) {
+  const { espaco_antes, espaco_depois, largura_bloco } = bloco.dados;
+  const temEspaco = !!espaco_antes || !!espaco_depois;
+  const pontaAPonta = largura_bloco === "total";
+  if (!temEspaco && !pontaAPonta) return <>{children}</>;
+  return (
+    <div style={{
+      paddingTop: espaco_antes || undefined,
+      paddingBottom: espaco_depois || undefined,
+      // "ponta a ponta": rompe a largura do conteúdo sem quebrar o fluxo da página
+      ...(pontaAPonta ? { width: "100vw", marginLeft: "calc(50% - 50vw)", marginRight: "calc(50% - 50vw)" } : {}),
+    }}>
+      {children}
+    </div>
+  );
+}
+
 export function RenderBlocos({ blocos, ctx }: { blocos: SiteBloco[]; ctx: ContextoBlocos }) {
   return (
     <div>
-      {blocos.map((b) => <Bloco key={b.id} bloco={b} ctx={ctx} />)}
+      {blocos.map((b) => (
+        <Envelope key={b.id} bloco={b}>
+          <Bloco bloco={b} ctx={ctx} />
+        </Envelope>
+      ))}
     </div>
   );
 }

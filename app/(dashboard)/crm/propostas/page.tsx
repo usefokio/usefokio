@@ -84,14 +84,10 @@ export default function PropostasPage() {
     return ordem.filter((n) => porCat.has(n)).map((n) => ({ nome: n, itens: porCat.get(n)! }));
   }, [propostas, categorias, busca]);
 
-  async function novaProposta() {
-    if (!fotografo || ocupado) return;
-    setOcupado(true);
-    const { data, error } = await createClient().from("crm_propostas")
-      .insert({ fotografo_id: fotografo.id, titulo: "Nova proposta" }).select("id").single();
-    setOcupado(false);
-    if (error || !data) { setMsg("Erro ao criar: " + (error?.message ?? "")); return; }
-    router.push(`/crm/propostas/${(data as { id: string }).id}`);
+  // NÃO cria registro aqui: abre o editor em branco (/nova) e só grava no primeiro Salvar,
+  // senão sair sem salvar deixava uma "Nova proposta" solta na lista.
+  function novaProposta() {
+    router.push("/crm/propostas/nova");
   }
 
   async function criarCategoria() {

@@ -59,7 +59,12 @@ function opcaoDoBanco(o: CrmPropostaOpcao): OpcaoLocal {
 }
 
 export default function EditorPropostaPage() {
-  const { id } = useParams<{ id: string }>();
+  const { id: idRota } = useParams<{ id: string }>();
+  // Modo CRIAÇÃO: /crm/propostas/nova abre em branco e só grava no primeiro Salvar
+  // (antes o botão "+ Nova" já inseria, e sair sem salvar deixava proposta solta).
+  const ehNova = idRota === "nova";
+  const [id] = useState(() => (ehNova ? crypto.randomUUID() : idRota)); // id definitivo (pasta de upload + linha)
+  const [criada, setCriada] = useState(!ehNova);
   const { fotografo } = useFotografo();
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
@@ -99,6 +104,18 @@ export default function EditorPropostaPage() {
         s.from("crm_proposta_opcoes").select("*").eq("proposta_id", id).order("ordem").range(from, to), sb),
       sb.from("site_config").select("subdominio, dominio_customizado, publicado").eq("fotografo_id", fotografo.id).maybeSingle(),
     ]);
+    // Proposta nova: nada a carregar (só as categorias e a config do site) — abre em branco.
+    if (ehNova) {
+      setCategorias(cats);
+      setCfgSite((cfg as ConfigUrl) ?? null);
+      setTextoMensagem(TEXTO_MENSAGEM_PADRAO);
+      estado.inicializar(JSON.stringify({
+        titulo: "", categoriaId: "", descricaoHtml: "", validadeDias: "",
+        textoMensagem: TEXTO_MENSAGEM_PADRAO, slug: "", publicado: false, blocos: [], opcoes: [],
+      }));
+      setCarregando(false);
+      return;
+    }
     if (!p) { setNaoEncontrada(true); setCarregando(false); return; }
     const prop = p as CrmProposta;
     setCategorias(cats);
@@ -133,7 +150,7 @@ export default function EditorPropostaPage() {
     setSalvando(true); setMsg(null);
     const sb = createClient();
 
-    const { error: e1 } = await sb.from("crm_propostas").update({
+    const campos = {
       titulo: titulo.trim(),
       categoria_id: categoriaId || null,
       descricao_html: descricaoHtml.trim() || null,
@@ -143,8 +160,16 @@ export default function EditorPropostaPage() {
       publicado: publicado && !!s,
       blocos,
       updated_at: new Date().toISOString(),
-    }).eq("id", id);
+    };
+    // Primeiro Salvar de uma proposta nova = INSERT (id gerado no cliente); depois, UPDATE.
+    const { error: e1 } = criada
+      ? await sb.from("crm_propostas").update(campos).eq("id", id)
+      : await sb.from("crm_propostas").insert({ id, fotografo_id: fotografo.id, ...campos });
     if (e1) { setSalvando(false); setMsg("Erro ao salvar: " + e1.message); return false; }
+    if (!criada) {
+      setCriada(true);
+      window.history.replaceState(null, "", `/crm/propostas/${id}`);
+    }
 
     // Opções: sincroniza a lista inteira (poucas linhas; sem triggers na tabela).
     const { error: eDel } = await sb.from("crm_proposta_opcoes").delete().eq("proposta_id", id);

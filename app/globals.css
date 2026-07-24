@@ -75,7 +75,7 @@ a {
 .lp-valor { font-family: var(--site-fonte-titulo), Georgia, serif; font-size: 26px; color: var(--site-titulo); }
 
 /* Casais — grid 3 → 2 (tablet) → 1 (mobile); imagens em proporção natural, alinhadas pelo topo */
-.lp-casais { display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; align-items: start; }
+.lp-casais { display: grid; grid-template-columns: repeat(var(--lp-cols, 3), 1fr); gap: 28px; align-items: start; }
 .lp-casal { text-decoration: none; color: var(--site-texto); text-align: center; }
 .lp-casal img { width: 100%; height: auto; display: block; border-radius: 4px; }
 .lp-casal-nome { font-family: var(--site-fonte-titulo), Georgia, serif; font-size: 20px; color: var(--site-titulo); margin-top: 12px; }

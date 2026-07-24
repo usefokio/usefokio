@@ -11,6 +11,8 @@ import { FormularioConfigEditor } from "@/app/(dashboard)/site/_components/Formu
 import { normalizarConfig } from "@/lib/site/formulario";
 import { normalizarVideoUrl } from "@/lib/utils/youtube";
 import { CATALOGO_BLOCOS, novoBloco, type SiteBloco, type TipoBloco } from "@/lib/site/blocos";
+import { Seg, Range, campo, PROP_OPTS, ANC_OPTS, mini } from "@/app/(dashboard)/site/_components/ControlesUI";
+import type { ProporcaoCapa, AncoraFoto, BannerAjuste } from "@/lib/site/design";
 
 const inputStyle: React.CSSProperties = {
   width: "100%", padding: "9px 11px", borderRadius: 8, boxSizing: "border-box",
@@ -146,6 +148,48 @@ export function EditorBlocos({ blocos, onChange, fotografoId, pasta, acaoBloco }
     );
   }
 
+  // ── Blocos de opções reaproveitáveis (mesmos controles da Aparência) ──
+
+  // Imagem: proporção + alinhamento do recorte + ajuste. Sem escolha = como sempre foi.
+  function opcoesImagem(b: SiteBloco, opts?: { semAjuste?: boolean }) {
+    const d = b.dados;
+    return (
+      <>
+        {campo("Proporção da imagem",
+          <Seg value={(d.proporcao ?? "original") as ProporcaoCapa | "original"}
+            options={[{ v: "original", l: "Original" }, ...PROP_OPTS] as readonly { v: ProporcaoCapa | "original"; l: string }[]}
+            onChange={(v) => mudar(b.id, { proporcao: v === "original" ? undefined : (v as ProporcaoCapa) })} />)}
+        {d.proporcao && campo("Alinhamento do recorte",
+          <>
+            <Seg value={d.ancora ?? "centro"} options={ANC_OPTS as readonly { v: AncoraFoto; l: string }[]}
+              onChange={(v) => mudar(b.id, { ancora: v })} />
+            <p style={{ ...mini, margin: "4px 0 0" }}>Escolhe qual parte da foto aparece quando ela é cortada.</p>
+          </>)}
+        {d.proporcao && !opts?.semAjuste && campo("Ajuste da imagem",
+          <Seg value={d.ajuste ?? "preencher"}
+            options={[{ v: "preencher", l: "Preencher" }, { v: "manter_proporcao", l: "Manter proporção" }] as readonly { v: BannerAjuste; l: string }[]}
+            onChange={(v) => mudar(b.id, { ajuste: v })} />)}
+      </>
+    );
+  }
+
+  // Espaçamento e largura — valem para QUALQUER bloco.
+  function opcoesEspaco(b: SiteBloco) {
+    const d = b.dados;
+    return (
+      <div style={{ marginTop: 6, paddingTop: 12, borderTop: "1px dashed var(--color-border-tertiary)" }}>
+        <div style={{ ...mini, fontWeight: 700, marginBottom: 10 }}>Espaçamento e largura</div>
+        {campo("Espaço acima", <Range label="Acima" value={d.espaco_antes ?? 0} min={0} max={160} unidade="px"
+          onChange={(v) => mudar(b.id, { espaco_antes: v })} />)}
+        {campo("Espaço abaixo", <Range label="Abaixo" value={d.espaco_depois ?? 0} min={0} max={160} unidade="px"
+          onChange={(v) => mudar(b.id, { espaco_depois: v })} />)}
+        {campo("Largura do bloco", <Seg value={d.largura_bloco ?? "normal"}
+          options={[{ v: "normal", l: "Normal" }, { v: "total", l: "Ponta a ponta" }] as const}
+          onChange={(v) => mudar(b.id, { largura_bloco: v })} />)}
+      </div>
+    );
+  }
+
   function camposDoBloco(b: SiteBloco) {
     const d = b.dados;
     switch (b.tipo) {
@@ -156,6 +200,11 @@ export function EditorBlocos({ blocos, onChange, fotografoId, pasta, acaoBloco }
             <div><label style={labelStyle}>Texto (subtítulo — opcional)</label><textarea value={d.texto ?? ""} onChange={(e) => mudar(b.id, { texto: e.target.value })} rows={2} style={{ ...inputStyle, resize: "vertical" }} /></div>
             <div><label style={labelStyle}>Imagem de fundo</label>{btnImagem({ blocoId: b.id, campo: "imagem_url", urlAtual: d.imagem_url, rotulo: "imagem" })}</div>
             <div><label style={labelStyle}>Logo (sobre a imagem)</label>{btnImagem({ blocoId: b.id, campo: "logo_url", urlAtual: d.logo_url, rotulo: "logo" })}</div>
+            {campo("Altura do topo", <Range label="Altura" value={d.altura ?? 0} min={0} max={720} unidade={d.altura ? "px" : ""}
+              onChange={(v) => mudar(b.id, { altura: v || undefined })} />)}
+            {campo("Alinhamento do recorte",
+              <Seg value={d.ancora ?? "centro"} options={ANC_OPTS as readonly { v: AncoraFoto; l: string }[]}
+                onChange={(v) => mudar(b.id, { ancora: v })} />)}
             <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--color-text-primary)", cursor: "pointer" }}>
               <input type="checkbox" checked={d.com_formulario ?? false} onChange={(e) => mudar(b.id, { com_formulario: e.target.checked })} />
               Incluir formulário de contato sobreposto
@@ -180,12 +229,10 @@ export function EditorBlocos({ blocos, onChange, fotografoId, pasta, acaoBloco }
               <input type="checkbox" checked={d.largura_total ?? false} onChange={(e) => mudar(b.id, { largura_total: e.target.checked })} />
               Largura total da página
             </label>
-            {!d.largura_total && (
-              <div>
-                <label style={labelStyle}>Tamanho da imagem — {d.largura ?? 100}%</label>
-                <input type="range" min={20} max={100} step={5} value={d.largura ?? 100} onChange={(e) => mudar(b.id, { largura: parseInt(e.target.value, 10) })} style={{ width: "100%", accentColor: "#2563EB" }} />
-              </div>
-            )}
+            {!d.largura_total && campo("Tamanho da imagem",
+              <Range label="Largura" value={d.largura ?? 100} min={20} max={100} unidade="%"
+                onChange={(v) => mudar(b.id, { largura: v })} />)}
+            {opcoesImagem(b)}
           </div>
         );
       case "duas_colunas":
@@ -198,6 +245,7 @@ export function EditorBlocos({ blocos, onChange, fotografoId, pasta, acaoBloco }
               <input type="checkbox" checked={d.invertido ?? false} onChange={(e) => mudar(b.id, { invertido: e.target.checked })} />
               Imagem à esquerda (invertido)
             </label>
+            {opcoesImagem(b)}
           </div>
         );
       case "pacote":
@@ -216,6 +264,7 @@ export function EditorBlocos({ blocos, onChange, fotografoId, pasta, acaoBloco }
               <input type="checkbox" checked={d.invertido ?? false} onChange={(e) => mudar(b.id, { invertido: e.target.checked })} />
               Imagem à esquerda (invertido)
             </label>
+            {opcoesImagem(b)}
           </div>
         );
       case "cards":
@@ -236,20 +285,17 @@ export function EditorBlocos({ blocos, onChange, fotografoId, pasta, acaoBloco }
               ))}
             </div>
             <button style={btnPeq} onClick={() => mudar(b.id, { cards: [...(d.cards ?? []), { nome: "Novo card" }] })}>+ Card</button>
+            {campo("Colunas", <Range label="Colunas" value={d.colunas ?? 3} min={1} max={6}
+              onChange={(v) => mudar(b.id, { colunas: v })} />)}
+            {opcoesImagem(b, { semAjuste: true })}
           </div>
         );
       case "galeria":
         return (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 10 }}>
-              <div><label style={labelStyle}>Título da seção (opcional)</label><input value={d.titulo ?? ""} onChange={(e) => mudar(b.id, { titulo: e.target.value })} style={inputStyle} /></div>
-              <div>
-                <label style={labelStyle}>Colunas</label>
-                <select value={d.colunas ?? 3} onChange={(e) => mudar(b.id, { colunas: parseInt(e.target.value, 10) })} style={inputStyle}>
-                  <option value={2}>2</option><option value={3}>3</option><option value={4}>4</option>
-                </select>
-              </div>
-            </div>
+            <div><label style={labelStyle}>Título da seção (opcional)</label><input value={d.titulo ?? ""} onChange={(e) => mudar(b.id, { titulo: e.target.value })} style={inputStyle} /></div>
+            {campo("Colunas", <Range label="Colunas" value={d.colunas ?? 3} min={1} max={6}
+              onChange={(v) => mudar(b.id, { colunas: v })} />)}
             <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.min(4, Math.max(2, d.colunas ?? 3))}, 1fr)`, gap: 8 }}>
               {(d.fotos ?? []).map((f, i) => (
                 <div key={i} style={{ position: "relative" }}>
@@ -264,6 +310,7 @@ export function EditorBlocos({ blocos, onChange, fotografoId, pasta, acaoBloco }
               onClick={() => { alvoGaleria.current = b.id; inputGaleriaRef.current?.click(); }}>
               {filaGaleria ? `Enviando ${filaGaleria.feitas}/${filaGaleria.total}…` : "+ Adicionar fotos"}
             </button>
+            {opcoesImagem(b, { semAjuste: true })}
           </div>
         );
       case "video":
@@ -282,12 +329,9 @@ export function EditorBlocos({ blocos, onChange, fotografoId, pasta, acaoBloco }
           </div>
         );
       case "espaco":
-        return (
-          <div>
-            <label style={labelStyle}>Altura (px)</label>
-            <input type="number" min={0} max={400} value={d.altura ?? 40} onChange={(e) => mudar(b.id, { altura: parseInt(e.target.value || "0", 10) })} style={{ ...inputStyle, width: 120 }} />
-          </div>
-        );
+        return campo("Altura do respiro",
+          <Range label="Altura" value={d.altura ?? 40} min={0} max={400} unidade="px"
+            onChange={(v) => mudar(b.id, { altura: v })} />);
       case "whatsapp":
         return (
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
@@ -369,6 +413,8 @@ export function EditorBlocos({ blocos, onChange, fotografoId, pasta, acaoBloco }
                 <div style={{ padding: "4px 14px 14px", borderTop: "1px solid var(--color-border-tertiary)" }}>
                   <div style={{ paddingTop: 10 }}>
                     {camposDoBloco(b)}
+                    {/* Espaçamento/largura valem para qualquer bloco (o "espaco" já É respiro) */}
+                    {b.tipo !== "espaco" && opcoesEspaco(b)}
                   </div>
                   <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 14 }}>
                     <button style={btnPeq} onClick={() => setAberto(null)}>Fechar</button>

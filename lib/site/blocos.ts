@@ -3,6 +3,7 @@
 // O conteúdo fica em jsonb (site_landing_pages.dados.blocos) — sem migração de schema.
 import type { SiteLandingDados } from "@/lib/supabase/types";
 import type { ConfigFormulario } from "@/lib/site/formulario";
+import type { ProporcaoCapa, AncoraFoto, BannerAjuste } from "@/lib/site/design";
 
 export type TipoBloco =
   | "hero"          // imagem de fundo + logo + título sobrepostos
@@ -32,6 +33,15 @@ export type SiteBloco = {
   id: string;
   tipo: TipoBloco;
   dados: {
+    // ── Opções de IMAGEM e ESPAÇAMENTO (mesmo vocabulário da Aparência — ver lib/site/design.ts).
+    // Todas opcionais: sem elas o bloco renderiza como sempre renderizou (nada muda no que já existe).
+    proporcao?: ProporcaoCapa;   // 16:9, 3:2, 4:3, vertical 2:3, quadrado — força o aspect-ratio
+    ancora?: AncoraFoto;         // que parte da foto aparece quando ela é cortada (object-position)
+    ajuste?: BannerAjuste;       // manter proporção (contain) x preencher (cover)
+    espaco_antes?: number;       // respiro acima do bloco, em px
+    espaco_depois?: number;      // respiro abaixo do bloco, em px
+    largura_bloco?: "normal" | "total"; // normal = largura do site; total = ponta a ponta
+    alinhamento?: "esquerda" | "centro" | "direita"; // alinhamento do conteúdo do bloco
     // hero (texto = subtítulo; com_formulario sobrepõe o formulário à imagem de fundo)
     imagem_url?: string | null;
     logo_url?: string | null;
@@ -56,7 +66,7 @@ export type SiteBloco = {
     colunas?: number; // 2, 3 ou 4
     // depoimentos
     escrever_url?: string | null;
-    // espaco
+    // espaco (respiro) — e também a altura fixa do hero/imagem, em px
     altura?: number;
     // whatsapp
     numero?: string | null;
