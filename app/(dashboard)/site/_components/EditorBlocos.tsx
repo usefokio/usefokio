@@ -285,13 +285,13 @@ export function EditorBlocos({ blocos, onChange, fotografoId, pasta, acaoBloco }
             <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginTop: -4 }}>
               Sai na página como <strong>{valorExibido({ ...d, valor: val.numero, valor_prefixo: val.prefixo }) ?? "—"}</strong>
             </div>
+            {campo("Marcador da lista", <Seg value={d.lista_estilo ?? "bolinha"}
+              options={[{ v: "bolinha", l: "• Bolinha" }, { v: "numero", l: "1. Número" }, { v: "traco", l: "– Traço" }, { v: "nenhum", l: "Sem marcador" }] as const}
+              onChange={(v) => mudar(b.id, { lista_estilo: v })} />)}
             <div>
               <label style={labelStyle}>Itens (um por linha)</label>
               <textarea value={(d.itens ?? []).join("\n")} onChange={(e) => mudar(b.id, { itens: e.target.value.split("\n") })} rows={Math.max(3, (d.itens ?? []).length)} style={{ ...inputStyle, resize: "vertical" }} />
             </div>
-            {campo("Marcador da lista", <Seg value={d.lista_estilo ?? "bolinha"}
-              options={[{ v: "bolinha", l: "• Bolinha" }, { v: "numero", l: "1. Número" }, { v: "traco", l: "– Traço" }, { v: "nenhum", l: "Sem marcador" }] as const}
-              onChange={(v) => mudar(b.id, { lista_estilo: v })} />)}
             {btnImagem({ blocoId: b.id, campo: "imagem_url", urlAtual: d.imagem_url, rotulo: "imagem" })}
             <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--color-text-primary)", cursor: "pointer" }}>
               <input type="checkbox" checked={d.invertido ?? false} onChange={(e) => mudar(b.id, { invertido: e.target.checked })} />
