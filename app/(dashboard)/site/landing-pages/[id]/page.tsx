@@ -14,6 +14,7 @@ import { useWindowWidth } from "@/lib/hooks/useWindowWidth";
 import { dadosParaBlocos, type SiteBloco } from "@/lib/site/blocos";
 import { EditorBlocos } from "@/app/(dashboard)/site/_components/EditorBlocos";
 import { PreviewSite, BarraDispositivo, type Dispositivo } from "@/app/(dashboard)/site/_components/PreviewSite";
+import { Chave } from "@/app/(dashboard)/site/_components/ControlesUI";
 import { RenderBlocos, type ContextoBlocos } from "@/app/sites/[fid]/_components/RenderBlocos";
 import { getTema } from "@/lib/site/temas";
 import { normalizarDesign, DESIGN_PADRAO, type ConfigDesign } from "@/lib/site/design";
@@ -289,11 +290,20 @@ export default function EditorLandingPage({ params }: { params: Promise<{ id: st
         </h1>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           {seloEstado}
-          {/* só existe link público depois que a landing foi salva ao menos uma vez */}
+          {/* Só existe link público depois de salva E publicada — em rascunho a rota pública
+              devolve 404 (ela filtra por publicado), então o botão fica travado em vez de
+              mandar o fotógrafo para uma página de erro. */}
           {fotografo && criada && (
-            <a href={urlPublicaSite(cfgSite, fotografo.id, `/${slugifyUrl(slug)}`)} target="_blank" rel="noopener noreferrer" style={{ ...btnPeq, textDecoration: "none" }}>
-              👁 Ver página
-            </a>
+            publicado && !temAlteracoes ? (
+              <a href={urlPublicaSite(cfgSite, fotografo.id, `/${slugifyUrl(slug)}`)} target="_blank" rel="noopener noreferrer" style={{ ...btnPeq, textDecoration: "none" }}>
+                👁 Ver página
+              </a>
+            ) : (
+              <span title={publicado ? "Salve as alterações para ver a página no ar" : "A página está como rascunho — publique para abrir no navegador"}
+                style={{ ...btnPeq, opacity: 0.5, cursor: "default" }}>
+                👁 Ver página
+              </span>
+            )
           )}
           <button onClick={() => setConfigAberto(true)} title="Configurações da página (SEO, redes sociais, indexação)" style={btnPeq}>
             ⚙ Configurações
@@ -329,6 +339,22 @@ export default function EditorLandingPage({ params }: { params: Promise<{ id: st
           {criada
             ? <button onClick={() => setConfigAberto(true)} style={{ background: "none", border: "none", color: "#2563EB", fontSize: 12, cursor: "pointer", padding: 0 }}>alterar</button>
             : <span style={{ opacity: 0.75 }}>— gerado a partir do nome</span>}
+        </div>
+
+        {/* PUBLICAÇÃO — enquanto está como rascunho o endereço acima devolve 404. A troca só vai
+            ao ar no Salvar explícito (nunca auto-publica ao clicar na chave). */}
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 14, paddingTop: 14, borderTop: "1px solid var(--color-border-tertiary)" }}>
+          <Chave on={publicado} onChange={setPublicado} titulo="Publicar esta página" />
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "var(--color-text-primary)" }}>
+              {publicado ? "Publicada — o endereço acima abre no navegador" : "Rascunho — o endereço acima ainda não abre"}
+            </div>
+            <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginTop: 2 }}>
+              {publicado
+                ? "A página fica acessível por quem tem o link. Ela continua fora do Google enquanto “não indexar” estiver ligado em ⚙ Configurações."
+                : "Ligue a chave e clique em Salvar para colocar a página no ar."}
+            </div>
+          </div>
         </div>
       </div>
 
