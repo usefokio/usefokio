@@ -975,6 +975,49 @@ export type CrmSchedule = {
 export type CrmContractTemplate = { id: string; fotografo_id: string; nome: string; corpo: string; created_at: string; updated_at: string };
 export type CrmContract = { id: string; fotografo_id: string; pedido_id: string; template_id: string | null; nome_template: string | null; corpo_gerado: string | null; arquivo_path?: string | null; arquivo_url?: string | null; arquivo_nome?: string | null; created_at: string };
 
+// ── Banco de Propostas (CRM → Propostas) ─────────────────────────────────────
+// Catálogo do que o fotógrafo oferece, por categoria. Saídas: texto p/ WhatsApp
+// (texto_mensagem com {{VARIAVEIS}}), PDF (/crm-proposta/{id}) e página pública
+// (/proposta/{slug}, motor de blocos).
+export type CrmPropostaCategoria = {
+  id: string;
+  fotografo_id: string;
+  nome: string;
+  ordem: number;
+  ativo: boolean;
+  created_at: string;
+};
+
+export type CrmProposta = {
+  id: string;
+  fotografo_id: string;
+  categoria_id: string | null;
+  titulo: string;
+  descricao_html: string | null;
+  texto_mensagem: string | null;
+  slug: string | null;
+  publicado: boolean;
+  blocos: unknown; // SiteBloco[] (apresentação da página pública)
+  imagem_url: string | null;
+  validade_dias: number | null;
+  ordem: number;
+  ativo: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type CrmPropostaOpcao = {
+  id: string;
+  proposta_id: string;
+  nome: string;
+  itens: string[];
+  valor: number | null;
+  tipo: "pacote" | "adicional";
+  imagem_url: string | null;
+  ordem: number;
+  created_at: string;
+};
+
 // Comunicação webmaster → fotógrafos (listas + disparo de email)
 export type WebmasterEmailList = {
   id: string;

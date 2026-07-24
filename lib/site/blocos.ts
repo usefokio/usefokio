@@ -25,6 +25,7 @@ export type TipoBloco =
 // editor de menu (bloqueia criação) e pela Aparência (esconde páginas inservíveis).
 export const SLUGS_RESERVADOS = new Set([
   "sobre", "contato", "portfolio", "colecoes", "videos", "blog", "post", "galeria", "gallery.php", "sitemap.xml", "robots.txt",
+  "proposta", // páginas públicas do Banco de Propostas (/proposta/{slug})
 ]);
 
 export type SiteBloco = {
