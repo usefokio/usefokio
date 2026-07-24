@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import FormOportunidade from "../_components/FormOportunidade";
 import { ClienteLink } from "@/components/ui/ClienteLink";
+import { formatNum } from "@/lib/utils/format";
 import type { CrmOpportunity, CrmFunnel, CrmFunnelStage, CrmFunnelProgress } from "@/lib/supabase/types";
 
 const CORES_PADRAO: Record<string, { color: string; bg: string }> = {
@@ -416,7 +417,7 @@ export default function OportunidadeDetailPage() {
             status:          opp.status,
             canal_origem:    opp.canal_origem ?? "",
             prioridade:      opp.prioridade,
-            valor_estimado:  opp.valor_estimado != null ? String(opp.valor_estimado) : "",
+            valor_estimado:  opp.valor_estimado != null ? formatNum(opp.valor_estimado) : "",
             data_evento:     opp.data_evento ?? "",
             nome_noiva:      opp.nome_noiva ?? "",
             nome_noivo:      opp.nome_noivo ?? "",

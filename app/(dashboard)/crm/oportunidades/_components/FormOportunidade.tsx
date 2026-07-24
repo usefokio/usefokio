@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
-import { isValidDate } from "@/lib/utils/format";
+import { isValidDate, mascaraValor, parsearValor, formatNum } from "@/lib/utils/format";
 import { Field } from "@/components/ui/Field";
 import { inputStyle } from "@/lib/styles";
 import { ClienteSelect } from "@/components/ui/ClienteSelect";
@@ -175,7 +175,7 @@ export default function FormOportunidade({ inicial, onSalvo }: Props) {
       status:           form.status,
       canal_origem:     form.canal_origem || null,
       prioridade:       form.prioridade,
-      valor_estimado:   form.valor_estimado ? parseFloat(form.valor_estimado.replace(",", ".")) : null,
+      valor_estimado:   form.valor_estimado ? parsearValor(form.valor_estimado) : null,
       data_evento:      form.data_evento || null,
       nome_noiva:       isCasamento ? (form.nome_noiva.trim() || null)       : null,
       nome_noivo:       isCasamento ? (form.nome_noivo.trim() || null)       : null,
@@ -283,7 +283,8 @@ export default function FormOportunidade({ inicial, onSalvo }: Props) {
           <Field label="Valor estimado (R$)">
             <input
               value={form.valor_estimado}
-              onChange={(e) => upd("valor_estimado", e.target.value)}
+              onChange={(e) => upd("valor_estimado", mascaraValor(e.target.value))}
+              inputMode="numeric"
               placeholder="0,00"
               style={inputStyle}
             />
