@@ -14,6 +14,7 @@ import { CATALOGO_BLOCOS, novoBloco, valorExibido, separarValor, type SiteBloco,
 import { mascaraValor } from "@/lib/utils/format";
 import { Seg, Range, campo, PROP_OPTS, ANC_OPTS, mini } from "@/app/(dashboard)/site/_components/ControlesUI";
 import { BotaoEscolherDoSite } from "@/app/(dashboard)/site/_components/SeletorImagemSite";
+import { PaletaBlocos } from "@/app/(dashboard)/site/_components/PaletaBlocos";
 import type { ProporcaoCapa, AncoraFoto, BannerAjuste } from "@/lib/site/design";
 
 const inputStyle: React.CSSProperties = {
@@ -183,6 +184,17 @@ export function EditorBlocos({ blocos, onChange, fotografoId, pasta, acaoBloco }
     );
   }
 
+  // Tamanho do título, em % do que o tema define. O CSS multiplica (--lp-esc-tit), então
+  // as reduções automáticas do celular continuam valendo.
+  function opcaoTitulo(b: SiteBloco) {
+    return campo("Tamanho do título",
+      <>
+        <Range label="Tamanho" value={b.dados.titulo_escala ?? 100} min={60} max={180} unidade="%"
+          onChange={(v) => mudar(b.id, { titulo_escala: v === 100 ? undefined : v })} />
+        <p style={{ ...mini, margin: "4px 0 0" }}>100% = o tamanho padrão do seu tema.</p>
+      </>);
+  }
+
   // Espaçamento e largura — valem para QUALQUER bloco.
   function opcoesEspaco(b: SiteBloco) {
     const d = b.dados;
@@ -207,6 +219,7 @@ export function EditorBlocos({ blocos, onChange, fotografoId, pasta, acaoBloco }
         return (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             <div><label style={labelStyle}>Título</label><input value={d.titulo ?? ""} onChange={(e) => mudar(b.id, { titulo: e.target.value })} style={inputStyle} /></div>
+            {opcaoTitulo(b)}
             <div><label style={labelStyle}>Texto (subtítulo — opcional)</label><textarea value={d.texto ?? ""} onChange={(e) => mudar(b.id, { texto: e.target.value })} rows={2} style={{ ...inputStyle, resize: "vertical" }} /></div>
             <div><label style={labelStyle}>Imagem de fundo</label>{btnImagem({ blocoId: b.id, campo: "imagem_url", urlAtual: d.imagem_url, rotulo: "imagem" })}</div>
             <div><label style={labelStyle}>Logo (sobre a imagem)</label>{btnImagem({ blocoId: b.id, campo: "logo_url", urlAtual: d.logo_url, rotulo: "logo" })}</div>
@@ -228,7 +241,12 @@ export function EditorBlocos({ blocos, onChange, fotografoId, pasta, acaoBloco }
           </div>
         );
       case "titulo":
-        return <div><label style={labelStyle}>Texto do título</label><input value={d.texto ?? ""} onChange={(e) => mudar(b.id, { texto: e.target.value })} style={inputStyle} /></div>;
+        return (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <div><label style={labelStyle}>Texto do título</label><input value={d.texto ?? ""} onChange={(e) => mudar(b.id, { texto: e.target.value })} style={inputStyle} /></div>
+            {opcaoTitulo(b)}
+          </div>
+        );
       case "texto":
         return <SiteRichEditor value={d.html ?? ""} onChange={(html) => mudar(b.id, { html })} minHeight={140} pasta={pasta} />;
       case "imagem":
@@ -249,6 +267,7 @@ export function EditorBlocos({ blocos, onChange, fotografoId, pasta, acaoBloco }
         return (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             <div><label style={labelStyle}>Título</label><input value={d.titulo ?? ""} onChange={(e) => mudar(b.id, { titulo: e.target.value })} style={inputStyle} /></div>
+            {opcaoTitulo(b)}
             <div><label style={labelStyle}>Texto</label><SiteRichEditor value={d.html ?? ""} onChange={(html) => mudar(b.id, { html })} minHeight={120} pasta={pasta} /></div>
             {btnImagem({ blocoId: b.id, campo: "imagem_url", urlAtual: d.imagem_url, rotulo: "imagem" })}
             <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--color-text-primary)", cursor: "pointer" }}>
@@ -264,6 +283,7 @@ export function EditorBlocos({ blocos, onChange, fotografoId, pasta, acaoBloco }
         return (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             <div><label style={labelStyle}>Nome do pacote</label><input value={d.nome ?? ""} onChange={(e) => mudar(b.id, { nome: e.target.value })} style={inputStyle} /></div>
+            {opcaoTitulo(b)}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1.4fr", gap: 10 }}>
               <div>
                 <label style={labelStyle}>Antes do valor (opcional)</label>
@@ -305,6 +325,7 @@ export function EditorBlocos({ blocos, onChange, fotografoId, pasta, acaoBloco }
         return (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             <div><label style={labelStyle}>Título da seção</label><input value={d.titulo ?? ""} onChange={(e) => mudar(b.id, { titulo: e.target.value })} style={inputStyle} /></div>
+            {opcaoTitulo(b)}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 10 }}>
               {(d.cards ?? []).map((c, i) => (
                 <div key={i} style={{ border: "1px solid var(--color-border-secondary)", borderRadius: 8, padding: 10, background: "var(--color-background-primary)" }}>
@@ -332,6 +353,7 @@ export function EditorBlocos({ blocos, onChange, fotografoId, pasta, acaoBloco }
         return (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             <div><label style={labelStyle}>Título da seção (opcional)</label><input value={d.titulo ?? ""} onChange={(e) => mudar(b.id, { titulo: e.target.value })} style={inputStyle} /></div>
+            {opcaoTitulo(b)}
             {campo("Colunas", <Range label="Colunas" value={d.colunas ?? 3} min={1} max={6}
               onChange={(v) => mudar(b.id, { colunas: v })} />)}
             <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.min(4, Math.max(2, d.colunas ?? 3))}, 1fr)`, gap: 8 }}>
@@ -367,6 +389,7 @@ export function EditorBlocos({ blocos, onChange, fotografoId, pasta, acaoBloco }
         return (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             <div><label style={labelStyle}>Título da seção</label><input value={d.titulo ?? ""} onChange={(e) => mudar(b.id, { titulo: e.target.value })} style={inputStyle} /></div>
+            {opcaoTitulo(b)}
             <div><label style={labelStyle}>Link "Escrever avaliação" (opcional)</label><input value={d.escrever_url ?? ""} onChange={(e) => mudar(b.id, { escrever_url: e.target.value })} style={{ ...inputStyle, fontFamily: "monospace", fontSize: 11 }} /></div>
             <div style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>Os depoimentos exibidos são os cadastrados em Site → Depoimentos.</div>
           </div>
@@ -386,6 +409,7 @@ export function EditorBlocos({ blocos, onChange, fotografoId, pasta, acaoBloco }
         return (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             <div><label style={labelStyle}>Título da seção</label><input value={d.titulo ?? ""} onChange={(e) => mudar(b.id, { titulo: e.target.value })} style={inputStyle} placeholder="Fale comigo" /></div>
+            {opcaoTitulo(b)}
             <FormularioConfigEditor value={normalizarConfig(d.formulario)} onChange={(f) => mudar(b.id, { formulario: f })} />
             <div style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>Os envios aparecem em <strong>Site → Inbox</strong>.</div>
           </div>
@@ -470,22 +494,14 @@ export function EditorBlocos({ blocos, onChange, fotografoId, pasta, acaoBloco }
         })}
       </div>
 
-      {/* Paleta de novos blocos */}
+      {/* Paleta de novos blocos — popup com miniatura e explicação de cada bloco */}
       <div style={{ marginTop: 12 }}>
-        {!paleta ? (
-          <button style={{ ...btnPeq, width: "100%", padding: "11px" }} onClick={() => setPaleta(true)}>+ Adicionar bloco</button>
-        ) : (
-          <div style={{ border: "1px dashed var(--color-border-secondary)", borderRadius: 10, padding: 12 }}>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 8 }}>
-              {CATALOGO_BLOCOS.map((c) => (
-                <button key={c.tipo} style={{ ...btnPeq, textAlign: "left" }}
-                  onClick={() => { const nb = novoBloco(c.tipo); aplicar((prev) => [...prev, nb]); setAberto(nb.id); setPaleta(false); }}>
-                  {c.icone} {c.label}
-                </button>
-              ))}
-            </div>
-            <button style={{ ...btnPeq, marginTop: 8, border: "none", color: "var(--color-text-secondary)" }} onClick={() => setPaleta(false)}>Cancelar</button>
-          </div>
+        <button style={{ ...btnPeq, width: "100%", padding: "11px" }} onClick={() => setPaleta(true)}>+ Adicionar bloco</button>
+        {paleta && (
+          <PaletaBlocos
+            onFechar={() => setPaleta(false)}
+            onEscolher={(tipo) => { const nb = novoBloco(tipo); aplicar((prev) => [...prev, nb]); setAberto(nb.id); setPaleta(false); }}
+          />
         )}
       </div>
 

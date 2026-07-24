@@ -35,15 +35,24 @@ function estiloImagem(d: SiteBloco["dados"]): CSSProperties {
   };
 }
 
+// Tamanho do título: multiplicador em cima do que o tema define (--lp-esc-tit no CSS).
+// Como é multiplicador, as reduções de mobile das media queries continuam valendo.
+function estiloTitulo(d: SiteBloco["dados"]): CSSProperties | undefined {
+  const e = d.titulo_escala;
+  if (!e || e === 100) return undefined;
+  return { "--lp-esc-tit": e / 100 } as CSSProperties;
+}
+
 function Bloco({ bloco, ctx }: { bloco: SiteBloco; ctx: ContextoBlocos }) {
   const d = bloco.dados;
+  const estTit = estiloTitulo(d);
   switch (bloco.tipo) {
     case "hero": {
       // Miolo do hero: logo + título + texto (subtítulo) + formulário sobreposto (opcional).
       const miolo = (
         <>
           {d.logo_url && <img className="lp-logo" src={d.logo_url} alt="" />}
-          {d.titulo && <h1>{d.titulo}</h1>}
+          {d.titulo && <h1 style={estTit}>{d.titulo}</h1>}
           {d.texto && <p className="lp-hero-texto">{d.texto}</p>}
           {d.com_formulario && (
             <div className="lp-hero-form">
@@ -64,11 +73,11 @@ function Bloco({ bloco, ctx }: { bloco: SiteBloco; ctx: ContextoBlocos }) {
       if (d.com_formulario || d.texto) {
         return <section className="lp-secao lp-hero-solto" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 22, textAlign: "center" }}>{miolo}</section>;
       }
-      return d.titulo ? <h1 className="lp-titulo" style={{ marginTop: 60 }}>{d.titulo}</h1> : null;
+      return d.titulo ? <h1 className="lp-titulo" style={{ ...estTit, marginTop: 60 }}>{d.titulo}</h1> : null;
     }
 
     case "titulo":
-      return d.texto ? <h2 className="lp-titulo" style={{ paddingTop: 40 }}>{d.texto}</h2> : null;
+      return d.texto ? <h2 className="lp-titulo" style={{ ...estTit, paddingTop: 40 }}>{d.texto}</h2> : null;
 
     case "texto":
       return d.html ? (
@@ -95,7 +104,7 @@ function Bloco({ bloco, ctx }: { bloco: SiteBloco; ctx: ContextoBlocos }) {
       return (
         <div className={`lp-duas${d.invertido ? " invertido" : ""}`}>
           <div className="lp-duas-txt">
-            {d.titulo && <h2 className="lp-pacote-nome">{d.titulo}</h2>}
+            {d.titulo && <h2 className="lp-pacote-nome" style={estTit}>{d.titulo}</h2>}
             {d.html && <div className="site-conteudo" style={{ fontSize: 16, lineHeight: 1.8 }} dangerouslySetInnerHTML={{ __html: d.html }} />}
           </div>
           {d.imagem_url && <img className="lp-duas-img" src={d.imagem_url} alt={d.titulo ?? ""} loading="lazy" style={estiloImagem(d)} />}
@@ -111,7 +120,7 @@ function Bloco({ bloco, ctx }: { bloco: SiteBloco; ctx: ContextoBlocos }) {
       return (
         <div className={`lp-duas${d.invertido ? " invertido" : ""}`}>
           <div className="lp-duas-txt">
-            {d.nome && <h2 className="lp-pacote-nome">{d.nome}</h2>}
+            {d.nome && <h2 className="lp-pacote-nome" style={estTit}>{d.nome}</h2>}
             {itens.length > 0 && (
               <Lista className={`lp-pacote-itens lp-lista-${estilo}`}>
                 {itens.map((it, j) => <li key={j}>{it}</li>)}
@@ -127,7 +136,7 @@ function Bloco({ bloco, ctx }: { bloco: SiteBloco; ctx: ContextoBlocos }) {
     case "cards":
       return (d.cards?.length ?? 0) > 0 ? (
         <section className="lp-secao">
-          {d.titulo && <h2 className="lp-titulo">{d.titulo}</h2>}
+          {d.titulo && <h2 className="lp-titulo" style={estTit}>{d.titulo}</h2>}
           <div className="lp-casais" style={d.colunas ? ({ "--lp-cols": Math.min(6, Math.max(1, d.colunas)) } as CSSProperties) : undefined}>
             {d.cards!.map((c, i) => {
               const conteudo = (
@@ -147,7 +156,7 @@ function Bloco({ bloco, ctx }: { bloco: SiteBloco; ctx: ContextoBlocos }) {
     case "galeria":
       return (d.fotos?.length ?? 0) > 0 ? (
         <section className="lp-secao">
-          {d.titulo && <h2 className="lp-titulo">{d.titulo}</h2>}
+          {d.titulo && <h2 className="lp-titulo" style={estTit}>{d.titulo}</h2>}
           <div className="lp-galeria" style={{ "--lp-cols": Math.min(6, Math.max(1, d.colunas ?? 3)) } as CSSProperties}>
             {d.fotos!.map((f, i) => (
               <img key={i} src={f} alt="" loading="lazy" style={estiloImagem(d)} />
@@ -166,7 +175,7 @@ function Bloco({ bloco, ctx }: { bloco: SiteBloco; ctx: ContextoBlocos }) {
     case "depoimentos":
       return ctx.depoimentos.length > 0 || d.escrever_url ? (
         <section className="lp-secao" style={{ textAlign: "center" }}>
-          {d.titulo && <h2 className="lp-titulo">{d.titulo}</h2>}
+          {d.titulo && <h2 className="lp-titulo" style={estTit}>{d.titulo}</h2>}
           {ctx.depoimentos.length > 0 && (
             <div className="lp-reviews">
               {ctx.depoimentos.map((dep) => (
@@ -210,7 +219,7 @@ function Bloco({ bloco, ctx }: { bloco: SiteBloco; ctx: ContextoBlocos }) {
     case "formulario":
       return (
         <section className="lp-secao" style={{ maxWidth: 680 }}>
-          {d.titulo && <h2 className="lp-titulo">{d.titulo}</h2>}
+          {d.titulo && <h2 className="lp-titulo" style={estTit}>{d.titulo}</h2>}
           <ContatoForm fid={ctx.fid} config={d.formulario} categorias={ctx.categorias ?? []} />
         </section>
       );

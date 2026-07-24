@@ -51,7 +51,7 @@ a {
 .lp-hero::after { content: ""; position: absolute; inset: 0; background: rgba(44, 55, 44, 0.62); }
 .lp-hero-inner { position: relative; z-index: 1; text-align: center; padding: 40px 24px; display: flex; flex-direction: column; align-items: center; gap: 22px; }
 .lp-hero-inner img.lp-logo { height: 120px; width: auto; max-width: 80vw; }
-.lp-hero-inner h1 { color: #fff; font-family: var(--site-fonte-titulo), Georgia, serif; font-size: 50px; font-weight: 700; line-height: 1.15; margin: 0; }
+.lp-hero-inner h1 { color: #fff; font-family: var(--site-fonte-titulo), Georgia, serif; font-size: calc(50px * var(--lp-esc-tit, 1)); font-weight: 700; line-height: 1.15; margin: 0; }
 /* Texto e formulário SOBREPOSTOS ao hero (layout "banner de fundo" de Contato/Sobre).
    Sobre a foto (dentro de .lp-hero-inner) o texto é claro; sem foto, cor neutra do tema. */
 .lp-hero-texto { color: var(--site-suave); font-size: 17px; line-height: 1.7; max-width: 640px; margin: 0; }
@@ -61,14 +61,14 @@ a {
 .lp-hero-solto h1 { font-family: var(--site-fonte-titulo), Georgia, serif; font-size: 40px; color: var(--site-titulo); margin: 0; line-height: 1.2; }
 
 .lp-secao { max-width: 1120px; margin: 0 auto; padding: 60px 24px; }
-.lp-titulo { font-family: var(--site-fonte-titulo), Georgia, serif; text-align: center; font-size: 40px; color: var(--site-titulo); margin: 0 0 32px; }
+.lp-titulo { font-family: var(--site-fonte-titulo), Georgia, serif; text-align: center; font-size: calc(40px * var(--lp-esc-tit, 1)); color: var(--site-titulo); margin: 0 0 32px; }
 
 /* Pacotes / álbuns — 2 colunas (texto + imagem) que empilham no mobile */
 .lp-duas { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: center; max-width: 1120px; margin: 0 auto; padding: 48px 24px; }
 .lp-duas.invertido .lp-duas-txt { order: 2; }
 /* Imagem em proporção natural (como no Alboom, cada imagem tem a sua) — nunca corta */
 .lp-duas-img { width: 100%; height: auto; display: block; border-radius: 4px; }
-.lp-pacote-nome { font-family: var(--site-fonte-titulo), Georgia, serif; font-size: 44px; color: var(--site-titulo); margin: 0 0 18px; }
+.lp-pacote-nome { font-family: var(--site-fonte-titulo), Georgia, serif; font-size: calc(44px * var(--lp-esc-tit, 1)); color: var(--site-titulo); margin: 0 0 18px; }
 .lp-pacote-itens { list-style: none; padding: 0; margin: 0 0 22px; display: flex; flex-direction: column; gap: 10px; }
 .lp-pacote-itens li { font-size: 17px; line-height: 1.5; color: var(--site-texto); }
 /* Marcador da lista escolhido no editor (bolinha é o padrão; "nenhum" fica sem marcador).
@@ -130,15 +130,15 @@ a {
   .lp-secao { padding: 44px 20px; }
   .lp-hero { min-height: 62vh; }
   .lp-hero-inner img.lp-logo { height: 84px; }
-  .lp-hero-inner h1 { font-size: 30px; }
-  .lp-pacote-nome { font-size: 30px; }
-  .lp-titulo { font-size: 28px; }
+  .lp-hero-inner h1 { font-size: calc(30px * var(--lp-esc-tit, 1)); }
+  .lp-pacote-nome { font-size: calc(30px * var(--lp-esc-tit, 1)); }
+  .lp-titulo { font-size: calc(28px * var(--lp-esc-tit, 1)); }
   .lp-pacote-itens li { font-size: 15px; }
 }
 @media (max-width: 560px) {
   .lp-casais { grid-template-columns: 1fr; }
   .lp-reviews { grid-template-columns: 1fr; }
-  .lp-hero-inner h1 { font-size: 26px; }
+  .lp-hero-inner h1 { font-size: calc(26px * var(--lp-esc-tit, 1)); }
 }
 
 /* Curtir foto no trabalho — coração central que aparece no hover (desktop) e sempre no toque (mobile) */

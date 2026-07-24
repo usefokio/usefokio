@@ -42,6 +42,9 @@ export type SiteBloco = {
     espaco_depois?: number;      // respiro abaixo do bloco, em px
     largura_bloco?: "normal" | "total"; // normal = largura do site; total = ponta a ponta
     alinhamento?: "esquerda" | "centro" | "direita"; // alinhamento do conteúdo do bloco
+    // Tamanho do título do bloco em % do padrão do tema (100 = como o tema define).
+    // Vira o multiplicador --lp-esc-tit, então as reduções de mobile continuam valendo.
+    titulo_escala?: number;
     // hero (texto = subtítulo; com_formulario sobrepõe o formulário à imagem de fundo)
     imagem_url?: string | null;
     logo_url?: string | null;
