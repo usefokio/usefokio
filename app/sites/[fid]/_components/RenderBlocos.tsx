@@ -44,6 +44,7 @@ function estiloTitulo(d: SiteBloco["dados"]): CSSProperties | undefined {
 }
 
 // Lista de itens de um pacote, com o marcador escolhido no editor (número usa <ol>).
+// Fallback dos pacotes ANTIGOS (uma frase por linha) — os novos usam texto rico.
 function ListaItens({ itens, estilo }: { itens?: string[]; estilo: NonNullable<SiteBloco["dados"]["lista_estilo"]> }) {
   const limpos = (itens ?? []).filter(Boolean);
   if (limpos.length === 0) return null;
@@ -53,6 +54,15 @@ function ListaItens({ itens, estilo }: { itens?: string[]; estilo: NonNullable<S
       {limpos.map((it, j) => <li key={j}>{it}</li>)}
     </Lista>
   );
+}
+
+// Itens do pacote: prefere o TEXTO RICO (HTML) do editor; sem ele, cai na lista antiga.
+function ItensPacote({ html, itens, estilo }: { html?: string | null; itens?: string[]; estilo: NonNullable<SiteBloco["dados"]["lista_estilo"]> }) {
+  const rico = (html ?? "").trim();
+  if (rico && rico !== "<p></p>") {
+    return <div className="site-conteudo lp-itens-rico" dangerouslySetInnerHTML={{ __html: rico }} />;
+  }
+  return <ListaItens itens={itens} estilo={estilo} />;
 }
 
 // Classe de posição da imagem nos blocos de 2 colunas. Sem escolha explícita, cai no
@@ -152,7 +162,7 @@ function Bloco({ bloco, ctx }: { bloco: SiteBloco; ctx: ContextoBlocos }) {
           <div className={classeDuas(d)}>
             <div className="lp-duas-txt">
               {!faixa && d.nome && <h2 className="lp-pacote-nome" style={estTit}>{d.nome}</h2>}
-              <ListaItens itens={d.itens} estilo={estilo} />
+              <ItensPacote html={d.itens_html} itens={d.itens} estilo={estilo} />
               {valor && (<><div className="lp-valor-label">Valor</div><div className="lp-valor">{valor}</div></>)}
             </div>
             {d.imagem_url && <img className="lp-duas-img" src={d.imagem_url} alt={d.nome ?? ""} loading="lazy" style={estiloImagem(d)} />}
@@ -162,7 +172,7 @@ function Bloco({ bloco, ctx }: { bloco: SiteBloco; ctx: ContextoBlocos }) {
     }
 
     case "pacotes": {
-      const lista = (d.pacotes ?? []).filter((p) => p.nome || (p.itens?.length ?? 0) > 0);
+      const lista = (d.pacotes ?? []).filter((p) => p.nome || (p.itens_html ?? "").trim() || (p.itens?.length ?? 0) > 0);
       if (lista.length === 0) return null;
       const estilo = d.lista_estilo ?? "bolinha";
       return (
@@ -173,10 +183,11 @@ function Bloco({ bloco, ctx }: { bloco: SiteBloco; ctx: ContextoBlocos }) {
               const valor = valorExibido({ valor: p.valor, valor_prefixo: p.valor_prefixo });
               return (
                 <div key={i} className={`lp-plano${p.destaque ? " destaque" : ""}`}>
-                  {p.etiqueta && <span className="lp-plano-etiqueta">{p.etiqueta}</span>}
+                  {/* a etiqueta é o selo da coluna em destaque — sem destaque, não aparece */}
+                  {p.destaque && p.etiqueta && <span className="lp-plano-etiqueta">{p.etiqueta}</span>}
                   {p.imagem_url && <img className="lp-plano-img" src={p.imagem_url} alt={p.nome} loading="lazy" style={estiloImagem(d)} />}
                   {p.nome && <h3 className="lp-plano-nome" style={estTit}>{p.nome}</h3>}
-                  <ListaItens itens={p.itens} estilo={estilo} />
+                  <ItensPacote html={p.itens_html} itens={p.itens} estilo={estilo} />
                   {valor && (<><div className="lp-valor-label">Valor</div><div className="lp-valor">{valor}</div></>)}
                 </div>
               );

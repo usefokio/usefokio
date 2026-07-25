@@ -10,7 +10,7 @@ import { SiteRichEditor } from "@/app/(dashboard)/site/_components/SiteRichEdito
 import { FormularioConfigEditor } from "@/app/(dashboard)/site/_components/FormularioConfigEditor";
 import { normalizarConfig } from "@/lib/site/formulario";
 import { normalizarVideoUrl } from "@/lib/utils/youtube";
-import { CATALOGO_BLOCOS, novoBloco, valorExibido, separarValor, type SiteBloco, type TipoBloco } from "@/lib/site/blocos";
+import { CATALOGO_BLOCOS, novoBloco, valorExibido, separarValor, itensParaHtml, type SiteBloco, type TipoBloco } from "@/lib/site/blocos";
 import { mascaraValor } from "@/lib/utils/format";
 import { Seg, Range, campo, linhaChave, PROP_OPTS, ANC_OPTS, mini } from "@/app/(dashboard)/site/_components/ControlesUI";
 import { BotaoEscolherDoSite } from "@/app/(dashboard)/site/_components/SeletorImagemSite";
@@ -333,12 +333,10 @@ export function EditorBlocos({ blocos, onChange, fotografoId, pasta, acaoBloco }
             <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginTop: -4 }}>
               Sai na página como <strong>{valorExibido({ ...d, valor: val.numero, valor_prefixo: val.prefixo }) ?? "—"}</strong>
             </div>
-            {campo("Marcador da lista", <Seg value={d.lista_estilo ?? "bolinha"}
-              options={[{ v: "bolinha", l: "• Bolinha" }, { v: "numero", l: "1. Número" }, { v: "traco", l: "– Traço" }, { v: "nenhum", l: "Sem marcador" }] as const}
-              onChange={(v) => mudar(b.id, { lista_estilo: v })} />)}
             <div>
-              <label style={labelStyle}>Itens (um por linha)</label>
-              <textarea value={(d.itens ?? []).join("\n")} onChange={(e) => mudar(b.id, { itens: e.target.value.split("\n") })} rows={Math.max(3, (d.itens ?? []).length)} style={{ ...inputStyle, resize: "vertical" }} />
+              <label style={labelStyle}>Itens do pacote</label>
+              <SiteRichEditor value={d.itens_html ?? itensParaHtml(d.itens, d.lista_estilo)}
+                onChange={(html) => mudar(b.id, { itens_html: html })} minHeight={120} pasta={pasta} />
             </div>
             {btnImagem({ blocoId: b.id, campo: "imagem_url", urlAtual: d.imagem_url, rotulo: "imagem" })}
             {campo("Posição da imagem", <Seg value={d.imagem_posicao ?? (d.invertido ? "esquerda" : "direita")}
@@ -362,9 +360,6 @@ export function EditorBlocos({ blocos, onChange, fotografoId, pasta, acaoBloco }
             {opcaoTitulo(b)}
             {campo("Colunas", <Range label="Colunas" value={d.colunas ?? 3} min={1} max={4}
               onChange={(v) => mudar(b.id, { colunas: v })} />)}
-            {campo("Marcador da lista", <Seg value={d.lista_estilo ?? "bolinha"}
-              options={[{ v: "bolinha", l: "• Bolinha" }, { v: "numero", l: "1. Número" }, { v: "traco", l: "– Traço" }, { v: "nenhum", l: "Sem marcador" }] as const}
-              onChange={(v) => mudar(b.id, { lista_estilo: v })} />)}
 
             {lista.map((p, i) => {
               // valor legado com "R$" escrito aparece separado nos campos certos
@@ -399,9 +394,9 @@ export function EditorBlocos({ blocos, onChange, fotografoId, pasta, acaoBloco }
                     </div>
                   </div>
                   <div>
-                    <label style={labelStyle}>Itens (um por linha)</label>
-                    <textarea value={(p.itens ?? []).join("\n")} onChange={(e) => mudarPac(i, { itens: e.target.value.split("\n") })}
-                      rows={Math.max(3, (p.itens ?? []).length)} style={{ ...inputStyle, resize: "vertical" }} />
+                    <label style={labelStyle}>Itens do pacote</label>
+                    <SiteRichEditor value={p.itens_html ?? itensParaHtml(p.itens, d.lista_estilo)}
+                      onChange={(html) => mudarPac(i, { itens_html: html })} minHeight={100} pasta={pasta} />
                   </div>
                   <div>
                     <label style={labelStyle}>Foto (opcional)</label>
@@ -415,15 +410,17 @@ export function EditorBlocos({ blocos, onChange, fotografoId, pasta, acaoBloco }
                       {p.imagem_url && <button style={{ ...btnPeq, color: "#DC2626", borderColor: "#DC2626" }} onClick={() => mudarPac(i, { imagem_url: null })}>Remover foto</button>}
                     </div>
                   </div>
-                  <div><label style={labelStyle}>Etiqueta (opcional)</label><input value={p.etiqueta ?? ""} onChange={(e) => mudarPac(i, { etiqueta: e.target.value || null })} style={inputStyle} placeholder="Mais escolhido" /></div>
                   {linhaChave("Coluna em destaque", p.destaque ?? false, (v) => mudarPac(i, { destaque: v }),
-                    "Deixa a borda mais forte, para puxar o olho do cliente para este pacote.")}
+                    "Deixa a borda mais forte e mostra a etiqueta, para puxar o olho do cliente para este pacote.")}
+                  {p.destaque && (
+                    <div><label style={labelStyle}>Etiqueta do destaque</label><input value={p.etiqueta ?? ""} onChange={(e) => mudarPac(i, { etiqueta: e.target.value || null })} style={inputStyle} placeholder="Mais escolhido" /></div>
+                  )}
                 </div>
               );
             })}
 
             <button style={btnPeq} disabled={lista.length >= 4}
-              onClick={() => mudar(b.id, { pacotes: [...lista, { nome: `Pacote ${lista.length + 1}`, itens: ["Item 1"], valor: "" }] })}>
+              onClick={() => mudar(b.id, { pacotes: [...lista, { nome: `Pacote ${lista.length + 1}`, itens_html: "<ul><li>Item 1</li></ul>", valor: "" }] })}>
               + Pacote {lista.length >= 4 && "(máximo de 4)"}
             </button>
             {opcoesImagem(b, { semAjuste: true })}

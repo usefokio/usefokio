@@ -273,7 +273,14 @@ a {
 .site-conteudo h2:first-child, .site-conteudo h3:first-child { margin-top: 0; }
 .site-conteudo p { margin: 0 0 1.1em; }
 .site-conteudo ul, .site-conteudo ol { margin: 0 0 1.1em; padding-left: 1.35em; }
+/* o preflight do Tailwind zera o marcador — restaura bolinha/número no conteúdo rico */
+.site-conteudo ul { list-style: disc; }
+.site-conteudo ol { list-style: decimal; }
 .site-conteudo li { margin-bottom: 0.5em; }
+/* itens do pacote em texto rico: mesmo tamanho/respiro da lista antiga (.lp-pacote-itens) */
+.lp-itens-rico { color: var(--site-texto); font-size: 17px; line-height: 1.5; margin: 0 0 22px; }
+.lp-itens-rico ul, .lp-itens-rico ol { margin: 0 0 10px; }
+.lp-itens-rico li { margin-bottom: 10px; }
 .site-conteudo .post-galeria {
   display: grid;
   grid-template-columns: repeat(3, 1fr);

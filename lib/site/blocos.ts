@@ -63,8 +63,11 @@ export type SiteBloco = {
     // Onde a imagem fica em relação ao texto. Sem escolha, cai no `invertido` legado.
     imagem_posicao?: "direita" | "esquerda" | "acima";
     nome?: string | null;
+    // Itens do pacote em TEXTO RICO (HTML) — listas, negrito etc. É a forma atual.
+    // `itens` (linhas) + `lista_estilo` ficam só como fallback dos pacotes antigos.
+    itens_html?: string | null;
     itens?: string[];
-    // Estilo da lista de itens: bolinha (padrão), número, traço ou sem marcador
+    // Estilo da lista de itens (legado): bolinha (padrão), número, traço ou sem marcador
     lista_estilo?: "bolinha" | "numero" | "traco" | "nenhum";
     // Valor: número mascarado ("510,00"). O "R$" é automático na exibição.
     // `valor_prefixo` guarda o que vem antes do número (ex.: "10x", "a partir de").
@@ -79,7 +82,8 @@ export type SiteBloco = {
     // pacotes (lado a lado) — cada coluna é um pacote completo
     pacotes?: {
       nome: string;
-      itens?: string[];
+      itens_html?: string | null; // itens em texto rico (forma atual)
+      itens?: string[];           // fallback dos pacotes antigos
       valor?: string | null;
       valor_prefixo?: string | null;
       imagem_url?: string | null;
@@ -143,19 +147,33 @@ export function separarValor(v: string | null | undefined): { prefixo: string; n
   return { prefixo: m[1].trim(), numero: m[2].trim() };
 }
 
+// HTML de itens padrão para um pacote novo (o fotógrafo edita no editor rico).
+const ITENS_HTML_PADRAO = "<ul><li>Item 1</li><li>Item 2</li></ul>";
+
+// Converte itens legados (uma frase por linha) em HTML de lista, para semear o editor
+// rico dos pacotes que ainda não têm `itens_html`. Sem perder o marcador escolhido antes.
+function escaparHtml(s: string) {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+export function itensParaHtml(itens?: string[] | null, estilo?: "bolinha" | "numero" | "traco" | "nenhum"): string {
+  const linhas = (itens ?? []).map((s) => (s ?? "").trim()).filter(Boolean);
+  if (linhas.length === 0) return "";
+  const tag = estilo === "numero" ? "ol" : "ul";
+  return `<${tag}>${linhas.map((l) => `<li>${escaparHtml(l)}</li>`).join("")}</${tag}>`;
+}
+
 export function novoBloco(tipo: TipoBloco): SiteBloco {
   const base: SiteBloco = { id: crypto.randomUUID(), tipo, dados: {} };
   if (tipo === "titulo") base.dados.texto = "Novo título";
   if (tipo === "texto") base.dados.html = "<p>Escreva aqui…</p>";
-  if (tipo === "pacote") base.dados = { nome: "Novo pacote", itens: ["Item 1", "Item 2"], valor: "", lista_estilo: "bolinha" };
+  if (tipo === "pacote") base.dados = { nome: "Novo pacote", itens_html: ITENS_HTML_PADRAO, valor: "" };
   if (tipo === "pacotes") base.dados = {
     titulo: "Escolha o seu pacote",
     colunas: 3,
-    lista_estilo: "bolinha",
     pacotes: [
-      { nome: "Essencial", itens: ["Item 1", "Item 2"], valor: "" },
-      { nome: "Completo", itens: ["Item 1", "Item 2"], valor: "", destaque: true, etiqueta: "Mais escolhido" },
-      { nome: "Premium", itens: ["Item 1", "Item 2"], valor: "" },
+      { nome: "Essencial", itens_html: ITENS_HTML_PADRAO, valor: "" },
+      { nome: "Completo", itens_html: ITENS_HTML_PADRAO, valor: "", destaque: true, etiqueta: "Mais escolhido" },
+      { nome: "Premium", itens_html: ITENS_HTML_PADRAO, valor: "" },
     ],
   };
   if (tipo === "cards") base.dados.cards = [];
