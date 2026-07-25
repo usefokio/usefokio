@@ -11,10 +11,10 @@ import { createClient } from "@/lib/supabase/client";
 import { fetchAllRows } from "@/lib/supabase/fetchAll";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { uploadFileClient } from "@/lib/storage/uploadClient";
-import { getTema, temaCssVars, type TemaSite } from "@/lib/site/temas";
+import { getTema } from "@/lib/site/temas";
 import { useEditorEstado, SeloEstado, BotaoSalvarEstado, ModalNaoSalvo } from "@/app/(dashboard)/_components/EditorEstado";
 import {
-  PARES_FONTE, CATEGORIA_LABEL, FONTE_NOME, getPar, normalizarDesign, DESIGN_PADRAO, BLOCO_LABEL,
+  PARES_FONTE, CATEGORIA_LABEL, FONTE_NOME, normalizarDesign, DESIGN_PADRAO, BLOCO_LABEL,
   type ConfigDesign, type BarraConfig, type HeaderConfig, type CategoriaFonte,
   type HomeBloco, type HomeBlocoKey, type BlogLayout, type DepoLayout, type GradeConfig,
 } from "@/lib/site/design";
@@ -24,7 +24,8 @@ import { processarImagemEntrega } from "@/lib/imageResize";
 import { SiteRichEditor } from "@/app/(dashboard)/site/_components/SiteRichEditor";
 import { BotaoEscolherDoSite } from "@/app/(dashboard)/site/_components/SeletorImagemSite";
 import { FormularioConfigEditor } from "@/app/(dashboard)/site/_components/FormularioConfigEditor";
-import { SiteHeader } from "@/app/sites/[fid]/_components/SiteHeader";
+import { PreviewSite, BarraDispositivo } from "@/app/(dashboard)/site/_components/PreviewSite";
+import { Seg, Range, Chave, Card, campo, linhaChave, PROP_OPTS, POS_OPTS, ANC_OPTS, lbl, mini, cardBox, inp } from "@/app/(dashboard)/site/_components/ControlesUI";
 import { HomeBlocos } from "@/app/sites/[fid]/_components/home/HomeBlocos";
 import { PaginaContato, type CanalContato } from "@/app/sites/[fid]/_components/PaginaContato";
 import { PaginaSobre } from "@/app/sites/[fid]/_components/PaginaSobre";
@@ -42,15 +43,8 @@ const PALETA = ["#FFFFFF", "#F8F7F4", "#F1EFEA", "#E8E2D6", "#5E6E5F", "#463F37"
 const HEX_RE = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i;
 const clamp01 = (n: number) => Math.min(1, Math.max(0, n));
 
-const PROP_OPTS = [{ v: "horizontal_16x9", l: "Vídeo 16:9" }, { v: "horizontal_3x2", l: "Horizontal 3:2" }, { v: "horizontal_4x3", l: "Horizontal 4:3" }, { v: "vertical_2x3", l: "Vertical 2:3" }, { v: "quadrado_1x1", l: "Quadrado" }] as const;
-const POS_OPTS = [{ v: "acima", l: "Acima" }, { v: "centro", l: "Sobre a capa" }, { v: "abaixo", l: "Abaixo" }] as const;
-const ANC_OPTS = [{ v: "superior", l: "Superior" }, { v: "centro", l: "Central" }, { v: "inferior", l: "Inferior" }, { v: "esquerda", l: "Esquerda" }, { v: "direita", l: "Direita" }] as const;
 
 // ── Estilos base ──
-const lbl: React.CSSProperties = { fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em" };
-const mini: React.CSSProperties = { fontSize: 12, color: "var(--color-text-secondary)" };
-const cardBox: React.CSSProperties = { border: "1px solid var(--color-border-tertiary)", borderRadius: 12, padding: 16, background: "var(--color-background-primary)", marginBottom: 12 };
-const inp: React.CSSProperties = { width: "100%", padding: "8px 10px", borderRadius: 8, boxSizing: "border-box", border: "1px solid var(--color-border-secondary)", fontSize: 13, background: "var(--color-background-primary)", color: "var(--color-text-primary)" };
 
 // ── Conversões de cor + seletor (matriz saturação/brilho + matiz + hex) ──
 function hsvToHex(h: number, s: number, v: number): string {
@@ -128,120 +122,8 @@ function PaletaCor({ valor, onChange, corTema }: { valor: string | null; onChang
   );
 }
 
-// ── Controles reutilizáveis ──
-function Seg<T extends string>({ value, options, onChange }: { value: T; options: readonly { v: T; l: string }[]; onChange: (v: T) => void }) {
-  return (
-    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-      {options.map((o) => (
-        <button key={o.v} type="button" onClick={() => onChange(o.v)}
-          style={{ padding: "7px 12px", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer", border: value === o.v ? "1.5px solid #2563EB" : "1px solid var(--color-border-tertiary)", background: value === o.v ? "rgba(37,99,235,0.06)" : "transparent", color: value === o.v ? "#2563EB" : "var(--color-text-primary)" }}>
-          {o.l}
-        </button>
-      ))}
-    </div>
-  );
-}
-function Range({ label, value, min, max, unidade, onChange }: { label: string; value: number; min: number; max: number; unidade?: string; onChange: (v: number) => void }) {
-  return (
-    <div>
-      <div style={{ ...mini, marginBottom: 4 }}>{label} <strong>{value}{unidade ?? ""}</strong></div>
-      <input type="range" min={min} max={max} value={value} onChange={(e) => onChange(Number(e.target.value))} style={{ width: "100%", accentColor: "#2563EB" }} />
-    </div>
-  );
-}
-function Chave({ on, onChange, titulo }: { on: boolean; onChange: (v: boolean) => void; titulo?: string }) {
-  return (
-    <button type="button" title={titulo} onClick={(e) => { e.stopPropagation(); onChange(!on); }}
-      style={{ width: 38, height: 22, borderRadius: 11, border: "none", cursor: "pointer", padding: 2, background: on ? "#2563EB" : "var(--color-border-secondary)", display: "flex", justifyContent: on ? "flex-end" : "flex-start", alignItems: "center", transition: "background .15s", flex: "0 0 auto" }}>
-      <span style={{ width: 18, height: 18, borderRadius: "50%", background: "#fff", display: "block" }} />
-    </button>
-  );
-}
 
-// Card minimizável (chevron à esquerda; clicar no cabeçalho alterna; alça/chave param a propagação).
-function Card({ titulo, aberto, onToggle, alca, chave, destaque, rootProps, children }: {
-  titulo: React.ReactNode; aberto: boolean; onToggle: () => void;
-  alca?: React.ReactNode; chave?: React.ReactNode; destaque?: boolean;
-  rootProps?: React.HTMLAttributes<HTMLDivElement> & { draggable?: boolean }; children: React.ReactNode;
-}) {
-  const { style: rootStyle, ...restRoot } = rootProps ?? {};
-  return (
-    <div {...restRoot} style={{ ...cardBox, ...(destaque ? { border: "1px solid #2563EB", boxShadow: "0 0 0 1px #2563EB" } : {}), ...(rootStyle || {}) }}>
-      <div onClick={onToggle} style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", userSelect: "none" }}>
-        <span style={{ fontSize: 12, color: "var(--color-text-secondary)", transition: "transform .15s", transform: aberto ? "none" : "rotate(-90deg)", display: "inline-block" }}>▾</span>
-        {alca}
-        <span style={{ ...lbl, flex: 1 }}>{titulo}</span>
-        {chave}
-      </div>
-      {aberto && <div style={{ marginTop: 14 }}>{children}</div>}
-    </div>
-  );
-}
 
-// ── Prévia ao vivo: renderiza o site real numa largura virtual (dispositivo), escalada p/ caber.
-// O MIOLO é o children (HomeBlocos, RenderBlocos ou grade) — o chassi (header/tema) é o mesmo. ──
-function Preview({ design, menu, nome, logoUrl, disp, tema, children }: {
-  design: ConfigDesign; menu: { id: string; label: string; href: string }[];
-  nome: string; logoUrl: string | null; disp: "pc" | "tablet" | "celular"; tema: TemaSite;
-  children: React.ReactNode;
-}) {
-  const wrapRef = useRef<HTMLDivElement>(null);
-  const innerRef = useRef<HTMLDivElement>(null);
-  const [wrapW, setWrapW] = useState(420);
-  const [innerH, setInnerH] = useState(760);
-  useEffect(() => {
-    const el = wrapRef.current; if (!el) return;
-    const ro = new ResizeObserver(() => setWrapW(el.clientWidth));
-    ro.observe(el); setWrapW(el.clientWidth);
-    return () => ro.disconnect();
-  }, []);
-  useEffect(() => {
-    const el = innerRef.current; if (!el) return;
-    const ro = new ResizeObserver(() => setInnerH(el.scrollHeight));
-    ro.observe(el); setInnerH(el.scrollHeight);
-    return () => ro.disconnect();
-  }, []);
-  const VIRT = disp === "pc" ? 1280 : disp === "tablet" ? 768 : 380;
-  const scale = Math.min(1, wrapW / VIRT);
-  const par = getPar(design.par);
-  const fTitulo = `'${FONTE_NOME[par.titulo]}', Georgia, serif`;
-  const fTexto = `'${FONTE_NOME[par.texto]}', Georgia, serif`;
-  const lateral = design.header.orientacao === "lateral_esquerda";
-  const fundoBarra = (b: BarraConfig, base: string) => `color-mix(in srgb, ${b.cor ?? base} ${b.opacidade}%, transparent)`;
-  const itens = menu.length ? menu : [
-    { id: "1", label: "Histórias", href: "/portfolio" }, { id: "2", label: "Orçamento", href: "/contato" },
-    { id: "3", label: "Sobre", href: "/sobre" }, { id: "4", label: "Blog", href: "/blog" },
-  ];
-  return (
-    <div ref={wrapRef} style={{ borderRadius: 14, overflowX: "hidden", overflowY: "auto", maxHeight: "76vh", border: "1px solid var(--color-border-secondary)", boxShadow: "0 8px 30px rgba(0,0,0,0.1)", background: tema.cores.fundo }}>
-      <div style={{ position: "relative", width: "100%", height: Math.round(innerH * scale) }}>
-        <div ref={innerRef} style={{
-          position: "absolute", top: 0, left: 0, width: VIRT, transform: `scale(${scale})`, transformOrigin: "top left", pointerEvents: "none",
-          ...temaCssVars(tema),
-          ["--site-fonte-titulo" as string]: fTitulo,
-          ["--site-fonte-corpo" as string]: fTexto,
-          // Espelha a var do site real (layout.tsx) para a prévia refletir a largura ao vivo
-          ["--site-largura" as string]: `${design.largura_maxima}px`,
-          ["--site-largura-menu" as string]: `${design.largura_menu}px`,
-          ["--site-espaco-blocos" as string]: `${design.espaco_blocos}px`,
-          background: "var(--site-fundo)", color: "var(--site-texto)", fontFamily: "var(--site-fonte-corpo), Georgia, serif",
-          containerType: "inline-size", // paridade com .site-root: o corpo/menu respondem à largura virtual
-        } as React.CSSProperties}>
-          <div className={`site-corpo${lateral ? " site-corpo-lateral" : ""}`}>
-            <SiteHeader base="#" logoUrl={logoUrl} nome={nome} itens={itens}
-              logoAltura={design.logo_altura} fundo={fundoBarra(design.header, tema.cores.fundo)} padY={design.header.altura}
-              orientacao={design.header.orientacao} logoPos={design.header.logo_pos} corTexto={design.header.cor_texto} largura={design.header.largura} />
-            <div style={lateral ? { flex: 1, minWidth: 0 } : undefined}>
-              <div className="site-main">
-                {children}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 const DADOS_VAZIO: DadosHome = { banners: [], trabalhos: [], destaques: [], videos: [], posts: [], depoimentos: [], selos: [] };
 
@@ -447,18 +329,6 @@ export default function AparenciaPage() {
     ? videosSite.map((v) => ({ id: v.id, video_url: v.video_url, titulo: v.titulo, descricao: v.descricao }))
     : [1, 2, 3].map((n) => ({ id: `ex-${n}`, video_url: "", titulo: `Vídeo ${n}`, descricao: null }));
 
-  const campo = (titulo: string, node: React.ReactNode) => (
-    <div style={{ marginBottom: 14 }}>
-      <div style={{ ...mini, marginBottom: 6, fontWeight: 600 }}>{titulo}</div>
-      {node}
-    </div>
-  );
-  const linhaChave = (label: string, on: boolean, onChange: (v: boolean) => void) => (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "5px 0" }}>
-      <span style={mini}>{label}</span>
-      <Chave on={on} onChange={onChange} />
-    </div>
-  );
 
   // Controles de cada bloco (por chave).
   function camposBloco(b: HomeBloco): React.ReactNode {
@@ -864,12 +734,8 @@ export default function AparenciaPage() {
 
           {/* ── COLUNA DIREITA: preview ao vivo ── */}
           <div className="aparencia-preview-wrap">
-            <div style={{ display: "flex", gap: 6, justifyContent: "center", marginBottom: 10 }}>
-              {([["pc", "🖥 Computador"], ["tablet", "▭ Tablet"], ["celular", "▢ Celular"]] as const).map(([k, l]) => (
-                <button key={k} onClick={() => setDisp(k)} style={{ padding: "6px 12px", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer", border: disp === k ? "1.5px solid #2563EB" : "1px solid var(--color-border-tertiary)", background: disp === k ? "rgba(37,99,235,0.06)" : "transparent", color: disp === k ? "#2563EB" : "var(--color-text-primary)" }}>{l}</button>
-              ))}
-            </div>
-            <Preview design={design} menu={menu} nome={nome} logoUrl={logo} disp={disp} tema={tema}>
+            <BarraDispositivo disp={disp} onChange={setDisp} />
+            <PreviewSite design={design} menu={menu} nome={nome} logoUrl={logo} disp={disp} tema={tema}>
               {pagina === "inicio" && <HomeBlocos blocos={design.blocos} dados={dadosPreview} base="#" />}
               {pagina === "grade:portfolio" && (
                 <div style={{ maxWidth: "var(--site-largura)", margin: "0 auto", padding: "48px 24px" }}>
@@ -895,7 +761,7 @@ export default function AparenciaPage() {
               {pagina === "pg:contato" && cfgContato && (
                 <PaginaContato cfg={cfgContato} titulo={pgContato?.titulo ?? "Solicite seu orçamento"} canais={canaisPreview} fid={fotografo?.id ?? ""} categorias={[]} />
               )}
-            </Preview>
+            </PreviewSite>
             <div style={{ ...mini, marginTop: 8, textAlign: "center" }}>Prévia ao vivo — o site real segue estas escolhas.</div>
           </div>
         </div>

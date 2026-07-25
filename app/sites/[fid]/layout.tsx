@@ -74,16 +74,25 @@ export async function generateMetadata({ params }: { params: Promise<{ fid: stri
   };
 }
 
-// Google Analytics + Facebook Pixel — injetados só quando configurados.
-function ScriptsRastreamento({ analytics, pixel }: { analytics: string | null; pixel: string | null }) {
+// Google Analytics (GA4) + Google Ads + Facebook Pixel — injetados só quando configurados.
+// GA4 e Ads compartilham o gtag.js (basta um ID para carregá-lo). Os EVENTOS de conversão por
+// ação (Lead/Contact) são disparados no cliente por lib/site/tracking.ts; aqui vai só a base + PageView.
+function ScriptsRastreamento({ analytics, pixel, adsId, adsLabel }: { analytics: string | null; pixel: string | null; adsId: string | null; adsLabel: string | null }) {
   const gaId = analytics?.trim().match(/G-[A-Z0-9]+/i)?.[0] ?? null;
   const pixelId = pixel?.trim().match(/\d{6,}/)?.[0] ?? null;
+  const ads = adsId?.trim().match(/AW-[A-Z0-9]+/i)?.[0] ?? null;
+  const gtagId = gaId ?? ads; // basta um ID para carregar o gtag.js
+  const label = adsLabel?.trim() || "";
   return (
     <>
-      {gaId && (
+      {gtagId && (
         <>
-          <script async src={`https://www.googletagmanager.com/gtag/js?id=${gaId}`} />
-          <script dangerouslySetInnerHTML={{ __html: `window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','${gaId}');` }} />
+          <script async src={`https://www.googletagmanager.com/gtag/js?id=${gtagId}`} />
+          <script dangerouslySetInnerHTML={{ __html:
+            `window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());`
+            + (gaId ? `gtag('config','${gaId}');` : "")
+            + (ads ? `gtag('config','${ads}');window.__adsConversao=${JSON.stringify(label ? `${ads};${label}` : ads)};` : "")
+          }} />
         </>
       )}
       {pixelId && (
@@ -162,7 +171,7 @@ export default async function SitePublicoLayout({ children, params }: { children
       } as React.CSSProperties}
     >
       <ProtecaoImagem />
-      <ScriptsRastreamento analytics={config?.analytics_head ?? null} pixel={config?.facebook_pixel ?? null} />
+      <ScriptsRastreamento analytics={config?.analytics_head ?? null} pixel={config?.facebook_pixel ?? null} adsId={config?.google_ads_id ?? null} adsLabel={config?.google_ads_label ?? null} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       {/* Corpo: em orientação lateral vira linha (menu à esquerda); no mobile o CSS

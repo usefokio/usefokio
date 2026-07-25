@@ -5,6 +5,7 @@
 import { useState } from "react";
 import { mascaraTelefone } from "@/lib/utils/format";
 import { CONFIG_FORM_PADRAO, ORDEM_PADRAO, CAMPO_LABEL, type ConfigFormulario, type CampoPadrao } from "@/lib/site/formulario";
+import { rastrearConversao } from "@/lib/site/tracking";
 
 const inputStyle: React.CSSProperties = {
   width: "100%", padding: "12px 14px", borderRadius: 6, boxSizing: "border-box",
@@ -69,7 +70,7 @@ export function ContatoForm({ fid, config, categorias = [] }: {
         }),
       });
       setStatus(res.ok ? "ok" : "erro");
-      if (res.ok) setValores({});
+      if (res.ok) { setValores({}); rastrearConversao("lead"); }
       else setErroMsg("Não foi possível enviar agora. Tente novamente.");
     } catch {
       setStatus("erro"); setErroMsg("Não foi possível enviar agora. Tente novamente.");

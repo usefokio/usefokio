@@ -1,32 +1,78 @@
 "use client";
 
-// Landing Pages: lista com status e link para o editor.
-import { useEffect, useState } from "react";
+// Landing Pages: lista com status e ações (editar, duplicar, excluir).
+import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import type { SiteLandingPage } from "@/lib/supabase/types";
+
+const btnAcao: React.CSSProperties = {
+  padding: "6px 10px", borderRadius: 8, border: "1px solid var(--color-border-secondary)",
+  background: "var(--color-background-primary)", fontSize: 12, cursor: "pointer",
+  color: "var(--color-text-primary)",
+};
 
 export default function LandingPagesLista() {
   const router = useRouter();
   const { fotografo } = useFotografo();
   const [paginas, setPaginas] = useState<SiteLandingPage[]>([]);
   const [loading, setLoading] = useState(true);
+  const [ocupado, setOcupado] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [excluir, setExcluir] = useState<SiteLandingPage | null>(null);
 
-  useEffect(() => {
+  const carregar = useCallback(async () => {
     if (!fotografo) return;
     const supabase = createClient();
-    supabase.from("site_landing_pages").select("*").eq("fotografo_id", fotografo.id).order("created_at")
-      .then(({ data }) => { setPaginas((data as SiteLandingPage[]) ?? []); setLoading(false); });
+    const { data } = await supabase.from("site_landing_pages").select("*")
+      .eq("fotografo_id", fotografo.id).order("created_at");
+    setPaginas((data as SiteLandingPage[]) ?? []);
+    setLoading(false);
   }, [fotografo]);
 
-  async function criar() {
-    if (!fotografo) return;
-    const supabase = createClient();
-    const { data } = await supabase.from("site_landing_pages")
-      .insert({ fotografo_id: fotografo.id, titulo: "Nova landing page", slug: `landing-${Date.now().toString(36)}`, dados: {} })
-      .select("id").single();
-    if (data) router.push(`/site/landing-pages/${data.id}`);
+  useEffect(() => { carregar(); }, [carregar]);
+
+  // Slug livre: {slug}-copia, -copia-2, -copia-3… (o slug é único por fotógrafo)
+  function slugDeCopia(base: string, usados: Set<string>): string {
+    let s = `${base}-copia`;
+    for (let i = 2; usados.has(s); i++) s = `${base}-copia-${i}`;
+    return s;
+  }
+
+  async function duplicar(p: SiteLandingPage) {
+    if (!fotografo || ocupado) return;
+    setOcupado(true); setMsg(null);
+    const usados = new Set(paginas.map((x) => x.slug));
+    const { data, error } = await createClient().from("site_landing_pages").insert({
+      fotografo_id: fotografo.id,
+      titulo: `${p.titulo} (cópia)`,
+      slug: slugDeCopia(p.slug, usados),
+      publicado: false,           // cópia NUNCA entra no ar sozinha (regra-mãe de SEO)
+      dados: p.dados,
+      seo_title: p.seo_title, seo_description: p.seo_description, seo_keywords: p.seo_keywords,
+      seo_noindex: p.seo_noindex, og_title: p.og_title, og_description: p.og_description,
+      og_image_url: p.og_image_url,
+    }).select("id").single();
+    setOcupado(false);
+    if (error || !data) { setMsg("Erro ao duplicar: " + (error?.message ?? "")); return; }
+    router.push(`/site/landing-pages/${(data as { id: string }).id}`);
+  }
+
+  async function confirmarExcluir() {
+    if (!excluir || ocupado) return;
+    setOcupado(true);
+    const { error } = await createClient().from("site_landing_pages").delete().eq("id", excluir.id);
+    setOcupado(false);
+    if (error) { setMsg("Erro ao excluir: " + error.message); return; }
+    setExcluir(null);
+    carregar();
+  }
+
+  // NÃO cria registro aqui: abrir o editor em branco (/nova) e só gravar no primeiro Salvar.
+  // Antes o clique já inseria "Nova landing page" no banco, e sair sem salvar deixava rascunho solto.
+  function criar() {
+    router.push("/site/landing-pages/nova");
   }
 
   return (
@@ -38,9 +84,12 @@ export default function LandingPagesLista() {
           + Nova landing page
         </button>
       </div>
-      <p style={{ fontSize: 13, color: "var(--color-text-secondary)", margin: "0 0 24px" }}>
-        Páginas de orçamento/venda com URL própria (ex.: /orcamento-casamento). Template estruturado — o editor livre de blocos vem numa fase futura.
+      <p style={{ fontSize: 13, color: "var(--color-text-secondary)", margin: "0 0 16px" }}>
+        Páginas de orçamento/venda com URL própria (ex.: /orcamento-casamento), montadas por blocos com prévia ao vivo.
       </p>
+      {msg && (
+        <div style={{ fontSize: 12, color: "#DC2626", marginBottom: 14, cursor: "pointer" }} onClick={() => setMsg(null)}>{msg} ✕</div>
+      )}
 
       {loading ? (
         <div style={{ padding: 40, textAlign: "center", fontSize: 13, color: "var(--color-text-secondary)" }}>Carregando…</div>
@@ -51,13 +100,18 @@ export default function LandingPagesLista() {
               style={{ border: "1px solid var(--color-border-tertiary)", borderRadius: 10, padding: "13px 16px", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}
               onMouseEnter={(e) => { e.currentTarget.style.background = "var(--color-background-secondary)"; }}
               onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}>
-              <div style={{ minWidth: 0 }}>
+              <div style={{ minWidth: 0, flex: 1 }}>
                 <div style={{ fontSize: 14, fontWeight: 700, color: "var(--color-text-primary)" }}>{p.titulo}</div>
                 <div style={{ fontSize: 11, color: "var(--color-text-secondary)", fontFamily: "monospace" }}>/{p.slug}</div>
               </div>
               <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 10, flexShrink: 0, background: p.publicado ? "rgba(16,185,129,0.12)" : "rgba(245,158,11,0.15)", color: p.publicado ? "#059669" : "#B45309" }}>
                 {p.publicado ? "Publicada" : "Rascunho"}
               </span>
+              <div style={{ display: "flex", gap: 6, flexShrink: 0 }} onClick={(e) => e.stopPropagation()}>
+                <button title="Editar" style={btnAcao} onClick={() => router.push(`/site/landing-pages/${p.id}`)}>✏️</button>
+                <button title="Duplicar" style={btnAcao} disabled={ocupado} onClick={() => duplicar(p)}>⧉</button>
+                <button title="Excluir" style={{ ...btnAcao, color: "#DC2626" }} onClick={() => setExcluir(p)}>🗑</button>
+              </div>
             </div>
           ))}
           {paginas.length === 0 && (
@@ -65,6 +119,27 @@ export default function LandingPagesLista() {
               Nenhuma landing page ainda.
             </div>
           )}
+        </div>
+      )}
+
+      {/* Excluir — modal do sistema (nunca o confirm() do navegador) */}
+      {excluir && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 20 }}
+          onClick={() => setExcluir(null)}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: "var(--color-background-primary)", borderRadius: 14, padding: 24, maxWidth: 420, width: "100%", boxShadow: "0 10px 40px rgba(0,0,0,0.2)" }}>
+            <div style={{ fontSize: 16, fontWeight: 800, color: "#DC2626", marginBottom: 8 }}>🗑 Excluir landing page</div>
+            <p style={{ fontSize: 13, color: "var(--color-text-secondary)", margin: "0 0 20px", lineHeight: 1.6 }}>
+              Excluir <strong style={{ color: "var(--color-text-primary)" }}>{excluir.titulo}</strong>?
+              {excluir.publicado && <><br />Ela está <strong>publicada</strong> — o endereço <code>/{excluir.slug}</code> deixará de existir.</>}
+            </p>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={() => setExcluir(null)} style={{ ...btnAcao, flex: 1, padding: "10px" }}>Cancelar</button>
+              <button onClick={confirmarExcluir} disabled={ocupado}
+                style={{ flex: 1, padding: "10px", borderRadius: 8, border: "none", background: "#DC2626", color: "#fff", fontSize: 13, fontWeight: 700, cursor: ocupado ? "default" : "pointer" }}>
+                {ocupado ? "Excluindo…" : "Excluir"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -32,6 +32,8 @@ export default function SeoPage() {
   const [analytics, setAnalytics] = useState("");
   const [gsv, setGsv] = useState("");
   const [pixel, setPixel] = useState("");
+  const [adsId, setAdsId] = useState("");        // Google Ads conversion ID (AW-...)
+  const [adsLabel, setAdsLabel] = useState("");  // rótulo da conversão
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -42,7 +44,7 @@ export default function SeoPage() {
   const [sugestoes, setSugestoes] = useState<SugestoesSeo | null>(null); // do briefing (template)
 
   // Estado de salvamento claro (regra de sistema)
-  const snapshotAtual = JSON.stringify([tituloSite, seoTitle, seoDesc, keywords, analytics, gsv, pixel, ogImageUrl]);
+  const snapshotAtual = JSON.stringify([tituloSite, seoTitle, seoDesc, keywords, analytics, gsv, pixel, adsId, adsLabel, ogImageUrl]);
   const estado = useEditorEstado(snapshotAtual, "/site");
 
   async function enviarOg(files: FileList | null) {
@@ -78,6 +80,8 @@ export default function SeoPage() {
         setAnalytics(data.analytics_head ?? "");
         setGsv(data.google_site_verification ?? "");
         setPixel(data.facebook_pixel ?? "");
+        setAdsId(data.google_ads_id ?? "");
+        setAdsLabel(data.google_ads_label ?? "");
         setOgImageUrl(data.og_image_url ?? null);
         setPublicado(data.publicado ?? null);
         // Sugestões do briefing (template) — só quando o briefing foi preenchido
@@ -86,7 +90,8 @@ export default function SeoPage() {
       }
       estado.inicializar(JSON.stringify([
         data?.titulo_site ?? "", data?.seo_title ?? "", data?.seo_description ?? "", data?.seo_keywords ?? "",
-        data?.analytics_head ?? "", data?.google_site_verification ?? "", data?.facebook_pixel ?? "", data?.og_image_url ?? null,
+        data?.analytics_head ?? "", data?.google_site_verification ?? "", data?.facebook_pixel ?? "",
+        data?.google_ads_id ?? "", data?.google_ads_label ?? "", data?.og_image_url ?? null,
       ]));
       setCarregando(false);
     });
@@ -106,6 +111,8 @@ export default function SeoPage() {
       analytics_head: analytics.trim() || null,
       google_site_verification: gsv.trim() || null,
       facebook_pixel: pixel.trim() || null,
+      google_ads_id: adsId.trim() || null,
+      google_ads_label: adsLabel.trim() || null,
       og_image_url: ogImageUrl,
       updated_at: new Date().toISOString(),
     }, { onConflict: "fotografo_id" });
@@ -209,8 +216,8 @@ export default function SeoPage() {
         <div style={{ padding: "14px 16px", borderRadius: 12, border: "1px solid var(--color-border-tertiary)", background: "var(--color-background-secondary)", display: "flex", flexDirection: "column", gap: 12 }}>
           <div style={{ fontSize: 12, fontWeight: 700, color: "var(--color-text-primary)" }}>Integrações e verificação</div>
           <div>
-            <label style={labelStyle}>ID do Google Analytics</label>
-            <input value={analytics} onChange={(e) => setAnalytics(e.target.value)} style={{ ...inputStyle, fontFamily: "monospace", fontSize: 12 }} placeholder="G-XXXXXXXXXX (ou o código &lt;script&gt; completo)" />
+            <label style={labelStyle}>ID do Google Analytics (GA4)</label>
+            <input value={analytics} onChange={(e) => setAnalytics(e.target.value)} style={{ ...inputStyle, fontFamily: "monospace", fontSize: 12 }} placeholder="G-XXXXXXXXXX" />
           </div>
           <div>
             <label style={labelStyle}>Código de verificação do Google</label>
@@ -219,6 +226,19 @@ export default function SeoPage() {
           <div>
             <label style={labelStyle}>ID do Facebook Pixel</label>
             <input value={pixel} onChange={(e) => setPixel(e.target.value)} style={{ ...inputStyle, fontFamily: "monospace", fontSize: 12 }} placeholder="ex.: 817018281705038" />
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            <div>
+              <label style={labelStyle}>Google Ads — ID de conversão</label>
+              <input value={adsId} onChange={(e) => setAdsId(e.target.value)} style={{ ...inputStyle, fontFamily: "monospace", fontSize: 12 }} placeholder="AW-1234567890" />
+            </div>
+            <div>
+              <label style={labelStyle}>Google Ads — rótulo da conversão</label>
+              <input value={adsLabel} onChange={(e) => setAdsLabel(e.target.value)} style={{ ...inputStyle, fontFamily: "monospace", fontSize: 12 }} placeholder="AbCdEfGh12345" />
+            </div>
+          </div>
+          <div style={{ fontSize: 11, color: "var(--color-text-secondary)" }}>
+            Com Pixel/Analytics configurados, o site registra automaticamente <strong>cliques no WhatsApp e nos botões (CTA)</strong> e <strong>envios de formulário</strong> como conversão. O Google Ads (ID + rótulo) é opcional — só se você usar conversão direta no Ads.
           </div>
         </div>
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, alignItems: "center" }}>

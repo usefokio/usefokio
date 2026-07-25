@@ -149,6 +149,18 @@ const CRM_ITEMS = [
     ),
   },
   {
+    href: "/crm/propostas",
+    label: "Propostas",
+    icon: (
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+        <rect x="2.5" y="1.5" width="11" height="13" rx="1.5" stroke="currentColor" strokeWidth="1.3" fill="none" opacity=".8" />
+        <path d="M5 5h6M5 8h6" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" opacity=".6" />
+        <path d="M5 11h3.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" opacity=".4" />
+        <circle cx="11.5" cy="11.5" r="1.3" fill="currentColor" opacity=".5" />
+      </svg>
+    ),
+  },
+  {
     href: "/crm/pedidos",
     label: "Pedidos",
     icon: (
