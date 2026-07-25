@@ -1,4 +1,5 @@
 import { uploadFile } from "@/lib/storage/upload";
+import { R2_PUBLIC_URL, R2_SITE_PUBLIC_URL } from "@/lib/storage/r2";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { limiteEfetivoMax } from "@/lib/planos";
@@ -12,7 +13,11 @@ export const maxDuration = 60;
 // no CDN público do Alboom) — sem risco de alcançar rede interna.
 function hostsPermitidos(): Set<string> {
   const hosts = new Set<string>(["cdn.alboompro.com"]);
-  for (const u of [process.env.R2_SITE_PUBLIC_URL, process.env.R2_PUBLIC_URL, process.env.NEXT_PUBLIC_SUPABASE_URL]) {
+  // Usa as MESMAS constantes normalizadas do resto do sistema (lib/storage/r2.ts, que lê
+  // NEXT_PUBLIC_R2_*). Ler process.env.R2_*_PUBLIC_URL cru aqui dava undefined em produção
+  // (nomes diferentes) → o host do site nunca entrava na allowlist e "Escolher do site" caía
+  // em "origem não permitida".
+  for (const u of [R2_SITE_PUBLIC_URL, R2_PUBLIC_URL, process.env.NEXT_PUBLIC_SUPABASE_URL]) {
     if (u) { try { hosts.add(new URL(u).host); } catch { /* ignora URL malformada de env */ } }
   }
   return hosts;
