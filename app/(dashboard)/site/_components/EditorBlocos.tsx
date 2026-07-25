@@ -64,6 +64,13 @@ export function EditorBlocos({ blocos, onChange, fotografoId, pasta, acaoBloco }
   // Reordenar FOTOS dentro de um bloco galeria (arrastar) — separado do drag de blocos.
   const fotoDrag = useRef<{ blocoId: string; idx: number } | null>(null);
   const [fotoSobre, setFotoSobre] = useState<{ blocoId: string; idx: number } | null>(null);
+  // Recolher cada pacote (coluna) do bloco "pacotes" de forma independente (chave = blocoId#índice).
+  const [pacotesRecolhidos, setPacotesRecolhidos] = useState<Set<string>>(() => new Set());
+  const alternarPacote = (chave: string) => setPacotesRecolhidos((prev) => {
+    const n = new Set(prev);
+    if (n.has(chave)) n.delete(chave); else n.add(chave);
+    return n;
+  });
 
   // Espelho da lista para updates funcionais (uploads em fila são assíncronos — prop ficaria stale).
   const blocosRef = useRef(blocos);
@@ -379,11 +386,18 @@ export function EditorBlocos({ blocos, onChange, fotografoId, pasta, acaoBloco }
             {lista.map((p, i) => {
               // valor legado com "R$" escrito aparece separado nos campos certos
               const val = /r\$/i.test(p.valor ?? "") ? separarValor(p.valor) : { prefixo: p.valor_prefixo ?? "", numero: p.valor ?? "" };
+              const chavePac = `${b.id}#${i}`;
+              const pacRecolhido = pacotesRecolhidos.has(chavePac);
               return (
                 <div key={i} style={{ border: "1px solid var(--color-border-secondary)", borderRadius: 10, padding: 12, display: "flex", flexDirection: "column", gap: 10, background: "var(--color-background-secondary)" }}>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                    <span style={{ ...mini, fontWeight: 700 }}>Pacote {i + 1}</span>
-                    <div style={{ display: "flex", gap: 6 }}>
+                    <button type="button" onClick={() => alternarPacote(chavePac)} title={pacRecolhido ? "Expandir" : "Recolher"}
+                      style={{ display: "flex", alignItems: "center", gap: 6, border: "none", background: "transparent", cursor: "pointer", padding: 0, minWidth: 0, flex: 1, textAlign: "left" }}>
+                      <span style={{ fontSize: 11, color: "var(--color-text-secondary)" }}>{pacRecolhido ? "▶" : "▼"}</span>
+                      <span style={{ ...mini, fontWeight: 700 }}>Pacote {i + 1}</span>
+                      {pacRecolhido && <span style={{ fontSize: 12, color: "var(--color-text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>— {p.nome || "(sem nome)"}</span>}
+                    </button>
+                    <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
                       <button style={btnPeq} disabled={i === 0} title="Mover para a esquerda"
                         onClick={() => { const n = [...lista]; [n[i - 1], n[i]] = [n[i], n[i - 1]]; mudar(b.id, { pacotes: n }); }}>←</button>
                       <button style={btnPeq} disabled={i === lista.length - 1} title="Mover para a direita"
@@ -392,6 +406,7 @@ export function EditorBlocos({ blocos, onChange, fotografoId, pasta, acaoBloco }
                         onClick={() => mudar(b.id, { pacotes: lista.filter((_, j) => j !== i) })}>🗑</button>
                     </div>
                   </div>
+                  {!pacRecolhido && (<>
                   <div><label style={labelStyle}>Nome</label><input value={p.nome} onChange={(e) => mudarPac(i, { nome: e.target.value })} style={inputStyle} /></div>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1.4fr", gap: 10 }}>
                     <div>
@@ -430,6 +445,7 @@ export function EditorBlocos({ blocos, onChange, fotografoId, pasta, acaoBloco }
                   {p.destaque && (
                     <div><label style={labelStyle}>Etiqueta do destaque</label><input value={p.etiqueta ?? ""} onChange={(e) => mudarPac(i, { etiqueta: e.target.value || null })} style={inputStyle} placeholder="Mais escolhido" /></div>
                   )}
+                  </>)}
                 </div>
               );
             })}
