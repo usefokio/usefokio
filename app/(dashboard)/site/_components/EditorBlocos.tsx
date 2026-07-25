@@ -511,7 +511,9 @@ export function EditorBlocos({ blocos, onChange, fotografoId, pasta, acaoBloco }
               {(d.fotos ?? []).map((f, i) => {
                 const alvo = fotoSobre?.blocoId === b.id && fotoSobre.idx === i;
                 return (
-                <div key={i}
+                // key = URL da foto (identidade estável): ao reordenar, o React MOVE o nó
+                // em vez de trocar o src de cada um — sem recarregar imagem (evita o flicker)
+                <div key={f}
                   draggable
                   onDragStart={() => { fotoDrag.current = { blocoId: b.id, idx: i }; }}
                   onDragOver={(e) => { e.preventDefault(); if (fotoDrag.current?.blocoId === b.id && fotoSobre?.idx !== i) setFotoSobre({ blocoId: b.id, idx: i }); }}
