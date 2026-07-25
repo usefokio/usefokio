@@ -48,7 +48,8 @@ export function FormProduto({ produto }: Props) {
   const [codigo,        setCodigo]        = useState(produto?.codigo        ?? "");
   const [descricao,     setDescricao]     = useState(produto?.descricao     ?? "");
   const [tagsInput,     setTagsInput]     = useState(produto?.tags?.join(", ") ?? "");
-  const [pacote,        setPacote]        = useState(produto?.pacote        ?? false);
+  // `pacote` era uma chave sem função — UI removida. Preserva o valor gravado ao salvar.
+  const pacote = produto?.pacote ?? false;
   const [preco,         setPreco]         = useState(produto ? formatNum(produto.preco) : "");
   const [contaVendas,   setContaVendas]   = useState(produto?.conta_vendas_id ?? "");
   const [ativo,         setAtivo]         = useState(produto?.ativo         ?? true);
@@ -305,16 +306,6 @@ export function FormProduto({ produto }: Props) {
             <label style={labelStyle}>TAGS</label>
             <input value={tagsInput} onChange={(e) => setTagsInput(e.target.value)} placeholder="casamento, foto, premium (separadas por vírgula)" style={inputStyle} />
             <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 4 }}>Separe as tags por vírgula</div>
-          </div>
-
-          <div style={{ display: "flex", gap: 20 }}>
-            <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", userSelect: "none" }}>
-              <Toggle value={pacote} onChange={setPacote} />
-              <div>
-                <div style={{ fontSize: 13, color: "var(--color-text-primary)", fontWeight: 500 }}>Pacote</div>
-                <div style={{ fontSize: 11, color: "var(--color-text-secondary)" }}>Este produto é um pacote de serviços</div>
-              </div>
-            </label>
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
