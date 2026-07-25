@@ -74,7 +74,6 @@ export default function ProdutosPage() {
     else if (sortCol === "nome")      { va = a.nome;      vb = b.nome; }
     else if (sortCol === "categoria") { va = a.categoria; vb = b.categoria; }
     else if (sortCol === "preco")     { va = a.preco;     vb = b.preco; }
-    else if (sortCol === "pacote")    { va = a.pacote ? 1 : 0; vb = b.pacote ? 1 : 0; }
     else if (sortCol === "ativo")     { va = a.ativo ? 1 : 0;  vb = b.ativo ? 1 : 0; }
     else                              { va = a.nome;      vb = b.nome; }
     if (va == null) return 1;
@@ -105,6 +104,40 @@ export default function ProdutosPage() {
     if (!confirm("Excluir produto?")) return;
     setProdutos((prev) => prev.filter((x) => x.id !== id));
     await createClient().from("crm_products").delete().eq("id", id);
+  };
+
+  const [duplicando, setDuplicando] = useState<string | null>(null);
+  // Duplica o produto (nome "… (cópia)") COM os custos vinculados, e leva para a edição da cópia.
+  const duplicar = async (p: CrmProduct) => {
+    if (!fid || duplicando) return;
+    setDuplicando(p.id);
+    const sb = createClient();
+    const { data: novo, error } = await sb.from("crm_products").insert({
+      fotografo_id: fid,
+      categoria: p.categoria,
+      nome: `${p.nome} (cópia)`,
+      codigo: null,                 // código é único de cada item — a cópia começa sem
+      descricao: p.descricao,
+      tags: p.tags ?? [],
+      pacote: p.pacote,
+      preco: p.preco,
+      conta_vendas_id: p.conta_vendas_id,
+      ativo: p.ativo,
+    }).select("*").single();
+    if (error || !novo) { setDuplicando(null); alert("Erro ao duplicar: " + (error?.message ?? "")); return; }
+
+    // Copia os custos do produto de origem para a cópia (mesma ordem)
+    const { data: custos } = await sb.from("crm_product_custos").select("*").eq("produto_id", p.id).order("ordem");
+    if (custos && custos.length > 0) {
+      await sb.from("crm_product_custos").insert(custos.map((c) => ({
+        produto_id: novo.id, fotografo_id: fid,
+        descricao: c.descricao, valor: c.valor, percentual: c.percentual,
+        conta_id: c.conta_id, referencia: c.referencia,
+        dias_offset: c.dias_offset, dias_direcao: c.dias_direcao, ordem: c.ordem,
+      })));
+    }
+    setDuplicando(null);
+    router.push(`/crm/produtos/${novo.id}`); // abre a cópia para ajustar nome/código
   };
 
   return (
@@ -167,9 +200,9 @@ export default function ProdutosPage() {
                 {([
                   { label: "Código", col: "codigo" }, { label: "Nome", col: "nome" },
                   { label: "Categoria", col: "categoria" }, { label: "Preço", col: "preco" },
-                  { label: "Pacote", col: "pacote" }, { label: "Status", col: "ativo" },
+                  { label: "Status", col: "ativo" },
                   { label: "", col: "" },
-                ] as const).filter(({ col }) => !isMobile || !["codigo", "categoria", "pacote"].includes(col)).map(({ label, col }) => (
+                ] as const).filter(({ col }) => !isMobile || !["codigo", "categoria"].includes(col)).map(({ label, col }) => (
                   <th key={label || "acoes"} onClick={() => col && toggleSort(col)} style={col ? thSort() : { ...thSort(), cursor: "default" }}>
                     {label}
                     {col && sortCol === col && <span style={{ fontSize: 9, opacity: 0.7, marginLeft: 3 }}>{sortDir === "asc" ? "↑" : "↓"}</span>}
@@ -191,16 +224,10 @@ export default function ProdutosPage() {
                     {!p.conta_vendas_id && (
                       <span title="Conta de vendas não configurada" style={{ marginLeft: 6, fontSize: 10, padding: "2px 6px", borderRadius: 10, background: "rgba(234,179,8,0.12)", color: "#CA8A04", fontWeight: 700, border: "0.5px solid rgba(234,179,8,0.3)" }}>!</span>
                     )}
-                    {p.pacote && <span style={{ marginLeft: 6, fontSize: 10, padding: "2px 6px", borderRadius: 10, background: "rgba(37,99,235,0.1)", color: "#2563EB", fontWeight: 600 }}>pacote</span>}
                     {p.tags?.length > 0 && <span style={{ marginLeft: 6, fontSize: 10, color: "var(--color-text-secondary)" }}>{p.tags.join(", ")}</span>}
                   </td>
                   {!isMobile && <td style={{ padding: "10px 14px", color: "var(--color-text-secondary)" }}>{p.categoria ?? "—"}</td>}
                   <td style={{ padding: "10px 14px", fontWeight: 600, color: "var(--color-text-primary)", whiteSpace: "nowrap" }}>{fmt(p.preco)}</td>
-                  {!isMobile && (
-                    <td style={{ padding: "10px 14px" }}>
-                      {p.pacote ? <span style={{ fontSize: 11, color: "#2563EB" }}>Sim</span> : <span style={{ fontSize: 11, color: "var(--color-text-secondary)" }}>Não</span>}
-                    </td>
-                  )}
                   <td style={{ padding: "10px 14px" }}>
                     <label title={p.ativo ? "Ativo — desmarque para desativar" : "Inativo — marque para ativar"}
                       style={{ display: "inline-flex", alignItems: "center", gap: 7, cursor: "pointer", userSelect: "none" }}>
@@ -219,6 +246,10 @@ export default function ProdutosPage() {
                       <button onClick={() => router.push(`/crm/produtos/${p.id}`)} title="Editar"
                         style={btnIcon()}>
                         <IcoEdit />
+                      </button>
+                      <button onClick={() => duplicar(p)} title="Duplicar" disabled={duplicando === p.id}
+                        style={btnIcon({ fontSize: 14, lineHeight: 1 })}>
+                        {duplicando === p.id ? "…" : "⧉"}
                       </button>
                       <button onClick={() => excluir(p.id)} title="Excluir"
                         style={btnIcon({ color: "#EF4444", border: "0.5px solid rgba(239,68,68,0.3)", opacity: 0.6 })}
