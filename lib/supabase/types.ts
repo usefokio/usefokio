@@ -374,6 +374,9 @@ export type SiteConfig = {
   seo_keywords: string | null;
   google_site_verification: string | null;
   facebook_pixel: string | null;
+  // Google Ads: conversão por ação (clique WhatsApp/CTA, envio de form). ID "AW-XXXX" + rótulo da conversão.
+  google_ads_id: string | null;
+  google_ads_label: string | null;
   // Avaliações do Google (Places API): place_id escolhido + snapshot de cache/fallback
   google_place_id: string | null;
   google_rating: number | null;

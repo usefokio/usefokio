@@ -7,6 +7,8 @@ import { ASPECT, OBJECT_POSITION } from "@/lib/site/design";
 import type { SiteDepoimento } from "@/lib/supabase/types";
 import { ContatoForm } from "./ContatoForm";
 import { GaleriaFotos } from "./GaleriaFotos";
+import { LinkConversao } from "./LinkConversao";
+import { linkWhatsApp } from "@/lib/site/whatsapp";
 
 export type ContextoBlocos = {
   base: string;                      // prefixo dos links internos ("" no host do fotógrafo)
@@ -289,16 +291,40 @@ function Bloco({ bloco, ctx }: { bloco: SiteBloco; ctx: ContextoBlocos }) {
     case "espaco":
       return <div style={{ height: Math.max(0, d.altura ?? 40) }} />;
 
+    case "botao": {
+      // Botão de ação (CTA): leva a um link (proposta/URL) ou abre o WhatsApp com mensagem pronta.
+      // Registra conversão no clique (WhatsApp = Contact; link = Lead).
+      const rotulo = (d.texto ?? "").trim() || "Saiba mais";
+      const solido = (d.estilo_botao ?? "solido") === "solido";
+      const align = d.alinhamento === "esquerda" ? "flex-start" : d.alinhamento === "direita" ? "flex-end" : "center";
+      const estiloBtn: CSSProperties = {
+        display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 10,
+        padding: "14px 34px", fontSize: 15, fontWeight: 700, textDecoration: "none", borderRadius: 8,
+        ...(solido
+          ? { background: "var(--site-titulo)", color: "var(--site-fundo)", border: "none" }
+          : { background: "transparent", color: "var(--site-titulo)", border: "1.5px solid var(--site-titulo)" }),
+      };
+      const wrap = { display: "flex", justifyContent: align, paddingTop: 20, paddingBottom: 20 } as CSSProperties;
+      if (d.acao === "whatsapp") {
+        const href = linkWhatsApp(d.numero || ctx.whatsappFallback, d.mensagem);
+        if (!href) return null;
+        return <section className="lp-secao" style={wrap}><LinkConversao href={href} tipo="contato" style={estiloBtn}>{rotulo}</LinkConversao></section>;
+      }
+      const alvo = (d.href ?? "").trim();
+      if (!alvo) return null;
+      const interno = alvo.startsWith("/");
+      return <section className="lp-secao" style={wrap}><LinkConversao href={interno ? linkInterno(ctx.base, alvo) : alvo} tipo="lead" target={interno ? "_self" : "_blank"} style={estiloBtn}>{rotulo}</LinkConversao></section>;
+    }
+
     case "whatsapp": {
-      const numero = (d.numero || ctx.whatsappFallback || "").replace(/\D/g, "");
-      if (!numero) return null;
-      const link = `https://wa.me/${numero.startsWith("55") ? numero : "55" + numero}`;
+      const href = linkWhatsApp(d.numero || ctx.whatsappFallback, d.mensagem);
+      if (!href) return null;
       return (
         <section style={{ background: "var(--site-contraste)", textAlign: "center", padding: "64px 24px" }}>
-          <a href={link} target="_blank" rel="noopener noreferrer"
+          <LinkConversao href={href} tipo="contato"
             style={{ display: "inline-flex", alignItems: "center", gap: 10, padding: "15px 40px", background: "#25d366", color: "#fff", fontSize: 16, fontWeight: 700, textDecoration: "none", borderRadius: 999 }}>
             {d.texto ?? "Conversar no WhatsApp"}
-          </a>
+          </LinkConversao>
         </section>
       );
     }

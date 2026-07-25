@@ -137,6 +137,11 @@ const MINIATURAS: Record<TipoBloco, React.ReactNode> = {
   espaco: (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", border: `1px dashed ${BORDA}`, borderRadius: 4, color: TINTA, fontSize: 16 }}>↕</div>
   ),
+  botao: (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%" }}>
+      <div style={{ padding: "9px 22px", borderRadius: 8, background: TINTA, color: "var(--color-background-secondary)", fontSize: 10, fontWeight: 700 }}>Reservar minha data</div>
+    </div>
+  ),
   whatsapp: (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%" }}>
       <div style={{ padding: "7px 20px", borderRadius: 999, background: "#25d366", color: "#fff", fontSize: 9, fontWeight: 700 }}>💬 WhatsApp</div>
@@ -168,7 +173,8 @@ const DESCRICOES: Record<TipoBloco, string> = {
   depoimentos: "Mostra os depoimentos cadastrados em Site → Depoimentos, com um botão para o cliente escrever a avaliação dele.",
   divisor: "Uma linha fina separando duas partes da página. Sem nada para preencher.",
   espaco: "Um respiro em branco entre dois blocos, com a altura que você escolher — para a página não ficar apertada.",
-  whatsapp: "Botão verde que abre a conversa no seu WhatsApp. Sem número preenchido, usa o do seu cadastro.",
+  botao: "Botão de ação (CTA) em destaque — “Reservar minha data”, “Pedir orçamento”. Leva a um link (sua proposta/página) ou abre o WhatsApp com a mensagem já escrita. Registra a conversão no clique.",
+  whatsapp: "Botão verde que abre a conversa no seu WhatsApp. Dá para deixar uma mensagem já escrita. Sem número preenchido, usa o do seu cadastro.",
   formulario: "Formulário de contato com os campos que você escolher. Os envios chegam em Site → Inbox.",
 };
 

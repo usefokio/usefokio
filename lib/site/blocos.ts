@@ -20,6 +20,7 @@ export type TipoBloco =
   | "depoimentos"   // depoimentos manuais do site + botão "Escrever avaliação"
   | "divisor"       // linha horizontal
   | "espaco"        // respiro vertical
+  | "botao"         // botão de ação (CTA): leva a um link (proposta) ou abre o WhatsApp
   | "whatsapp"      // CTA de WhatsApp
   | "formulario";   // formulário de contato/lead (grava em site_leads)
 
@@ -103,8 +104,13 @@ export type SiteBloco = {
     escrever_url?: string | null;
     // espaco (respiro) — e também a altura fixa do hero/imagem, em px
     altura?: number;
-    // whatsapp
+    // whatsapp / botão
     numero?: string | null;
+    mensagem?: string | null;   // WhatsApp: mensagem já escrita (?text=)
+    // botao (CTA): rótulo em `texto`; ação leva a um link OU abre o WhatsApp
+    acao?: "link" | "whatsapp";
+    href?: string | null;       // ação "link": endereço (interno /… ou URL externa)
+    estilo_botao?: "solido" | "contorno";
     // formulario
     formulario?: ConfigFormulario;
   };
@@ -126,6 +132,7 @@ export const CATALOGO_BLOCOS: { tipo: TipoBloco; label: string; icone: string }[
   { tipo: "depoimentos",  label: "Depoimentos",        icone: "⭐" },
   { tipo: "divisor",      label: "Divisor",            icone: "―" },
   { tipo: "espaco",       label: "Espaço",             icone: "↕" },
+  { tipo: "botao",        label: "Botão (CTA)",        icone: "🔘" },
   { tipo: "whatsapp",     label: "Botão WhatsApp",     icone: "💬" },
   { tipo: "formulario",   label: "Formulário de contato", icone: "✉" },
 ];
@@ -193,6 +200,7 @@ export function novoBloco(tipo: TipoBloco): SiteBloco {
   if (tipo === "cards") base.dados.cards = [];
   if (tipo === "galeria") { base.dados.fotos = []; base.dados.colunas = 3; }
   if (tipo === "espaco") base.dados.altura = 40;
+  if (tipo === "botao") base.dados = { texto: "Reservar minha data", acao: "whatsapp", mensagem: "Olá! Quero reservar minha data.", estilo_botao: "solido", alinhamento: "centro" };
   if (tipo === "depoimentos") base.dados.titulo = "O que meus clientes dizem";
   if (tipo === "whatsapp") base.dados.texto = "Conversar no WhatsApp";
   if (tipo === "formulario") base.dados.titulo = "Fale comigo";

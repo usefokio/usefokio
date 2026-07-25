@@ -563,9 +563,44 @@ export function EditorBlocos({ blocos, onChange, fotografoId, pasta, acaoBloco }
             onChange={(v) => mudar(b.id, { altura: v })} />);
       case "whatsapp":
         return (
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-            <div><label style={labelStyle}>Texto do botão</label><input value={d.texto ?? ""} onChange={(e) => mudar(b.id, { texto: e.target.value })} style={inputStyle} placeholder="Conversar no WhatsApp" /></div>
-            <div><label style={labelStyle}>Número (vazio = o do cadastro)</label><input value={d.numero ?? ""} onChange={(e) => mudar(b.id, { numero: e.target.value.replace(/\D/g, "") })} style={inputStyle} placeholder="5514999990000" /></div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              <div><label style={labelStyle}>Texto do botão</label><input value={d.texto ?? ""} onChange={(e) => mudar(b.id, { texto: e.target.value })} style={inputStyle} placeholder="Conversar no WhatsApp" /></div>
+              <div><label style={labelStyle}>Número (vazio = o do cadastro)</label><input value={d.numero ?? ""} onChange={(e) => mudar(b.id, { numero: e.target.value.replace(/\D/g, "") })} style={inputStyle} placeholder="5514999990000" /></div>
+            </div>
+            <div>
+              <label style={labelStyle}>Mensagem (abre já escrita no WhatsApp — opcional)</label>
+              <textarea value={d.mensagem ?? ""} onChange={(e) => mudar(b.id, { mensagem: e.target.value })} rows={2} style={{ ...inputStyle, resize: "vertical" }} placeholder="Ex.: Olá! Quero reservar a data __/__ para casamento civil." />
+            </div>
+          </div>
+        );
+      case "botao":
+        return (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <div><label style={labelStyle}>Texto do botão</label><input value={d.texto ?? ""} onChange={(e) => mudar(b.id, { texto: e.target.value })} style={inputStyle} placeholder="Reservar minha data" /></div>
+            {campo("Ação do botão", <Seg value={d.acao ?? "whatsapp"}
+              options={[{ v: "whatsapp", l: "Abrir WhatsApp" }, { v: "link", l: "Ir para um link" }] as const}
+              onChange={(v) => mudar(b.id, { acao: v })} />)}
+            {(d.acao ?? "whatsapp") === "whatsapp" ? (
+              <>
+                <div><label style={labelStyle}>Número (vazio = o do cadastro)</label><input value={d.numero ?? ""} onChange={(e) => mudar(b.id, { numero: e.target.value.replace(/\D/g, "") })} style={inputStyle} placeholder="5514999990000" /></div>
+                <div>
+                  <label style={labelStyle}>Mensagem (abre já escrita)</label>
+                  <textarea value={d.mensagem ?? ""} onChange={(e) => mudar(b.id, { mensagem: e.target.value })} rows={2} style={{ ...inputStyle, resize: "vertical" }} placeholder="Ex.: Olá! Quero reservar a data __/__ para casamento civil." />
+                </div>
+              </>
+            ) : (
+              <div>
+                <label style={labelStyle}>Link de destino (proposta, página ou URL)</label>
+                <input value={d.href ?? ""} onChange={(e) => mudar(b.id, { href: e.target.value })} style={{ ...inputStyle, fontFamily: "monospace", fontSize: 12 }} placeholder="/orcamento-casamento-civil  ou  https://…" />
+              </div>
+            )}
+            {campo("Estilo", <Seg value={d.estilo_botao ?? "solido"}
+              options={[{ v: "solido", l: "Sólido" }, { v: "contorno", l: "Contorno" }] as const}
+              onChange={(v) => mudar(b.id, { estilo_botao: v })} />)}
+            {campo("Alinhamento", <Seg value={d.alinhamento ?? "centro"}
+              options={[{ v: "esquerda", l: "Esquerda" }, { v: "centro", l: "Centro" }, { v: "direita", l: "Direita" }] as const}
+              onChange={(v) => mudar(b.id, { alinhamento: v })} />)}
           </div>
         );
       case "formulario":
