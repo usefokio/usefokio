@@ -57,7 +57,26 @@ function SeletorImagemSite({ onFechar, onSelecionar, ocupado, erro }: {
     carregar();
   }, [fotografo]);
 
+  // Entrar numa coleção para ver TODAS as fotos vinculadas a ela (site_portfolio_fotos).
+  const [colecaoAberta, setColecaoAberta] = useState<{ id: string; titulo: string } | null>(null);
+  const [fotosColecao, setFotosColecao] = useState<Item[]>([]);
+  const [carregandoFotos, setCarregandoFotos] = useState(false);
+
+  async function abrirColecao(id: string, titulo: string) {
+    setColecaoAberta({ id, titulo });
+    setCarregandoFotos(true);
+    setFotosColecao([]);
+    const sb = createClient();
+    const fotos = await fetchAllRows<{ id: string; url_publica: string | null; descricao: string | null }>(
+      (c, from, to) => c.from("site_portfolio_fotos").select("id, url_publica, descricao").eq("portfolio_id", id).order("ordem").range(from, to), sb);
+    setFotosColecao(fotos.filter((f) => f.url_publica).map((f) => ({ id: f.id, url: f.url_publica as string, titulo: f.descricao || titulo })));
+    setCarregandoFotos(false);
+  }
+
+  function trocarAba(a: Fonte) { setAba(a); setColecaoAberta(null); }
+
   const lista = fontes[aba];
+  const dentroDaColecao = aba === "colecoes" && colecaoAberta;
 
   return (
     <div onClick={() => !ocupado && onFechar()} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1100, padding: 20 }}>
@@ -71,7 +90,7 @@ function SeletorImagemSite({ onFechar, onSelecionar, ocupado, erro }: {
         {/* abas */}
         <div style={{ display: "flex", gap: 4, padding: "10px 16px", borderBottom: "1px solid var(--color-border-tertiary)", flexWrap: "wrap" }}>
           {ABAS.map((a) => (
-            <button key={a.id} onClick={() => setAba(a.id)}
+            <button key={a.id} onClick={() => trocarAba(a.id)}
               style={{ padding: "7px 14px", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 13,
                 fontWeight: aba === a.id ? 700 : 500,
                 background: aba === a.id ? "var(--color-background-tertiary)" : "transparent",
@@ -83,16 +102,42 @@ function SeletorImagemSite({ onFechar, onSelecionar, ocupado, erro }: {
 
         {/* grade */}
         <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: 16 }}>
-          {carregando ? (
+          {dentroDaColecao ? (
+            <>
+              <button onClick={() => setColecaoAberta(null)}
+                style={{ display: "inline-flex", alignItems: "center", gap: 6, marginBottom: 12, border: "none", background: "transparent", cursor: "pointer", fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)", padding: 0 }}>
+                ← Coleções <span style={{ color: "var(--color-text-secondary)", fontWeight: 500 }}>/ {colecaoAberta!.titulo}</span>
+              </button>
+              {carregandoFotos ? (
+                <div style={{ padding: 40, textAlign: "center", fontSize: 13, color: "var(--color-text-secondary)" }}>Carregando fotos…</div>
+              ) : fotosColecao.length === 0 ? (
+                <div style={{ padding: 40, textAlign: "center", fontSize: 13, color: "var(--color-text-secondary)" }}>Esta coleção não tem fotos.</div>
+              ) : (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 12 }}>
+                  {fotosColecao.map((it) => (
+                    <button key={it.id} onClick={() => !ocupado && onSelecionar(it.url, it.titulo)} title={it.titulo}
+                      style={{ display: "block", padding: 0, border: "1px solid var(--color-border-tertiary)", borderRadius: 10, overflow: "hidden", background: "var(--color-background-secondary)", cursor: ocupado ? "default" : "pointer", textAlign: "left" }}>
+                      <img src={it.url} alt="" loading="lazy" style={{ width: "100%", aspectRatio: "4/3", objectFit: "cover", display: "block" }} />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </>
+          ) : carregando ? (
             <div style={{ padding: 40, textAlign: "center", fontSize: 13, color: "var(--color-text-secondary)" }}>Carregando…</div>
           ) : lista.length === 0 ? (
             <div style={{ padding: 40, textAlign: "center", fontSize: 13, color: "var(--color-text-secondary)" }}>Nada aqui ainda.</div>
           ) : (
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 12 }}>
               {lista.map((it) => (
-                <button key={it.id} onClick={() => !ocupado && onSelecionar(it.url, it.titulo)} title={it.titulo}
-                  style={{ display: "block", padding: 0, border: "1px solid var(--color-border-tertiary)", borderRadius: 10, overflow: "hidden", background: "var(--color-background-secondary)", cursor: ocupado ? "default" : "pointer", textAlign: "left" }}>
+                <button key={it.id}
+                  onClick={() => { if (ocupado) return; if (aba === "colecoes") abrirColecao(it.id, it.titulo); else onSelecionar(it.url, it.titulo); }}
+                  title={aba === "colecoes" ? `Ver fotos de ${it.titulo}` : it.titulo}
+                  style={{ position: "relative", display: "block", padding: 0, border: "1px solid var(--color-border-tertiary)", borderRadius: 10, overflow: "hidden", background: "var(--color-background-secondary)", cursor: ocupado ? "default" : "pointer", textAlign: "left" }}>
                   <img src={it.url} alt="" loading="lazy" style={{ width: "100%", aspectRatio: "4/3", objectFit: "cover", display: "block" }} />
+                  {aba === "colecoes" && (
+                    <span style={{ position: "absolute", top: 6, right: 6, fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 999, background: "rgba(0,0,0,0.6)", color: "#fff" }}>ver fotos →</span>
+                  )}
                   <div style={{ padding: "6px 8px", fontSize: 11, color: "var(--color-text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{it.titulo}</div>
                 </button>
               ))}
