@@ -163,7 +163,7 @@ const DESCRICOES: Record<TipoBloco, string> = {
   pacotes: "Até 4 pacotes lado a lado, para o cliente comparar. Cada coluna tem nome, itens, valor e pode ganhar etiqueta (“Mais escolhido”) e destaque.",
   pagamento: "Condições de pagamento abaixo dos pacotes: parcelamento por opção, à vista com desconto, PIX. Cada linha tem um rótulo em destaque e a explicação ao lado.",
   cards: "Galeria com links: cada foto tem um nome embaixo e leva para onde você apontar — um trabalho, um post do blog ou qualquer endereço.",
-  galeria: "Grade só de fotos, sem nome e sem link. Você escolhe quantas colunas — de 1 a 6.",
+  galeria: "Grade de fotos em linhas justificadas (o mesmo layout das galerias do site): cada foto na sua proporção natural, responsivo, e amplia ao clicar.",
   video: "Um vídeo do YouTube dentro da página. Cole o link e ele aparece no tamanho certo.",
   depoimentos: "Mostra os depoimentos cadastrados em Site → Depoimentos, com um botão para o cliente escrever a avaliação dele.",
   divisor: "Uma linha fina separando duas partes da página. Sem nada para preencher.",

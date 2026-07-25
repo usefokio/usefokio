@@ -6,6 +6,7 @@ import { valorExibido, type SiteBloco } from "@/lib/site/blocos";
 import { ASPECT, OBJECT_POSITION } from "@/lib/site/design";
 import type { SiteDepoimento } from "@/lib/supabase/types";
 import { ContatoForm } from "./ContatoForm";
+import { GaleriaFotos } from "./GaleriaFotos";
 
 export type ContextoBlocos = {
   base: string;                      // prefixo dos links internos ("" no host do fotógrafo)
@@ -245,11 +246,9 @@ function Bloco({ bloco, ctx }: { bloco: SiteBloco; ctx: ContextoBlocos }) {
       return (d.fotos?.length ?? 0) > 0 ? (
         <section className="lp-secao">
           {d.titulo && <h2 className="lp-titulo" style={estTit}>{d.titulo}</h2>}
-          <div className="lp-galeria" style={{ "--lp-cols": Math.min(6, Math.max(1, d.colunas ?? 3)) } as CSSProperties}>
-            {d.fotos!.map((f, i) => (
-              <img key={i} src={f} alt="" loading="lazy" style={estiloImagem(d)} />
-            ))}
-          </div>
+          {/* mesmo layout justificado das galerias do site: linhas alinhadas, cada foto na
+              sua proporção natural (medida no load), responsivo + lightbox ao clicar */}
+          <GaleriaFotos modo="grid" fotos={d.fotos!.map((f, i) => ({ id: String(i), url: f, alt: d.titulo ?? "" }))} />
         </section>
       ) : null;
 
