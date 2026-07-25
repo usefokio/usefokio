@@ -522,7 +522,11 @@ export function EditorBlocos({ blocos, onChange, fotografoId, pasta, acaoBloco }
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             <div><label style={labelStyle}>Título da seção (opcional)</label><input value={d.titulo ?? ""} onChange={(e) => mudar(b.id, { titulo: e.target.value })} style={inputStyle} /></div>
             {opcaoTitulo(b)}
-            <p style={{ ...mini, margin: 0 }}>As fotos entram em linhas justificadas, cada uma na proporção natural — o mesmo layout das galerias do site. <strong>Arraste as miniaturas para reordenar.</strong></p>
+            {campo("Colunas", <Seg
+              value={String(d.colunas ?? 0)}
+              options={[{ v: "0", l: "Automático" }, { v: "2", l: "2" }, { v: "3", l: "3" }, { v: "4", l: "4" }, { v: "5", l: "5" }]}
+              onChange={(v) => mudar(b.id, { colunas: Number(v) })} />)}
+            <p style={{ ...mini, margin: 0 }}>Em <strong>Automático</strong>, as fotos entram em linhas justificadas, cada uma na proporção natural (mesmo layout das galerias do site). Escolhendo um número de colunas, elas viram um grid nessa quantidade, sempre na proporção natural. <strong>Arraste as miniaturas para reordenar.</strong></p>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(96px, 1fr))", gap: 8 }}>
               {(d.fotos ?? []).map((f, i) => {
                 const alvo = fotoSobre?.blocoId === b.id && fotoSobre.idx === i;

@@ -250,7 +250,7 @@ function Bloco({ bloco, ctx }: { bloco: SiteBloco; ctx: ContextoBlocos }) {
           {d.titulo && <h2 className="lp-titulo" style={estTit}>{d.titulo}</h2>}
           {/* mesmo layout justificado das galerias do site: linhas alinhadas, cada foto na
               sua proporção natural (medida no load), responsivo + lightbox ao clicar */}
-          <GaleriaFotos modo="grid" fotos={d.fotos!.map((f) => ({ id: f, url: f, alt: d.titulo ?? "" }))} />
+          <GaleriaFotos modo="grid" colunas={d.colunas} fotos={d.fotos!.map((f) => ({ id: f, url: f, alt: d.titulo ?? "" }))} />
         </section>
       ) : null;
 

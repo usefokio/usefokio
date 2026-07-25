@@ -221,6 +221,20 @@ a {
 @media (max-width: 900px) { .site-galeria-grid .site-foto { height: 185px; flex-basis: calc(var(--ar, 1.5) * 185px); } }
 @media (max-width: 560px) { .site-galeria-grid .site-foto { height: 145px; flex-basis: calc(var(--ar, 1.5) * 145px); } }
 
+/* Galeria em COLUNAS fixas (masonry): a quantidade é escolhida no bloco; cada foto mantém a
+   proporção natural (sem corte), distribuída nas colunas. É a alternativa ao layout Automático
+   (justificado). No celular cai para 2 colunas para não espremer. */
+.site-galeria-colunas { column-gap: 6px; }
+.site-galeria-colunas.cols-2 { column-count: 2; }
+.site-galeria-colunas.cols-3 { column-count: 3; }
+.site-galeria-colunas.cols-4 { column-count: 4; }
+.site-galeria-colunas.cols-5 { column-count: 5; }
+.site-galeria-colunas.cols-6 { column-count: 6; }
+.site-galeria-colunas .site-foto { break-inside: avoid; margin: 0 0 6px; border-radius: 6px; cursor: zoom-in; }
+.site-galeria-colunas .site-foto img { width: 100%; height: auto; display: block; border-radius: 6px; }
+@media (max-width: 900px) { .site-galeria-colunas.cols-4, .site-galeria-colunas.cols-5, .site-galeria-colunas.cols-6 { column-count: 3; } }
+@media (max-width: 560px) { .site-galeria-colunas { column-count: 2 !important; } }
+
 /* Coração de curtir no canto (grades e slideshow) — aparece no hover; sempre no toque */
 .site-foto-like {
   position: absolute; top: 8px; right: 8px; z-index: 2; width: 32px; height: 32px; border-radius: 50%;
