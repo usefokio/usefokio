@@ -13,6 +13,7 @@ export type TipoBloco =
   | "duas_colunas"  // texto rico + imagem lado a lado (empilha no mobile)
   | "pacote"        // nome + itens + VALOR + imagem (particularidade dos orçamentos)
   | "pacotes"       // 2 a 4 pacotes lado a lado, para comparar as opções
+  | "pagamento"     // condições de pagamento (parcelas, à vista, PIX) — texto explicativo por linha
   | "cards"         // grade de cards com foto + nome + link (ex.: casais/trabalhos)
   | "galeria"       // grade de fotos (sem texto), colunas configuráveis
   | "video"         // vídeo embed (YouTube)
@@ -90,6 +91,9 @@ export type SiteBloco = {
       destaque?: boolean;         // coluna em evidência (ex.: o pacote mais vendido)
       etiqueta?: string | null;   // selo acima do nome (ex.: "Mais escolhido")
     }[];
+    // pagamento — condições de pagamento (parcelas, à vista, PIX)
+    intro_html?: string | null;                          // texto de introdução (rico), opcional
+    condicoes?: { rotulo: string; descricao: string }[]; // linhas: rótulo em destaque + explicação
     // cards
     cards?: { nome: string; foto_url?: string | null; href?: string | null }[];
     // galeria
@@ -115,6 +119,7 @@ export const CATALOGO_BLOCOS: { tipo: TipoBloco; label: string; icone: string }[
   { tipo: "duas_colunas", label: "Texto + Imagem",     icone: "◫" },
   { tipo: "pacote",       label: "Pacote (orçamento)", icone: "💍" },
   { tipo: "pacotes",      label: "Pacotes lado a lado", icone: "▥" },
+  { tipo: "pagamento",    label: "Formas de pagamento", icone: "💳" },
   { tipo: "cards",        label: "Galeria com links",  icone: "▦" },
   { tipo: "galeria",      label: "Galeria de fotos",   icone: "🖽" },
   { tipo: "video",        label: "Vídeo",              icone: "▶" },
@@ -174,6 +179,15 @@ export function novoBloco(tipo: TipoBloco): SiteBloco {
       { nome: "Essencial", itens_html: ITENS_HTML_PADRAO, valor: "" },
       { nome: "Completo", itens_html: ITENS_HTML_PADRAO, valor: "", destaque: true, etiqueta: "Mais escolhido" },
       { nome: "Premium", itens_html: ITENS_HTML_PADRAO, valor: "" },
+    ],
+  };
+  if (tipo === "pagamento") base.dados = {
+    titulo: "Formas de pagamento",
+    intro_html: "<p>Os valores em parcelas indicam o número máximo de vezes de cada opção.</p>",
+    condicoes: [
+      { rotulo: "À vista (no ato)", descricao: "5% de desconto no pagamento via PIX ou dinheiro." },
+      { rotulo: "PIX", descricao: "Sem taxas, confirmação na hora." },
+      { rotulo: "Cartão de crédito", descricao: "Parcelamento conforme o máximo de cada opção (ex.: 5x, 7x)." },
     ],
   };
   if (tipo === "cards") base.dados.cards = [];

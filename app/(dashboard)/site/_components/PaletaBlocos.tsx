@@ -84,6 +84,17 @@ const MINIATURAS: Record<TipoBloco, React.ReactNode> = {
       ))}
     </div>
   ),
+  pagamento: (
+    <Coluna gap={7} style={{ justifyContent: "center", height: "100%" }}>
+      <Barra w="50%" h={6} style={{ opacity: 0.55, margin: "0 auto 2px" }} />
+      {[0, 1, 2].map((i) => (
+        <div key={i} style={{ display: "grid", gridTemplateColumns: "38% 1fr", gap: 8, alignItems: "center", borderBottom: `1px solid ${BORDA}`, paddingBottom: 5 }}>
+          <Barra w="85%" h={5} style={{ opacity: 0.55 }} />
+          <Barra w="95%" h={4} />
+        </div>
+      ))}
+    </Coluna>
+  ),
   cards: (
     <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6, height: "100%", alignContent: "center" }}>
       {[0, 1, 2].map((i) => (
@@ -150,6 +161,7 @@ const DESCRICOES: Record<TipoBloco, string> = {
   duas_colunas: "Texto de um lado e foto do outro (dá para inverter). Bom para “Sobre o ensaio” ou “Como funciona”.",
   pacote: "UM pacote por vez: nome, lista do que está incluso, valor em destaque e foto (à direita, à esquerda ou acima). O nome pode virar uma faixa com foto de fundo.",
   pacotes: "Até 4 pacotes lado a lado, para o cliente comparar. Cada coluna tem nome, itens, valor e pode ganhar etiqueta (“Mais escolhido”) e destaque.",
+  pagamento: "Condições de pagamento abaixo dos pacotes: parcelamento por opção, à vista com desconto, PIX. Cada linha tem um rótulo em destaque e a explicação ao lado.",
   cards: "Galeria com links: cada foto tem um nome embaixo e leva para onde você apontar — um trabalho, um post do blog ou qualquer endereço.",
   galeria: "Grade só de fotos, sem nome e sem link. Você escolhe quantas colunas — de 1 a 6.",
   video: "Um vídeo do YouTube dentro da página. Cole o link e ele aparece no tamanho certo.",

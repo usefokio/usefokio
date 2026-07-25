@@ -91,6 +91,15 @@ a {
 .lp-pacote-itens.lp-lista-numero { counter-reset: lp-item; }
 .lp-pacote-itens.lp-lista-numero li { counter-increment: lp-item; }
 .lp-pacote-itens.lp-lista-numero li::before { content: counter(lp-item) "."; }
+/* Formas de pagamento — introdução + linhas "rótulo | explicação" */
+.lp-pgto-intro { max-width: 720px; margin: 0 auto 26px; text-align: center; color: var(--site-texto); }
+.lp-pagamento { max-width: 720px; margin: 0 auto; }
+.lp-pgto-linha { display: grid; grid-template-columns: 210px 1fr; gap: 22px; padding: 16px 4px; border-bottom: 1px solid var(--site-borda, rgba(0,0,0,0.08)); }
+.lp-pgto-linha:last-child { border-bottom: none; }
+.lp-pgto-rotulo { font-family: var(--site-fonte-titulo), Georgia, serif; font-weight: 700; color: var(--site-titulo); font-size: 17px; }
+.lp-pgto-desc { color: var(--site-texto); line-height: 1.6; }
+@media (max-width: 700px) { .lp-pgto-linha { grid-template-columns: 1fr; gap: 4px; padding: 13px 4px; } }
+
 /* Pacotes lado a lado — colunas comparáveis (2 a 4), empilham no celular */
 .lp-planos { display: grid; grid-template-columns: repeat(var(--lp-cols, 3), 1fr); gap: 24px; align-items: stretch; }
 .lp-plano { display: flex; flex-direction: column; border: 1px solid var(--site-borda, rgba(0,0,0,0.1)); border-radius: 10px; padding: 26px 22px; background: var(--site-fundo); }

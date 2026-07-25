@@ -197,6 +197,30 @@ function Bloco({ bloco, ctx }: { bloco: SiteBloco; ctx: ContextoBlocos }) {
       );
     }
 
+    case "pagamento": {
+      const cond = (d.condicoes ?? []).filter((c) => c.rotulo || c.descricao);
+      const intro = (d.intro_html ?? "").trim();
+      if (!d.titulo && !intro && cond.length === 0) return null;
+      return (
+        <section className="lp-secao">
+          {d.titulo && <h2 className="lp-titulo" style={estTit}>{d.titulo}</h2>}
+          {intro && intro !== "<p></p>" && (
+            <div className="site-conteudo lp-pgto-intro" dangerouslySetInnerHTML={{ __html: intro }} />
+          )}
+          {cond.length > 0 && (
+            <div className="lp-pagamento">
+              {cond.map((c, i) => (
+                <div key={i} className="lp-pgto-linha">
+                  <div className="lp-pgto-rotulo">{c.rotulo}</div>
+                  <div className="lp-pgto-desc">{c.descricao}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      );
+    }
+
     case "cards":
       return (d.cards?.length ?? 0) > 0 ? (
         <section className="lp-secao">

@@ -427,6 +427,37 @@ export function EditorBlocos({ blocos, onChange, fotografoId, pasta, acaoBloco }
           </div>
         );
       }
+      case "pagamento": {
+        const cond = d.condicoes ?? [];
+        const mudarCond = (i: number, patch: Partial<{ rotulo: string; descricao: string }>) => {
+          const novas = [...cond];
+          novas[i] = { ...novas[i], ...patch };
+          mudar(b.id, { condicoes: novas });
+        };
+        return (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <div><label style={labelStyle}>Título da seção</label><input value={d.titulo ?? ""} onChange={(e) => mudar(b.id, { titulo: e.target.value })} style={inputStyle} placeholder="Formas de pagamento" /></div>
+            {opcaoTitulo(b)}
+            <div>
+              <label style={labelStyle}>Introdução (opcional)</label>
+              <SiteRichEditor value={d.intro_html ?? ""} onChange={(html) => mudar(b.id, { intro_html: html })} minHeight={90} pasta={pasta} />
+            </div>
+            <label style={labelStyle}>Condições (rótulo + explicação)</label>
+            {cond.map((c, i) => (
+              <div key={i} style={{ border: "1px solid var(--color-border-secondary)", borderRadius: 8, padding: 10, display: "flex", flexDirection: "column", gap: 8, background: "var(--color-background-secondary)" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <input value={c.rotulo} onChange={(e) => mudarCond(i, { rotulo: e.target.value })} style={{ ...inputStyle, fontWeight: 600 }} placeholder="À vista (no ato)" />
+                  <button style={btnPeq} disabled={i === 0} title="Subir" onClick={() => { const n = [...cond]; [n[i - 1], n[i]] = [n[i], n[i - 1]]; mudar(b.id, { condicoes: n }); }}>↑</button>
+                  <button style={btnPeq} disabled={i === cond.length - 1} title="Descer" onClick={() => { const n = [...cond]; [n[i + 1], n[i]] = [n[i], n[i + 1]]; mudar(b.id, { condicoes: n }); }}>↓</button>
+                  <button style={{ ...btnPeq, color: "#DC2626", borderColor: "#DC2626" }} title="Remover" onClick={() => mudar(b.id, { condicoes: cond.filter((_, j) => j !== i) })}>🗑</button>
+                </div>
+                <textarea value={c.descricao} onChange={(e) => mudarCond(i, { descricao: e.target.value })} rows={2} style={{ ...inputStyle, resize: "vertical" }} placeholder="5% de desconto no PIX ou dinheiro." />
+              </div>
+            ))}
+            <button style={btnPeq} onClick={() => mudar(b.id, { condicoes: [...cond, { rotulo: "", descricao: "" }] })}>+ Condição</button>
+          </div>
+        );
+      }
       case "cards":
         return (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
