@@ -18,9 +18,10 @@ function aplicarProporcao(img: HTMLImageElement | null) {
   img.parentElement?.style.setProperty("--ar", (img.naturalWidth / img.naturalHeight).toFixed(4));
 }
 
-export function GaleriaFotos({ fotos, modo = "lista", onCurtir, curtidas }: {
+export function GaleriaFotos({ fotos, modo = "lista", colunas, onCurtir, curtidas }: {
   fotos: FotoGaleria[];
   modo?: string;
+  colunas?: number;
   onCurtir?: (id: string) => void;
   curtidas?: Set<string>;
 }) {
@@ -100,6 +101,24 @@ export function GaleriaFotos({ fotos, modo = "lista", onCurtir, curtidas }: {
 
   // "grid" (valores legados grid-vertical/grid-horizontal caem aqui até a migração rodar em prod)
   if (modo === "grid" || modo === "grid-vertical" || modo === "grid-horizontal") {
+    // Colunas fixas (2–6): grid em masonry, cada foto na proporção natural. 0/vazio = justificado.
+    const cols = colunas && colunas >= 2 ? Math.min(6, Math.floor(colunas)) : 0;
+    if (cols) {
+      return (
+        <>
+          <div className={`site-galeria-colunas cols-${cols}`}>
+            {fotos.map((f, i) => (
+              <div key={f.id} className="site-foto" onClick={() => setLb(i)}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={f.url} alt={f.alt} loading="lazy" />
+                {botaoLike(f)}
+              </div>
+            ))}
+          </div>
+          {lightbox}
+        </>
+      );
+    }
     return (
       <>
         <div className="site-galeria-grid">
