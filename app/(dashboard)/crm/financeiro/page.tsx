@@ -6,10 +6,12 @@ import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { useWindowWidth, TABLET } from "@/lib/hooks/useWindowWidth";
 import { usePersistState } from "@/lib/hooks/usePersistState";
+import { useColunasLargura, type ColunaDef } from "@/lib/hooks/useColunasLargura";
 import { formatBRL, isValidDate, mascaraValor, parsearValor } from "@/lib/utils/format";
 import { fetchAllRows } from "@/lib/supabase/fetchAll";
 import { IcoEdit, IcoTrash, IcoMail, IcoCheck, IcoOpen } from "@/app/(dashboard)/crm/_components/Icons";
 import { Paginacao } from "@/app/(dashboard)/crm/_components/Paginacao";
+import { ResizeHandle } from "@/app/(dashboard)/crm/_components/ResizeHandle";
 import { EmailModal } from "@/app/(dashboard)/crm/_components/EmailModal";
 import { ClienteSelect } from "@/components/ui/ClienteSelect";
 import { ComboSelect } from "@/components/ui/ComboSelect";
@@ -128,6 +130,21 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
   const largura = useWindowWidth();
   const [sortCol, setSortCol] = usePersistState(`financeiro:${tipoMenu}:sortCol`, "vencimento");
   const [sortDir, setSortDir] = usePersistState<"asc" | "desc">(`financeiro:${tipoMenu}:sortDir`, "asc");
+  // Colunas redimensionáveis (desktop). A coluna "Pago em" só existe nas abas pagas.
+  const isPagaCols = aba === "recebidas" || aba === "pagas";
+  const colsFin = useColunasLargura(`financeiro:${tipoMenu}`, [
+    { id: "num",        largura: 50,  min: 40 },
+    { id: "emissao",    largura: 75,  min: 60 },
+    { id: "vencimento", largura: 100, min: 70 },
+    ...(isPagaCols ? [{ id: "pago_em", largura: 90, min: 70 } as ColunaDef] : []),
+    { id: "doc",        largura: 65,  min: 50 },
+    { id: "tipo",       largura: 115, min: 70 },
+    { id: "pedido",     largura: 65,  min: 50 },
+    { id: "nome",       largura: 0,   min: 120, flex: true },
+    { id: "descricao",  largura: 0,   min: 120, flex: true },
+    { id: "valor",      largura: 85,  min: 60 },
+    { id: "acoes",      largura: 100, min: 80 },
+  ]);
   const [page,     setPage]     = useState(1);
   const [pageSize, setPageSize] = usePersistState<25|50|100>(`financeiro:${tipoMenu}:pageSize`, 50);
   const toggleSort = (col: string) => {
@@ -523,25 +540,25 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
   const isPaga = aba === "recebidas" || aba === "pagas";
   const finGrid = isMobile
     ? "90px 1fr 80px 60px"
-    : `50px 75px 100px ${isPaga ? "90px " : ""}65px 115px 65px 1fr 1fr 85px 100px`;
+    : colsFin.template;
 
   const finCabecalhos = isMobile ? [
-    { label: "Vencimento", col: "vencimento" },
-    { label: "Descrição",  col: "descricao" },
-    { label: "Valor",      col: "valor" },
-    { label: "",           col: "" },
+    { label: "Vencimento", col: "vencimento", id: "vencimento" },
+    { label: "Descrição",  col: "descricao",  id: "descricao" },
+    { label: "Valor",      col: "valor",      id: "valor" },
+    { label: "",           col: "",           id: "acoes" },
   ] : [
-    { label: "#",          col: "" },
-    { label: "Emissão",   col: "" },
-    { label: "Vencimento", col: "vencimento" },
-    ...(isPaga ? [{ label: "Pago em", col: "pago_em" }] : []),
-    { label: "Doc",       col: "" },
-    { label: "Tipo",      col: "" },
-    { label: "Pedido",    col: "" },
-    { label: "Nome",      col: "" },
-    { label: "Descrição", col: "descricao" },
-    { label: "Valor",     col: "valor" },
-    { label: "",          col: "" },
+    { label: "#",          col: "",           id: "num" },
+    { label: "Emissão",   col: "",            id: "emissao" },
+    { label: "Vencimento", col: "vencimento", id: "vencimento" },
+    ...(isPaga ? [{ label: "Pago em", col: "pago_em", id: "pago_em" }] : []),
+    { label: "Doc",       col: "",            id: "doc" },
+    { label: "Tipo",      col: "",            id: "tipo" },
+    { label: "Pedido",    col: "",            id: "pedido" },
+    { label: "Nome",      col: "",            id: "nome" },
+    { label: "Descrição", col: "descricao",   id: "descricao" },
+    { label: "Valor",     col: "valor",       id: "valor" },
+    { label: "",          col: "",            id: "acoes" },
   ];
 
   return (
@@ -676,13 +693,17 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
       ) : (
         <div style={{ border: "0.5px solid var(--color-border-tertiary)", borderRadius: 12, overflow: "hidden" }}>
           <div style={{ display: "grid", gridTemplateColumns: finGrid, padding: "8px 16px", borderBottom: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-secondary)" }}>
-            {finCabecalhos.map(({ label, col }) => (
-              <div key={label || "acoes"} onClick={() => col && toggleSort(col)}
-                style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.04em", cursor: col ? "pointer" : "default", userSelect: "none" }}>
-                {label}
-                {col && sortCol === col && <span style={{ fontSize: 9, opacity: 0.7 }}>{sortDir === "asc" ? "↑" : "↓"}</span>}
-              </div>
-            ))}
+            {finCabecalhos.map(({ label, col, id }) => {
+              const resizavel = !isMobile && id !== "nome" && id !== "descricao" && id !== "acoes";
+              return (
+                <div key={id} onClick={() => col && toggleSort(col)}
+                  style={{ position: "relative", display: "flex", alignItems: "center", gap: 3, fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.04em", cursor: col ? "pointer" : "default", userSelect: "none" }}>
+                  {label}
+                  {col && sortCol === col && <span style={{ fontSize: 9, opacity: 0.7 }}>{sortDir === "asc" ? "↑" : "↓"}</span>}
+                  {resizavel && <ResizeHandle onResize={(e) => colsFin.iniciarResize(id, e)} onReset={() => colsFin.resetar(id)} />}
+                </div>
+              );
+            })}
           </div>
           {paginadas.map((e, i) => {
             const vencido = isVencido(e);

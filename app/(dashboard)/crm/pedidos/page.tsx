@@ -7,12 +7,23 @@ import { fetchAllRows } from "@/lib/supabase/fetchAll";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { useWindowWidth, TABLET } from "@/lib/hooks/useWindowWidth";
 import { usePersistState } from "@/lib/hooks/usePersistState";
+import { useColunasLargura, type ColunaDef } from "@/lib/hooks/useColunasLargura";
 import { carregarPedidoStatus, montarStatusMap, statusInfo } from "@/lib/crm/pedidoStatus";
 import { formatBRL, formatData } from "@/lib/utils/format";
 import { IcoEdit, IcoTrash, IcoOpen } from "@/app/(dashboard)/crm/_components/Icons";
 import { Paginacao } from "@/app/(dashboard)/crm/_components/Paginacao";
+import { ResizeHandle } from "@/app/(dashboard)/crm/_components/ResizeHandle";
 import { ClienteLink } from "@/components/ui/ClienteLink";
 import type { CrmOrder, CrmPedidoStatus } from "@/lib/supabase/types";
+
+const COLS_PED: ColunaDef[] = [
+  { id: "numero",      largura: 80,  min: 50 },
+  { id: "nome",        largura: 0,   min: 200, flex: true },
+  { id: "cliente",     largura: 160, min: 90 },
+  { id: "data_evento", largura: 130, min: 90 },
+  { id: "status",      largura: 120, min: 80 },
+  { id: "acoes",       largura: 100, min: 80 },
+];
 
 const btnIcon = (extra?: React.CSSProperties): React.CSSProperties => ({
   display: "flex", alignItems: "center", justifyContent: "center",
@@ -45,6 +56,7 @@ export default function PedidosPage() {
   const [catFiltro,  setCatFiltro]  = usePersistState("pedidos:catFiltro", "");
   const largura = useWindowWidth();
   const isMobile = largura < TABLET;
+  const cols = useColunasLargura("pedidos", COLS_PED);
   const [sortCol, setSortCol] = usePersistState("pedidos:sortCol", "created_at");
   const [sortDir, setSortDir] = usePersistState<"asc" | "desc">("pedidos:sortDir", "desc");
   const toggleSort = (col: string) => {
@@ -137,16 +149,16 @@ export default function PedidosPage() {
   const verMedium = largura >= 700 && largura < 1100;
 
   const gridTemplate = verLarge
-    ? "80px 1fr 160px 130px 120px 100px"
+    ? cols.template
     : verMedium
     ? "80px 1fr 120px 100px"
     : "80px 1fr 120px 80px";
 
   const cabecalhos = verLarge
-    ? [{ label: "Nº", col: "numero" }, { label: "Pedido", col: "nome" }, { label: "Cliente", col: "cliente" }, { label: "Evento", col: "data_evento" }, { label: "Status", col: "status" }, { label: "", col: "" }]
+    ? [{ label: "Nº", col: "numero", id: "numero" }, { label: "Pedido", col: "nome", id: "nome" }, { label: "Cliente", col: "cliente", id: "cliente" }, { label: "Evento", col: "data_evento", id: "data_evento" }, { label: "Status", col: "status", id: "status" }, { label: "", col: "", id: "acoes" }]
     : verMedium
-    ? [{ label: "Nº", col: "numero" }, { label: "Pedido", col: "nome" }, { label: "Status", col: "status" }, { label: "", col: "" }]
-    : [{ label: "Nº", col: "numero" }, { label: "Pedido", col: "nome" }, { label: "Status", col: "status" }, { label: "", col: "" }];
+    ? [{ label: "Nº", col: "numero", id: "numero" }, { label: "Pedido", col: "nome", id: "nome" }, { label: "Status", col: "status", id: "status" }, { label: "", col: "", id: "acoes" }]
+    : [{ label: "Nº", col: "numero", id: "numero" }, { label: "Pedido", col: "nome", id: "nome" }, { label: "Status", col: "status", id: "status" }, { label: "", col: "", id: "acoes" }];
 
   return (
     <div style={{ padding: isMobile ? "16px" : "28px 32px", maxWidth: 1100, fontFamily: "var(--font-sans)" }}>
@@ -235,13 +247,17 @@ export default function PedidosPage() {
       ) : (
         <div style={{ border: "0.5px solid var(--color-border-tertiary)", borderRadius: 12, overflow: "hidden" }}>
           <div style={{ display: "grid", gridTemplateColumns: gridTemplate, padding: "8px 16px", borderBottom: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-secondary)" }}>
-            {cabecalhos.map(({ label, col }) => (
-              <div key={label || "acoes"} onClick={() => col && toggleSort(col)}
-                style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.04em", cursor: col ? "pointer" : "default", userSelect: "none" }}>
-                {label}
-                {col && sortCol === col && <span style={{ fontSize: 9, opacity: 0.7 }}>{sortDir === "asc" ? "↑" : "↓"}</span>}
-              </div>
-            ))}
+            {cabecalhos.map(({ label, col, id }) => {
+              const resizavel = verLarge && id !== "nome" && id !== "acoes";
+              return (
+                <div key={label || "acoes"} onClick={() => col && toggleSort(col)}
+                  style={{ position: "relative", display: "flex", alignItems: "center", gap: 3, fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.04em", cursor: col ? "pointer" : "default", userSelect: "none" }}>
+                  {label}
+                  {col && sortCol === col && <span style={{ fontSize: 9, opacity: 0.7 }}>{sortDir === "asc" ? "↑" : "↓"}</span>}
+                  {resizavel && <ResizeHandle onResize={(e) => cols.iniciarResize(id, e)} onReset={() => cols.resetar(id)} />}
+                </div>
+              );
+            })}
           </div>
           {paginados.map((p, i) => {
             const st = statusInfo(statusMap, p.status);

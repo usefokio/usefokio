@@ -4,6 +4,17 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { fetchAllRows } from "@/lib/supabase/fetchAll";
 import { useFotografo } from "@/lib/context/FotografoContext";
+import { useColunasLargura, type ColunaDef } from "@/lib/hooks/useColunasLargura";
+import { ResizeHandle } from "@/app/(dashboard)/crm/_components/ResizeHandle";
+
+const COLS_REC: ColunaDef[] = [
+  { id: "cliente", largura: 0,   min: 120, flex: true },
+  { id: "galeria", largura: 0,   min: 140, flex: true, fr: 1.4 },
+  { id: "valor",   largura: 100, min: 70 },
+  { id: "status",  largura: 90,  min: 70 },
+  { id: "data",    largura: 90,  min: 70 },
+  { id: "acoes",   largura: 100, min: 80 },
+];
 
 type Pagamento = {
   id: string;
@@ -127,6 +138,7 @@ export default function RecebimentosPage() {
   const [carregando, setCarregando] = useState(true);
   const [filtroStatus, setFiltroStatus] = useState<"todos" | "pago" | "pendente">("todos");
   const [detalhe, setDetalhe] = useState<Pagamento | null>(null);
+  const cols = useColunasLargura("recebimentos", COLS_REC);
   const [excluindoId, setExcluindoId] = useState<string | null>(null);
   const [confirmandoId, setConfirmandoId] = useState<string | null>(null);
   const [verificandoId, setVerificandoId] = useState<string | null>(null);
@@ -242,12 +254,12 @@ export default function RecebimentosPage() {
       ) : (
         <div style={{ background: "var(--color-background-primary)", border: "1px solid var(--color-border-secondary)", borderRadius: 12, overflow: "hidden" }}>
           {/* Header */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1.4fr 100px 90px 90px 100px", gap: 0, padding: "10px 20px", background: "var(--color-background-secondary)", borderBottom: "1px solid var(--color-border-secondary)", fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+          <div style={{ display: "grid", gridTemplateColumns: cols.template, gap: 0, padding: "10px 20px", background: "var(--color-background-secondary)", borderBottom: "1px solid var(--color-border-secondary)", fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em" }}>
             <span>Cliente</span>
             <span>Galeria</span>
-            <span>Valor</span>
-            <span>Status</span>
-            <span>Data</span>
+            <span style={{ position: "relative" }}>Valor<ResizeHandle onResize={(e) => cols.iniciarResize("valor", e)} onReset={() => cols.resetar("valor")} /></span>
+            <span style={{ position: "relative" }}>Status<ResizeHandle onResize={(e) => cols.iniciarResize("status", e)} onReset={() => cols.resetar("status")} /></span>
+            <span style={{ position: "relative" }}>Data<ResizeHandle onResize={(e) => cols.iniciarResize("data", e)} onReset={() => cols.resetar("data")} /></span>
             <span>Ações</span>
           </div>
 
@@ -261,7 +273,7 @@ export default function RecebimentosPage() {
               <div
                 key={p.id}
                 style={{
-                  display: "grid", gridTemplateColumns: "1fr 1.4fr 100px 90px 90px 100px",
+                  display: "grid", gridTemplateColumns: cols.template,
                   gap: 0, padding: "14px 20px", alignItems: "center",
                   borderBottom: i < filtrados.length - 1 ? "1px solid #f0f0f0" : "none",
                   background: "var(--color-background-primary)",
