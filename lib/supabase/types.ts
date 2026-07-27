@@ -74,6 +74,7 @@ export type Fotografo = {
   watermark_opacidade: number | null;
   watermark_url_vertical: string | null;
   ical_url: string | null;
+  agenda_feed_token: string | null;
   onboarding_concluido: boolean | null;
   created_at: string;
   updated_at: string;

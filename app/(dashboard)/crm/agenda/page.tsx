@@ -59,6 +59,12 @@ const FILTROS: { key: FiltroKey; label: string; cor: string }[] = [
 
 const STORAGE_KEY = "crm_agenda_filtros";
 
+const btnSec: React.CSSProperties = {
+  padding: "8px 14px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)",
+  background: "var(--color-background-primary)", color: "var(--color-text-primary)",
+  fontSize: 12.5, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap",
+};
+
 function carregarFiltros(): Record<FiltroKey, boolean> {
   if (typeof window === "undefined") return {} as Record<FiltroKey, boolean>;
   try {
@@ -135,6 +141,40 @@ export default function AgendaPage() {
   const [modal,   setModal]   = useState<ModalState>({ modo: "fechado" });
   const [tooltipId, setTooltipId] = useState<string | null>(null);
   const [popupEvento, setPopupEvento] = useState<EventoCalendario | null>(null);
+
+  // ─── Assinar/compartilhar agenda (feed iCal) ──────────────────────────────────
+  const [assinarAberto, setAssinarAberto] = useState(false);
+  const [feedToken, setFeedToken] = useState<string | null>(null);
+  const [feedErro, setFeedErro] = useState<string | null>(null);
+  const [regenerando, setRegenerando] = useState(false);
+  const [copiado, setCopiado] = useState<string | null>(null);
+
+  async function abrirAssinar() {
+    setAssinarAberto(true);
+    if (feedToken) return;
+    setFeedErro(null);
+    try {
+      const res = await fetch("/api/agenda/feed");
+      const json = await res.json();
+      if (!res.ok) { setFeedErro(json.error ?? "Não foi possível gerar o link."); return; }
+      setFeedToken(json.token);
+    } catch { setFeedErro("Erro de conexão."); }
+  }
+
+  async function regenerarFeed() {
+    setRegenerando(true); setFeedErro(null);
+    try {
+      const res = await fetch("/api/agenda/feed", { method: "POST" });
+      const json = await res.json();
+      if (!res.ok) { setFeedErro(json.error ?? "Erro ao gerar novo link."); return; }
+      setFeedToken(json.token);
+    } catch { setFeedErro("Erro de conexão."); }
+    finally { setRegenerando(false); }
+  }
+
+  function copiar(texto: string, qual: string) {
+    navigator.clipboard.writeText(texto).then(() => { setCopiado(qual); setTimeout(() => setCopiado(null), 1600); }).catch(() => {});
+  }
 
   // Abre modal de novo evento se ?novo=1 na URL
   useEffect(() => {
@@ -315,13 +355,92 @@ export default function AgendaPage() {
             style={{ padding: "5px 12px", borderRadius: 7, border: "0.5px solid var(--color-border-secondary)", background: "none", cursor: "pointer", fontSize: 12, color: "var(--color-text-secondary)" }}
           >Hoje</button>
         </div>
-        <button
-          onClick={() => setModal({ modo: "novo", diaInicial: isoDate(hoje) })}
-          style={{ padding: "8px 16px", borderRadius: 8, background: "#111", color: "#fff", border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer" }}
-        >
-          + Novo evento
-        </button>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button
+            onClick={abrirAssinar}
+            title="Assinar esta agenda no Google Agenda ou no iPhone"
+            style={{ padding: "8px 14px", borderRadius: 8, background: "transparent", color: "var(--color-text-primary)", border: "0.5px solid var(--color-border-secondary)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}
+          >
+            📆 Assinar agenda
+          </button>
+          <button
+            onClick={() => setModal({ modo: "novo", diaInicial: isoDate(hoje) })}
+            style={{ padding: "8px 16px", borderRadius: 8, background: "#111", color: "#fff", border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer" }}
+          >
+            + Novo evento
+          </button>
+        </div>
       </div>
+
+      {/* Modal: assinar/compartilhar agenda (feed iCal) */}
+      {assinarAberto && (() => {
+        const origem = typeof window !== "undefined" ? window.location.origin : "";
+        const urlHttps = feedToken ? `${origem}/api/agenda/feed/${feedToken}.ics` : "";
+        const urlWebcal = feedToken ? urlHttps.replace(/^https?:\/\//, "webcal://") : "";
+        return (
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 20 }}
+            onClick={() => setAssinarAberto(false)}>
+            <div onClick={(e) => e.stopPropagation()} style={{ background: "var(--color-background-primary)", borderRadius: 16, padding: 26, maxWidth: 560, width: "100%", maxHeight: "85vh", overflowY: "auto", boxShadow: "0 10px 40px rgba(0,0,0,0.2)" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, marginBottom: 6 }}>
+                <div>
+                  <div style={{ fontSize: 17, fontWeight: 800, color: "var(--color-text-primary)" }}>📆 Assinar agenda</div>
+                  <div style={{ fontSize: 12.5, color: "var(--color-text-secondary)", marginTop: 3, lineHeight: 1.5 }}>
+                    Adicione esta agenda ao Google Agenda ou ao iPhone. Ela atualiza sozinha: compromissos, eventos de pedidos e <strong>orçamentos em aberto</strong> (datas com proposta pendente).
+                  </div>
+                </div>
+                <button onClick={() => setAssinarAberto(false)} style={{ ...btnSec, flexShrink: 0 }}>Fechar</button>
+              </div>
+
+              {feedErro && <div style={{ fontSize: 12.5, color: "#DC2626", margin: "10px 0" }}>{feedErro}</div>}
+
+              {!feedToken && !feedErro ? (
+                <div style={{ padding: "24px 0", textAlign: "center", fontSize: 13, color: "var(--color-text-secondary)" }}>Gerando link…</div>
+              ) : feedToken ? (
+                <>
+                  {/* Link https */}
+                  <div style={{ marginTop: 16 }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: "var(--color-text-primary)", marginBottom: 5 }}>Link da agenda (para o Google Agenda)</div>
+                    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                      <input readOnly value={urlHttps} onFocus={(e) => e.currentTarget.select()}
+                        style={{ flex: 1, minWidth: 0, padding: "9px 12px", borderRadius: 8, border: "1px solid var(--color-border-secondary)", background: "var(--color-background-secondary)", color: "var(--color-text-primary)", fontSize: 12, fontFamily: "monospace" }} />
+                      <button style={btnSec} onClick={() => copiar(urlHttps, "https")}>{copiado === "https" ? "✓ Copiado" : "Copiar"}</button>
+                    </div>
+                  </div>
+
+                  {/* Link webcal */}
+                  <div style={{ marginTop: 14 }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: "var(--color-text-primary)", marginBottom: 5 }}>Link para iPhone / Apple (abre no Calendário)</div>
+                    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                      <a href={urlWebcal} style={{ flex: 1, minWidth: 0, padding: "9px 12px", borderRadius: 8, border: "1px solid var(--color-border-secondary)", background: "var(--color-background-secondary)", color: "#2563EB", fontSize: 12, fontFamily: "monospace", textDecoration: "none", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{urlWebcal}</a>
+                      <button style={btnSec} onClick={() => copiar(urlWebcal, "webcal")}>{copiado === "webcal" ? "✓ Copiado" : "Copiar"}</button>
+                    </div>
+                    <div style={{ fontSize: 11.5, color: "var(--color-text-secondary)", marginTop: 4 }}>No iPhone, abra este link no Safari e confirme “Assinar”.</div>
+                  </div>
+
+                  {/* Instruções */}
+                  <div style={{ marginTop: 18, padding: "14px 16px", borderRadius: 10, background: "var(--color-background-secondary)", fontSize: 12.5, color: "var(--color-text-secondary)", lineHeight: 1.7 }}>
+                    <div style={{ fontWeight: 700, color: "var(--color-text-primary)", marginBottom: 4 }}>Google Agenda (computador)</div>
+                    Outras agendas → <strong>+</strong> → <strong>De URL</strong> → cole o link acima → Adicionar agenda.
+                    <div style={{ fontWeight: 700, color: "var(--color-text-primary)", margin: "10px 0 4px" }}>iPhone / iPad</div>
+                    Toque no link “iPhone / Apple” (ou Ajustes → Calendário → Contas → Adicionar conta → Outra → Adicionar calendário assinado).
+                  </div>
+
+                  {/* Regenerar */}
+                  <div style={{ marginTop: 16, paddingTop: 14, borderTop: "1px solid var(--color-border-tertiary)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+                    <div style={{ fontSize: 11.5, color: "var(--color-text-secondary)", maxWidth: 330, lineHeight: 1.5 }}>
+                      Gerar um novo link <strong>invalida o anterior</strong> (quem já assinou para de receber). Use se o link vazou.
+                    </div>
+                    <button onClick={regenerarFeed} disabled={regenerando}
+                      style={{ ...btnSec, color: "#DC2626", borderColor: "rgba(220,38,38,0.4)" }}>
+                      {regenerando ? "Gerando…" : "Gerar novo link"}
+                    </button>
+                  </div>
+                </>
+              ) : null}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Filtros */}
       <div style={{ display: "flex", gap: 6, marginBottom: 18, flexWrap: "wrap" }}>
