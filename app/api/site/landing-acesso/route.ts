@@ -52,6 +52,7 @@ export async function POST(request: NextRequest) {
   // ── Modo "valores": manda a proposta em PDF por e-mail (nada é revelado na tela) ──────────
   if (modo === "valores") {
     let enviado = false;
+    let motivo = "";
     const { data: fotAviso } = await supabase.from("fotografos")
       .select("email").eq("id", lp.fotografo_id).maybeSingle();
 
@@ -73,6 +74,13 @@ export async function POST(request: NextRequest) {
         }).catch((e) => console.error("[landing-acesso] aviso sem-PDF falhou:", e));
       }
       return NextResponse.json({ ok: true, enviado: false, pendente: true, email: emailLimpo });
+    }
+
+    // DEV sem chave de e-mail: não dá para enviar de verdade. Simula o envio para dar
+    // para testar o fluxo inteiro localmente (mesma convenção dos outros bypasses de dev).
+    if (process.env.NODE_ENV === "development" && !process.env.RESEND_API_KEY) {
+      console.log(`[landing-acesso] DEV sem RESEND_API_KEY — e-mail NÃO enviado (simulado). Para: ${emailLimpo} · PDF: ${lp.pdf_url}`);
+      return NextResponse.json({ ok: true, enviado: true, simulado: true, email: emailLimpo });
     }
 
     try {
@@ -125,11 +133,13 @@ export async function POST(request: NextRequest) {
       }
     } catch (e) {
       // O lead já está gravado; devolve o erro para a tela pedir para tentar de novo.
-      console.error("[landing-acesso] envio da proposta falhou:", e instanceof Error ? e.message : e);
+      motivo = e instanceof Error ? e.message : String(e);
+      console.error("[landing-acesso] envio da proposta falhou:", motivo);
     }
 
     // Sem cookie: os valores continuam mascarados na página.
-    return NextResponse.json({ ok: true, enviado, email: emailLimpo });
+    // `motivo` só vai para o painel/log — a tela do visitante mostra mensagem genérica.
+    return NextResponse.json({ ok: true, enviado, email: emailLimpo, ...(motivo ? { motivo } : {}) });
   }
 
   // ── Modo "pagina": libera o conteúdo como antes ───────────────────────────────────────────

@@ -50,13 +50,37 @@ export default async function LandingImprimirPage({ params, searchParams }: {
     <>
       {/* Não usa a classe .site-root de propósito: o site público é bloqueado na impressão
           (globals.css). Aqui a impressão é o objetivo. */}
+      {/* O @page (tamanho/orientação) vem da BarraImpressao — aqui ficam os ajustes de papel. */}
       <style>{`
-        @page { size: A4; margin: 10mm; }
         @media print {
           .no-print { display: none !important; }
-          html, body { background: #fff !important; }
+          html, body { background: #fff !important; margin: 0 !important; }
           .lp-print-root { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-          .lp-secao, .lp-duas, .lp-plano, .lp-pgto-linha { break-inside: avoid; page-break-inside: avoid; }
+
+          /* 1) Fora as medidas de TELA: no papel, 78vh vira a altura da folha e o hero come
+                uma página inteira. Vira altura de conteúdo, como uma faixa. */
+          .lp-hero { min-height: 0 !important; height: auto !important; }
+          .lp-hero.lp-hero-faixa { height: auto !important; }
+          .lp-hero-inner { padding: 26px 18px !important; gap: 12px !important; }
+          .lp-hero-inner img.lp-logo { height: 64px !important; }
+          .lp-hero-inner h1, .lp-hero-inner h2 { font-size: 30px !important; }
+
+          /* 2) Respiro de tela é grande demais no papel (a folha não rola). */
+          .lp-secao { padding: 16px 14px !important; }
+          .lp-duas { padding: 16px 14px !important; gap: 22px !important; }
+          .lp-titulo { margin-bottom: 14px !important; }
+          .lp-pacote-nome { margin-bottom: 10px !important; }
+          .lp-print-root > * + * { margin-top: 0 !important; }
+
+          /* 3) NÃO forçar seção inteira numa página só — era o que deixava páginas quase vazias.
+                A quebra é evitada apenas em pedaços pequenos, que ficam feios cortados. */
+          .lp-secao, .lp-duas { break-inside: auto !important; page-break-inside: auto !important; }
+          .lp-plano, .lp-pgto-linha, .lp-casal, .lp-review, .lp-pacote-itens li, img {
+            break-inside: avoid; page-break-inside: avoid;
+          }
+
+          /* 4) Fotos não podem estourar a folha. */
+          .lp-print-root img { max-height: 60vh; object-fit: cover; }
         }
         .lp-print-root img { user-select: auto !important; -webkit-user-drag: auto !important; }
       `}</style>
