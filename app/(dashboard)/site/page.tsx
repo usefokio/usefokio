@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { fetchAllRows } from "@/lib/supabase/fetchAll";
 import { useFotografo } from "@/lib/context/FotografoContext";
-import { formatNum } from "@/lib/utils/format";
 import { urlPublicaSite, hostPublicoSite, type ConfigUrl } from "@/lib/site/urlPublica";
 import { GraficoContatos, type ContatosMesItem } from "./_components/GraficoContatos";
 
@@ -20,6 +19,7 @@ type Metricas = {
 };
 
 const MESES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+const fmtInt = (n: number) => n.toLocaleString("pt-BR");
 
 // Card de KPI (mesmo visual dos cards do Resultados/Panorama).
 function Card({ label, valor, sub, cor }: { label: string; valor: string; sub?: string; cor?: string }) {
@@ -123,10 +123,10 @@ export default function SiteDashboardPage() {
       {m && (
         <>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12, marginBottom: 20 }}>
-            <Card label="Acessos" valor={formatNum(m.views)} sub="visitas aos trabalhos" />
-            <Card label="Curtidas" valor={formatNum(m.likes)} sub="em trabalhos e fotos" />
-            <Card label="Contatos" valor={formatNum(m.contatos)} sub={m.naoLidos > 0 ? `${m.naoLidos} não lido(s)` : "todos lidos"} cor={m.naoLidos > 0 ? "#2563EB" : undefined} />
-            <Card label="Conteúdo" valor={formatNum(m.nTrabalhos + m.nPortfolios + m.nPosts + m.nVideos)} sub={`${m.nTrabalhos} trab. · ${m.nPortfolios} portf. · ${m.nPosts} posts · ${m.nVideos} vídeos`} />
+            <Card label="Acessos" valor={fmtInt(m.views)} sub="visitas aos trabalhos" />
+            <Card label="Curtidas" valor={fmtInt(m.likes)} sub="em trabalhos e fotos" />
+            <Card label="Contatos" valor={fmtInt(m.contatos)} sub={m.naoLidos > 0 ? `${m.naoLidos} não lido(s)` : "todos lidos"} cor={m.naoLidos > 0 ? "#2563EB" : undefined} />
+            <Card label="Conteúdo" valor={fmtInt(m.nTrabalhos + m.nPortfolios + m.nPosts + m.nVideos)} sub={`${m.nTrabalhos} trab. · ${m.nPortfolios} portf. · ${m.nPosts} posts · ${m.nVideos} vídeos`} />
           </div>
 
           {/* Contatos por mês */}
@@ -149,7 +149,7 @@ export default function SiteDashboardPage() {
                   {m.topViews.map((t) => (
                     <div key={t.id} style={{ display: "flex", justifyContent: "space-between", gap: 10, padding: "5px 0", fontSize: 13, borderTop: "0.5px solid var(--color-border-tertiary)" }}>
                       <span style={{ color: "var(--color-text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.titulo || "(sem título)"}</span>
-                      <span style={{ color: "var(--color-text-secondary)", fontWeight: 700, flex: "0 0 auto" }}>{formatNum(t.views ?? 0)} 👁</span>
+                      <span style={{ color: "var(--color-text-secondary)", fontWeight: 700, flex: "0 0 auto" }}>{fmtInt(t.views ?? 0)} 👁</span>
                     </div>
                   ))}
                 </div>
@@ -160,7 +160,7 @@ export default function SiteDashboardPage() {
                   {m.topLikes.map((t) => (
                     <div key={t.id} style={{ display: "flex", justifyContent: "space-between", gap: 10, padding: "5px 0", fontSize: 13, borderTop: "0.5px solid var(--color-border-tertiary)" }}>
                       <span style={{ color: "var(--color-text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.titulo || "(sem título)"}</span>
-                      <span style={{ color: "var(--color-text-secondary)", fontWeight: 700, flex: "0 0 auto" }}>{formatNum(t.likes ?? 0)} ❤</span>
+                      <span style={{ color: "var(--color-text-secondary)", fontWeight: 700, flex: "0 0 auto" }}>{fmtInt(t.likes ?? 0)} ❤</span>
                     </div>
                   ))}
                 </div>
