@@ -2,9 +2,9 @@
 
 ## Visão Geral
 
-SaaS para fotógrafos. Este repositório é o projeto Next.js principal (`usefokio`), branch **master** (produção ativa em usefokio.com.br). **Há usuários reais — não editar nem deployar direto em produção.**
+SaaS para fotógrafos. Este repositório é o projeto Next.js principal (`usefokio`), branch **master** (produção ativa em usefokio.com.br). **Produção com dados reais — não editar nem deployar direto em produção.** Hoje só o Fernando usa o sistema (contas `fernandoagrela` + `estudio136`, ambas dele); ainda não há outros fotógrafos ativos.
 
-**Fluxo de trabalho (atual):** desenvolver **localmente** contra o banco de DEV, numa **branch** → testar local → `git push` da branch (o Vercel gera um **Preview URL** com auth real) → quando um conjunto de features estiver pronto, **merge/push em `master`** = deploy de produção. **Deploys em lote, não a cada commit.**
+**Fluxo de trabalho (atual):** desenvolver **localmente** contra o banco de DEV, na branch `desenvolvimento` → testar em **localhost:3001** → **commitar e PARAR**. Deploy = **merge/push na `master`**, e o **Railway** faz o deploy automático do push. **A Vercel foi REMOVIDA (15/07/2026)** — não há mais Preview URL; os crons rodam no **GitHub Actions**. **Produção só quando o Fernando pedir** (deploys em lote, não a cada commit). Migração de schema: aplicar no dev e, na prod, só no dia do deploy com o OK dele.
 
 ## Como rodar localmente
 
