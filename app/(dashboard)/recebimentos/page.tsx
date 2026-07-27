@@ -257,9 +257,9 @@ export default function RecebimentosPage() {
           <div style={{ display: "grid", gridTemplateColumns: cols.template, gap: 0, padding: "10px 20px", background: "var(--color-background-secondary)", borderBottom: "1px solid var(--color-border-secondary)", fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em" }}>
             <span>Cliente</span>
             <span>Galeria</span>
-            <span style={{ position: "relative" }}>Valor<ResizeHandle onResize={(e) => cols.iniciarResize("valor", e)} onReset={() => cols.resetar("valor")} /></span>
-            <span style={{ position: "relative" }}>Status<ResizeHandle onResize={(e) => cols.iniciarResize("status", e)} onReset={() => cols.resetar("status")} /></span>
-            <span style={{ position: "relative" }}>Data<ResizeHandle onResize={(e) => cols.iniciarResize("data", e)} onReset={() => cols.resetar("data")} /></span>
+            <span style={{ position: "relative" }}>Valor<ResizeHandle {...cols.handleProps("valor")} /></span>
+            <span style={{ position: "relative" }}>Status<ResizeHandle {...cols.handleProps("status")} /></span>
+            <span style={{ position: "relative" }}>Data<ResizeHandle {...cols.handleProps("data")} /></span>
             <span>Ações</span>
           </div>
 

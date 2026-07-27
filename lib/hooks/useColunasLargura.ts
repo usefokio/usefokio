@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useCallback } from "react";
+import { useRef, useState, useCallback } from "react";
 import { usePersistState } from "@/lib/hooks/usePersistState";
 
 // Colunas de grade redimensionáveis (clica-e-arrasta a borda do cabeçalho).
@@ -20,9 +20,10 @@ const MIN_PADRAO = 60;
 
 export function useColunasLargura(chave: string, defs: ColunaDef[]) {
   const [larguras, setLarguras] = usePersistState<Record<string, number>>(`${chave}:colWidths`, {});
+  const [arrastando, setArrastando] = useState<string | null>(null);
   const arrasto = useRef<{ id: string; startX: number; startW: number; min: number } | null>(null);
 
-  // gridTemplateColumns final: flex → minmax(min,1fr); demais → px (persistido ou padrão).
+  // gridTemplateColumns final: flex → minmax(min, fr); demais → px (persistido ou padrão).
   const template = defs
     .map((d) => {
       if (d.flex) return `minmax(${d.min ?? 200}px, ${d.fr ?? 1}fr)`;
@@ -38,6 +39,7 @@ export function useColunasLargura(chave: string, defs: ColunaDef[]) {
     e.stopPropagation();
     const startW = larguras[id] ?? def.largura;
     arrasto.current = { id, startX: e.clientX, startW, min: def.min ?? MIN_PADRAO };
+    setArrastando(id);
 
     const onMove = (ev: MouseEvent) => {
       const a = arrasto.current;
@@ -47,6 +49,7 @@ export function useColunasLargura(chave: string, defs: ColunaDef[]) {
     };
     const onUp = () => {
       arrasto.current = null;
+      setArrastando(null);
       window.removeEventListener("mousemove", onMove);
       window.removeEventListener("mouseup", onUp);
       document.body.style.cursor = "";
@@ -67,5 +70,12 @@ export function useColunasLargura(chave: string, defs: ColunaDef[]) {
     });
   }, [setLarguras]);
 
-  return { template, iniciarResize, resetar };
+  // Props prontas para o <ResizeHandle> de uma coluna (inclui o destaque durante o arrasto).
+  const handleProps = useCallback((id: string) => ({
+    onResize: (e: React.MouseEvent) => iniciarResize(id, e),
+    onReset: () => resetar(id),
+    ativo: arrastando === id,
+  }), [iniciarResize, resetar, arrastando]);
+
+  return { template, iniciarResize, resetar, handleProps, arrastando };
 }
