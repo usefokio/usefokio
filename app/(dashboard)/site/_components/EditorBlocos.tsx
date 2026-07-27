@@ -15,6 +15,7 @@ import { mascaraValor } from "@/lib/utils/format";
 import { Seg, Range, campo, linhaChave, PROP_OPTS, ANC_OPTS, mini } from "@/app/(dashboard)/site/_components/ControlesUI";
 import { BotaoEscolherDoSite } from "@/app/(dashboard)/site/_components/SeletorImagemSite";
 import { PaletaBlocos } from "@/app/(dashboard)/site/_components/PaletaBlocos";
+import { ModalSalvarModelo, ModalModelos } from "@/app/(dashboard)/site/_components/ModelosBloco";
 import type { ProporcaoCapa, AncoraFoto, BannerAjuste } from "@/lib/site/design";
 
 // Campos do bloco que guardam uma imagem (o alvo do upload / do "escolher do site").
@@ -51,6 +52,10 @@ export function EditorBlocos({ blocos, onChange, fotografoId, pasta, acaoBloco }
 }) {
   const [aberto, setAberto] = useState<string | null>(null);
   const [paleta, setPaleta] = useState(false);
+  // Biblioteca de blocos-modelo (salvar este bloco / inserir um salvo)
+  const [salvarModelo, setSalvarModelo] = useState<SiteBloco | null>(null);
+  const [modelosAberto, setModelosAberto] = useState(false);
+  const [okModelo, setOkModelo] = useState<string | null>(null);
   const [enviandoImg, setEnviandoImg] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const dragIdx = useRef<number | null>(null);
@@ -674,6 +679,11 @@ export function EditorBlocos({ blocos, onChange, fotografoId, pasta, acaoBloco }
                 <span style={{ fontSize: 13, fontWeight: 700, color: "var(--color-text-primary)", flexShrink: 0 }}>{rot.label}</span>
                 <span style={{ fontSize: 12, color: "var(--color-text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>{resumoBloco(b)}</span>
                 <button
+                  title="Salvar como modelo (para usar em outras páginas)"
+                  onClick={(e) => { e.stopPropagation(); setSalvarModelo(b); }}
+                  style={{ border: "none", background: "transparent", cursor: "pointer", fontSize: 13, color: "var(--color-text-secondary)" }}
+                >💾</button>
+                <button
                   title="Duplicar bloco"
                   onClick={(e) => {
                     e.stopPropagation();
@@ -712,9 +722,11 @@ export function EditorBlocos({ blocos, onChange, fotografoId, pasta, acaoBloco }
         })}
       </div>
 
-      {/* Paleta de novos blocos — popup com miniatura e explicação de cada bloco */}
-      <div style={{ marginTop: 12 }}>
-        <button style={{ ...btnPeq, width: "100%", padding: "11px" }} onClick={() => setPaleta(true)}>+ Adicionar bloco</button>
+      {/* Paleta de novos blocos + biblioteca de blocos salvos (modelos reusáveis) */}
+      <div style={{ marginTop: 12, display: "flex", gap: 8 }}>
+        <button style={{ ...btnPeq, flex: 1, padding: "11px" }} onClick={() => setPaleta(true)}>+ Adicionar bloco</button>
+        <button style={{ ...btnPeq, flex: 1, padding: "11px" }} onClick={() => setModelosAberto(true)}
+          title="Inserir um bloco que você salvou como modelo">★ Meus blocos salvos</button>
         {paleta && (
           <PaletaBlocos
             onFechar={() => setPaleta(false)}
@@ -723,6 +735,33 @@ export function EditorBlocos({ blocos, onChange, fotografoId, pasta, acaoBloco }
         )}
       </div>
 
+      {/* Salvar o bloco atual como modelo */}
+      {salvarModelo && (
+        <ModalSalvarModelo
+          bloco={salvarModelo}
+          fotografoId={fotografoId}
+          sugestao={resumoBloco(salvarModelo) || rotuloBloco(salvarModelo.tipo).label}
+          onFechar={(nome) => {
+            setSalvarModelo(null);
+            if (nome) { setOkModelo(`Modelo “${nome}” salvo. Use “★ Meus blocos salvos” nas outras páginas.`); setTimeout(() => setOkModelo(null), 5000); }
+          }}
+        />
+      )}
+
+      {/* Biblioteca — insere uma CÓPIA do modelo no fim da página */}
+      {modelosAberto && (
+        <ModalModelos
+          fotografoId={fotografoId}
+          onFechar={() => setModelosAberto(false)}
+          onInserir={(tipo, dados) => {
+            const nb: SiteBloco = { id: crypto.randomUUID(), tipo, dados: structuredClone(dados) };
+            aplicar((prev) => [...prev, nb]);
+            setAberto(nb.id);
+          }}
+        />
+      )}
+
+      {okModelo && <div style={{ fontSize: 12, fontWeight: 600, color: "#059669", marginTop: 8 }}>✓ {okModelo}</div>}
       {msg && <div style={{ fontSize: 12, fontWeight: 600, color: "#DC2626", marginTop: 8 }}>{msg}</div>}
     </div>
   );

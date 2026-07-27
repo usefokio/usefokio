@@ -576,6 +576,17 @@ export type SiteLandingPage = {
   updated_at: string;
 };
 
+// Bloco salvo como modelo para reusar em outras landings/páginas (biblioteca do fotógrafo).
+export type SiteBlocoModelo = {
+  id: string;
+  fotografo_id: string;
+  nome: string;
+  tipo: string;                        // TipoBloco
+  dados: Record<string, unknown>;      // SiteBloco["dados"]
+  created_at: string;
+  updated_at: string;
+};
+
 export type SiteLandingAcesso = {
   id: string;
   landing_id: string;
