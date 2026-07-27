@@ -2,7 +2,7 @@
 // Reusa as classes .lp-* (responsivas) do tema Editorial.
 import Link from "next/link";
 import type { CSSProperties } from "react";
-import { valorExibido, mascararDinheiro, type SiteBloco } from "@/lib/site/blocos";
+import { valorExibido, mascararDinheiro, mascararDinheiroHtml, type SiteBloco } from "@/lib/site/blocos";
 import { ASPECT, OBJECT_POSITION } from "@/lib/site/design";
 import type { SiteDepoimento } from "@/lib/supabase/types";
 import { ContatoForm } from "./ContatoForm";
@@ -149,7 +149,7 @@ function Bloco({ bloco, ctx }: { bloco: SiteBloco; ctx: ContextoBlocos }) {
 
     case "pacote": {
       const estilo = d.lista_estilo ?? "bolinha";
-      const valor = valorExibido(ctx.mascararValores ? { ...d, valor: mascararDinheiro(d.valor) } : d);
+      const valor = valorExibido(ctx.mascararValores ? { ...d, valor: mascararDinheiro(d.valor), valor_prefixo: mascararDinheiro(d.valor_prefixo) } : d);
       // Título em FAIXA de destaque (mesma cara do topo/hero, com imagem de fundo própria).
       // Quando ligado, o nome sai de dentro das colunas e vira o cabeçalho do bloco.
       const faixa = d.titulo_hero && d.nome ? (
@@ -187,7 +187,7 @@ function Bloco({ bloco, ctx }: { bloco: SiteBloco; ctx: ContextoBlocos }) {
           {d.titulo && <h2 className="lp-titulo" style={estTit}>{d.titulo}</h2>}
           <div className="lp-planos" style={{ "--lp-cols": Math.min(4, Math.max(1, d.colunas ?? lista.length)) } as CSSProperties}>
             {lista.map((p, i) => {
-              const valor = valorExibido({ valor: ctx.mascararValores ? mascararDinheiro(p.valor) : p.valor, valor_prefixo: p.valor_prefixo });
+              const valor = valorExibido({ valor: ctx.mascararValores ? mascararDinheiro(p.valor) : p.valor, valor_prefixo: ctx.mascararValores ? mascararDinheiro(p.valor_prefixo) : p.valor_prefixo });
               return (
                 <div key={i} className={`lp-plano${p.destaque ? " destaque" : ""}`}>
                   {/* a etiqueta é o selo da coluna em destaque — sem destaque, não aparece */}
@@ -208,12 +208,12 @@ function Bloco({ bloco, ctx }: { bloco: SiteBloco; ctx: ContextoBlocos }) {
     case "pagamento": {
       const cond = (d.condicoes ?? []).filter((c) => c.rotulo || c.descricao);
       const introRaw = (d.intro_html ?? "").trim();
-      const intro = ctx.mascararValores ? mascararDinheiro(introRaw) : introRaw;
+      const intro = ctx.mascararValores ? mascararDinheiroHtml(introRaw) : introRaw;
       const mask = (s: string | null | undefined) => (ctx.mascararValores ? mascararDinheiro(s) : (s ?? ""));
       if (!d.titulo && !introRaw && cond.length === 0) return null;
       return (
         <section className="lp-secao">
-          {d.titulo && <h2 className="lp-titulo" style={estTit}>{d.titulo}</h2>}
+          {d.titulo && <h2 className="lp-titulo" style={estTit}>{mask(d.titulo)}</h2>}
           {intro && intro !== "<p></p>" && (
             <div className="site-conteudo lp-pgto-intro" dangerouslySetInnerHTML={{ __html: intro }} />
           )}
