@@ -140,6 +140,22 @@ export const CATALOGO_BLOCOS: { tipo: TipoBloco; label: string; icone: string }[
 // Valor do pacote como aparece na página: "R$" automático + prefixo opcional ("10x").
 // Compatibilidade: valores gravados antes disso já vinham com "R$" escrito no texto
 // (ex.: "R$ 10x 510,00") — esses são exibidos exatamente como estão.
+// Gate "só os valores": esconde o NÚMERO do preço, preservando o texto ao redor.
+// Regra única: todo número vira "?????", EXCETO quando é seguido de 'x' (contagem de parcelas:
+// "10x", "4x") ou de '%' (percentual: "100%"). Assim "4x de R$ 300" → "4x de R$ ?????",
+// "10x 510,00" → "10x ?????", "3.500" / "3.500,00" / "3500" → "?????", "10%" fica "10%".
+export function mascararDinheiro(s: string | null | undefined): string {
+  return (s ?? "").replace(/\d[\d.]*(?:,\d{1,2})?/g, (m: string, offset: number, full: string) => {
+    const depois = full.slice(offset + m.length);
+    return /^\s*[xX%]/.test(depois) ? m : "?????"; // seguido de x/% = parcela/percentual → mantém
+  });
+}
+
+// Versão HTML-safe: mascara só os nós de TEXTO (fora das tags), preservando atributos (src/href).
+export function mascararDinheiroHtml(html: string | null | undefined): string {
+  return (html ?? "").split(/(<[^>]*>)/).map((p, i) => (i % 2 === 0 ? mascararDinheiro(p) : p)).join("");
+}
+
 export function valorExibido(d: SiteBloco["dados"]): string | null {
   const bruto = (d.valor ?? "").trim();
   if (!bruto) return null;

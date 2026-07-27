@@ -17,11 +17,12 @@ export async function POST(request: NextRequest) {
   }
 
   const supabase = createAdminClient();
-  // Só registra acesso de uma landing que realmente existe e tem o gate ligado (evita poluir a
-  // lista "Quem acessou" com POSTs a landings quaisquer).
+  // Só registra acesso de uma landing que realmente existe e tem algum gate ligado ('pagina' ou
+  // 'valores') — evita poluir a lista "Quem acessou" com POSTs a landings quaisquer.
   const { data: lp } = await supabase.from("site_landing_pages")
-    .select("id, identificacao_obrigatoria").eq("id", landing_id).maybeSingle();
-  if (!lp || !lp.identificacao_obrigatoria) {
+    .select("id, identificacao_modo, identificacao_obrigatoria").eq("id", landing_id).maybeSingle();
+  const modo = lp?.identificacao_modo ?? (lp?.identificacao_obrigatoria ? "pagina" : "nenhum");
+  if (!lp || modo === "nenhum") {
     return NextResponse.json({ erro: "Proposta não encontrada." }, { status: 404 });
   }
 

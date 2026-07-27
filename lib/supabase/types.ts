@@ -563,7 +563,8 @@ export type SiteLandingPage = {
   slug: string;
   publicado: boolean;
   dados: SiteLandingDados;
-  identificacao_obrigatoria: boolean;
+  identificacao_obrigatoria: boolean; // legado — sincronizado com identificacao_modo != 'nenhum'
+  identificacao_modo: "nenhum" | "pagina" | "valores";
   seo_title: string | null;
   seo_description: string | null;
   seo_keywords: string | null;
@@ -571,6 +572,17 @@ export type SiteLandingPage = {
   og_title: string | null;
   og_description: string | null;
   og_image_url: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+// Bloco salvo como modelo para reusar em outras landings/páginas (biblioteca do fotógrafo).
+export type SiteBlocoModelo = {
+  id: string;
+  fotografo_id: string;
+  nome: string;
+  tipo: string;                        // TipoBloco
+  dados: Record<string, unknown>;      // SiteBloco["dados"]
   created_at: string;
   updated_at: string;
 };

@@ -14,7 +14,7 @@ import { useWindowWidth } from "@/lib/hooks/useWindowWidth";
 import { dadosParaBlocos, type SiteBloco } from "@/lib/site/blocos";
 import { EditorBlocos } from "@/app/(dashboard)/site/_components/EditorBlocos";
 import { PreviewSite, BarraDispositivo, type Dispositivo } from "@/app/(dashboard)/site/_components/PreviewSite";
-import { Chave } from "@/app/(dashboard)/site/_components/ControlesUI";
+import { Chave, Seg } from "@/app/(dashboard)/site/_components/ControlesUI";
 import { RenderBlocos, type ContextoBlocos } from "@/app/sites/[fid]/_components/RenderBlocos";
 import { getTema } from "@/lib/site/temas";
 import { normalizarDesign, DESIGN_PADRAO, type ConfigDesign } from "@/lib/site/design";
@@ -64,7 +64,8 @@ export default function EditorLandingPage({ params }: { params: Promise<{ id: st
   const [titulo, setTitulo] = useState("");
   const [slug, setSlug] = useState("");
   const [publicado, setPublicado] = useState(false);
-  const [identificacao, setIdentificacao] = useState(false);  // exige nome/WhatsApp/e-mail para abrir
+  // Identificação: 'nenhum' (livre) · 'pagina' (identifica p/ ver a página inteira) · 'valores' (página aberta, só os preços atrás do gate)
+  const [identificacaoModo, setIdentificacaoModo] = useState<"nenhum" | "pagina" | "valores">("nenhum");
   const [seoTitle, setSeoTitle] = useState("");
   const [seoDesc, setSeoDesc] = useState("");
   const [seoKw, setSeoKw] = useState("");
@@ -124,7 +125,7 @@ export default function EditorLandingPage({ params }: { params: Promise<{ id: st
 
     // Landing nova: nada a carregar — abre em branco, com baseline vazio (nada "não salvo").
     if (ehNova) {
-      setBaseline(snapshot("", "", false, snapSeo("", "", "", true, "", "", null), [], false));
+      setBaseline(snapshot("", "", false, snapSeo("", "", "", true, "", "", null), [], "nenhum"));
       setCarregando(false);
       return;
     }
@@ -133,7 +134,7 @@ export default function EditorLandingPage({ params }: { params: Promise<{ id: st
       if (!data) { setMsg("Erro: landing não encontrada."); setCarregando(false); return; }
       const lp = data as SiteLandingPage;
       setTitulo(lp.titulo); setSlug(lp.slug); setPublicado(lp.publicado);
-      setIdentificacao(lp.identificacao_obrigatoria ?? false);
+      setIdentificacaoModo(lp.identificacao_modo ?? (lp.identificacao_obrigatoria ? "pagina" : "nenhum"));
       setSeoTitle(lp.seo_title ?? ""); setSeoDesc(lp.seo_description ?? "");
       setSeoKw(lp.seo_keywords ?? ""); setSeoNoindex(lp.seo_noindex ?? true);
       setOgTitle(lp.og_title ?? ""); setOgDesc(lp.og_description ?? ""); setOgImage(lp.og_image_url);
@@ -141,7 +142,7 @@ export default function EditorLandingPage({ params }: { params: Promise<{ id: st
       setDadosOriginais(d);
       const bl = d.blocos && d.blocos.length > 0 ? d.blocos : dadosParaBlocos(d);
       setBlocos(bl);
-      setBaseline(snapshot(lp.titulo, lp.slug, lp.publicado, snapSeo(lp.seo_title ?? "", lp.seo_description ?? "", lp.seo_keywords ?? "", lp.seo_noindex ?? true, lp.og_title ?? "", lp.og_description ?? "", lp.og_image_url), bl, lp.identificacao_obrigatoria ?? false));
+      setBaseline(snapshot(lp.titulo, lp.slug, lp.publicado, snapSeo(lp.seo_title ?? "", lp.seo_description ?? "", lp.seo_keywords ?? "", lp.seo_noindex ?? true, lp.og_title ?? "", lp.og_description ?? "", lp.og_image_url), bl, lp.identificacao_modo ?? (lp.identificacao_obrigatoria ? "pagina" : "nenhum")));
       setCarregando(false);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -151,10 +152,10 @@ export default function EditorLandingPage({ params }: { params: Promise<{ id: st
   function snapSeo(st: string, sd: string, kw: string, ni: boolean, ot: string, od: string, oi: string | null) {
     return { st, sd, kw, ni, ot, od, oi };
   }
-  function snapshot(t: string, s: string, pub: boolean, seo: ReturnType<typeof snapSeo>, bl: SiteBloco[], ident: boolean) {
+  function snapshot(t: string, s: string, pub: boolean, seo: ReturnType<typeof snapSeo>, bl: SiteBloco[], ident: string) {
     return JSON.stringify({ t, s, pub, seo, bl, ident });
   }
-  const estadoAtual = snapshot(titulo, slug, publicado, snapSeo(seoTitle, seoDesc, seoKw, seoNoindex, ogTitle, ogDesc, ogImage), blocos, identificacao);
+  const estadoAtual = snapshot(titulo, slug, publicado, snapSeo(seoTitle, seoDesc, seoKw, seoNoindex, ogTitle, ogDesc, ogImage), blocos, identificacaoModo);
   const temAlteracoes = !saiu && !carregando && estadoAtual !== baseline;
   const { modalAberto, setModalAberto, pedirSaida, irParaDestino } = useUnsavedGuard(temAlteracoes);
 
@@ -172,7 +173,8 @@ export default function EditorLandingPage({ params }: { params: Promise<{ id: st
       titulo: titulo.trim(),
       slug: s,
       publicado,
-      identificacao_obrigatoria: identificacao,
+      identificacao_modo: identificacaoModo,
+      identificacao_obrigatoria: identificacaoModo !== "nenhum", // legado sincronizado
       dados: { ...dadosOriginais, blocos },
       seo_title: seoTitle.trim() || null,
       seo_description: seoDesc.trim() || null,
@@ -195,7 +197,7 @@ export default function EditorLandingPage({ params }: { params: Promise<{ id: st
     }
     setSlug(s);
     setTitulo(titulo.trim());
-    setBaseline(snapshot(titulo.trim(), s, publicado, snapSeo(seoTitle, seoDesc, seoKw, seoNoindex, ogTitle, ogDesc, ogImage), blocos, identificacao)); // zera o "não salvo"
+    setBaseline(snapshot(titulo.trim(), s, publicado, snapSeo(seoTitle, seoDesc, seoKw, seoNoindex, ogTitle, ogDesc, ogImage), blocos, identificacaoModo)); // zera o "não salvo"
     setMsg("Página salva!");
     return true;
   }
@@ -360,16 +362,23 @@ export default function EditorLandingPage({ params }: { params: Promise<{ id: st
           </div>
         </div>
 
-        {/* IDENTIFICAÇÃO — capta quem abriu a proposta (nome/WhatsApp/e-mail) antes de revelar o conteúdo. */}
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 14, paddingTop: 14, borderTop: "1px solid var(--color-border-tertiary)" }}>
-          <Chave on={identificacao} onChange={setIdentificacao} titulo="Exigir identificação" />
-          <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: "var(--color-text-primary)" }}>
-              {identificacao ? "Pede nome e WhatsApp (e-mail opcional) para abrir" : "Acesso livre (sem pedir dados)"}
-            </div>
-            <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginTop: 2 }}>
-              Quando ligado, quem abrir o link se identifica antes de ver a proposta e você recebe a lista de contatos em <strong>“Quem acessou”</strong> na lista de páginas.
-            </div>
+        {/* IDENTIFICAÇÃO — capta quem abriu a proposta (nome/WhatsApp/e-mail). A lista aparece em
+            "👥 Quem acessou" na listagem de landings. */}
+        <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid var(--color-border-tertiary)" }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "var(--color-text-primary)", marginBottom: 8 }}>Identificação do visitante</div>
+          <Seg
+            value={identificacaoModo}
+            onChange={(v) => setIdentificacaoModo(v)}
+            options={[
+              { v: "nenhum", l: "Sem pedir" },
+              { v: "valores", l: "Só os valores" },
+              { v: "pagina", l: "Página inteira" },
+            ]}
+          />
+          <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginTop: 8, lineHeight: 1.6 }}>
+            {identificacaoModo === "nenhum" && "Acesso livre — a página abre sem pedir dados."}
+            {identificacaoModo === "valores" && <>A página abre normalmente (ótimo para o Google), mas os <strong>valores</strong> (blocos Pacote, Pacotes e Formas de pagamento) aparecem como <strong>R$ ?????</strong> com um botão <strong>“Ver valor”</strong>. Quem clicar informa nome, WhatsApp e e-mail (e-mail opcional) — e você recebe o contato em <strong>“Quem acessou”</strong>.</>}
+            {identificacaoModo === "pagina" && <>Para <strong>ver a proposta</strong>, o visitante se identifica antes (nome, WhatsApp, e-mail opcional). Bom para propostas privadas enviadas por link. <strong>Não combine com indexação no Google</strong> — o buscador veria só o formulário; para indexar, use “Só os valores”.</>}
           </div>
         </div>
       </div>

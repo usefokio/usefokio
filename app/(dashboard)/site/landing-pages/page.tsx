@@ -83,6 +83,7 @@ export default function LandingPagesLista() {
       slug: slugDeCopia(p.slug, usados),
       publicado: false,           // cópia NUNCA entra no ar sozinha (regra-mãe de SEO)
       identificacao_obrigatoria: p.identificacao_obrigatoria,
+      identificacao_modo: p.identificacao_modo,
       dados: p.dados,
       seo_title: p.seo_title, seo_description: p.seo_description, seo_keywords: p.seo_keywords,
       seo_noindex: p.seo_noindex, og_title: p.og_title, og_description: p.og_description,

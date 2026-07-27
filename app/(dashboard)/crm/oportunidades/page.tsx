@@ -7,13 +7,28 @@ import { fetchAllRows } from "@/lib/supabase/fetchAll";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { useWindowWidth } from "@/lib/hooks/useWindowWidth";
 import { usePersistState } from "@/lib/hooks/usePersistState";
+import { useColunasLargura, type ColunaDef } from "@/lib/hooks/useColunasLargura";
 import { IcoEdit, IcoTrash, IcoOpen } from "@/app/(dashboard)/crm/_components/Icons";
 import { Paginacao } from "@/app/(dashboard)/crm/_components/Paginacao";
+import { ResizeHandle } from "@/app/(dashboard)/crm/_components/ResizeHandle";
+import { BarraProgressoEtapa } from "@/app/(dashboard)/crm/_components/BarraProgressoEtapa";
+import { ContatoOportunidade } from "@/app/(dashboard)/crm/_components/ContatoOportunidade";
 import { ClienteLink } from "@/components/ui/ClienteLink";
 import type { CrmOpportunity } from "@/lib/supabase/types";
 
+// Larguras padrão das colunas (desktop) — redimensionáveis via useColunasLargura.
+const COLS_OPP: ColunaDef[] = [
+  { id: "titulo",      largura: 280, min: 160 },
+  { id: "cliente",     largura: 150, min: 90 },
+  { id: "data_evento", largura: 120, min: 90 },
+  { id: "valor",       largura: 120, min: 90 },
+  { id: "etapa",       largura: 150, min: 100 },
+  { id: "status",      largura: 110, min: 80 },
+  { id: "acoes",       largura: 118, min: 118 },
+];
+
 type OppWithRelations = CrmOpportunity & {
-  clientes?: { id: string; nome: string } | null;
+  clientes?: { id: string; nome: string; email: string | null; telefone: string | null; whatsapp: string | null } | null;
   etapa?: { nome: string; ordem: number } | null;
 };
 
@@ -67,10 +82,12 @@ export default function OportunidadesPage() {
   const [deletando,  setDeletando]  = useState(false);
   const [statusMap,  setStatusMap]  = useState<Record<string, { label: string; color: string; bg: string }>>({});
   const [statusList, setStatusList] = useState<{ chave: string; label: string; cor: string | null }[]>([]);
+  const [etapasPorFunil, setEtapasPorFunil] = useState<Record<string, { id: string; ordem: number }[]>>({});
   const [busca,     setBusca]     = usePersistState("oportunidades:busca",    "");
   const [status,    setStatus]    = usePersistState<StatusFiltro>("oportunidades:status",   "");
   const [catFiltro, setCatFiltro] = usePersistState("oportunidades:catFiltro", "");
   const largura = useWindowWidth();
+  const cols = useColunasLargura("oportunidades", COLS_OPP);
   const [sortCol, setSortCol] = usePersistState("oportunidades:sortCol", "created_at");
   const [sortDir, setSortDir] = usePersistState<"asc" | "desc">("oportunidades:sortDir", "desc");
   const toggleSort = (col: string) => {
@@ -86,7 +103,7 @@ export default function OportunidadesPage() {
     const [data, { data: sts }] = await Promise.all([
       fetchAllRows<OppWithRelations>(
         (sbc, from, to) => sbc.from("crm_opportunities")
-          .select("*, clientes!cliente_id(id, nome), etapa:crm_funnel_stages!etapa_id(nome, ordem)")
+          .select("*, clientes!cliente_id(id, nome, email, telefone, whatsapp), etapa:crm_funnel_stages!etapa_id(nome, ordem)")
           .eq("fotografo_id", fid)
           .order("created_at", { ascending: false })
           .range(from, to),
@@ -102,6 +119,20 @@ export default function OportunidadesPage() {
     setOpps(items);
     const cats = [...new Set(items.map(o => o.categoria).filter(Boolean) as string[])].sort();
     setCategorias(cats);
+
+    // Etapas de cada funil presente (para a barra de progresso da coluna Etapa: posição/total).
+    const funilIds = [...new Set(items.map(o => o.funil_id).filter(Boolean) as string[])];
+    if (funilIds.length) {
+      const etapas = await fetchAllRows<{ id: string; funil_id: string; ordem: number }>(
+        (sbc, from, to) => sbc.from("crm_funnel_stages").select("id, funil_id, ordem").in("funil_id", funilIds).order("ordem").range(from, to),
+        sb
+      );
+      const porFunil: Record<string, { id: string; ordem: number }[]> = {};
+      for (const e of etapas) (porFunil[e.funil_id] ??= []).push({ id: e.id, ordem: e.ordem });
+      setEtapasPorFunil(porFunil);
+    } else {
+      setEtapasPorFunil({});
+    }
     const stList = (sts ?? []) as { chave: string; label: string; cor: string | null }[];
     setStatusList(stList);
     const map: Record<string, { label: string; color: string; bg: string }> = {};
@@ -140,7 +171,7 @@ export default function OportunidadesPage() {
   }
 
   const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-  const fmtData = (s: string) => new Date(s + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" });
+  const fmtData = (s: string) => new Date(s + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
 
   const contagens: Record<string, number> = { "": opps.length };
   for (const o of opps) contagens[o.status] = (contagens[o.status] ?? 0) + 1;
@@ -174,17 +205,18 @@ export default function OportunidadesPage() {
   const verMedium = largura >= 700 && largura < 1100;
   const verSmall  = largura < 700;
 
+  // Desktop: larguras redimensionáveis (hook). Telas menores mantêm o layout responsivo fixo.
   const gridTemplate = verLarge
-    ? "1fr 150px 120px 120px 130px 110px 80px"
+    ? cols.template
     : verMedium
     ? "1fr 150px 130px 110px 80px"
     : "1fr 110px 70px";
 
   const cabecalhos = verLarge
-    ? [{ label: "Oportunidade", col: "titulo" }, { label: "Cliente", col: "cliente" }, { label: "Evento", col: "data_evento" }, { label: "Valor", col: "valor_estimado" }, { label: "Etapa do Funil", col: "etapa_ordem" }, { label: "Status", col: "status" }, { label: "", col: "" }]
+    ? [{ label: "Oportunidade", col: "titulo", id: "titulo" }, { label: "Cliente", col: "cliente", id: "cliente" }, { label: "Evento", col: "data_evento", id: "data_evento" }, { label: "Valor", col: "valor_estimado", id: "valor" }, { label: "Etapa do Funil", col: "etapa_ordem", id: "etapa" }, { label: "Status", col: "status", id: "status" }, { label: "", col: "", id: "acoes" }]
     : verMedium
-    ? [{ label: "Oportunidade", col: "titulo" }, { label: "Cliente", col: "cliente" }, { label: "Etapa do Funil", col: "etapa_ordem" }, { label: "Status", col: "status" }, { label: "", col: "" }]
-    : [{ label: "Oportunidade", col: "titulo" }, { label: "Status", col: "status" }, { label: "", col: "" }];
+    ? [{ label: "Oportunidade", col: "titulo", id: "titulo" }, { label: "Cliente", col: "cliente", id: "cliente" }, { label: "Etapa do Funil", col: "etapa_ordem", id: "etapa" }, { label: "Status", col: "status", id: "status" }, { label: "", col: "", id: "acoes" }]
+    : [{ label: "Oportunidade", col: "titulo", id: "titulo" }, { label: "Status", col: "status", id: "status" }, { label: "", col: "", id: "acoes" }];
 
   return (
     <div style={{ padding: "28px 24px", maxWidth: 1200, fontFamily: "var(--font-sans)" }}>
@@ -282,13 +314,17 @@ export default function OportunidadesPage() {
         <div style={{ border: "0.5px solid var(--color-border-tertiary)", borderRadius: 12, overflow: "hidden" }}>
           {/* Cabeçalho */}
           <div style={{ display: "grid", gridTemplateColumns: gridTemplate, padding: "8px 16px", borderBottom: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-secondary)" }}>
-            {cabecalhos.map(({ label, col }) => (
-              <div key={label || "acoes"} onClick={() => col && toggleSort(col)}
-                style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.04em", cursor: col ? "pointer" : "default", userSelect: "none" }}>
-                {label}
-                {col && sortCol === col && <span style={{ fontSize: 9, opacity: 0.7 }}>{sortDir === "asc" ? "↑" : "↓"}</span>}
-              </div>
-            ))}
+            {cabecalhos.map(({ label, col, id }) => {
+              const resizavel = verLarge && id !== "acoes";
+              return (
+                <div key={label || "acoes"} onClick={() => col && toggleSort(col)}
+                  style={{ position: "relative", display: "flex", alignItems: "center", gap: 3, fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.04em", cursor: col ? "pointer" : "default", userSelect: "none" }}>
+                  {label}
+                  {col && sortCol === col && <span style={{ fontSize: 9, opacity: 0.7 }}>{sortDir === "asc" ? "↑" : "↓"}</span>}
+                  {resizavel && <ResizeHandle {...cols.handleProps(id)} />}
+                </div>
+              );
+            })}
           </div>
 
           {paginadas.map((o, i) => {
@@ -334,16 +370,20 @@ export default function OportunidadesPage() {
                   </div>
                 )}
 
-                {/* Etapa do funil — large e medium */}
+                {/* Etapa do funil — barra de progresso (posição/total) + nome; large e medium */}
                 {(verLarge || verMedium) && (
-                  <div style={{ display: "flex", alignItems: "center" }}>
-                    {o.etapa ? (
-                      <span style={{ fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 8, background: "rgba(37,99,235,0.07)", color: "#2563EB", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 120 }}>
-                        {o.etapa.nome}
-                      </span>
-                    ) : (
-                      <span style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>—</span>
-                    )}
+                  <div style={{ display: "flex", alignItems: "center", minWidth: 0 }}>
+                    {(() => {
+                      const stages = o.funil_id ? etapasPorFunil[o.funil_id] : undefined;
+                      const idx = stages && o.etapa_id ? stages.findIndex(s => s.id === o.etapa_id) : -1;
+                      if (o.etapa && stages && idx >= 0) {
+                        return <BarraProgressoEtapa pos={idx + 1} total={stages.length} nome={o.etapa.nome} />;
+                      }
+                      // Fallback: sem etapas carregadas ou etapa órfã → só o nome (ou —)
+                      return o.etapa
+                        ? <span style={{ fontSize: 12, color: "var(--color-text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{o.etapa.nome}</span>
+                        : <span style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>—</span>;
+                    })()}
                   </div>
                 )}
 
@@ -354,6 +394,7 @@ export default function OportunidadesPage() {
 
                 {/* Ações */}
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 4 }}>
+                  <ContatoOportunidade cliente={o.clientes} titulo={o.titulo} />
                   <button
                     onClick={() => router.push(`/crm/oportunidades/${o.id}`)}
                     title="Abrir"
