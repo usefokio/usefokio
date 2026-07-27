@@ -12,6 +12,7 @@ import { IcoEdit, IcoTrash, IcoOpen } from "@/app/(dashboard)/crm/_components/Ic
 import { Paginacao } from "@/app/(dashboard)/crm/_components/Paginacao";
 import { ResizeHandle } from "@/app/(dashboard)/crm/_components/ResizeHandle";
 import { BarraProgressoEtapa } from "@/app/(dashboard)/crm/_components/BarraProgressoEtapa";
+import { ContatoOportunidade } from "@/app/(dashboard)/crm/_components/ContatoOportunidade";
 import { ClienteLink } from "@/components/ui/ClienteLink";
 import type { CrmOpportunity } from "@/lib/supabase/types";
 
@@ -23,11 +24,11 @@ const COLS_OPP: ColunaDef[] = [
   { id: "valor",       largura: 120, min: 90 },
   { id: "etapa",       largura: 150, min: 100 },
   { id: "status",      largura: 110, min: 80 },
-  { id: "acoes",       largura: 80,  min: 80 },
+  { id: "acoes",       largura: 118, min: 118 },
 ];
 
 type OppWithRelations = CrmOpportunity & {
-  clientes?: { id: string; nome: string } | null;
+  clientes?: { id: string; nome: string; email: string | null; telefone: string | null; whatsapp: string | null } | null;
   etapa?: { nome: string; ordem: number } | null;
 };
 
@@ -102,7 +103,7 @@ export default function OportunidadesPage() {
     const [data, { data: sts }] = await Promise.all([
       fetchAllRows<OppWithRelations>(
         (sbc, from, to) => sbc.from("crm_opportunities")
-          .select("*, clientes!cliente_id(id, nome), etapa:crm_funnel_stages!etapa_id(nome, ordem)")
+          .select("*, clientes!cliente_id(id, nome, email, telefone, whatsapp), etapa:crm_funnel_stages!etapa_id(nome, ordem)")
           .eq("fotografo_id", fid)
           .order("created_at", { ascending: false })
           .range(from, to),
@@ -393,6 +394,7 @@ export default function OportunidadesPage() {
 
                 {/* Ações */}
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 4 }}>
+                  <ContatoOportunidade cliente={o.clientes} titulo={o.titulo} />
                   <button
                     onClick={() => router.push(`/crm/oportunidades/${o.id}`)}
                     title="Abrir"
