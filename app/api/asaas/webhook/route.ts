@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { confirmarRenovacaoPaga } from "@/lib/pagamentos/confirmar";
+import { compararSegredo } from "@/lib/seguranca";
 
 // Health-check: alguns validadores do Asaas checam a URL via GET. Responde 200.
 export async function GET() {
@@ -18,7 +19,7 @@ export async function POST(request: NextRequest) {
     console.error("[webhook/asaas] ASAAS_WEBHOOK_TOKEN não configurado — rejeitando");
     return NextResponse.json({ error: "not configured" }, { status: 503 });
   }
-  if (token !== expectedToken) {
+  if (!compararSegredo(token, expectedToken)) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 

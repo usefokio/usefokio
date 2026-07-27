@@ -6,6 +6,7 @@ import { decryptKey, criarCobranca, registrarWebhook, type AsaasAmbiente } from 
 import nodemailer from "nodemailer";
 import { getResend, FROM_DEFAULT } from "@/lib/email/resend";
 import { rateLimitOk, clientIp } from "@/lib/rate-limit";
+import { escapeHtml } from "@/lib/email/comunicacao";
 import QRCode from "qrcode";
 import { gerarBrCodePix } from "@/lib/pix/brcode";
 
@@ -95,8 +96,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       const emailTo = fotografo!.email ?? "";
       const subject = `Renovação solicitada — ${galeria.titulo}`;
       const html = `<div style="font-family:sans-serif;font-size:15px;line-height:1.7;color:#222;max-width:600px">
-        <p><strong>${nome.trim()}</strong> solicitou a renovação de acesso da galeria <strong>${galeria.titulo}</strong> e vai pagar via PIX.</p>
-        <p>Valor: <strong>${valorFmt}</strong><br>E-mail: ${emailNorm}</p>
+        <p><strong>${escapeHtml(nome.trim())}</strong> solicitou a renovação de acesso da galeria <strong>${escapeHtml(galeria.titulo)}</strong> e vai pagar via PIX.</p>
+        <p>Valor: <strong>${valorFmt}</strong><br>E-mail: ${escapeHtml(emailNorm)}</p>
         <p>Assim que o pagamento cair na sua conta, confira o recebimento no seu banco e acesse o painel para <strong>confirmar e liberar</strong> o acesso do cliente:<br>
         <a href="${appUrl}/entrega/${id}">${appUrl}/entrega/${id}</a></p>
         <hr style="margin:24px 0;border:none;border-top:1px solid #eee">
