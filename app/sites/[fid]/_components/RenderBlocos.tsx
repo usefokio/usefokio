@@ -2,12 +2,13 @@
 // Reusa as classes .lp-* (responsivas) do tema Editorial.
 import Link from "next/link";
 import type { CSSProperties } from "react";
-import { valorExibido, type SiteBloco } from "@/lib/site/blocos";
+import { valorExibido, mascararDinheiro, type SiteBloco } from "@/lib/site/blocos";
 import { ASPECT, OBJECT_POSITION } from "@/lib/site/design";
 import type { SiteDepoimento } from "@/lib/supabase/types";
 import { ContatoForm } from "./ContatoForm";
 import { GaleriaFotos } from "./GaleriaFotos";
 import { LinkConversao } from "./LinkConversao";
+import { VerValorGate } from "./VerValorGate";
 import { linkWhatsApp } from "@/lib/site/whatsapp";
 
 export type ContextoBlocos = {
@@ -16,6 +17,8 @@ export type ContextoBlocos = {
   depoimentos: SiteDepoimento[];     // usados pelo bloco "depoimentos"
   whatsappFallback: string | null;   // número do cadastro (fallback do bloco whatsapp)
   categorias?: { valor: string; label: string }[]; // "tipo do evento" do bloco "formulario"
+  mascararValores?: boolean;         // gate "só os valores": esconde o preço até identificar
+  landingId?: string;                // landing atual (usado pelo botão "Ver valor")
 };
 
 function linkInterno(base: string, href: string) {
@@ -146,7 +149,7 @@ function Bloco({ bloco, ctx }: { bloco: SiteBloco; ctx: ContextoBlocos }) {
 
     case "pacote": {
       const estilo = d.lista_estilo ?? "bolinha";
-      const valor = valorExibido(d);
+      const valor = valorExibido(ctx.mascararValores ? { ...d, valor: mascararDinheiro(d.valor) } : d);
       // Título em FAIXA de destaque (mesma cara do topo/hero, com imagem de fundo própria).
       // Quando ligado, o nome sai de dentro das colunas e vira o cabeçalho do bloco.
       const faixa = d.titulo_hero && d.nome ? (
@@ -167,6 +170,7 @@ function Bloco({ bloco, ctx }: { bloco: SiteBloco; ctx: ContextoBlocos }) {
               {!faixa && d.nome && <h2 className="lp-pacote-nome" style={estTit}>{d.nome}</h2>}
               <ItensPacote html={d.itens_html} itens={d.itens} estilo={estilo} />
               {valor && (<><div className="lp-valor-label">Valor</div><div className="lp-valor">{valor}</div></>)}
+              {valor && ctx.mascararValores && ctx.landingId && <VerValorGate landingId={ctx.landingId} />}
             </div>
             {d.imagem_url && <img className="lp-duas-img" src={d.imagem_url} alt={d.nome ?? ""} loading="lazy" style={estiloImagem(d)} />}
           </div>
@@ -183,7 +187,7 @@ function Bloco({ bloco, ctx }: { bloco: SiteBloco; ctx: ContextoBlocos }) {
           {d.titulo && <h2 className="lp-titulo" style={estTit}>{d.titulo}</h2>}
           <div className="lp-planos" style={{ "--lp-cols": Math.min(4, Math.max(1, d.colunas ?? lista.length)) } as CSSProperties}>
             {lista.map((p, i) => {
-              const valor = valorExibido({ valor: p.valor, valor_prefixo: p.valor_prefixo });
+              const valor = valorExibido({ valor: ctx.mascararValores ? mascararDinheiro(p.valor) : p.valor, valor_prefixo: p.valor_prefixo });
               return (
                 <div key={i} className={`lp-plano${p.destaque ? " destaque" : ""}`}>
                   {/* a etiqueta é o selo da coluna em destaque — sem destaque, não aparece */}
@@ -192,6 +196,7 @@ function Bloco({ bloco, ctx }: { bloco: SiteBloco; ctx: ContextoBlocos }) {
                   {p.nome && <h3 className="lp-plano-nome" style={estTit}>{p.nome}</h3>}
                   <ItensPacote html={p.itens_html} itens={p.itens} estilo={estilo} />
                   {valor && (<><div className="lp-valor-label">Valor</div><div className="lp-valor">{valor}</div></>)}
+                  {valor && ctx.mascararValores && ctx.landingId && <VerValorGate landingId={ctx.landingId} />}
                 </div>
               );
             })}
@@ -202,8 +207,10 @@ function Bloco({ bloco, ctx }: { bloco: SiteBloco; ctx: ContextoBlocos }) {
 
     case "pagamento": {
       const cond = (d.condicoes ?? []).filter((c) => c.rotulo || c.descricao);
-      const intro = (d.intro_html ?? "").trim();
-      if (!d.titulo && !intro && cond.length === 0) return null;
+      const introRaw = (d.intro_html ?? "").trim();
+      const intro = ctx.mascararValores ? mascararDinheiro(introRaw) : introRaw;
+      const mask = (s: string | null | undefined) => (ctx.mascararValores ? mascararDinheiro(s) : (s ?? ""));
+      if (!d.titulo && !introRaw && cond.length === 0) return null;
       return (
         <section className="lp-secao">
           {d.titulo && <h2 className="lp-titulo" style={estTit}>{d.titulo}</h2>}
@@ -214,11 +221,14 @@ function Bloco({ bloco, ctx }: { bloco: SiteBloco; ctx: ContextoBlocos }) {
             <div className="lp-pagamento">
               {cond.map((c, i) => (
                 <div key={i} className="lp-pgto-linha">
-                  <div className="lp-pgto-rotulo">{c.rotulo}</div>
-                  <div className="lp-pgto-desc">{c.descricao}</div>
+                  <div className="lp-pgto-rotulo">{mask(c.rotulo)}</div>
+                  <div className="lp-pgto-desc">{mask(c.descricao)}</div>
                 </div>
               ))}
             </div>
+          )}
+          {ctx.mascararValores && ctx.landingId && (cond.length > 0 || introRaw) && (
+            <div style={{ textAlign: "center", marginTop: 14 }}><VerValorGate landingId={ctx.landingId} /></div>
           )}
         </section>
       );

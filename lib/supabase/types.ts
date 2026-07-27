@@ -563,7 +563,8 @@ export type SiteLandingPage = {
   slug: string;
   publicado: boolean;
   dados: SiteLandingDados;
-  identificacao_obrigatoria: boolean;
+  identificacao_obrigatoria: boolean; // legado — sincronizado com identificacao_modo != 'nenhum'
+  identificacao_modo: "nenhum" | "pagina" | "valores";
   seo_title: string | null;
   seo_description: string | null;
   seo_keywords: string | null;

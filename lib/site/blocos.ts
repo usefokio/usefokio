@@ -140,6 +140,16 @@ export const CATALOGO_BLOCOS: { tipo: TipoBloco; label: string; icone: string }[
 // Valor do pacote como aparece na página: "R$" automático + prefixo opcional ("10x").
 // Compatibilidade: valores gravados antes disso já vinham com "R$" escrito no texto
 // (ex.: "R$ 10x 510,00") — esses são exibidos exatamente como estão.
+// Gate "só os valores": esconde só o NÚMERO do preço, preservando o texto ao redor
+// ("4x de R$ 300" → "4x de R$ ?????", "10x 510,00" → "10x ?????", "3.500,00" → "?????").
+// Mantém a contagem de parcelas ("4x", "10x") e "%"; some com R$/decimais/inteiros grandes.
+export function mascararDinheiro(s: string | null | undefined): string {
+  return (s ?? "")
+    .replace(/R\$\s*[\d.]+(?:,\d{1,2})?/gi, "R$ ?????")       // com símbolo: R$ 3.500,00 / R$ 300
+    .replace(/\b\d{1,3}(?:\.\d{3})*,\d{2}\b/g, "?????")        // decimal solto: 510,00 / 3.500,00
+    .replace(/\b\d{3,}\b(?!\s*x)/gi, "?????");                 // inteiro grande sem "x": 3500 (poupa "10x")
+}
+
 export function valorExibido(d: SiteBloco["dados"]): string | null {
   const bruto = (d.valor ?? "").trim();
   if (!bruto) return null;

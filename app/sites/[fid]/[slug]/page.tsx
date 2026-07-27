@@ -96,6 +96,19 @@ export default async function LandingPage({ params }: { params: Promise<{ fid: s
   // Motor de blocos: usa a lista salva; landings do formato antigo são convertidas na hora.
   const blocos = d.blocos && d.blocos.length > 0 ? d.blocos : dadosParaBlocos(d);
 
+  // Identificação (via cookie de acesso, gate no servidor):
+  //  • 'pagina'  → sem o cookie, renderiza só o formulário (o conteúdo nem entra no HTML);
+  //  • 'valores' → conteúdo aberto (bom p/ SEO), mas os PREÇOS vêm mascarados até identificar.
+  // Compat: landings antigas usam o boolean → 'pagina'.
+  const modoIdent = lp.identificacao_modo ?? (lp.identificacao_obrigatoria ? "pagina" : "nenhum");
+  let temAcesso = true;
+  if (modoIdent !== "nenhum") {
+    const jar = await cookies();
+    temAcesso = jar.get(`lpid_${lp.id}`)?.value === "1";
+  }
+  const mascararValores = modoIdent === "valores" && !temAcesso;
+  const gatearPagina = modoIdent === "pagina" && !temAcesso;
+
   const conteudo = (
     <RenderBlocos
       blocos={blocos}
@@ -105,25 +118,18 @@ export default async function LandingPage({ params }: { params: Promise<{ fid: s
         depoimentos: (depoimentos ?? []) as SiteDepoimento[],
         whatsappFallback: fotografo?.whatsapp ?? null,
         categorias,
+        mascararValores,
+        landingId: lp.id,
       }}
     />
   );
-
-  // Identificação opcional: captura quem acessou a proposta ANTES de revelar o conteúdo.
-  // Gate no servidor (via cookie) — sem o cookie, o conteúdo nem entra no HTML: renderiza só o
-  // formulário. A rota /api/site/landing-acesso grava o acesso e seta o cookie; o form dá refresh.
-  let liberado = true;
-  if (lp.identificacao_obrigatoria) {
-    const jar = await cookies();
-    liberado = jar.get(`lpid_${lp.id}`)?.value === "1";
-  }
 
   return (
     <>
       {/* Landing não leva o header/menu do site (tem hero/logo próprios). <style> inline (fora do
           pipeline do Tailwind/Lightning CSS) garante o efeito em dev e prod, sem refatorar rotas. */}
       <style>{`.site-header{display:none!important}`}</style>
-      {liberado ? conteudo : <GateIdentificacao landingId={lp.id} titulo={lp.titulo} />}
+      {gatearPagina ? <GateIdentificacao landingId={lp.id} titulo={lp.titulo} /> : conteudo}
     </>
   );
 }
