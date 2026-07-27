@@ -66,6 +66,11 @@ export default function EditorLandingPage({ params }: { params: Promise<{ id: st
   const [publicado, setPublicado] = useState(false);
   // Identificação: 'nenhum' (livre) · 'pagina' (identifica p/ ver a página inteira) · 'valores' (página aberta, só os preços atrás do gate)
   const [identificacaoModo, setIdentificacaoModo] = useState<"nenhum" | "pagina" | "valores">("nenhum");
+  // Proposta em PDF vinculada à landing (é ela que vai por e-mail no modo "valores")
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [pdfGeradoEm, setPdfGeradoEm] = useState<string | null>(null);
+  const [pdfDesatualizado, setPdfDesatualizado] = useState(false);
+  const [gerandoPdf, setGerandoPdf] = useState(false);
   const [seoTitle, setSeoTitle] = useState("");
   const [seoDesc, setSeoDesc] = useState("");
   const [seoKw, setSeoKw] = useState("");
@@ -138,6 +143,9 @@ export default function EditorLandingPage({ params }: { params: Promise<{ id: st
       setSeoTitle(lp.seo_title ?? ""); setSeoDesc(lp.seo_description ?? "");
       setSeoKw(lp.seo_keywords ?? ""); setSeoNoindex(lp.seo_noindex ?? true);
       setOgTitle(lp.og_title ?? ""); setOgDesc(lp.og_description ?? ""); setOgImage(lp.og_image_url);
+      setPdfUrl(lp.pdf_url ?? null); setPdfGeradoEm(lp.pdf_gerado_em ?? null);
+      // O PDF envelhece quando a página é salva depois dele.
+      setPdfDesatualizado(!!lp.pdf_gerado_em && new Date(lp.updated_at) > new Date(lp.pdf_gerado_em));
       const d = (lp.dados ?? {}) as SiteLandingDados;
       setDadosOriginais(d);
       const bl = d.blocos && d.blocos.length > 0 ? d.blocos : dadosParaBlocos(d);
@@ -198,8 +206,33 @@ export default function EditorLandingPage({ params }: { params: Promise<{ id: st
     setSlug(s);
     setTitulo(titulo.trim());
     setBaseline(snapshot(titulo.trim(), s, publicado, snapSeo(seoTitle, seoDesc, seoKw, seoNoindex, ogTitle, ogDesc, ogImage), blocos, identificacaoModo)); // zera o "não salvo"
+    if (pdfGeradoEm) setPdfDesatualizado(true); // a página mudou depois do PDF
     setMsg("Página salva!");
     return true;
+  }
+
+  // Gera a proposta em PDF e vincula à landing (é o arquivo enviado a quem pede os valores).
+  // Exige a página salva: o PDF é montado do que está no banco, não do que está na tela.
+  async function gerarPdf() {
+    if (!criada) { setMsg("Erro: salve a página antes de gerar o PDF."); return; }
+    setGerandoPdf(true); setMsg(null);
+    try {
+      const res = await fetch("/api/site/landing-pdf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ landing_id: id }),
+      });
+      const json = await res.json();
+      if (!res.ok) { setMsg("Erro: " + (json.erro ?? "não foi possível gerar o PDF.")); return; }
+      setPdfUrl(json.pdf_url ?? null);
+      setPdfGeradoEm(json.pdf_gerado_em ?? new Date().toISOString());
+      setPdfDesatualizado(false);
+      setMsg("PDF da proposta gerado!");
+    } catch {
+      setMsg("Erro de conexão ao gerar o PDF.");
+    } finally {
+      setGerandoPdf(false);
+    }
   }
 
   async function salvarESair() {
@@ -377,9 +410,48 @@ export default function EditorLandingPage({ params }: { params: Promise<{ id: st
           />
           <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginTop: 8, lineHeight: 1.6 }}>
             {identificacaoModo === "nenhum" && "Acesso livre — a página abre sem pedir dados."}
-            {identificacaoModo === "valores" && <>A página abre normalmente (ótimo para o Google), mas os <strong>valores</strong> (blocos Pacote, Pacotes e Formas de pagamento) aparecem como <strong>R$ ?????</strong> com um botão <strong>“Ver valor”</strong>. Quem clicar informa nome, WhatsApp e e-mail (e-mail opcional) — e você recebe o contato em <strong>“Quem acessou”</strong>.</>}
+            {identificacaoModo === "valores" && <>A página abre normalmente (ótimo para o Google), mas os <strong>valores</strong> (blocos Pacote, Pacotes e Formas de pagamento) aparecem como <strong>R$ ?????</strong> com um botão <strong>“Ver valores”</strong>. Quem clicar informa nome, WhatsApp e e-mail (os três obrigatórios) e <strong>recebe a proposta em PDF por e-mail</strong> — os valores <strong>não</strong> aparecem na tela, é isso que garante um e-mail válido. Você recebe um aviso na hora e o contato entra em <strong>“Quem acessou”</strong>.</>}
             {identificacaoModo === "pagina" && <>Para <strong>ver a proposta</strong>, o visitante se identifica antes (nome, WhatsApp, e-mail opcional). Bom para propostas privadas enviadas por link. <strong>Não combine com indexação no Google</strong> — o buscador veria só o formulário; para indexar, use “Só os valores”.</>}
           </div>
+
+          {/* PROPOSTA EM PDF — o arquivo enviado a quem pede os valores */}
+          {identificacaoModo === "valores" && (
+            <div style={{ marginTop: 12, padding: "12px 14px", borderRadius: 10, border: "1px solid var(--color-border-tertiary)", background: "var(--color-background-secondary)" }}>
+              <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--color-text-primary)", marginBottom: 6 }}>📄 Proposta em PDF</div>
+
+              <div style={{ fontSize: 12, color: "var(--color-text-secondary)", lineHeight: 1.55, marginBottom: 10 }}>
+                {!pdfGeradoEm ? (
+                  <span style={{ color: "#B45309", fontWeight: 600 }}>⚠ Nenhum PDF gerado ainda — gere para que quem pedir os valores receba a proposta.</span>
+                ) : pdfDesatualizado ? (
+                  <span style={{ color: "#B45309", fontWeight: 600 }}>⚠ PDF desatualizado — a página mudou depois que ele foi gerado. Gere de novo para enviar os valores certos.</span>
+                ) : (
+                  <>✓ PDF gerado em {new Date(pdfGeradoEm).toLocaleDateString("pt-BR")} às {new Date(pdfGeradoEm).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}.</>
+                )}
+              </div>
+
+              <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                <button
+                  onClick={gerarPdf}
+                  disabled={gerandoPdf || temAlteracoes || !criada}
+                  title={temAlteracoes ? "Salve as alterações antes de gerar (o PDF é montado do que está salvo)" : "Gerar a proposta em PDF com os valores"}
+                  style={{ padding: "8px 16px", borderRadius: 8, border: "none", background: gerandoPdf || temAlteracoes || !criada ? "var(--color-border-secondary)" : "#111", color: "#fff", fontSize: 12.5, fontWeight: 700, cursor: gerandoPdf || temAlteracoes || !criada ? "default" : "pointer" }}
+                >
+                  {gerandoPdf ? "Gerando…" : pdfGeradoEm ? "Gerar novamente" : "Gerar PDF"}
+                </button>
+                {pdfUrl && (
+                  <a href={pdfUrl} target="_blank" rel="noopener noreferrer"
+                    style={{ padding: "8px 14px", borderRadius: 8, border: "1px solid var(--color-border-secondary)", fontSize: 12.5, fontWeight: 600, color: "var(--color-text-primary)", textDecoration: "none" }}>
+                    👁 Abrir PDF
+                  </a>
+                )}
+              </div>
+              {temAlteracoes && (
+                <div style={{ fontSize: 11.5, color: "var(--color-text-secondary)", marginTop: 6 }}>
+                  Salve a página primeiro — o PDF é montado a partir do conteúdo salvo.
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 

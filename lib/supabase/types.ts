@@ -565,6 +565,11 @@ export type SiteLandingPage = {
   dados: SiteLandingDados;
   identificacao_obrigatoria: boolean; // legado — sincronizado com identificacao_modo != 'nenhum'
   identificacao_modo: "nenhum" | "pagina" | "valores";
+  // Proposta em PDF gerada pelo botão do editor e enviada a quem pede os valores
+  pdf_url: string | null;
+  pdf_path: string | null;
+  pdf_gerado_em: string | null;
+  pdf_hash: string | null;        // impressão do conteúdo na geração (detecta "desatualizado")
   seo_title: string | null;
   seo_description: string | null;
   seo_keywords: string | null;
