@@ -107,15 +107,15 @@ function GaleriaSelecaoConteudo() {
           { data: gal,  error: eGal },
           fts,
           { data: cats },
-          { data: esc },
+          esc,
           { data: evs },
         ] = await Promise.all([
           supabase.from("galerias_selecao").select("*").eq("id", id).eq("fotografo_id", fid).single(),
           fetchAllRows<GaleriaSelecaoFoto>((sb, from, to) => sb.from("galerias_selecao_fotos").select("*").eq("galeria_id", id).order("ordem").order("created_at").range(from, to), supabase),
           supabase.from("galeria_selecao_categorias").select("categorias(*)").eq("galeria_id", id),
-          supabase.from("galerias_selecao_escolhas")
+          fetchAllRows((sb, from, to) => sb.from("galerias_selecao_escolhas")
             .select("id, foto_id, comentario, created_at, fotos:galerias_selecao_fotos(nome_arquivo, url_publica, thumbnail_path)")
-            .eq("galeria_id", id).order("created_at"),
+            .eq("galeria_id", id).order("created_at").range(from, to), supabase),
           supabase.from("galeria_selecao_eventos")
             .select("id, tipo, descricao, foto_id, created_at")
             .eq("galeria_id", id).order("created_at", { ascending: false }),

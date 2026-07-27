@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { fetchAllRows } from "@/lib/supabase/fetchAll";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { ClienteSelect } from "@/components/ui/ClienteSelect";
 import { ComboSelect } from "@/components/ui/ComboSelect";
@@ -168,7 +169,7 @@ export default function AgendaPage() {
       { data: schedules },
       { data: orders },
       { data: finEntries },
-      { data: clientes },
+      clientes,
     ] = await Promise.all([
       sb.from("crm_schedules")
         .select("*, clientes(id, nome, email, telefone, whatsapp)")
@@ -190,11 +191,11 @@ export default function AgendaPage() {
         .gte("vencimento", inicio)
         .lte("vencimento", fim),
 
-      sb.from("clientes")
+      fetchAllRows((c, from, to) => c.from("clientes")
         .select("id, nome, data_nascimento")
         .eq("fotografo_id", fid)
         .eq("crm_ativo", true)
-        .not("data_nascimento", "is", null),
+        .not("data_nascimento", "is", null).range(from, to), sb),
     ]);
 
     const lista: EventoCalendario[] = [];
