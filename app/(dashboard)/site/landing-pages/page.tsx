@@ -4,8 +4,9 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { fetchAllRows } from "@/lib/supabase/fetchAll";
 import { useFotografo } from "@/lib/context/FotografoContext";
-import type { SiteLandingPage } from "@/lib/supabase/types";
+import type { SiteLandingPage, SiteLandingAcesso } from "@/lib/supabase/types";
 
 const btnAcao: React.CSSProperties = {
   padding: "6px 10px", borderRadius: 8, border: "1px solid var(--color-border-secondary)",
@@ -21,15 +22,47 @@ export default function LandingPagesLista() {
   const [ocupado, setOcupado] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [excluir, setExcluir] = useState<SiteLandingPage | null>(null);
+  const [contagens, setContagens] = useState<Record<string, number>>({}); // landing_id → nº de acessos
+  const [verAcessos, setVerAcessos] = useState<SiteLandingPage | null>(null);
+  const [acessos, setAcessos] = useState<SiteLandingAcesso[] | null>(null);
 
   const carregar = useCallback(async () => {
     if (!fotografo) return;
     const supabase = createClient();
     const { data } = await supabase.from("site_landing_pages").select("*")
       .eq("fotografo_id", fotografo.id).order("created_at");
-    setPaginas((data as SiteLandingPage[]) ?? []);
+    const lista = (data as SiteLandingPage[]) ?? [];
+    setPaginas(lista);
     setLoading(false);
+
+    // Contagem de "quem acessou" só das landings com identificação ligada.
+    const ids = lista.filter((p) => p.identificacao_obrigatoria).map((p) => p.id);
+    if (ids.length) {
+      const rows = await fetchAllRows<{ landing_id: string }>(
+        (c, from, to) => c.from("site_landing_acessos").select("landing_id").in("landing_id", ids).range(from, to),
+        supabase,
+      );
+      const cont: Record<string, number> = {};
+      for (const r of rows) cont[r.landing_id] = (cont[r.landing_id] ?? 0) + 1;
+      setContagens(cont);
+    } else {
+      setContagens({});
+    }
   }, [fotografo]);
+
+  async function abrirAcessos(p: SiteLandingPage) {
+    setVerAcessos(p);
+    setAcessos(null);
+    const rows = await fetchAllRows<SiteLandingAcesso>(
+      (c, from, to) => c.from("site_landing_acessos").select("*").eq("landing_id", p.id).order("acessado_em", { ascending: false }).range(from, to),
+      createClient(),
+    );
+    setAcessos(rows);
+  }
+
+  function copiar(texto: string) {
+    navigator.clipboard.writeText(texto).then(() => { setMsg("Copiado!"); setTimeout(() => setMsg(null), 1500); }).catch(() => {});
+  }
 
   useEffect(() => { carregar(); }, [carregar]);
 
@@ -49,6 +82,7 @@ export default function LandingPagesLista() {
       titulo: `${p.titulo} (cópia)`,
       slug: slugDeCopia(p.slug, usados),
       publicado: false,           // cópia NUNCA entra no ar sozinha (regra-mãe de SEO)
+      identificacao_obrigatoria: p.identificacao_obrigatoria,
       dados: p.dados,
       seo_title: p.seo_title, seo_description: p.seo_description, seo_keywords: p.seo_keywords,
       seo_noindex: p.seo_noindex, og_title: p.og_title, og_description: p.og_description,
@@ -108,6 +142,11 @@ export default function LandingPagesLista() {
                 {p.publicado ? "Publicada" : "Rascunho"}
               </span>
               <div style={{ display: "flex", gap: 6, flexShrink: 0 }} onClick={(e) => e.stopPropagation()}>
+                {p.identificacao_obrigatoria && (
+                  <button title="Quem acessou" style={{ ...btnAcao, fontWeight: 700 }} onClick={() => abrirAcessos(p)}>
+                    👥 {contagens[p.id] ?? 0}
+                  </button>
+                )}
                 <button title="Editar" style={btnAcao} onClick={() => router.push(`/site/landing-pages/${p.id}`)}>✏️</button>
                 <button title="Duplicar" style={btnAcao} disabled={ocupado} onClick={() => duplicar(p)}>⧉</button>
                 <button title="Excluir" style={{ ...btnAcao, color: "#DC2626" }} onClick={() => setExcluir(p)}>🗑</button>
@@ -119,6 +158,57 @@ export default function LandingPagesLista() {
               Nenhuma landing page ainda.
             </div>
           )}
+        </div>
+      )}
+
+      {/* Quem acessou — lista de identificações capturadas nesta landing */}
+      {verAcessos && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 20 }}
+          onClick={() => setVerAcessos(null)}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: "var(--color-background-primary)", borderRadius: 14, padding: 24, maxWidth: 560, width: "100%", maxHeight: "82vh", display: "flex", flexDirection: "column", boxShadow: "0 10px 40px rgba(0,0,0,0.2)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, marginBottom: 4 }}>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 16, fontWeight: 800, color: "var(--color-text-primary)" }}>👥 Quem acessou</div>
+                <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{verAcessos.titulo}</div>
+              </div>
+              <button onClick={() => setVerAcessos(null)} style={{ ...btnAcao, flexShrink: 0 }}>Fechar</button>
+            </div>
+
+            {acessos === null ? (
+              <div style={{ padding: "30px 0", textAlign: "center", fontSize: 13, color: "var(--color-text-secondary)" }}>Carregando…</div>
+            ) : acessos.length === 0 ? (
+              <div style={{ padding: "30px 0", textAlign: "center", fontSize: 13, color: "var(--color-text-secondary)" }}>Ninguém acessou esta proposta ainda.</div>
+            ) : (
+              <>
+                <div style={{ display: "flex", gap: 8, margin: "12px 0", flexWrap: "wrap" }}>
+                  <button style={btnAcao} onClick={() => copiar(acessos.filter((a) => a.telefone).map((a) => a.telefone).join("\n"))}>Copiar WhatsApps</button>
+                  <button style={btnAcao} onClick={() => copiar(acessos.filter((a) => a.email).map((a) => a.email).join("\n"))}>Copiar e-mails</button>
+                </div>
+                <div style={{ overflowY: "auto", display: "flex", flexDirection: "column", gap: 6 }}>
+                  {acessos.map((a) => {
+                    const digitos = (a.telefone ?? "").replace(/\D/g, "");
+                    return (
+                      <div key={a.id} style={{ border: "1px solid var(--color-border-tertiary)", borderRadius: 9, padding: "10px 12px", display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontSize: 13.5, fontWeight: 700, color: "var(--color-text-primary)" }}>{a.nome || "(sem nome)"}</div>
+                          <div style={{ fontSize: 12, color: "var(--color-text-secondary)", display: "flex", gap: 10, flexWrap: "wrap", marginTop: 2 }}>
+                            {a.telefone && (
+                              <a href={`https://wa.me/${digitos}`} target="_blank" rel="noopener noreferrer" style={{ color: "#059669", fontWeight: 600, textDecoration: "none" }}>💬 {a.telefone}</a>
+                            )}
+                            {a.email && <span>✉ {a.email}</span>}
+                          </div>
+                        </div>
+                        <div style={{ fontSize: 11, color: "var(--color-text-secondary)", flexShrink: 0, textAlign: "right" }}>
+                          {new Date(a.acessado_em).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit" })}<br />
+                          {new Date(a.acessado_em).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+          </div>
         </div>
       )}
 

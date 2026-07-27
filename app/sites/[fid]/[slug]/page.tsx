@@ -9,6 +9,7 @@ import { baseLinks, infoCategorias, categoriasParaNav, nomeCategoria, contextoBl
 import { dadosParaBlocos, conteudoParaBlocos, type SiteBloco } from "@/lib/site/blocos";
 import { resolverMetaPagina, ogPagina } from "@/lib/site/seo";
 import { RenderBlocos } from "../_components/RenderBlocos";
+import { GateIdentificacao } from "../_components/GateIdentificacao";
 import type { SiteLandingPage, SiteLandingDados, SiteDepoimento, SitePagina } from "@/lib/supabase/types";
 
 async function buscarLanding(fid: string, slug: string): Promise<SiteLandingPage | null> {
@@ -94,21 +95,28 @@ export default async function LandingPage({ params }: { params: Promise<{ fid: s
   // Motor de blocos: usa a lista salva; landings do formato antigo são convertidas na hora.
   const blocos = d.blocos && d.blocos.length > 0 ? d.blocos : dadosParaBlocos(d);
 
+  const conteudo = (
+    <RenderBlocos
+      blocos={blocos}
+      ctx={{
+        base: b,
+        fid,
+        depoimentos: (depoimentos ?? []) as SiteDepoimento[],
+        whatsappFallback: fotografo?.whatsapp ?? null,
+        categorias,
+      }}
+    />
+  );
+
   return (
     <>
       {/* Landing não leva o header/menu do site (tem hero/logo próprios). <style> inline (fora do
           pipeline do Tailwind/Lightning CSS) garante o efeito em dev e prod, sem refatorar rotas. */}
       <style>{`.site-header{display:none!important}`}</style>
-      <RenderBlocos
-        blocos={blocos}
-        ctx={{
-          base: b,
-          fid,
-          depoimentos: (depoimentos ?? []) as SiteDepoimento[],
-          whatsappFallback: fotografo?.whatsapp ?? null,
-          categorias,
-        }}
-      />
+      {/* Identificação opcional: captura quem acessou a proposta antes de revelar o conteúdo. */}
+      {lp.identificacao_obrigatoria
+        ? <GateIdentificacao landingId={lp.id} titulo={lp.titulo}>{conteudo}</GateIdentificacao>
+        : conteudo}
     </>
   );
 }

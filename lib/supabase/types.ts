@@ -562,6 +562,7 @@ export type SiteLandingPage = {
   slug: string;
   publicado: boolean;
   dados: SiteLandingDados;
+  identificacao_obrigatoria: boolean;
   seo_title: string | null;
   seo_description: string | null;
   seo_keywords: string | null;
@@ -571,6 +572,15 @@ export type SiteLandingPage = {
   og_image_url: string | null;
   created_at: string;
   updated_at: string;
+};
+
+export type SiteLandingAcesso = {
+  id: string;
+  landing_id: string;
+  nome: string | null;
+  email: string | null;
+  telefone: string | null;
+  acessado_em: string;
 };
 
 export type SitePagina = {

@@ -64,6 +64,7 @@ export default function EditorLandingPage({ params }: { params: Promise<{ id: st
   const [titulo, setTitulo] = useState("");
   const [slug, setSlug] = useState("");
   const [publicado, setPublicado] = useState(false);
+  const [identificacao, setIdentificacao] = useState(false);  // exige nome/WhatsApp/e-mail para abrir
   const [seoTitle, setSeoTitle] = useState("");
   const [seoDesc, setSeoDesc] = useState("");
   const [seoKw, setSeoKw] = useState("");
@@ -123,7 +124,7 @@ export default function EditorLandingPage({ params }: { params: Promise<{ id: st
 
     // Landing nova: nada a carregar — abre em branco, com baseline vazio (nada "não salvo").
     if (ehNova) {
-      setBaseline(snapshot("", "", false, snapSeo("", "", "", true, "", "", null), []));
+      setBaseline(snapshot("", "", false, snapSeo("", "", "", true, "", "", null), [], false));
       setCarregando(false);
       return;
     }
@@ -132,6 +133,7 @@ export default function EditorLandingPage({ params }: { params: Promise<{ id: st
       if (!data) { setMsg("Erro: landing não encontrada."); setCarregando(false); return; }
       const lp = data as SiteLandingPage;
       setTitulo(lp.titulo); setSlug(lp.slug); setPublicado(lp.publicado);
+      setIdentificacao(lp.identificacao_obrigatoria ?? false);
       setSeoTitle(lp.seo_title ?? ""); setSeoDesc(lp.seo_description ?? "");
       setSeoKw(lp.seo_keywords ?? ""); setSeoNoindex(lp.seo_noindex ?? true);
       setOgTitle(lp.og_title ?? ""); setOgDesc(lp.og_description ?? ""); setOgImage(lp.og_image_url);
@@ -139,7 +141,7 @@ export default function EditorLandingPage({ params }: { params: Promise<{ id: st
       setDadosOriginais(d);
       const bl = d.blocos && d.blocos.length > 0 ? d.blocos : dadosParaBlocos(d);
       setBlocos(bl);
-      setBaseline(snapshot(lp.titulo, lp.slug, lp.publicado, snapSeo(lp.seo_title ?? "", lp.seo_description ?? "", lp.seo_keywords ?? "", lp.seo_noindex ?? true, lp.og_title ?? "", lp.og_description ?? "", lp.og_image_url), bl));
+      setBaseline(snapshot(lp.titulo, lp.slug, lp.publicado, snapSeo(lp.seo_title ?? "", lp.seo_description ?? "", lp.seo_keywords ?? "", lp.seo_noindex ?? true, lp.og_title ?? "", lp.og_description ?? "", lp.og_image_url), bl, lp.identificacao_obrigatoria ?? false));
       setCarregando(false);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -149,10 +151,10 @@ export default function EditorLandingPage({ params }: { params: Promise<{ id: st
   function snapSeo(st: string, sd: string, kw: string, ni: boolean, ot: string, od: string, oi: string | null) {
     return { st, sd, kw, ni, ot, od, oi };
   }
-  function snapshot(t: string, s: string, pub: boolean, seo: ReturnType<typeof snapSeo>, bl: SiteBloco[]) {
-    return JSON.stringify({ t, s, pub, seo, bl });
+  function snapshot(t: string, s: string, pub: boolean, seo: ReturnType<typeof snapSeo>, bl: SiteBloco[], ident: boolean) {
+    return JSON.stringify({ t, s, pub, seo, bl, ident });
   }
-  const estadoAtual = snapshot(titulo, slug, publicado, snapSeo(seoTitle, seoDesc, seoKw, seoNoindex, ogTitle, ogDesc, ogImage), blocos);
+  const estadoAtual = snapshot(titulo, slug, publicado, snapSeo(seoTitle, seoDesc, seoKw, seoNoindex, ogTitle, ogDesc, ogImage), blocos, identificacao);
   const temAlteracoes = !saiu && !carregando && estadoAtual !== baseline;
   const { modalAberto, setModalAberto, pedirSaida, irParaDestino } = useUnsavedGuard(temAlteracoes);
 
@@ -170,6 +172,7 @@ export default function EditorLandingPage({ params }: { params: Promise<{ id: st
       titulo: titulo.trim(),
       slug: s,
       publicado,
+      identificacao_obrigatoria: identificacao,
       dados: { ...dadosOriginais, blocos },
       seo_title: seoTitle.trim() || null,
       seo_description: seoDesc.trim() || null,
@@ -192,7 +195,7 @@ export default function EditorLandingPage({ params }: { params: Promise<{ id: st
     }
     setSlug(s);
     setTitulo(titulo.trim());
-    setBaseline(snapshot(titulo.trim(), s, publicado, snapSeo(seoTitle, seoDesc, seoKw, seoNoindex, ogTitle, ogDesc, ogImage), blocos)); // zera o "não salvo"
+    setBaseline(snapshot(titulo.trim(), s, publicado, snapSeo(seoTitle, seoDesc, seoKw, seoNoindex, ogTitle, ogDesc, ogImage), blocos, identificacao)); // zera o "não salvo"
     setMsg("Página salva!");
     return true;
   }
@@ -353,6 +356,19 @@ export default function EditorLandingPage({ params }: { params: Promise<{ id: st
               {publicado
                 ? "A página fica acessível por quem tem o link. Ela continua fora do Google enquanto “não indexar” estiver ligado em ⚙ Configurações."
                 : "Ligue a chave e clique em Salvar para colocar a página no ar."}
+            </div>
+          </div>
+        </div>
+
+        {/* IDENTIFICAÇÃO — capta quem abriu a proposta (nome/WhatsApp/e-mail) antes de revelar o conteúdo. */}
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 14, paddingTop: 14, borderTop: "1px solid var(--color-border-tertiary)" }}>
+          <Chave on={identificacao} onChange={setIdentificacao} titulo="Exigir identificação" />
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "var(--color-text-primary)" }}>
+              {identificacao ? "Pede nome, WhatsApp e e-mail para abrir" : "Acesso livre (sem pedir dados)"}
+            </div>
+            <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginTop: 2 }}>
+              Quando ligado, quem abrir o link se identifica antes de ver a proposta e você recebe a lista de contatos em <strong>“Quem acessou”</strong> na lista de páginas.
             </div>
           </div>
         </div>
