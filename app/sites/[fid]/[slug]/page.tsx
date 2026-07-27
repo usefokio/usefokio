@@ -4,6 +4,7 @@
 // 2) PÁGINA CUSTOM (site_paginas) — motor de blocos, INDEXÁVEL (página institucional).
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { cookies } from "next/headers";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { baseLinks, infoCategorias, categoriasParaNav, nomeCategoria, contextoBlocos } from "@/lib/site/publico";
 import { dadosParaBlocos, conteudoParaBlocos, type SiteBloco } from "@/lib/site/blocos";
@@ -108,15 +109,21 @@ export default async function LandingPage({ params }: { params: Promise<{ fid: s
     />
   );
 
+  // Identificação opcional: captura quem acessou a proposta ANTES de revelar o conteúdo.
+  // Gate no servidor (via cookie) — sem o cookie, o conteúdo nem entra no HTML: renderiza só o
+  // formulário. A rota /api/site/landing-acesso grava o acesso e seta o cookie; o form dá refresh.
+  let liberado = true;
+  if (lp.identificacao_obrigatoria) {
+    const jar = await cookies();
+    liberado = jar.get(`lpid_${lp.id}`)?.value === "1";
+  }
+
   return (
     <>
       {/* Landing não leva o header/menu do site (tem hero/logo próprios). <style> inline (fora do
           pipeline do Tailwind/Lightning CSS) garante o efeito em dev e prod, sem refatorar rotas. */}
       <style>{`.site-header{display:none!important}`}</style>
-      {/* Identificação opcional: captura quem acessou a proposta antes de revelar o conteúdo. */}
-      {lp.identificacao_obrigatoria
-        ? <GateIdentificacao landingId={lp.id} titulo={lp.titulo}>{conteudo}</GateIdentificacao>
-        : conteudo}
+      {liberado ? conteudo : <GateIdentificacao landingId={lp.id} titulo={lp.titulo} />}
     </>
   );
 }

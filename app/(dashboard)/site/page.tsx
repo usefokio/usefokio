@@ -72,7 +72,11 @@ export default function SiteDashboardPage() {
       }
       const idx = new Map(buckets.map((b, i) => [b.chave, i]));
       for (const l of leads) {
-        const k = (l.created_at ?? "").slice(0, 7);
+        if (!l.created_at) continue;
+        // Chaveia pelo MÊS LOCAL (mesmo fuso dos buckets) — não pela string UTC, senão leads da
+        // virada do mês (noite no BRT = dia seguinte em UTC) caem no mês errado ou somem.
+        const d = new Date(l.created_at);
+        const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
         const i = idx.get(k);
         if (i != null) buckets[i].contatos++;
       }

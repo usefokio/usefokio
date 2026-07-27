@@ -26,23 +26,43 @@ function fold(linha: string): string {
   return partes.join("\r\n");
 }
 
-// Data/hora UTC → 20260715T173000Z (inequívoco; o cliente converte para o fuso do usuário).
+// Instante UTC → 20260715T173000Z (usado só no DTSTAMP = momento da geração).
 function dtUtc(iso: string): string {
   const d = new Date(iso);
   const p = (n: number) => String(n).padStart(2, "0");
   return `${d.getUTCFullYear()}${p(d.getUTCMonth() + 1)}${p(d.getUTCDate())}T${p(d.getUTCHours())}${p(d.getUTCMinutes())}${p(d.getUTCSeconds())}Z`;
 }
 
-// Data pura (YYYY-MM-DD ou dia extraído no fuso BRT) → 20260715
+// Relógio de PAREDE do compromisso → 20260715T140000 (sem Z), emitido com TZID.
+// crm_schedules grava o horário do input datetime-local como wall-clock em coluna timestamptz
+// (fica HH:MM+00); o app inteiro lê esses dígitos direto (slice) como hora local. Por isso
+// extraímos os componentes via getUTC* (que são o wall-clock) e emitimos com TZID=America/Sao_Paulo
+// — nunca converter para UTC absoluto (deslocaria 3h).
+function dtLocal(iso: string): string {
+  const d = new Date(iso);
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getUTCFullYear()}${p(d.getUTCMonth() + 1)}${p(d.getUTCDate())}T${p(d.getUTCHours())}${p(d.getUTCMinutes())}${p(d.getUTCSeconds())}`;
+}
+
+// Data pura (YYYY-MM-DD) → 20260715
 function dtDate(ymd: string): string {
   return ymd.slice(0, 10).replace(/-/g, "");
 }
 
-// Dia local (America/Sao_Paulo) de um timestamp — para compromissos "dia todo".
-function diaBRT(iso: string): string {
-  const s = new Intl.DateTimeFormat("sv-SE", { timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(iso));
-  return s; // "2026-07-15"
-}
+// Fuso fixo do Brasil (UTC-3, sem horário de verão desde 2019) — declarado para clientes
+// que exigem VTIMEZONE quando há TZID nos eventos.
+const VTIMEZONE = [
+  "BEGIN:VTIMEZONE",
+  "TZID:America/Sao_Paulo",
+  "X-LIC-LOCATION:America/Sao_Paulo",
+  "BEGIN:STANDARD",
+  "TZOFFSETFROM:-0300",
+  "TZOFFSETTO:-0300",
+  "TZNAME:-03",
+  "DTSTART:19700101T000000",
+  "END:STANDARD",
+  "END:VTIMEZONE",
+].join("\r\n");
 
 type VEvento = { uid: string; summary: string; inicioIso?: string; fim?: string | null; diaTodoYmd?: string | null; local?: string | null; descricao?: string | null };
 
@@ -51,8 +71,8 @@ function vevento(e: VEvento, stampUtc: string): string {
   if (e.diaTodoYmd) {
     L.push(`DTSTART;VALUE=DATE:${dtDate(e.diaTodoYmd)}`);
   } else if (e.inicioIso) {
-    L.push(`DTSTART:${dtUtc(e.inicioIso)}`);
-    if (e.fim) L.push(`DTEND:${dtUtc(e.fim)}`);
+    L.push(`DTSTART;TZID=America/Sao_Paulo:${dtLocal(e.inicioIso)}`);
+    if (e.fim) L.push(`DTEND;TZID=America/Sao_Paulo:${dtLocal(e.fim)}`);
   }
   L.push(fold(`SUMMARY:${esc(e.summary)}`));
   if (e.local) L.push(fold(`LOCATION:${esc(e.local)}`));
@@ -104,7 +124,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ tok
       summary: `${prefixo}${s.titulo}${cli ? ` — ${cli}` : ""}`,
       inicioIso: s.dia_todo ? undefined : s.inicio,
       fim: s.fim,
-      diaTodoYmd: s.dia_todo ? diaBRT(s.inicio) : null,
+      diaTodoYmd: s.dia_todo ? s.inicio.slice(0, 10) : null,
       local: s.local,
       descricao: s.descricao,
     });
@@ -141,6 +161,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ tok
     "METHOD:PUBLISH",
     fold(`X-WR-CALNAME:${esc(nomeCal)}`),
     "X-WR-TIMEZONE:America/Sao_Paulo",
+    VTIMEZONE,
     ...eventos.map((e) => vevento(e, stamp)),
     "END:VCALENDAR",
   ].join("\r\n");

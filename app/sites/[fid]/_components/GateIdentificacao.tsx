@@ -1,28 +1,21 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { mascaraTelefone } from "@/lib/utils/format";
 
-const SESSION_KEY = "usefokio_landing_identificado";
-
-// Envolve o conteúdo de uma landing marcada como identificacao_obrigatoria: enquanto o
-// visitante não se identifica (nome + WhatsApp + e-mail), mostra um formulário no lugar do
-// conteúdo. Ao enviar, registra o acesso (lista "quem acessou") e revela a página.
-// A identificação fica na sessão do navegador (não repete a cada navegação).
-export function GateIdentificacao({ landingId, titulo, children }: { landingId: string; titulo?: string | null; children: ReactNode }) {
-  const [pronto, setPronto] = useState(false);
-  const [liberado, setLiberado] = useState(false);
-
+// Formulário de identificação da landing (proposta). É renderizado pelo SERVIDOR no lugar do
+// conteúdo quando a landing exige identificação e ainda não há o cookie de acesso — assim o
+// conteúdo da proposta NÃO vai no HTML antes de o visitante se identificar (o gate é real, não
+// apenas visual). Ao enviar, a rota grava o acesso + seta o cookie; router.refresh() faz o
+// servidor re-renderizar já com o conteúdo.
+export function GateIdentificacao({ landingId, titulo }: { landingId: string; titulo?: string | null }) {
+  const router = useRouter();
   const [nome, setNome] = useState("");
   const [telefone, setTelefone] = useState("");
   const [email, setEmail] = useState("");
   const [erro, setErro] = useState("");
   const [salvando, setSalvando] = useState(false);
-
-  useEffect(() => {
-    if (sessionStorage.getItem(`${SESSION_KEY}:${landingId}`)) setLiberado(true);
-    setPronto(true);
-  }, [landingId]);
 
   async function enviar() {
     if (!nome.trim()) { setErro("Por favor, informe seu nome."); return; }
@@ -31,22 +24,26 @@ export function GateIdentificacao({ landingId, titulo, children }: { landingId: 
     if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) { setErro("E-mail inválido."); return; }
 
     setSalvando(true);
-    const dados = { nome: nome.trim(), telefone: telefone.trim(), email: email.trim() || null };
     try {
-      await fetch("/api/site/landing-acesso", {
+      const res = await fetch("/api/site/landing-acesso", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ landing_id: landingId, ...dados }),
+        body: JSON.stringify({ landing_id: landingId, nome: nome.trim(), telefone: telefone.trim(), email: email.trim() || null }),
       });
-    } catch { /* registra o que der; o acesso não deve travar por falha de rede */ }
-    sessionStorage.setItem(`${SESSION_KEY}:${landingId}`, JSON.stringify(dados));
-    setSalvando(false);
-    setLiberado(true);
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        setErro(j.erro ?? "Não foi possível continuar. Tente novamente.");
+        setSalvando(false);
+        return;
+      }
+    } catch {
+      setErro("Erro de conexão. Tente novamente.");
+      setSalvando(false);
+      return;
+    }
+    // O cookie de acesso foi setado pela resposta da rota; o servidor revela o conteúdo.
+    router.refresh();
   }
-
-  // Evita "piscar" o conteúdo antes de checar a sessão.
-  if (!pronto) return null;
-  if (liberado) return <>{children}</>;
 
   const inputStyle: React.CSSProperties = {
     width: "100%", padding: "13px 16px", borderRadius: 10, border: "1px solid #d8d8d8",

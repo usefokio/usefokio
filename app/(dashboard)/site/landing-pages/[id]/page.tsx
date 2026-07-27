@@ -365,7 +365,7 @@ export default function EditorLandingPage({ params }: { params: Promise<{ id: st
           <Chave on={identificacao} onChange={setIdentificacao} titulo="Exigir identificação" />
           <div style={{ minWidth: 0 }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: "var(--color-text-primary)" }}>
-              {identificacao ? "Pede nome, WhatsApp e e-mail para abrir" : "Acesso livre (sem pedir dados)"}
+              {identificacao ? "Pede nome e WhatsApp (e-mail opcional) para abrir" : "Acesso livre (sem pedir dados)"}
             </div>
             <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginTop: 2 }}>
               Quando ligado, quem abrir o link se identifica antes de ver a proposta e você recebe a lista de contatos em <strong>“Quem acessou”</strong> na lista de páginas.
