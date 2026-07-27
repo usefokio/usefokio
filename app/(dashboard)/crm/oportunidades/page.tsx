@@ -17,7 +17,7 @@ import type { CrmOpportunity } from "@/lib/supabase/types";
 
 // Larguras padrão das colunas (desktop) — redimensionáveis via useColunasLargura.
 const COLS_OPP: ColunaDef[] = [
-  { id: "titulo",      largura: 0,   min: 200, flex: true },
+  { id: "titulo",      largura: 280, min: 160 },
   { id: "cliente",     largura: 150, min: 90 },
   { id: "data_evento", largura: 120, min: 90 },
   { id: "valor",       largura: 120, min: 90 },
@@ -314,7 +314,7 @@ export default function OportunidadesPage() {
           {/* Cabeçalho */}
           <div style={{ display: "grid", gridTemplateColumns: gridTemplate, padding: "8px 16px", borderBottom: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-secondary)" }}>
             {cabecalhos.map(({ label, col, id }) => {
-              const resizavel = verLarge && id !== "titulo" && id !== "acoes";
+              const resizavel = verLarge && id !== "acoes";
               return (
                 <div key={label || "acoes"} onClick={() => col && toggleSort(col)}
                   style={{ position: "relative", display: "flex", alignItems: "center", gap: 3, fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.04em", cursor: col ? "pointer" : "default", userSelect: "none" }}>
