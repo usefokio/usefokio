@@ -22,7 +22,10 @@ function getServiceClient(): StorageClient {
 
 // Deleta um arquivo único (R2 ou Supabase)
 export async function deleteFile(storagePath: string, urlPublica?: string | null, client?: StorageClient) {
-  const r2Domain = process.env.NEXT_PUBLIC_R2_PUBLIC_URL ?? "r2.cloudflarestorage.com";
+  // Atenção ao `||`: a env pode vir VAZIA (dev sem R2). Com `??`, o domínio virava "" e
+  // `url.includes("")` é sempre true — tudo caía no R2 (inexistente em dev) e a exclusão falhava,
+  // deixando arquivo órfão no storage.
+  const r2Domain = (process.env.NEXT_PUBLIC_R2_PUBLIC_URL || "").trim() || "r2.cloudflarestorage.com";
   const isR2 = urlPublica?.includes(r2Domain);
   if (isR2) {
     await r2.send(new DeleteObjectCommand({ Bucket: R2_BUCKET, Key: storagePath }));
@@ -40,7 +43,10 @@ export async function deleteFilesBatch(
   client?: StorageClient
 ) {
   if (items.length === 0) return;
-  const r2Domain = process.env.NEXT_PUBLIC_R2_PUBLIC_URL ?? "r2.cloudflarestorage.com";
+  // Atenção ao `||`: a env pode vir VAZIA (dev sem R2). Com `??`, o domínio virava "" e
+  // `url.includes("")` é sempre true — tudo caía no R2 (inexistente em dev) e a exclusão falhava,
+  // deixando arquivo órfão no storage.
+  const r2Domain = (process.env.NEXT_PUBLIC_R2_PUBLIC_URL || "").trim() || "r2.cloudflarestorage.com";
 
   const supabasePaths: string[] = [];
   const r2Paths: string[] = [];
