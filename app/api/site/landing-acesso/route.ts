@@ -2,6 +2,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { rateLimitOk, clientIp } from "@/lib/rate-limit";
 import { getResend, FROM_DEFAULT } from "@/lib/email/resend";
 import { escapeHtml } from "@/lib/email/comunicacao";
+import { gerarEVincularPdf } from "@/lib/site/gerarPropostaLanding";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
@@ -56,9 +57,19 @@ export async function POST(request: NextRequest) {
     const { data: fotAviso } = await supabase.from("fotografos")
       .select("email").eq("id", lp.fotografo_id).maybeSingle();
 
-    // Sem PDF anexado à landing não há o que enviar: registra o lead, avisa o fotógrafo com
-    // destaque e devolve uma resposta honesta ao visitante (o fotógrafo envia manualmente).
-    if (!lp.pdf_url) {
+    // Landing ainda sem PDF: gera agora (uma vez) para o visitante não ficar sem resposta.
+    let pdfUrlAtual = lp.pdf_url as string | null;
+    if (!pdfUrlAtual) {
+      try {
+        const g = await gerarEVincularPdf(lp.id);
+        pdfUrlAtual = g?.url ?? null;
+      } catch (e) {
+        console.error("[landing-acesso] geração automática do PDF falhou:", e instanceof Error ? e.message : e);
+      }
+    }
+
+    // Se nem assim houver PDF: registra o lead e avisa o fotógrafo para enviar manualmente.
+    if (!pdfUrlAtual) {
       console.error("[landing-acesso] landing sem PDF anexado:", lp.id);
       if (fotAviso?.email) {
         await getResend().emails.send({
@@ -79,12 +90,12 @@ export async function POST(request: NextRequest) {
     // DEV sem chave de e-mail: não dá para enviar de verdade. Simula o envio para dar
     // para testar o fluxo inteiro localmente (mesma convenção dos outros bypasses de dev).
     if (process.env.NODE_ENV === "development" && !process.env.RESEND_API_KEY) {
-      console.log(`[landing-acesso] DEV sem RESEND_API_KEY — e-mail NÃO enviado (simulado). Para: ${emailLimpo} · PDF: ${lp.pdf_url}`);
+      console.log(`[landing-acesso] DEV sem RESEND_API_KEY — e-mail NÃO enviado (simulado). Para: ${emailLimpo} · PDF: ${pdfUrlAtual}`);
       return NextResponse.json({ ok: true, enviado: true, simulado: true, email: emailLimpo });
     }
 
     try {
-      const pdfUrl = lp.pdf_url;
+      const pdfUrl = pdfUrlAtual;
       const nomeArquivo = `proposta-${(lp.slug || "proposta").slice(0, 40)}.pdf`;
 
       const arq = await fetch(pdfUrl, { cache: "no-store" });
