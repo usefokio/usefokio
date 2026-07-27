@@ -11,7 +11,7 @@ import { fetchAllRows } from "@/lib/supabase/fetchAll";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { useUnsavedGuard } from "@/lib/hooks/useUnsavedGuard";
 import { useWindowWidth } from "@/lib/hooks/useWindowWidth";
-import { dadosParaBlocos, type SiteBloco } from "@/lib/site/blocos";
+import { dadosParaBlocos, CATALOGO_BLOCOS, type SiteBloco } from "@/lib/site/blocos";
 import { EditorBlocos } from "@/app/(dashboard)/site/_components/EditorBlocos";
 import { PreviewSite, BarraDispositivo, type Dispositivo } from "@/app/(dashboard)/site/_components/PreviewSite";
 import { Chave, Seg } from "@/app/(dashboard)/site/_components/ControlesUI";
@@ -23,6 +23,9 @@ import { urlPublicaSite, type ConfigUrl } from "@/lib/site/urlPublica";
 import { ConfigPaginaModal } from "@/app/(dashboard)/site/_components/ConfigPaginaModal";
 import type { ConfigPaginaValores } from "@/lib/site/seo";
 import type { SiteLandingPage, SiteLandingDados, SiteDepoimento } from "@/lib/supabase/types";
+
+// Blocos que não fazem sentido no papel — vêm desmarcados na hora de gerar o PDF.
+const SEM_SENTIDO_NO_PDF = new Set(["formulario", "botao", "whatsapp", "video"]);
 
 const inputStyle: React.CSSProperties = {
   width: "100%", padding: "9px 11px", borderRadius: 8, boxSizing: "border-box",
@@ -66,6 +69,13 @@ export default function EditorLandingPage({ params }: { params: Promise<{ id: st
   const [publicado, setPublicado] = useState(false);
   // Identificação: 'nenhum' (livre) · 'pagina' (identifica p/ ver a página inteira) · 'valores' (página aberta, só os preços atrás do gate)
   const [identificacaoModo, setIdentificacaoModo] = useState<"nenhum" | "pagina" | "valores">("nenhum");
+  // Proposta em PDF vinculada à landing (é ela que vai por e-mail no modo "valores")
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [pdfGeradoEm, setPdfGeradoEm] = useState<string | null>(null);
+  const [pdfDesatualizado, setPdfDesatualizado] = useState(false);
+  const [gerandoPdf, setGerandoPdf] = useState(false);
+  const [escolherBlocos, setEscolherBlocos] = useState(false);       // modal "o que entra no PDF"
+  const [blocosPdf, setBlocosPdf] = useState<Set<string>>(new Set()); // ids marcados
   const [seoTitle, setSeoTitle] = useState("");
   const [seoDesc, setSeoDesc] = useState("");
   const [seoKw, setSeoKw] = useState("");
@@ -138,6 +148,9 @@ export default function EditorLandingPage({ params }: { params: Promise<{ id: st
       setSeoTitle(lp.seo_title ?? ""); setSeoDesc(lp.seo_description ?? "");
       setSeoKw(lp.seo_keywords ?? ""); setSeoNoindex(lp.seo_noindex ?? true);
       setOgTitle(lp.og_title ?? ""); setOgDesc(lp.og_description ?? ""); setOgImage(lp.og_image_url);
+      setPdfUrl(lp.pdf_url ?? null); setPdfGeradoEm(lp.pdf_gerado_em ?? null);
+      // O PDF envelhece quando a página é salva depois dele.
+      setPdfDesatualizado(!!lp.pdf_gerado_em && new Date(lp.updated_at) > new Date(lp.pdf_gerado_em));
       const d = (lp.dados ?? {}) as SiteLandingDados;
       setDadosOriginais(d);
       const bl = d.blocos && d.blocos.length > 0 ? d.blocos : dadosParaBlocos(d);
@@ -198,8 +211,34 @@ export default function EditorLandingPage({ params }: { params: Promise<{ id: st
     setSlug(s);
     setTitulo(titulo.trim());
     setBaseline(snapshot(titulo.trim(), s, publicado, snapSeo(seoTitle, seoDesc, seoKw, seoNoindex, ogTitle, ogDesc, ogImage), blocos, identificacaoModo)); // zera o "não salvo"
+    if (pdfGeradoEm) setPdfDesatualizado(true); // a página mudou depois do PDF
     setMsg("Página salva!");
     return true;
+  }
+
+  // Gera a proposta em PDF com os blocos escolhidos e vincula à landing (é o arquivo que vai
+  // por e-mail a quem pede os valores). Exige a página salva: o PDF sai do que está no banco.
+  async function gerarPdf() {
+    if (!criada) { setMsg("Erro: salve a página antes de gerar o PDF."); return; }
+    setEscolherBlocos(false);
+    setGerandoPdf(true); setMsg(null);
+    try {
+      const res = await fetch("/api/site/landing-pdf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ landing_id: id, blocos: [...blocosPdf] }),
+      });
+      const json = await res.json();
+      if (!res.ok) { setMsg("Erro: " + (json.erro ?? "não foi possível gerar o PDF.")); return; }
+      setPdfUrl(json.pdf_url ?? null);
+      setPdfGeradoEm(json.pdf_gerado_em ?? new Date().toISOString());
+      setPdfDesatualizado(false);
+      setMsg("Proposta em PDF gerada!");
+    } catch {
+      setMsg("Erro de conexão ao gerar o PDF.");
+    } finally {
+      setGerandoPdf(false);
+    }
   }
 
   async function salvarESair() {
@@ -377,9 +416,48 @@ export default function EditorLandingPage({ params }: { params: Promise<{ id: st
           />
           <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginTop: 8, lineHeight: 1.6 }}>
             {identificacaoModo === "nenhum" && "Acesso livre — a página abre sem pedir dados."}
-            {identificacaoModo === "valores" && <>A página abre normalmente (ótimo para o Google), mas os <strong>valores</strong> (blocos Pacote, Pacotes e Formas de pagamento) aparecem como <strong>R$ ?????</strong> com um botão <strong>“Ver valor”</strong>. Quem clicar informa nome, WhatsApp e e-mail (e-mail opcional) — e você recebe o contato em <strong>“Quem acessou”</strong>.</>}
+            {identificacaoModo === "valores" && <>A página abre normalmente (ótimo para o Google), mas os <strong>valores</strong> (blocos Pacote, Pacotes e Formas de pagamento) aparecem como <strong>R$ ?????</strong> com um botão <strong>“Ver valores”</strong>. Quem clicar informa nome, WhatsApp e e-mail (os três obrigatórios) e <strong>recebe a proposta em PDF por e-mail</strong> — os valores <strong>não</strong> aparecem na tela, é isso que garante um e-mail válido. Você recebe um aviso na hora e o contato entra em <strong>“Quem acessou”</strong>.</>}
             {identificacaoModo === "pagina" && <>Para <strong>ver a proposta</strong>, o visitante se identifica antes (nome, WhatsApp, e-mail opcional). Bom para propostas privadas enviadas por link. <strong>Não combine com indexação no Google</strong> — o buscador veria só o formulário; para indexar, use “Só os valores”.</>}
           </div>
+
+          {/* PROPOSTA EM PDF — o arquivo enviado a quem pede os valores */}
+          {identificacaoModo === "valores" && (
+            <div style={{ marginTop: 12, padding: "12px 14px", borderRadius: 10, border: "1px solid var(--color-border-tertiary)", background: "var(--color-background-secondary)" }}>
+              <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--color-text-primary)", marginBottom: 6 }}>📄 Proposta em PDF</div>
+
+              <div style={{ fontSize: 12, color: "var(--color-text-secondary)", lineHeight: 1.55, marginBottom: 10 }}>
+                {!pdfGeradoEm ? (
+                  <span style={{ color: "#B45309", fontWeight: 600 }}>⚠ Nenhum PDF gerado — gere para quem pedir os valores receber a proposta.</span>
+                ) : pdfDesatualizado ? (
+                  <span style={{ color: "#B45309", fontWeight: 600 }}>⚠ PDF desatualizado — a página mudou depois que ele foi gerado. Gere de novo.</span>
+                ) : (
+                  <>✓ PDF gerado em {new Date(pdfGeradoEm).toLocaleDateString("pt-BR")} às {new Date(pdfGeradoEm).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}.</>
+                )}
+              </div>
+
+              <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                <button
+                  onClick={() => { setBlocosPdf(new Set(blocos.filter((b) => !SEM_SENTIDO_NO_PDF.has(b.tipo)).map((b) => b.id))); setEscolherBlocos(true); }}
+                  disabled={gerandoPdf || temAlteracoes || !criada}
+                  title={temAlteracoes ? "Salve as alterações antes de gerar" : "Escolher o que entra e gerar o PDF"}
+                  style={{ padding: "8px 16px", borderRadius: 8, border: "none", background: gerandoPdf || temAlteracoes || !criada ? "var(--color-border-secondary)" : "#111", color: "#fff", fontSize: 12.5, fontWeight: 700, cursor: gerandoPdf || temAlteracoes || !criada ? "default" : "pointer" }}
+                >
+                  {gerandoPdf ? "Gerando…" : pdfGeradoEm ? "Gerar novamente" : "Gerar PDF"}
+                </button>
+                {pdfUrl && (
+                  <a href={pdfUrl} target="_blank" rel="noopener noreferrer"
+                    style={{ padding: "8px 14px", borderRadius: 8, border: "1px solid var(--color-border-secondary)", fontSize: 12.5, fontWeight: 600, color: "var(--color-text-primary)", textDecoration: "none" }}>
+                    👁 Abrir PDF
+                  </a>
+                )}
+              </div>
+              <div style={{ fontSize: 11.5, color: "var(--color-text-secondary)", marginTop: 6, lineHeight: 1.5 }}>
+                {temAlteracoes
+                  ? "Salve a página primeiro — o PDF sai do conteúdo salvo."
+                  : "Ao gerar, você escolhe quais blocos entram na proposta (a galeria de fotos, por exemplo, pode ficar de fora)."}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -447,6 +525,62 @@ export default function EditorLandingPage({ params }: { params: Promise<{ id: st
           fotografoId={fotografo.id}
           salvando={salvando}
         />
+      )}
+
+      {/* O que entra no PDF — o fotógrafo escolhe os blocos antes de abrir a impressão */}
+      {escolherBlocos && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 20 }}
+          onClick={() => setEscolherBlocos(false)}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: "var(--color-background-primary)", borderRadius: 14, width: "100%", maxWidth: 460, maxHeight: "84vh", display: "flex", flexDirection: "column", boxShadow: "0 10px 40px rgba(0,0,0,0.2)", overflow: "hidden" }}>
+            <div style={{ padding: "18px 20px 10px" }}>
+              <div style={{ fontSize: 16, fontWeight: 800, color: "var(--color-text-primary)" }}>📄 O que entra no PDF</div>
+              <div style={{ fontSize: 12.5, color: "var(--color-text-secondary)", marginTop: 4, lineHeight: 1.5 }}>
+                Desmarque o que não deve aparecer na proposta (ex.: galeria de fotos). Os valores entram sempre.
+              </div>
+            </div>
+
+            <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "4px 20px" }}>
+              {blocos.map((b) => {
+                const rot = CATALOGO_BLOCOS.find((c) => c.tipo === b.tipo);
+                const d = b.dados;
+                const resumo = d.titulo || d.nome || d.texto || (d.html ? d.html.replace(/<[^>]+>/g, " ").trim().slice(0, 50) : "") || "";
+                const marcado = blocosPdf.has(b.id);
+                return (
+                  <label key={b.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: "1px solid var(--color-border-tertiary)", cursor: "pointer" }}>
+                    <input type="checkbox" checked={marcado}
+                      onChange={() => setBlocosPdf((prev) => {
+                        const n = new Set(prev);
+                        if (n.has(b.id)) n.delete(b.id); else n.add(b.id);
+                        return n;
+                      })} />
+                    <span style={{ fontSize: 15 }}>{rot?.icone ?? "▪"}</span>
+                    <span style={{ minWidth: 0, flex: 1 }}>
+                      <span style={{ display: "block", fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)" }}>{rot?.label ?? b.tipo}</span>
+                      {resumo && <span style={{ display: "block", fontSize: 11.5, color: "var(--color-text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{resumo}</span>}
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 8, padding: "12px 20px", borderTop: "1px solid var(--color-border-tertiary)" }}>
+              <button onClick={() => setBlocosPdf(new Set(blocos.map((b) => b.id)))}
+                style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid var(--color-border-secondary)", background: "transparent", fontSize: 12.5, color: "var(--color-text-primary)", cursor: "pointer" }}>
+                Marcar todos
+              </button>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button onClick={() => setEscolherBlocos(false)}
+                  style={{ padding: "8px 14px", borderRadius: 8, border: "1px solid var(--color-border-secondary)", background: "transparent", fontSize: 12.5, color: "var(--color-text-secondary)", cursor: "pointer" }}>
+                  Cancelar
+                </button>
+                <button onClick={gerarPdf} disabled={blocosPdf.size === 0}
+                  style={{ padding: "8px 16px", borderRadius: 8, border: "none", background: blocosPdf.size === 0 ? "var(--color-border-secondary)" : "#111", color: "#fff", fontSize: 12.5, fontWeight: 700, cursor: blocosPdf.size === 0 ? "default" : "pointer" }}>
+                  Gerar PDF
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Modal de alterações não salvas (ao tentar sair) */}

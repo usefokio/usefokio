@@ -97,6 +97,12 @@ export default function LandingPagesLista() {
   async function confirmarExcluir() {
     if (!excluir || ocupado) return;
     setOcupado(true);
+    // Apaga antes o PDF da proposta — a linha some por cascade, mas o arquivo ficaria órfão.
+    await fetch("/api/site/landing-pdf", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ landing_id: excluir.id }),
+    }).catch(() => {});
     const { error } = await createClient().from("site_landing_pages").delete().eq("id", excluir.id);
     setOcupado(false);
     if (error) { setMsg("Erro ao excluir: " + error.message); return; }
