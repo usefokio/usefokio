@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getResend, FROM_DEFAULT } from "@/lib/email/resend";
+import { compararSegredo } from "@/lib/seguranca";
+import { escapeHtml } from "@/lib/email/comunicacao";
 
 // Health-check: alguns validadores do Asaas checam a URL via GET. Responde 200.
 export async function GET() {
@@ -14,7 +16,7 @@ export async function POST(req: Request) {
     console.error("[webhook-sistema] ASAAS_WEBHOOK_TOKEN não configurado — rejeitando");
     return NextResponse.json({ error: "not configured" }, { status: 503 });
   }
-  if (token !== expectedToken) {
+  if (!compararSegredo(token, expectedToken)) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
@@ -105,7 +107,7 @@ export async function POST(req: Request) {
     .maybeSingle();
 
   if (foto?.email) {
-    const nome = foto.nome_empresa ?? foto.nome_completo ?? "fotógrafo";
+    const nome = escapeHtml(foto.nome_empresa ?? foto.nome_completo ?? "fotógrafo");
     const expiraFmt = expira.toLocaleDateString("pt-BR");
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://www.usefokio.com.br";
 

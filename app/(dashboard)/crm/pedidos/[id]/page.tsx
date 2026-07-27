@@ -10,6 +10,7 @@ import { FIN_STATUS_MAP } from "@/lib/constants/statusMaps";
 import { carregarPedidoStatus, montarStatusMap, statusInfo } from "@/lib/crm/pedidoStatus";
 import type { CrmPedidoStatus } from "@/lib/supabase/types";
 import { formatBRL, formatData, formatNum, mascaraValor, parsearValor, mascaraHora } from "@/lib/utils/format";
+import { escapeHtml } from "@/lib/email/comunicacao";
 import { usePersistState } from "@/lib/hooks/usePersistState";
 import { ClienteLink } from "@/components/ui/ClienteLink";
 import type { CrmOrder, CrmFinancialEntry, CrmContractTemplate, CrmContract, CrmProduct, CrmOrderNote } from "@/lib/supabase/types";
@@ -294,9 +295,13 @@ export default function PedidoDetailPage() {
       DATA_ATUAL:           dataAtual,
     };
 
+    // ITENS_CONTRATO e CRONOGRAMA_PAGAMENTO são HTML montado pelo sistema (tabelas) — entram como
+    // estão; as demais variáveis são texto (nome/cidade/local do cliente/pedido) e vão escapadas,
+    // para dado do cliente não injetar HTML no contrato exibido/enviado.
+    const VARS_HTML = new Set(["ITENS_CONTRATO", "CRONOGRAMA_PAGAMENTO"]);
     let corpoGerado = template.corpo;
     for (const [key, val] of Object.entries(vars)) {
-      corpoGerado = corpoGerado.replaceAll(`{{${key}}}`, val);
+      corpoGerado = corpoGerado.replaceAll(`{{${key}}}`, VARS_HTML.has(key) ? val : escapeHtml(val));
     }
 
     // Salvar dados do evento no localStorage para próxima vez
