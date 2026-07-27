@@ -2,7 +2,6 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { rateLimitOk, clientIp } from "@/lib/rate-limit";
 import { getResend, FROM_DEFAULT } from "@/lib/email/resend";
 import { escapeHtml } from "@/lib/email/comunicacao";
-import { gerarEVincularPdf } from "@/lib/site/gerarPropostaLanding";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
@@ -53,16 +52,32 @@ export async function POST(request: NextRequest) {
   // ── Modo "valores": manda a proposta em PDF por e-mail (nada é revelado na tela) ──────────
   if (modo === "valores") {
     let enviado = false;
-    try {
-      // Usa o PDF já vinculado à landing; se ainda não existe, gera agora (uma vez só).
-      let pdfUrl = lp.pdf_url ?? null;
-      let nomeArquivo = "proposta.pdf";
-      if (!pdfUrl) {
-        const g = await gerarEVincularPdf(lp.id);
-        pdfUrl = g?.url ?? null;
-        if (g?.nome) nomeArquivo = g.nome;
+    const { data: fotAviso } = await supabase.from("fotografos")
+      .select("email").eq("id", lp.fotografo_id).maybeSingle();
+
+    // Sem PDF anexado à landing não há o que enviar: registra o lead, avisa o fotógrafo com
+    // destaque e devolve uma resposta honesta ao visitante (o fotógrafo envia manualmente).
+    if (!lp.pdf_url) {
+      console.error("[landing-acesso] landing sem PDF anexado:", lp.id);
+      if (fotAviso?.email) {
+        await getResend().emails.send({
+          from: FROM_DEFAULT, to: fotAviso.email,
+          subject: `⚠ Pediram os valores e a página está SEM PDF — ${lp.titulo}`,
+          html: `<div style="font-family:system-ui,Arial,sans-serif;font-size:15px;line-height:1.6">
+            <p><strong>${escapeHtml(nomeLimpo)}</strong> pediu os valores de <strong>${escapeHtml(lp.titulo)}</strong>,
+            mas essa landing ainda <strong>não tem a proposta em PDF anexada</strong> — nada foi enviado automaticamente.</p>
+            <p>E-mail: ${escapeHtml(emailLimpo)}${telLimpo ? ` · WhatsApp: ${escapeHtml(telLimpo)}` : ""}</p>
+            <p>Gere e anexe o PDF no editor da página e envie a proposta a essa pessoa.</p>
+          </div>`,
+          replyTo: emailLimpo,
+        }).catch((e) => console.error("[landing-acesso] aviso sem-PDF falhou:", e));
       }
-      if (!pdfUrl) throw new Error("landing sem PDF");
+      return NextResponse.json({ ok: true, enviado: false, pendente: true, email: emailLimpo });
+    }
+
+    try {
+      const pdfUrl = lp.pdf_url;
+      const nomeArquivo = `proposta-${(lp.slug || "proposta").slice(0, 40)}.pdf`;
 
       const arq = await fetch(pdfUrl, { cache: "no-store" });
       if (!arq.ok) throw new Error(`falha ao baixar o PDF (HTTP ${arq.status})`);

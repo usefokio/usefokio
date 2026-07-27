@@ -4,14 +4,14 @@
 // (identificação/SEO + EditorBlocos compartilhado com a Aparência), à direita a PRÉVIA AO
 // VIVO usando os MESMOS componentes do site real, com barra PC/Tablet/Celular.
 // A landing não mostra o header do site → a prévia usa semHeader.
-import { use, useEffect, useState } from "react";
+import { use, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { fetchAllRows } from "@/lib/supabase/fetchAll";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { useUnsavedGuard } from "@/lib/hooks/useUnsavedGuard";
 import { useWindowWidth } from "@/lib/hooks/useWindowWidth";
-import { dadosParaBlocos, type SiteBloco } from "@/lib/site/blocos";
+import { dadosParaBlocos, CATALOGO_BLOCOS, type SiteBloco } from "@/lib/site/blocos";
 import { EditorBlocos } from "@/app/(dashboard)/site/_components/EditorBlocos";
 import { PreviewSite, BarraDispositivo, type Dispositivo } from "@/app/(dashboard)/site/_components/PreviewSite";
 import { Chave, Seg } from "@/app/(dashboard)/site/_components/ControlesUI";
@@ -23,6 +23,9 @@ import { urlPublicaSite, type ConfigUrl } from "@/lib/site/urlPublica";
 import { ConfigPaginaModal } from "@/app/(dashboard)/site/_components/ConfigPaginaModal";
 import type { ConfigPaginaValores } from "@/lib/site/seo";
 import type { SiteLandingPage, SiteLandingDados, SiteDepoimento } from "@/lib/supabase/types";
+
+// Blocos que não fazem sentido no papel — vêm desmarcados na hora de gerar o PDF.
+const SEM_SENTIDO_NO_PDF = new Set(["formulario", "botao", "whatsapp", "video"]);
 
 const inputStyle: React.CSSProperties = {
   width: "100%", padding: "9px 11px", borderRadius: 8, boxSizing: "border-box",
@@ -71,6 +74,9 @@ export default function EditorLandingPage({ params }: { params: Promise<{ id: st
   const [pdfGeradoEm, setPdfGeradoEm] = useState<string | null>(null);
   const [pdfDesatualizado, setPdfDesatualizado] = useState(false);
   const [gerandoPdf, setGerandoPdf] = useState(false);
+  const [escolherBlocos, setEscolherBlocos] = useState(false);       // modal "o que entra no PDF"
+  const [blocosPdf, setBlocosPdf] = useState<Set<string>>(new Set()); // ids marcados
+  const inputPdfRef = useRef<HTMLInputElement>(null);
   const [seoTitle, setSeoTitle] = useState("");
   const [seoDesc, setSeoDesc] = useState("");
   const [seoKw, setSeoKw] = useState("");
@@ -211,25 +217,34 @@ export default function EditorLandingPage({ params }: { params: Promise<{ id: st
     return true;
   }
 
-  // Gera a proposta em PDF e vincula à landing (é o arquivo enviado a quem pede os valores).
-  // Exige a página salva: o PDF é montado do que está no banco, não do que está na tela.
-  async function gerarPdf() {
+  // Abre a página de impressão da landing (fiel ao layout) com os blocos escolhidos.
+  // O fotógrafo salva como PDF no navegador e depois anexa o arquivo aqui.
+  function abrirImpressao() {
     if (!criada) { setMsg("Erro: salve a página antes de gerar o PDF."); return; }
+    const sel = [...blocosPdf];
+    const qs = sel.length && sel.length !== blocos.length ? `?blocos=${sel.join(",")}` : "";
+    window.open(`/landing-imprimir/${id}${qs}`, "_blank", "noopener,noreferrer");
+    setEscolherBlocos(false);
+  }
+
+  // Anexa o PDF salvo — é ele que vai por e-mail a quem pede os valores.
+  async function anexarPdf(file: File | null | undefined) {
+    if (!file) return;
+    if (file.type !== "application/pdf") { setMsg("Erro: envie um arquivo PDF."); return; }
     setGerandoPdf(true); setMsg(null);
     try {
-      const res = await fetch("/api/site/landing-pdf", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ landing_id: id }),
-      });
+      const fd = new FormData();
+      fd.append("landing_id", id);
+      fd.append("file", file);
+      const res = await fetch("/api/site/landing-pdf", { method: "POST", body: fd });
       const json = await res.json();
-      if (!res.ok) { setMsg("Erro: " + (json.erro ?? "não foi possível gerar o PDF.")); return; }
+      if (!res.ok) { setMsg("Erro: " + (json.erro ?? "não foi possível anexar o PDF.")); return; }
       setPdfUrl(json.pdf_url ?? null);
       setPdfGeradoEm(json.pdf_gerado_em ?? new Date().toISOString());
       setPdfDesatualizado(false);
-      setMsg("PDF da proposta gerado!");
+      setMsg("Proposta em PDF anexada!");
     } catch {
-      setMsg("Erro de conexão ao gerar o PDF.");
+      setMsg("Erro de conexão ao anexar o PDF.");
     } finally {
       setGerandoPdf(false);
     }
@@ -421,23 +436,33 @@ export default function EditorLandingPage({ params }: { params: Promise<{ id: st
 
               <div style={{ fontSize: 12, color: "var(--color-text-secondary)", lineHeight: 1.55, marginBottom: 10 }}>
                 {!pdfGeradoEm ? (
-                  <span style={{ color: "#B45309", fontWeight: 600 }}>⚠ Nenhum PDF gerado ainda — gere para que quem pedir os valores receba a proposta.</span>
+                  <span style={{ color: "#B45309", fontWeight: 600 }}>⚠ Nenhum PDF anexado — sem ele, quem pedir os valores não recebe a proposta automaticamente.</span>
                 ) : pdfDesatualizado ? (
-                  <span style={{ color: "#B45309", fontWeight: 600 }}>⚠ PDF desatualizado — a página mudou depois que ele foi gerado. Gere de novo para enviar os valores certos.</span>
+                  <span style={{ color: "#B45309", fontWeight: 600 }}>⚠ PDF desatualizado — a página mudou depois que ele foi anexado. Gere e anexe de novo.</span>
                 ) : (
-                  <>✓ PDF gerado em {new Date(pdfGeradoEm).toLocaleDateString("pt-BR")} às {new Date(pdfGeradoEm).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}.</>
+                  <>✓ PDF anexado em {new Date(pdfGeradoEm).toLocaleDateString("pt-BR")} às {new Date(pdfGeradoEm).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}.</>
                 )}
               </div>
 
               <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                 <button
-                  onClick={gerarPdf}
-                  disabled={gerandoPdf || temAlteracoes || !criada}
-                  title={temAlteracoes ? "Salve as alterações antes de gerar (o PDF é montado do que está salvo)" : "Gerar a proposta em PDF com os valores"}
-                  style={{ padding: "8px 16px", borderRadius: 8, border: "none", background: gerandoPdf || temAlteracoes || !criada ? "var(--color-border-secondary)" : "#111", color: "#fff", fontSize: 12.5, fontWeight: 700, cursor: gerandoPdf || temAlteracoes || !criada ? "default" : "pointer" }}
+                  onClick={() => { setBlocosPdf(new Set(blocos.filter((b) => !SEM_SENTIDO_NO_PDF.has(b.tipo)).map((b) => b.id))); setEscolherBlocos(true); }}
+                  disabled={temAlteracoes || !criada}
+                  title={temAlteracoes ? "Salve as alterações antes de gerar" : "Escolher o que entra e abrir a página para imprimir"}
+                  style={{ padding: "8px 16px", borderRadius: 8, border: "none", background: temAlteracoes || !criada ? "var(--color-border-secondary)" : "#111", color: "#fff", fontSize: 12.5, fontWeight: 700, cursor: temAlteracoes || !criada ? "default" : "pointer" }}
                 >
-                  {gerandoPdf ? "Gerando…" : pdfGeradoEm ? "Gerar novamente" : "Gerar PDF"}
+                  1. Gerar PDF da página
                 </button>
+                <button
+                  onClick={() => inputPdfRef.current?.click()}
+                  disabled={gerandoPdf || !criada}
+                  title="Anexar o PDF que você salvou"
+                  style={{ padding: "8px 16px", borderRadius: 8, border: "1px solid var(--color-border-secondary)", background: "transparent", fontSize: 12.5, fontWeight: 700, color: "var(--color-text-primary)", cursor: gerandoPdf || !criada ? "default" : "pointer" }}
+                >
+                  {gerandoPdf ? "Enviando…" : "2. Anexar o PDF salvo"}
+                </button>
+                <input ref={inputPdfRef} type="file" accept="application/pdf" style={{ display: "none" }}
+                  onChange={(e) => { anexarPdf(e.target.files?.[0]); e.target.value = ""; }} />
                 {pdfUrl && (
                   <a href={pdfUrl} target="_blank" rel="noopener noreferrer"
                     style={{ padding: "8px 14px", borderRadius: 8, border: "1px solid var(--color-border-secondary)", fontSize: 12.5, fontWeight: 600, color: "var(--color-text-primary)", textDecoration: "none" }}>
@@ -445,11 +470,11 @@ export default function EditorLandingPage({ params }: { params: Promise<{ id: st
                   </a>
                 )}
               </div>
-              {temAlteracoes && (
-                <div style={{ fontSize: 11.5, color: "var(--color-text-secondary)", marginTop: 6 }}>
-                  Salve a página primeiro — o PDF é montado a partir do conteúdo salvo.
-                </div>
-              )}
+              <div style={{ fontSize: 11.5, color: "var(--color-text-secondary)", marginTop: 6, lineHeight: 1.5 }}>
+                {temAlteracoes
+                  ? "Salve a página primeiro — o PDF sai do conteúdo salvo."
+                  : "No passo 1 a página abre pronta para imprimir: use “Salvar como PDF” do navegador e volte aqui para anexar o arquivo."}
+              </div>
             </div>
           )}
         </div>
@@ -519,6 +544,62 @@ export default function EditorLandingPage({ params }: { params: Promise<{ id: st
           fotografoId={fotografo.id}
           salvando={salvando}
         />
+      )}
+
+      {/* O que entra no PDF — o fotógrafo escolhe os blocos antes de abrir a impressão */}
+      {escolherBlocos && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 20 }}
+          onClick={() => setEscolherBlocos(false)}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: "var(--color-background-primary)", borderRadius: 14, width: "100%", maxWidth: 460, maxHeight: "84vh", display: "flex", flexDirection: "column", boxShadow: "0 10px 40px rgba(0,0,0,0.2)", overflow: "hidden" }}>
+            <div style={{ padding: "18px 20px 10px" }}>
+              <div style={{ fontSize: 16, fontWeight: 800, color: "var(--color-text-primary)" }}>📄 O que entra no PDF</div>
+              <div style={{ fontSize: 12.5, color: "var(--color-text-secondary)", marginTop: 4, lineHeight: 1.5 }}>
+                Desmarque o que não deve aparecer na proposta (ex.: galeria de fotos). A página abre pronta para você salvar como PDF.
+              </div>
+            </div>
+
+            <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "4px 20px" }}>
+              {blocos.map((b) => {
+                const rot = CATALOGO_BLOCOS.find((c) => c.tipo === b.tipo);
+                const d = b.dados;
+                const resumo = d.titulo || d.nome || d.texto || (d.html ? d.html.replace(/<[^>]+>/g, " ").trim().slice(0, 50) : "") || "";
+                const marcado = blocosPdf.has(b.id);
+                return (
+                  <label key={b.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: "1px solid var(--color-border-tertiary)", cursor: "pointer" }}>
+                    <input type="checkbox" checked={marcado}
+                      onChange={() => setBlocosPdf((prev) => {
+                        const n = new Set(prev);
+                        if (n.has(b.id)) n.delete(b.id); else n.add(b.id);
+                        return n;
+                      })} />
+                    <span style={{ fontSize: 15 }}>{rot?.icone ?? "▪"}</span>
+                    <span style={{ minWidth: 0, flex: 1 }}>
+                      <span style={{ display: "block", fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)" }}>{rot?.label ?? b.tipo}</span>
+                      {resumo && <span style={{ display: "block", fontSize: 11.5, color: "var(--color-text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{resumo}</span>}
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 8, padding: "12px 20px", borderTop: "1px solid var(--color-border-tertiary)" }}>
+              <button onClick={() => setBlocosPdf(new Set(blocos.map((b) => b.id)))}
+                style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid var(--color-border-secondary)", background: "transparent", fontSize: 12.5, color: "var(--color-text-primary)", cursor: "pointer" }}>
+                Marcar todos
+              </button>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button onClick={() => setEscolherBlocos(false)}
+                  style={{ padding: "8px 14px", borderRadius: 8, border: "1px solid var(--color-border-secondary)", background: "transparent", fontSize: 12.5, color: "var(--color-text-secondary)", cursor: "pointer" }}>
+                  Cancelar
+                </button>
+                <button onClick={abrirImpressao} disabled={blocosPdf.size === 0}
+                  style={{ padding: "8px 16px", borderRadius: 8, border: "none", background: blocosPdf.size === 0 ? "var(--color-border-secondary)" : "#111", color: "#fff", fontSize: 12.5, fontWeight: 700, cursor: blocosPdf.size === 0 ? "default" : "pointer" }}>
+                  Abrir para imprimir
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Modal de alterações não salvas (ao tentar sair) */}
