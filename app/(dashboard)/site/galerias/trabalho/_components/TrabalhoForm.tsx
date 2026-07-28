@@ -80,6 +80,9 @@ export function TrabalhoForm({ trabalhoId }: { trabalhoId?: string }) {
   const [fotos, setFotos]           = useState<SiteTrabalhoFoto[]>([]);
   const [fila, setFila]             = useState<{ total: number; feitas: number } | null>(null);
   const inputFileRef                = useRef<HTMLInputElement>(null);
+  // Reordenar fotos por arrastar — mesmo padrão do bloco galeria em EditorBlocos.tsx
+  const fotoDrag = useRef<number | null>(null);
+  const [fotoSobre, setFotoSobre] = useState<number | null>(null);
 
   // Estado de salvamento claro (regra de sistema) — fotos ficam de fora (persistem na hora)
   const snapshotAtual = JSON.stringify([titulo, catNome, slug, descricao, videoUrl, localEvento, dataEvento, publicado, destaqueHome, seoTitle, seoDesc, seoKeywords, seoNoindex, ogTitle, ogDesc, ogImage, mostrarData, modoExibicao]);
@@ -300,6 +303,17 @@ export function TrabalhoForm({ trabalhoId }: { trabalhoId?: string }) {
     await createClient().from("site_trabalho_fotos").update(patch).eq("id", fotoId);
   }
 
+  // Move a foto de `from` para `to` (arrastar) — atualiza local e regrava `ordem` sequencial no banco.
+  async function moverFoto(from: number, to: number) {
+    if (from === to) return;
+    const reordenadas = [...fotos];
+    const [movida] = reordenadas.splice(from, 1);
+    reordenadas.splice(to, 0, movida);
+    setFotos(reordenadas);
+    const supabase = createClient();
+    await Promise.all(reordenadas.map((f, i) => f.ordem === i ? null : supabase.from("site_trabalho_fotos").update({ ordem: i }).eq("id", f.id)));
+  }
+
   async function removerFoto(foto: SiteTrabalhoFoto) {
     if (!confirm("Remover esta foto?")) return;
     const supabase = createClient();
@@ -474,12 +488,21 @@ export function TrabalhoForm({ trabalhoId }: { trabalhoId?: string }) {
             </div>
           )}
 
+          {fotos.length > 1 && <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: "0 0 8px" }}>Arraste as fotos para reordenar.</p>}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 10 }}>
-            {fotos.map((f) => {
+            {fotos.map((f, i) => {
               const ehCapa = capaUrl === f.url_publica;
+              const alvo = fotoSobre === i;
               return (
-                <div key={f.id} style={{ position: "relative", borderRadius: 10, overflow: "hidden", border: ehCapa ? "2px solid #2563EB" : "1px solid var(--color-border-tertiary)", background: "var(--color-background-secondary)" }}>
-                  <img src={f.url_publica} alt="" style={{ width: "100%", aspectRatio: "3/2", objectFit: "cover", display: "block" }} loading="lazy" />
+                <div key={f.id}
+                  draggable
+                  onDragStart={() => { fotoDrag.current = i; }}
+                  onDragOver={(e) => { e.preventDefault(); if (fotoDrag.current !== null && fotoSobre !== i) setFotoSobre(i); }}
+                  onDragLeave={() => { if (alvo) setFotoSobre(null); }}
+                  onDrop={(e) => { e.preventDefault(); const origem = fotoDrag.current; fotoDrag.current = null; setFotoSobre(null); if (origem !== null) moverFoto(origem, i); }}
+                  onDragEnd={() => { fotoDrag.current = null; setFotoSobre(null); }}
+                  style={{ position: "relative", borderRadius: 10, overflow: "hidden", cursor: "grab", border: ehCapa ? "2px solid #2563EB" : "1px solid var(--color-border-tertiary)", outline: alvo ? "2px solid #2563EB" : "none", outlineOffset: 2, background: "var(--color-background-secondary)" }}>
+                  <img src={f.url_publica} alt="" draggable={false} style={{ width: "100%", aspectRatio: "3/2", objectFit: "cover", display: "block", pointerEvents: "none" }} loading="lazy" />
                   {ehCapa && <span style={{ position: "absolute", top: 6, left: 6, fontSize: 10, fontWeight: 700, background: "#2563EB", color: "#fff", padding: "2px 7px", borderRadius: 6 }}>Capa</span>}
                   <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 8px", gap: 4 }}>
                     <button title={f.destaque ? "Remover destaque" : "Marcar destaque"} onClick={() => alternarDestaque(f)} style={{ border: "none", background: "transparent", cursor: "pointer", fontSize: 14, opacity: f.destaque ? 1 : 0.35 }}>⭐</button>
