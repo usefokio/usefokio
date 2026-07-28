@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { fetchAllRows } from "@/lib/supabase/fetchAll";
 import { baseLinks, baseAbsoluta, infoCategorias, nomeCategoria, legacyDoSlug } from "@/lib/site/publico";
 import { resolverMetaPagina, ogPagina } from "@/lib/site/seo";
 import { youtubeEmbedUrl } from "@/lib/utils/youtube";
@@ -43,8 +44,9 @@ export default async function TrabalhoPage({ params }: { params: Promise<{ fid: 
   if (!t) notFound();
 
   const admin = createAdminClient();
-  const [{ data: fotosRaw }, info] = await Promise.all([
-    admin.from("site_trabalho_fotos").select("*").eq("trabalho_id", t.id).order("ordem"),
+  const [fotosRaw, info] = await Promise.all([
+    fetchAllRows<SiteTrabalhoFoto>((c, from, to) => c.from("site_trabalho_fotos")
+      .select("*").eq("trabalho_id", t.id).order("ordem").range(from, to), admin),
     infoCategorias(fid),
   ]);
   const catLabel = nomeCategoria(t.categoria, info.map);
@@ -55,9 +57,10 @@ export default async function TrabalhoPage({ params }: { params: Promise<{ fid: 
     ? new Date(t.data_evento + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" })
     : null;
 
-  // A capa aparece como banner no topo; então é removida da galeria para não duplicar.
-  const todasFotos = (fotosRaw ?? []) as SiteTrabalhoFoto[];
-  const fotos = t.capa_url ? todasFotos.filter((f) => f.url_publica !== t.capa_url) : todasFotos;
+  // A capa é UMA das fotos do trabalho: ela fica na galeria, na posição dela (como no painel),
+  // e também abre a página como banner — repetir é intencional, nenhuma foto some da sequência.
+  const todasFotos = fotosRaw;
+  const fotos = todasFotos;
 
   return (
     <article>
