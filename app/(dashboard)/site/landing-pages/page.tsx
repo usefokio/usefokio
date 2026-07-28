@@ -149,6 +149,9 @@ export default function LandingPagesLista() {
                 {p.publicado ? "Publicada" : "Rascunho"}
               </span>
               <div style={{ display: "flex", gap: 6, flexShrink: 0 }} onClick={(e) => e.stopPropagation()}>
+                <span title="Acessos" style={{ ...btnAcao, cursor: "default", fontWeight: 700 }}>
+                  👁 {p.views ?? 0}
+                </span>
                 {p.identificacao_obrigatoria && (
                   <button title="Quem acessou" style={{ ...btnAcao, fontWeight: 700 }} onClick={() => abrirAcessos(p)}>
                     👥 {contagens[p.id] ?? 0}
