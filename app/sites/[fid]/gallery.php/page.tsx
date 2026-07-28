@@ -2,6 +2,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { fetchAllRows } from "@/lib/supabase/fetchAll";
 import { resolverMetaPagina, ogPagina } from "@/lib/site/seo";
 import { GaleriaFotos } from "../_components/GaleriaFotos";
 import { JsonLd } from "../_components/JsonLd";
@@ -39,10 +40,11 @@ export default async function GaleriaLegadaPage({ params, searchParams }: Props)
   if (!p) notFound();
 
   const admin = createAdminClient();
-  const { data: fotosRaw } = await admin.from("site_portfolio_fotos").select("*").eq("portfolio_id", p.id).order("ordem");
-  // A capa aparece como banner no topo; removida do grid para não duplicar.
-  const todasFotos = (fotosRaw ?? []) as SitePortfolioFoto[];
-  const fotos = p.capa_url ? todasFotos.filter((f) => f.url_publica !== p.capa_url) : todasFotos;
+  const todasFotos = await fetchAllRows<SitePortfolioFoto>((c, from, to) => c.from("site_portfolio_fotos")
+    .select("*").eq("portfolio_id", p.id).order("ordem").range(from, to), admin);
+  // A capa é UMA das fotos da coleção: fica no grid, na posição dela, e também abre a página
+  // como banner — repetir é intencional, nenhuma foto some da sequência.
+  const fotos = todasFotos;
 
   return (
     <div>
