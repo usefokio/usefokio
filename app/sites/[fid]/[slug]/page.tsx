@@ -11,6 +11,7 @@ import { dadosParaBlocos, conteudoParaBlocos, type SiteBloco } from "@/lib/site/
 import { resolverMetaPagina, ogPagina } from "@/lib/site/seo";
 import { RenderBlocos } from "../_components/RenderBlocos";
 import { GateIdentificacao } from "../_components/GateIdentificacao";
+import { LandingView } from "../_components/LandingView";
 import type { SiteLandingPage, SiteLandingDados, SiteDepoimento, SitePagina } from "@/lib/supabase/types";
 
 async function buscarLanding(fid: string, slug: string): Promise<SiteLandingPage | null> {
@@ -129,6 +130,7 @@ export default async function LandingPage({ params }: { params: Promise<{ fid: s
       {/* Landing não leva o header/menu do site (tem hero/logo próprios). <style> inline (fora do
           pipeline do Tailwind/Lightning CSS) garante o efeito em dev e prod, sem refatorar rotas. */}
       <style>{`.site-header{display:none!important}`}</style>
+      <LandingView landingId={lp.id} />
       {gatearPagina ? <GateIdentificacao landingId={lp.id} titulo={lp.titulo} /> : conteudo}
     </>
   );

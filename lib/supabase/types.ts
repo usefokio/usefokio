@@ -565,6 +565,7 @@ export type SiteLandingPage = {
   dados: SiteLandingDados;
   identificacao_obrigatoria: boolean; // legado — sincronizado com identificacao_modo != 'nenhum'
   identificacao_modo: "nenhum" | "pagina" | "valores";
+  views: number; // contador simples de acessos, independe de identificação
   // Proposta em PDF gerada pelo botão do editor e enviada a quem pede os valores
   pdf_url: string | null;
   pdf_path: string | null;
