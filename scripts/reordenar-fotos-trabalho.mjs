@@ -20,13 +20,14 @@ import { readFileSync } from "fs";
 const APLICAR = process.argv.includes("--aplicar");
 
 // ── env ──────────────────────────────────────────────────────────────────────
+// Variáveis já exportadas no shell (ex.: para rodar contra prod) têm prioridade sobre o .env.local.
 const env = {};
 for (const linha of readFileSync(new URL("../.env.local", import.meta.url), "utf8").split("\n")) {
   const m = linha.match(/^([A-Z0-9_]+)\s*=\s*"?([^"\r\n]*)"?/);
   if (m) env[m[1]] = m[2];
 }
-const SUPABASE_URL = env.NEXT_PUBLIC_SUPABASE_URL;
-const SERVICE_KEY = env.SUPABASE_SERVICE_ROLE_KEY;
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || env.NEXT_PUBLIC_SUPABASE_URL;
+const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || env.SUPABASE_SERVICE_ROLE_KEY;
 if (!SUPABASE_URL || !SERVICE_KEY) { console.error("NEXT_PUBLIC_SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY ausentes no .env.local"); process.exit(1); }
 
 const sb = createClient(SUPABASE_URL, SERVICE_KEY);
