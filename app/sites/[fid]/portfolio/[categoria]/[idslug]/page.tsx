@@ -5,7 +5,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { fetchAllRows } from "@/lib/supabase/fetchAll";
-import { baseLinks, baseAbsoluta, infoCategorias, nomeCategoria, legacyDoSlug } from "@/lib/site/publico";
+import { baseLinks, baseAbsoluta, infoCategorias, nomeCategoria, legacyDoSlug, resolverCanonical } from "@/lib/site/publico";
 import { resolverMetaPagina, ogPagina } from "@/lib/site/seo";
 import { youtubeEmbedUrl } from "@/lib/utils/youtube";
 import { FotosTrabalho } from "../../../_components/FotosTrabalho";
@@ -29,10 +29,15 @@ export async function generateMetadata({ params }: { params: Promise<{ fid: stri
   if (!t) return {};
   const excerpt = (t.descricao ?? "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 200) || null;
   const m = resolverMetaPagina(t, { titulo: t.titulo, descricao: excerpt, imagem: t.capa_url });
+  // O slug na URL é cosmético (resolve pelo legacy_id) — um link com slug antigo não pode
+  // virar canonical dele mesmo; sempre converge pra URL atual do trabalho.
+  const canonicalPath = `/portfolio/${t.categoria}/${t.legacy_id ? `${t.legacy_id}-` : ""}${t.slug}`;
+  const canonical = await resolverCanonical(fid, canonicalPath);
   return {
     title: m.title,
     description: m.description,
     keywords: m.keywords,
+    ...(canonical ? { alternates: { canonical } } : {}),
     ...(m.noindex ? { robots: { index: false, follow: true } } : {}),
     openGraph: await ogPagina({ title: m.ogTitle, description: m.ogDescription, image: m.ogImage }),
   };

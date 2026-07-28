@@ -35,6 +35,23 @@ export async function baseAbsoluta(fid: string): Promise<string> {
   return `${proto}://${host}${prefixo}`;
 }
 
+// Canonical de uma página específica, quando ela precisa apontar para uma URL diferente
+// da que foi requisitada (ex.: trabalho acessado por um slug antigo — o path é cosmético,
+// mas o canonical tem que sempre convergir pra URL atual). Mesma regra do layout: só emite
+// em produção, servido pelo host do fotógrafo (nunca na prévia /sites/{fid} nem em DEV).
+export async function resolverCanonical(fid: string, path: string): Promise<string | undefined> {
+  if (process.env.NODE_ENV === "development") return undefined;
+  const { headers } = await import("next/headers");
+  const h = await headers();
+  const admin = createAdminClient();
+  const { data: config } = await admin.from("site_config").select("dominio_customizado, subdominio").eq("fotografo_id", fid).maybeSingle();
+  const hostPrincipal = config?.dominio_customizado
+    ? normalizarHost(config.dominio_customizado)
+    : (config?.subdominio ? `${config.subdominio}.usefokio.com.br` : null);
+  if (!hostPrincipal || h.get("x-site-tenant") !== fid) return undefined; // só no host próprio, não na prévia
+  return `https://${hostPrincipal}${path === "/" ? "" : path}`;
+}
+
 // ── Multi-tenant por host ────────────────────────────────────────────────────
 
 // Subdomínios que nunca podem ser de fotógrafo (rotas/serviços do próprio UseFokio).
