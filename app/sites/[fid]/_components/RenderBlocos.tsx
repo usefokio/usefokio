@@ -7,6 +7,7 @@ import { ASPECT, OBJECT_POSITION } from "@/lib/site/design";
 import type { SiteDepoimento } from "@/lib/supabase/types";
 import { ContatoForm } from "./ContatoForm";
 import { GaleriaFotos } from "./GaleriaFotos";
+import { CarrosselLateral } from "./CarrosselLateral";
 import { LinkConversao } from "./LinkConversao";
 import { VerValorGate } from "./VerValorGate";
 import { linkWhatsApp } from "@/lib/site/whatsapp";
@@ -144,6 +145,17 @@ function Bloco({ bloco, ctx }: { bloco: SiteBloco; ctx: ContextoBlocos }) {
             {d.html && <div className="site-conteudo" style={{ fontSize: 16, lineHeight: 1.8 }} dangerouslySetInnerHTML={{ __html: d.html }} />}
           </div>
           {d.imagem_url && <img className="lp-duas-img" src={d.imagem_url} alt={d.titulo ?? ""} loading="lazy" style={estiloImagem(d)} />}
+        </div>
+      );
+
+    case "texto_carrossel":
+      return (
+        <div className={classeDuas(d)}>
+          <div className="lp-duas-txt">
+            {d.titulo && <h2 className="lp-pacote-nome" style={estTit}>{d.titulo}</h2>}
+            {d.html && <div className="site-conteudo" style={{ fontSize: 16, lineHeight: 1.8 }} dangerouslySetInnerHTML={{ __html: d.html }} />}
+          </div>
+          {(d.fotos?.length ?? 0) > 0 && <CarrosselLateral fotos={d.fotos!} alt={d.titulo ?? ""} estilo={estiloImagem(d)} />}
         </div>
       );
 

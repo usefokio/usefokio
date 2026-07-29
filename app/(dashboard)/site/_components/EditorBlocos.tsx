@@ -315,6 +315,48 @@ export function EditorBlocos({ blocos, onChange, fotografoId, pasta, acaoBloco }
             {opcoesImagem(b)}
           </div>
         );
+      case "texto_carrossel":
+        return (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <div><label style={labelStyle}>Título</label><input value={d.titulo ?? ""} onChange={(e) => mudar(b.id, { titulo: e.target.value })} style={inputStyle} /></div>
+            {opcaoTitulo(b)}
+            <div><label style={labelStyle}>Texto</label><SiteRichEditor value={d.html ?? ""} onChange={(html) => mudar(b.id, { html })} minHeight={120} pasta={pasta} /></div>
+            {campo("Posição do carrossel", <Seg value={d.imagem_posicao ?? "direita"}
+              options={[{ v: "direita", l: "À direita" }, { v: "esquerda", l: "À esquerda" }, { v: "acima", l: "Acima do texto" }] as const}
+              onChange={(v) => mudar(b.id, { imagem_posicao: v })} />)}
+            {opcoesImagem(b)}
+            <p style={{ ...mini, margin: 0 }}><strong>Arraste as miniaturas para reordenar.</strong> No site, as fotos trocam sozinhas e têm setas para navegar manualmente.</p>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(96px, 1fr))", gap: 8 }}>
+              {(d.fotos ?? []).map((f, i) => {
+                const alvo = fotoSobre?.blocoId === b.id && fotoSobre.idx === i;
+                return (
+                <div key={f}
+                  draggable
+                  onDragStart={() => { fotoDrag.current = { blocoId: b.id, idx: i }; }}
+                  onDragOver={(e) => { e.preventDefault(); if (fotoDrag.current?.blocoId === b.id && fotoSobre?.idx !== i) setFotoSobre({ blocoId: b.id, idx: i }); }}
+                  onDragLeave={() => { if (alvo) setFotoSobre(null); }}
+                  onDrop={(e) => { e.preventDefault(); const dg = fotoDrag.current; if (dg && dg.blocoId === b.id) moverFoto(b.id, dg.idx, i); fotoDrag.current = null; setFotoSobre(null); }}
+                  onDragEnd={() => { fotoDrag.current = null; setFotoSobre(null); }}
+                  style={{ position: "relative", cursor: "grab", borderRadius: 6, outline: alvo ? "2px solid #2563EB" : "none", outlineOffset: 2 }}>
+                  <img src={f} alt="" draggable={false} style={{ width: "100%", aspectRatio: "1/1", objectFit: "cover", borderRadius: 6, display: "block", pointerEvents: "none" }} />
+                  <span style={{ position: "absolute", bottom: 4, left: 4, minWidth: 18, height: 18, padding: "0 5px", borderRadius: 9, background: "rgba(0,0,0,0.6)", color: "#fff", fontSize: 10, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>{i + 1}</span>
+                  <button title="Remover foto"
+                    onClick={() => mudar(b.id, { fotos: (d.fotos ?? []).filter((_, j) => j !== i) })}
+                    style={{ position: "absolute", top: 4, right: 4, border: "none", borderRadius: 999, width: 22, height: 22, background: "rgba(0,0,0,0.55)", color: "#fff", fontSize: 11, cursor: "pointer" }}>✕</button>
+                </div>
+                );
+              })}
+            </div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <button style={btnPeq} disabled={!!filaGaleria}
+                onClick={() => { alvoGaleria.current = b.id; inputGaleriaRef.current?.click(); }}>
+                {filaGaleria ? `Enviando ${filaGaleria.feitas}/${filaGaleria.total}…` : "+ Adicionar fotos"}
+              </button>
+              <BotaoEscolherDoSite pasta={pasta} rotulo="Do site" estilo={btnPeq}
+                onEscolher={(url) => aplicar((prev) => prev.map((x) => x.id === b.id ? { ...x, dados: { ...x.dados, fotos: [...(x.dados.fotos ?? []), url] } } : x))} />
+            </div>
+          </div>
+        );
       case "pacote": {
         // Valor legado ("R$ 10x 510,00") aparece separado nos campos certos, sem redigitar.
         const val = /r\$/i.test(d.valor ?? "") ? separarValor(d.valor) : { prefixo: d.valor_prefixo ?? "", numero: d.valor ?? "" };
