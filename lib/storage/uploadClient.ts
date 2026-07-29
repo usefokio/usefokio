@@ -1,7 +1,7 @@
 export async function uploadFileClient(
   path: string,
   blob: Blob,
-  contentType = "image/jpeg"
+  contentType = blob.type || "image/jpeg"
 ): Promise<{ storage_path: string; url_publica: string }> {
   const form = new FormData();
   form.append("file", blob);

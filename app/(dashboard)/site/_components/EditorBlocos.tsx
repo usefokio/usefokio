@@ -194,6 +194,11 @@ export function EditorBlocos({ blocos, onChange, fotografoId, pasta, acaoBloco }
         {/* Reaproveita uma imagem que já está no site (banner/trabalho/coleção/blog) — copia p/ a pasta do destino */}
         <BotaoEscolherDoSite pasta={pasta} rotulo="Do site" estilo={btnPeq}
           onEscolher={(url) => aplicarImagem(blocoId, campo, url, cardIdx)} />
+        {urlAtual && (
+          <button style={{ ...btnPeq, color: "#DC2626" }} onClick={() => mudar(blocoId, { [campo]: null } as Partial<SiteBloco["dados"]>)}>
+            ✕ Remover
+          </button>
+        )}
       </div>
     );
   }

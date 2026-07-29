@@ -222,9 +222,15 @@ export async function processarImagemEntrega(
       }
 
       try {
-        const blobSemExif = await canvasToBlob(canvas, "image/jpeg", qualidade);
-        const originalDataUrl = await fileToDataUrl(file);
-        const exifStr = extrairExif(originalDataUrl);
+        // PNG (logo, imagens com fundo transparente) mantém PNG — exportar como JPEG preenche
+        // a transparência com fundo sólido (o canvas não tem alpha nesse formato).
+        const ehPng = file.type === "image/png";
+        const blobSemExif = ehPng
+          ? await canvasToBlob(canvas, "image/png", 1)
+          : await canvasToBlob(canvas, "image/jpeg", qualidade);
+        // EXIF é conceito de JPEG — não existe (nem faz sentido reinjetar) em PNG.
+        const originalDataUrl = ehPng ? null : await fileToDataUrl(file);
+        const exifStr = originalDataUrl ? extrairExif(originalDataUrl) : null;
         const blob = exifStr ? await injetarExif(blobSemExif, exifStr) : blobSemExif;
         resolve({ blob, largura, altura, tamanho_bytes: blob.size });
       } catch (e) {
