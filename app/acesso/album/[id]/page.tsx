@@ -502,7 +502,7 @@ export default function AcessoAlbumPage() {
         </div>
       )}
 
-      <div style={{ maxWidth: 720, margin: "0 auto", padding: "28px 20px 0" }}>
+      <div style={{ maxWidth: "min(1400px, 94vw)", margin: "0 auto", padding: "28px 20px 0" }}>
         {selecao.descricao && (
           <p style={{ margin: "0 0 20px", fontSize: 13, color: "var(--color-text-secondary)", textAlign: "center", lineHeight: 1.5 }}>
             {selecao.descricao}
