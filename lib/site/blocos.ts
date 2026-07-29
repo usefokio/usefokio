@@ -11,6 +11,7 @@ export type TipoBloco =
   | "texto"         // texto rico (HTML)
   | "imagem"        // imagem única (proporção natural)
   | "duas_colunas"  // texto rico + imagem lado a lado (empilha no mobile)
+  | "texto_carrossel" // texto rico + VÁRIAS fotos lado a lado, com setas e autoplay
   | "pacote"        // nome + itens + VALOR + imagem (particularidade dos orçamentos)
   | "pacotes"       // 2 a 4 pacotes lado a lado, para comparar as opções
   | "pagamento"     // condições de pagamento (parcelas, à vista, PIX) — texto explicativo por linha
@@ -97,7 +98,7 @@ export type SiteBloco = {
     condicoes?: { rotulo: string; descricao: string }[]; // linhas: rótulo em destaque + explicação
     // cards
     cards?: { nome: string; foto_url?: string | null; href?: string | null }[];
-    // galeria
+    // galeria / texto_carrossel
     fotos?: string[];
     colunas?: number; // 2, 3 ou 4
     // depoimentos
@@ -123,6 +124,7 @@ export const CATALOGO_BLOCOS: { tipo: TipoBloco; label: string; icone: string }[
   { tipo: "texto",        label: "Texto",              icone: "📝" },
   { tipo: "imagem",       label: "Imagem",             icone: "🏞" },
   { tipo: "duas_colunas", label: "Texto + Imagem",     icone: "◫" },
+  { tipo: "texto_carrossel", label: "Texto + Carrossel", icone: "🎠" },
   { tipo: "pacote",       label: "Pacote (orçamento)", icone: "💍" },
   { tipo: "pacotes",      label: "Pacotes lado a lado", icone: "▥" },
   { tipo: "pagamento",    label: "Formas de pagamento", icone: "💳" },
@@ -215,6 +217,7 @@ export function novoBloco(tipo: TipoBloco): SiteBloco {
   };
   if (tipo === "cards") base.dados.cards = [];
   if (tipo === "galeria") { base.dados.fotos = []; base.dados.colunas = 3; }
+  if (tipo === "texto_carrossel") base.dados.fotos = [];
   if (tipo === "espaco") base.dados.altura = 40;
   if (tipo === "botao") base.dados = { texto: "Reservar minha data", acao: "whatsapp", mensagem: "Olá! Quero reservar minha data.", estilo_botao: "solido", alinhamento: "centro" };
   if (tipo === "depoimentos") base.dados.titulo = "O que meus clientes dizem";

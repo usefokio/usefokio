@@ -58,6 +58,21 @@ const MINIATURAS: Record<TipoBloco, React.ReactNode> = {
       <Foto />
     </div>
   ),
+  texto_carrossel: (
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, height: "100%" }}>
+      <Coluna style={{ justifyContent: "center" }}>
+        <Barra w="80%" h={7} style={{ opacity: 0.55 }} />
+        <Barra /><Barra w="92%" /><Barra w="65%" />
+      </Coluna>
+      <div style={{ position: "relative", height: "100%" }}>
+        <Foto style={{ height: "100%" }} />
+        <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 2px" }}>
+          <Barra w={8} h={8} style={{ borderRadius: "50%", opacity: 0.5 }} />
+          <Barra w={8} h={8} style={{ borderRadius: "50%", opacity: 0.5 }} />
+        </div>
+      </div>
+    </div>
+  ),
   pacote: (
     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, height: "100%" }}>
       <Coluna gap={4} style={{ justifyContent: "center" }}>
@@ -164,6 +179,7 @@ const DESCRICOES: Record<TipoBloco, string> = {
   texto: "Um trecho de texto com negrito, links e listas. Use para explicar o serviço, contar sua história ou responder dúvidas.",
   imagem: "Uma foto sozinha. Você escolhe a largura, a proporção e se ela ocupa a página de ponta a ponta.",
   duas_colunas: "Texto de um lado e foto do outro (dá para inverter). Bom para “Sobre o ensaio” ou “Como funciona”.",
+  texto_carrossel: "Texto de um lado e VÁRIAS fotos do outro, trocando sozinhas e com setas para navegar. Bom para apresentar um modelo de álbum ou produto com várias fotos.",
   pacote: "UM pacote por vez: nome, lista do que está incluso, valor em destaque e foto (à direita, à esquerda ou acima). O nome pode virar uma faixa com foto de fundo.",
   pacotes: "Até 4 pacotes lado a lado, para o cliente comparar. Cada coluna tem nome, itens, valor e pode ganhar etiqueta (“Mais escolhido”) e destaque.",
   pagamento: "Condições de pagamento abaixo dos pacotes: parcelamento por opção, à vista com desconto, PIX. Cada linha tem um rótulo em destaque e a explicação ao lado.",
