@@ -309,9 +309,15 @@ export function EditorBlocos({ blocos, onChange, fotografoId, pasta, acaoBloco }
             {opcaoTitulo(b)}
             <div><label style={labelStyle}>Texto</label><SiteRichEditor value={d.html ?? ""} onChange={(html) => mudar(b.id, { html })} minHeight={120} pasta={pasta} /></div>
             {btnImagem({ blocoId: b.id, campo: "imagem_url", urlAtual: d.imagem_url, rotulo: "imagem" })}
-            {campo("Posição da imagem", <Seg value={d.imagem_posicao ?? (d.invertido ? "esquerda" : "direita")}
-              options={[{ v: "direita", l: "À direita" }, { v: "esquerda", l: "À esquerda" }, { v: "acima", l: "Acima do texto" }] as const}
-              onChange={(v) => mudar(b.id, { imagem_posicao: v, invertido: v === "esquerda" })} />)}
+            {campo("Posição da imagem", <div style={{ display: "flex", gap: 6 }}>
+              <Seg value={d.imagem_posicao ?? (d.invertido ? "esquerda" : "direita")}
+                options={[{ v: "direita", l: "À direita" }, { v: "esquerda", l: "À esquerda" }, { v: "acima", l: "Acima do texto" }] as const}
+                onChange={(v) => mudar(b.id, { imagem_posicao: v, invertido: v === "esquerda" })} />
+              <button type="button" title="Inverter lado" style={btnPeq}
+                onClick={() => { const nova = (d.imagem_posicao ?? (d.invertido ? "esquerda" : "direita")) === "esquerda" ? "direita" : "esquerda"; mudar(b.id, { imagem_posicao: nova, invertido: nova === "esquerda" }); }}>
+                ⇄
+              </button>
+            </div>)}
             {opcoesImagem(b)}
           </div>
         );
@@ -321,9 +327,15 @@ export function EditorBlocos({ blocos, onChange, fotografoId, pasta, acaoBloco }
             <div><label style={labelStyle}>Título</label><input value={d.titulo ?? ""} onChange={(e) => mudar(b.id, { titulo: e.target.value })} style={inputStyle} /></div>
             {opcaoTitulo(b)}
             <div><label style={labelStyle}>Texto</label><SiteRichEditor value={d.html ?? ""} onChange={(html) => mudar(b.id, { html })} minHeight={120} pasta={pasta} /></div>
-            {campo("Posição do carrossel", <Seg value={d.imagem_posicao ?? "direita"}
-              options={[{ v: "direita", l: "À direita" }, { v: "esquerda", l: "À esquerda" }, { v: "acima", l: "Acima do texto" }] as const}
-              onChange={(v) => mudar(b.id, { imagem_posicao: v })} />)}
+            {campo("Posição do carrossel", <div style={{ display: "flex", gap: 6 }}>
+              <Seg value={d.imagem_posicao ?? "direita"}
+                options={[{ v: "direita", l: "À direita" }, { v: "esquerda", l: "À esquerda" }, { v: "acima", l: "Acima do texto" }] as const}
+                onChange={(v) => mudar(b.id, { imagem_posicao: v })} />
+              <button type="button" title="Inverter lado" style={btnPeq}
+                onClick={() => { const nova = (d.imagem_posicao ?? "direita") === "esquerda" ? "direita" : "esquerda"; mudar(b.id, { imagem_posicao: nova }); }}>
+                ⇄
+              </button>
+            </div>)}
             {opcoesImagem(b)}
             <p style={{ ...mini, margin: 0 }}><strong>Arraste as miniaturas para reordenar.</strong> No site, as fotos trocam sozinhas e têm setas para navegar manualmente.</p>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(96px, 1fr))", gap: 8 }}>
