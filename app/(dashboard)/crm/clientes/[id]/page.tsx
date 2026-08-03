@@ -70,6 +70,7 @@ export default function ClienteDetailPage() {
   const [cargo,         setCargo]         = useState("");
   const [instagram,     setInstagram]     = useState("");
   const [cpf,           setCpf]           = useState("");
+  const [rg,            setRg]            = useState("");
   const [dataNasc,      setDataNasc]      = useState("");
   const [observacoes,   setObservacoes]   = useState("");
   const [tipoContato,   setTipoContato]   = useState<Cliente["tipo_contato"]>("cliente");
@@ -83,7 +84,7 @@ export default function ClienteDetailPage() {
 
   // Estado de salvamento claro (regra de sistema) — guard ativo só em edição: baseline capturado ao
   // entrar em edição; ao sair (salvar/cancelar) o snapshot vira "salvo" e o guard fica inerte na visualização.
-  const editSnapshot = JSON.stringify([nome, email, telefone, whatsapp, empresa, cargo, instagram, cpf, dataNasc, observacoes, tipoContato, cep, logradouro, numero, complemento, bairro, cidade, estado]);
+  const editSnapshot = JSON.stringify([nome, email, telefone, whatsapp, empresa, cargo, instagram, cpf, rg, dataNasc, observacoes, tipoContato, cep, logradouro, numero, complemento, bairro, cidade, estado]);
   const snapshotAtual = editing ? editSnapshot : "salvo";
   const guarda = useEditorEstado(snapshotAtual, "/crm/clientes");
   const abrirEdicao = () => { guarda.inicializar(editSnapshot); setEditing(true); };
@@ -145,6 +146,7 @@ export default function ClienteDetailPage() {
     setCargo(c.cargo ?? "");
     setInstagram(c.instagram ?? "");
     setCpf(c.cpf ?? "");
+    setRg(c.rg ?? "");
     setDataNasc(c.data_nascimento ?? "");
     setObservacoes(c.observacoes ?? "");
     setTipoContato(c.tipo_contato ?? "cliente");
@@ -185,7 +187,7 @@ export default function ClienteDetailPage() {
     await sb.from("clientes").update({
       nome: nome.trim(), email: email || null, telefone: telefone || null,
       whatsapp: whatsapp || null, empresa: empresa || null, cargo: cargo || null,
-      instagram: instagram || null, cpf: cpf || null,
+      instagram: instagram || null, cpf: cpf || null, rg: rg || null,
       data_nascimento: dataNasc || null, observacoes: observacoes || null,
       tipo_contato: tipoContato,
       cep: cep || null, logradouro: logradouro || null, numero: numero || null,
@@ -333,6 +335,10 @@ export default function ClienteDetailPage() {
               <input value={cpf} onChange={e => setCpf(e.target.value)} style={inputStyle} />
             </div>
             <div style={{ marginBottom: 18 }}>
+              {label("RG")}
+              <input value={rg} onChange={e => setRg(e.target.value)} style={inputStyle} />
+            </div>
+            <div style={{ marginBottom: 18 }}>
               {label("Data de nascimento")}
               <input value={dataNasc} onChange={e => setDataNasc(e.target.value)} type="date" style={inputStyle} />
             </div>
@@ -411,6 +417,7 @@ export default function ClienteDetailPage() {
             {field("WhatsApp", cliente.whatsapp)}
             {field("Instagram", cliente.instagram)}
             {field("CPF", cliente.cpf)}
+            {field("RG", cliente.rg)}
             {field("Data de nascimento", cliente.data_nascimento ? new Date(cliente.data_nascimento + "T12:00:00").toLocaleDateString("pt-BR") : null)}
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>

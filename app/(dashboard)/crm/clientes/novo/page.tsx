@@ -41,6 +41,7 @@ export default function NovoClientePage() {
   const [cargo,       setCargo]       = useState("");
   const [instagram,   setInstagram]   = useState("");
   const [cpf,         setCpf]         = useState("");
+  const [rg,          setRg]          = useState("");
   const [dataNasc,    setDataNasc]    = useState("");
   const [observacoes, setObservacoes] = useState("");
   const [tipoContato, setTipoContato] = useState("cliente");
@@ -55,7 +56,7 @@ export default function NovoClientePage() {
   const [erro,        setErro]        = useState("");
 
   // Estado de salvamento claro (regra de sistema) — baseline = formulário vazio; dirty ao preencher.
-  const snapshotAtual = JSON.stringify([nome, email, telefone, whatsapp, empresa, cargo, instagram, cpf, dataNasc, observacoes, tipoContato, cep, logradouro, numero, complemento, bairro, cidade, estado]);
+  const snapshotAtual = JSON.stringify([nome, email, telefone, whatsapp, empresa, cargo, instagram, cpf, rg, dataNasc, observacoes, tipoContato, cep, logradouro, numero, complemento, bairro, cidade, estado]);
   const guarda = useEditorEstado(snapshotAtual, "/crm/clientes");
   useEffect(() => { guarda.inicializar(snapshotAtual); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
 
@@ -100,6 +101,7 @@ export default function NovoClientePage() {
       cargo:           cargo.trim() || null,
       instagram:       instagram.trim() || null,
       cpf:             cpf.trim() || null,
+      rg:              rg.trim() || null,
       data_nascimento: dataNasc || null,
       observacoes:     observacoes.trim() || null,
       tipo_contato:    tipoContato,
@@ -183,6 +185,10 @@ export default function NovoClientePage() {
           <div style={{ marginBottom: 18 }}>
             {lbl("CPF")}
             <input value={cpf} onChange={e => setCpf(e.target.value)} style={inputStyle} />
+          </div>
+          <div style={{ marginBottom: 18 }}>
+            {lbl("RG")}
+            <input value={rg} onChange={e => setRg(e.target.value)} style={inputStyle} />
           </div>
           <div style={{ marginBottom: 18 }}>
             {lbl("Data de nascimento")}
