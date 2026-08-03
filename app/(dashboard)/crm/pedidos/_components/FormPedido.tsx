@@ -817,8 +817,10 @@ export default function FormPedido({ inicial, onSalvo, onCancelar }: Props) {
             </div>
             {itens.map((item, idx) => (
               <div key={item.tmpId} style={{ display: "grid", gridTemplateColumns: "1fr 80px 120px 80px 32px", padding: "8px 12px", alignItems: "center", borderBottom: idx < itens.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none" }}>
-                <input value={item.descricao} onChange={e => atualizarItem(item.tmpId, "descricao", e.target.value)}
-                  style={{ ...inputStyle, fontSize: 12, padding: "5px 8px" }} />
+                {/* textarea (não input): a descrição pode ter várias linhas, e input de uma linha
+                    descartaria as quebras — que o contrato precisa preservar. */}
+                <textarea value={item.descricao} onChange={e => atualizarItem(item.tmpId, "descricao", e.target.value)} rows={2}
+                  style={{ ...inputStyle, fontSize: 12, padding: "5px 8px", resize: "vertical", fontFamily: "inherit", lineHeight: 1.4 }} />
                 <input type="number" min="1" value={item.quantidade}
                   onChange={e => atualizarItem(item.tmpId, "quantidade", Math.max(1, parseInt(e.target.value) || 1))}
                   style={{ ...inputStyle, fontSize: 12, padding: "5px 8px" }} />

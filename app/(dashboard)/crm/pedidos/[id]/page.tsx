@@ -80,6 +80,9 @@ export default function PedidoDetailPage() {
   const [estadoEvento,        setEstadoEvento]        = useState("");
   const [convidados,          setConvidados]          = useState("");
   const [gerandoContrato,     setGerandoContrato]     = useState(false);
+  // Revisão antes de gerar: o corpo fica só em memória até o "Confirmar e gerar"
+  const [revisandoContrato,   setRevisandoContrato]   = useState(false);
+  const [corpoRevisao,        setCorpoRevisao]        = useState("");
   // Enviar contrato assinado (upload de arquivo)
   const [enviandoContrato,    setEnviandoContrato]    = useState(false);
   const contratoFileRef = useRef<HTMLInputElement>(null);
@@ -206,10 +209,19 @@ export default function PedidoDetailPage() {
     carregar();
   };
 
+  // Fecha o modal descartando a revisão em memória (nada foi gravado até o "Confirmar e gerar").
+  const fecharModalContrato = () => {
+    setModalContrato(false);
+    setRevisandoContrato(false);
+    setCorpoRevisao("");
+  };
+
   const abrirModalContrato = async () => {
     const sb = createClient();
     const fotografoId = pedido?.fotografo_id;
     if (!fotografoId) return;
+    setRevisandoContrato(false);   // sempre reabre na etapa de dados
+    setCorpoRevisao("");
     const { data } = await sb.from("crm_contract_templates").select("*").eq("fotografo_id", fotografoId).order("created_at");
     setTemplates((data ?? []) as CrmContractTemplate[]);
     setTemplateId((data ?? [])[0]?.id ?? "");
@@ -228,12 +240,12 @@ export default function PedidoDetailPage() {
     setModalContrato(true);
   };
 
-  const gerarContrato = async () => {
-    if (!pedido || !templateId) return;
-    setGerandoContrato(true);
+  // Monta o corpo do contrato em MEMÓRIA (não grava nada) — o fotógrafo revisa/ajusta antes de confirmar.
+  const montarCorpoContrato = async (): Promise<string | null> => {
+    if (!pedido || !templateId) return null;
     const sb = createClient();
     const template = templates.find(t => t.id === templateId);
-    if (!template) { setGerandoContrato(false); return; }
+    if (!template) return null;
 
     // Buscar dados completos do cliente e fotógrafo
     const [{ data: cli }, { data: fot }] = await Promise.all([
@@ -245,8 +257,10 @@ export default function PedidoDetailPage() {
     const f = fot as { nome_completo: string | null; nome_empresa: string | null; cidade: string | null; estado: string | null } | null;
 
     const receitas = financeiro.filter(fi => fi.tipo === "receita");
+    // A descrição do item é TEXTO PURO (vem de textarea): escapa e converte \n em <br>, senão o HTML
+    // colapsa as quebras numa linha só — e escapar fecha a injeção de HTML por dado do usuário.
     const itensHtml = itens.length > 0
-      ? "<ul>" + itens.map(i => `<li>${i.descricao || ""} — ${i.quantidade}× ${formatBRL(i.preco_unit)} = <strong>${formatBRL(i.total)}</strong></li>`).join("") + "</ul>"
+      ? "<ul>" + itens.map(i => `<li>${escapeHtml(i.descricao ?? "").replace(/\n/g, "<br>")} — ${i.quantidade}× ${formatBRL(i.preco_unit)} = <strong>${formatBRL(i.total)}</strong></li>`).join("") + "</ul>"
       : "";
     const cronogramaHtml = receitas.length > 0
       ? "<ul>" + receitas.map(fi => `<li>Parcela ${fi.parcela ?? ""} — Vencimento: ${new Date(fi.vencimento + "T12:00:00").toLocaleDateString("pt-BR")} — <strong>${formatBRL(fi.valor)}</strong></li>`).join("") + "</ul>"
@@ -304,6 +318,28 @@ export default function PedidoDetailPage() {
       corpoGerado = corpoGerado.replaceAll(`{{${key}}}`, VARS_HTML.has(key) ? val : escapeHtml(val));
     }
 
+    return corpoGerado;
+  };
+
+  // Etapa 1 → 2: monta o contrato e abre a revisão (nada é gravado ainda).
+  const revisarContrato = async () => {
+    if (!pedido || !templateId) return;
+    setGerandoContrato(true);
+    const corpo = await montarCorpoContrato();
+    setGerandoContrato(false);
+    if (corpo == null) return;
+    setCorpoRevisao(corpo);
+    setRevisandoContrato(true);
+  };
+
+  // Etapa 2 → grava: só aqui o contrato passa a existir, já com os ajustes feitos na revisão.
+  const confirmarContrato = async () => {
+    if (!pedido || !templateId) return;
+    const template = templates.find(t => t.id === templateId);
+    if (!template) return;
+    setGerandoContrato(true);
+    const sb = createClient();
+
     // Salvar dados do evento no localStorage para próxima vez
     try {
       localStorage.setItem("contrato_evento_" + pedido.fotografo_id, JSON.stringify({ hora: horaEvento, local: localEvento, cidade: cidadeEvento, estado: estadoEvento, convidados }));
@@ -314,10 +350,12 @@ export default function PedidoDetailPage() {
       pedido_id: pedido.id,
       template_id: templateId,
       nome_template: template.nome,
-      corpo_gerado: corpoGerado,
+      corpo_gerado: corpoRevisao,
     }).select("id").single();
 
     setGerandoContrato(false);
+    setRevisandoContrato(false);
+    setCorpoRevisao("");
     setModalContrato(false);
     carregar();
     if (contrato?.id) window.open(`/crm-contrato/${contrato.id}`, "_blank");
@@ -685,8 +723,10 @@ export default function PedidoDetailPage() {
                     </div>
                     {itensEdit.map((item) => (
                       <div key={item.key} style={{ display: "grid", gridTemplateColumns: "1fr 60px 100px 100px 32px", padding: "8px 20px", borderBottom: "0.5px solid var(--color-border-tertiary)", alignItems: "center", gap: 6 }}>
-                        <input value={item.descricao} onChange={e => atualizarItemEdit(item.key, "descricao", e.target.value)}
-                          style={{ fontSize: 12, padding: "5px 8px", borderRadius: 6, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", color: "var(--color-text-primary)", outline: "none", width: "100%", boxSizing: "border-box" }} />
+                        {/* textarea (não input): a descrição pode ter várias linhas, e input de uma
+                            linha descartaria as quebras — que o contrato precisa preservar. */}
+                        <textarea value={item.descricao} onChange={e => atualizarItemEdit(item.key, "descricao", e.target.value)} rows={2}
+                          style={{ fontSize: 12, padding: "5px 8px", borderRadius: 6, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", color: "var(--color-text-primary)", outline: "none", width: "100%", boxSizing: "border-box", resize: "vertical", fontFamily: "inherit", lineHeight: 1.4 }} />
                         <input type="number" min="1" value={item.quantidade} onChange={e => atualizarItemEdit(item.key, "quantidade", Math.max(1, parseInt(e.target.value) || 1))}
                           style={{ fontSize: 12, padding: "5px 8px", borderRadius: 6, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", color: "var(--color-text-primary)", outline: "none", width: "100%", boxSizing: "border-box" }} />
                         <input type="text" inputMode="decimal" value={formatNum(item.preco_unit)} onChange={e => atualizarItemEdit(item.key, "preco_unit", parsearValor(mascaraValor(e.target.value)))}
@@ -954,9 +994,11 @@ export default function PedidoDetailPage() {
       {/* Modal gerar contrato */}
       {modalContrato && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center" }}
-          onClick={e => e.target === e.currentTarget && setModalContrato(false)}>
-          <div style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 14, padding: "28px 32px", width: 520, maxHeight: "90vh", overflowY: "auto", boxShadow: "0 24px 64px rgba(0,0,0,0.22)" }}>
-            <div style={{ fontSize: 16, fontWeight: 700, color: "var(--color-text-primary)", marginBottom: 20 }}>Gerar contrato</div>
+          onClick={e => e.target === e.currentTarget && fecharModalContrato()}>
+          <div style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 14, padding: "28px 32px", width: revisandoContrato ? 860 : 520, maxWidth: "94vw", maxHeight: "90vh", overflowY: "auto", boxShadow: "0 24px 64px rgba(0,0,0,0.22)" }}>
+            <div style={{ fontSize: 16, fontWeight: 700, color: "var(--color-text-primary)", marginBottom: 20 }}>
+              {revisandoContrato ? "Revisar contrato antes de gerar" : "Gerar contrato"}
+            </div>
 
             {templates.length === 0 ? (
               <div style={{ fontSize: 13, color: "var(--color-text-secondary)", marginBottom: 20 }}>
@@ -964,6 +1006,8 @@ export default function PedidoDetailPage() {
               </div>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                {/* Etapa 1 — dados. Some na revisão (o corpo já foi montado com eles). */}
+                {!revisandoContrato && (<>
                 {/* Modelo */}
                 <div>
                   <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>Modelo de contrato *</div>
@@ -1026,12 +1070,37 @@ export default function PedidoDetailPage() {
                   );
                 })()}
 
+                </>)}
+
+                {/* Etapa 2 — revisão: o contrato existe só em memória até o "Confirmar e gerar". */}
+                {revisandoContrato && (
+                  <div>
+                    <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginBottom: 10, lineHeight: 1.5 }}>
+                      Confira e ajuste o que precisar. O contrato <strong>ainda não foi salvo</strong> — nada é gravado se você cancelar.
+                    </div>
+                    <RichTextEditor value={corpoRevisao} onChange={(v: string) => setCorpoRevisao(v)} minHeight={420} />
+                  </div>
+                )}
+
                 <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
-                  <button onClick={gerarContrato} disabled={gerandoContrato || !templateId}
-                    style={{ padding: "9px 22px", borderRadius: 8, background: "#111", color: "#fff", border: "none", fontSize: 13, fontWeight: 700, cursor: "pointer", opacity: gerandoContrato || !templateId ? 0.6 : 1 }}>
-                    {gerandoContrato ? "Gerando…" : "Gerar e abrir contrato"}
-                  </button>
-                  <button onClick={() => setModalContrato(false)} style={{ padding: "9px 16px", borderRadius: 8, background: "transparent", color: "var(--color-text-secondary)", border: "0.5px solid var(--color-border-secondary)", fontSize: 13, cursor: "pointer" }}>
+                  {revisandoContrato ? (
+                    <>
+                      <button onClick={confirmarContrato} disabled={gerandoContrato}
+                        style={{ padding: "9px 22px", borderRadius: 8, background: "#111", color: "#fff", border: "none", fontSize: 13, fontWeight: 700, cursor: "pointer", opacity: gerandoContrato ? 0.6 : 1 }}>
+                        {gerandoContrato ? "Gerando…" : "Confirmar e gerar"}
+                      </button>
+                      <button onClick={() => setRevisandoContrato(false)} disabled={gerandoContrato}
+                        style={{ padding: "9px 16px", borderRadius: 8, background: "transparent", color: "var(--color-text-primary)", border: "0.5px solid var(--color-border-secondary)", fontSize: 13, cursor: "pointer" }}>
+                        ← Voltar aos dados
+                      </button>
+                    </>
+                  ) : (
+                    <button onClick={revisarContrato} disabled={gerandoContrato || !templateId}
+                      style={{ padding: "9px 22px", borderRadius: 8, background: "#111", color: "#fff", border: "none", fontSize: 13, fontWeight: 700, cursor: "pointer", opacity: gerandoContrato || !templateId ? 0.6 : 1 }}>
+                      {gerandoContrato ? "Montando…" : "Revisar contrato"}
+                    </button>
+                  )}
+                  <button onClick={fecharModalContrato} style={{ padding: "9px 16px", borderRadius: 8, background: "transparent", color: "var(--color-text-secondary)", border: "0.5px solid var(--color-border-secondary)", fontSize: 13, cursor: "pointer" }}>
                     Cancelar
                   </button>
                 </div>
