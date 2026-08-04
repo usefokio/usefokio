@@ -72,9 +72,11 @@ const ESTADOS_BR = [
 type Props = {
   inicial?: Partial<FormData & { id: string }>;
   onSalvo?: (id: string) => void;
+  // Contato do site que originou esta oportunidade — ao salvar, marca o lead como convertido.
+  leadId?: string;
 };
 
-export default function FormOportunidade({ inicial, onSalvo }: Props) {
+export default function FormOportunidade({ inicial, onSalvo, leadId }: Props) {
   const router        = useRouter();
   const { fotografo } = useFotografo();
 
@@ -200,6 +202,9 @@ export default function FormOportunidade({ inicial, onSalvo }: Props) {
       const { data, error: err } = await sb.from("crm_opportunities").insert(payload).select("id").single();
       if (err) { setError(err.message); setSaving(false); return; }
       id = (data as { id: string }).id;
+      // Contato do site → marca o lead como convertido (o Inbox passa a mostrar o link em vez
+      // do botão, evitando gerar duas oportunidades do mesmo contato).
+      if (leadId) await sb.from("site_leads").update({ oportunidade_id: id }).eq("id", leadId);
     }
 
     // Data de conclusão: é ela que alimenta a linha de fechamentos do Relatório de Leads.

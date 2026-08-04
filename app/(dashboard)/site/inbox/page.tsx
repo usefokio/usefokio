@@ -2,18 +2,24 @@
 
 // Inbox do site: leads recebidos pelo formulário de contato (site_leads).
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { fetchAllRows } from "@/lib/supabase/fetchAll";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { nomeCategoria } from "@/lib/site/categorias";
+import { mascaraTelefone } from "@/lib/utils/format";
+import { gerarSenhaAcesso } from "@/lib/utils";
 import type { SiteLead, SiteCategoria } from "@/lib/supabase/types";
 
 export default function InboxPage() {
+  const router = useRouter();
   const { fotografo } = useFotografo();
   const [leads, setLeads] = useState<SiteLead[]>([]);
   const [catMap, setCatMap] = useState<Record<string, string>>({});
+  const [categoriasCrm, setCategoriasCrm] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [aberto, setAberto] = useState<string | null>(null);
+  const [gerando, setGerando] = useState<string | null>(null);
 
   useEffect(() => {
     if (!fotografo) return;
@@ -28,10 +34,67 @@ export default function InboxPage() {
       ]);
       setLeads(rows ?? []);
       setCatMap(Object.fromEntries(((cats ?? []) as Pick<SiteCategoria, "slug" | "nome">[]).map((c) => [c.slug, c.nome])));
+      // Categorias do CRM: só mando a categoria pré-preenchida se o nome bater com uma delas
+      // (o site usa slug próprio, o CRM tem vocabulário separado).
+      const { data: catsCrm } = await supabase.from("crm_oportunidade_categorias").select("nome").eq("fotografo_id", fotografo!.id);
+      setCategoriasCrm(((catsCrm ?? []) as { nome: string }[]).map((c) => c.nome));
       setLoading(false);
     }
     carregar();
   }, [fotografo]);
+
+  // Resolve o cliente do contato: reaproveita o existente (por e-mail ou WhatsApp) ou cria um novo.
+  // Regra "cliente único" — nunca base paralela. Devolve null se nem der para criar.
+  async function resolverCliente(lead: SiteLead): Promise<string | null> {
+    if (!fotografo) return null;
+    const sb = createClient();
+    const fid = fotografo.id;
+    const email = (lead.email ?? "").trim();
+    // A coluna whatsapp guarda a string MASCARADA — comparar dígitos crus não acha nada.
+    const tel = lead.telefone ? mascaraTelefone(lead.telefone) : "";
+
+    if (email) {
+      const { data } = await sb.from("clientes").select("id").eq("fotografo_id", fid).eq("email", email).maybeSingle();
+      if (data) return (data as { id: string }).id;
+    }
+    if (tel) {
+      const { data } = await sb.from("clientes").select("id").eq("fotografo_id", fid).eq("whatsapp", tel).maybeSingle();
+      if (data) return (data as { id: string }).id;
+    }
+    const { data: novo } = await sb.from("clientes").insert({
+      fotografo_id: fid,
+      nome:         lead.nome,
+      email:        email || null,
+      telefone:     tel || null,
+      whatsapp:     tel || null,
+      senha_acesso: gerarSenhaAcesso(),
+    }).select("id").single();
+    return novo ? (novo as { id: string }).id : null;
+  }
+
+  // Leva os dados do contato para a tela de nova oportunidade (mesmo padrão de oportunidade → pedido).
+  async function gerarOportunidade(lead: SiteLead) {
+    if (gerando) return;
+    setGerando(lead.id);
+    const clienteId = await resolverCliente(lead);
+
+    const tipo = lead.tipo_evento ? nomeCategoria(lead.tipo_evento, catMap) : "";
+    // Observações: mensagem + campos extras do formulário (as chaves dos extras são o rótulo
+    // digitado pelo fotógrafo, sem equivalente no CRM — vão como texto).
+    const extras = lead.dados ? Object.entries(lead.dados).map(([k, v]) => `${k}: ${v}`).join("\n") : "";
+    const observacoes = [lead.mensagem ?? "", extras].filter(Boolean).join("\n\n");
+
+    const p = new URLSearchParams();
+    p.set("titulo", tipo ? `${tipo} — ${lead.nome}` : lead.nome);
+    p.set("canal_origem", "Site");
+    p.set("lead_id", lead.id);
+    if (clienteId) p.set("cliente_id", clienteId);
+    if (lead.data_evento) p.set("data_evento", lead.data_evento);
+    if (observacoes) p.set("observacoes", observacoes);
+    if (tipo && categoriasCrm.includes(tipo)) p.set("categoria", tipo);
+
+    router.push(`/crm/oportunidades/nova?${p.toString()}`);
+  }
 
   async function abrir(lead: SiteLead) {
     setAberto(aberto === lead.id ? null : lead.id);
@@ -83,12 +146,21 @@ export default function InboxPage() {
                     </div>
                   )}
                   {l.mensagem || <span style={{ color: "var(--color-text-secondary)", fontStyle: "italic" }}>(sem mensagem)</span>}
-                  {l.email && (
-                    <div style={{ marginTop: 12 }}>
-                      <a href={`mailto:${l.email}`} onClick={(e) => e.stopPropagation()}
+                  <div style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }} onClick={(e) => e.stopPropagation()}>
+                    {l.email && (
+                      <a href={`mailto:${l.email}`}
                         style={{ fontSize: 12, fontWeight: 600, color: "#2563EB", textDecoration: "none" }}>✉️ Responder por email</a>
-                    </div>
-                  )}
+                    )}
+                    {l.oportunidade_id ? (
+                      <a href={`/crm/oportunidades/${l.oportunidade_id}`}
+                        style={{ fontSize: 12, fontWeight: 600, color: "#059669", textDecoration: "none" }}>✅ Oportunidade gerada — abrir</a>
+                    ) : (
+                      <button onClick={() => gerarOportunidade(l)} disabled={gerando === l.id}
+                        style={{ padding: "6px 12px", borderRadius: 7, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", fontSize: 12, fontWeight: 600, color: "var(--color-text-primary)", cursor: gerando === l.id ? "default" : "pointer", opacity: gerando === l.id ? 0.6 : 1 }}>
+                        {gerando === l.id ? "Abrindo…" : "🎯 Gerar oportunidade"}
+                      </button>
+                    )}
+                  </div>
                 </div>
               ) : (
                 <div style={{ marginTop: 4, fontSize: 12, color: "var(--color-text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
