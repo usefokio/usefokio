@@ -510,13 +510,19 @@ export default function FormPedido({ inicial, onSalvo, onCancelar }: Props) {
       // conta_bancaria_id e o vínculo do recibo; só recalcula o que ainda está em aberto).
       // Se o pedido não tem item vinculado a produto (ex.: importado do legado), não há como
       // deduzir a conta pelos itens — mantém a conta que a parcela já tinha antes de apagar.
-      const { data: contaAnterior } = await sb.from("crm_financial_entries")
-        .select("conta_id").eq("pedido_id", id).eq("tipo", "receita").not("conta_id", "is", null).limit(1).maybeSingle();
+      // Busca o status ATUAL (não o que foi carregado na abertura do form) — se a parcela foi
+      // paga em outra aba/tela enquanto este formulário estava aberto, o `planos` em memória
+      // ainda a lista como pendente; sem checar de novo aqui ela seria recriada e duplicada.
+      const { data: atuais } = await sb.from("crm_financial_entries")
+        .select("id, status, conta_id").eq("pedido_id", id).eq("tipo", "receita");
+      const idsJaPagas = new Set((atuais ?? []).filter(e => e.status === "pago").map(e => e.id));
+      const contaAnteriorId = (atuais ?? []).find(e => e.conta_id)?.conta_id ?? null;
       await sb.from("crm_financial_entries").delete().eq("pedido_id", id).eq("tipo", "receita").neq("status", "pago");
       if (planos.length > 0) {
-        const contaVendasId = itens.map(i => produtos.find(p => p.id === i.produto_id)?.conta_vendas_id).find(Boolean) ?? contaAnterior?.conta_id ?? null;
+        const contaVendasId = itens.map(i => produtos.find(p => p.id === i.produto_id)?.conta_vendas_id).find(Boolean) ?? contaAnteriorId;
         const entries: object[] = [];
         for (const plano of planos) {
+          if (idsJaPagas.has(plano.tmpId)) continue;
           const ps = plano.parcelasOverride ?? calcParcelas(plano);
           if (ps.length > 0) {
             for (const p of ps) {
