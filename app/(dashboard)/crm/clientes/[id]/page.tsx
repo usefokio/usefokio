@@ -8,7 +8,15 @@ import { isValidDate, mascaraTelefone } from "@/lib/utils/format";
 import { useEditorEstado, SeloEstado, ModalNaoSalvo } from "@/app/(dashboard)/_components/EditorEstado";
 import { ModalContatoCliente } from "./_components/ModalContatoCliente";
 import { carregarPedidoStatus, montarStatusMap, statusInfo } from "@/lib/crm/pedidoStatus";
+import { BarraProgressoEtapa } from "@/app/(dashboard)/crm/_components/BarraProgressoEtapa";
 import type { Cliente, CrmOrder, CrmPedidoStatus, GaleriaEntrega, GaleriaSelecao } from "@/lib/supabase/types";
+
+// Oportunidade do cliente (subconjunto dos campos + nome da etapa via join)
+type OppRel = {
+  id: string; titulo: string; categoria: string | null; valor_estimado: number | null;
+  data_evento: string | null; status: string; funil_id: string | null; etapa_id: string | null;
+  etapa?: { nome: string } | null;
+};
 
 const TIPO_MAP: Record<string, { label: string; color: string; bg: string }> = {
   cliente:      { label: "Cliente",      color: "#2563EB", bg: "rgba(37,99,235,0.08)"  },
@@ -53,8 +61,12 @@ export default function ClienteDetailPage() {
   const [confirmDel, setConfirmDel] = useState(false);
   const [deleting,  setDeleting]  = useState(false);
 
-  type RelTab = "pedidos" | "entrega" | "selecao";
-  const [tab,           setTab]           = useState<RelTab>("pedidos");
+  type RelTab = "oportunidades" | "pedidos" | "entrega" | "selecao";
+  // Oportunidade vem antes do pedido no funil — por isso abre nesta aba.
+  const [tab,           setTab]           = useState<RelTab>("oportunidades");
+  const [oportunidades, setOportunidades] = useState<OppRel[]>([]);
+  const [oppStatusMap,  setOppStatusMap]  = useState<Record<string, { label: string; cor: string }>>({});
+  const [etapasFunil,   setEtapasFunil]   = useState<{ id: string; funil_id: string }[]>([]);
   const [pedidos,       setPedidos]       = useState<CrmOrder[]>([]);
   const [entrega,       setEntrega]       = useState<GaleriaEntrega[]>([]);
   const [selecao,       setSelecao]       = useState<GaleriaSelecao[]>([]);
@@ -93,17 +105,27 @@ export default function ClienteDetailPage() {
   async function carregarRelacionados(clienteId: string) {
     setCarregandoRel(true);
     const sb = createClient();
-    const [{ data: p }, { data: e }, { data: s }] = await Promise.all([
+    const [{ data: o }, { data: p }, { data: e }, { data: s }, { data: st }, { data: et }] = await Promise.all([
+      sb.from("crm_opportunities")
+        .select("id, titulo, categoria, valor_estimado, data_evento, status, funil_id, etapa_id, etapa:crm_funnel_stages!etapa_id(nome)")
+        .eq("cliente_id", clienteId).order("created_at", { ascending: false }),
       sb.from("crm_orders").select("id, nome, categoria, status, total, data_lancamento, data_evento")
         .eq("cliente_id", clienteId).order("data_lancamento", { ascending: false }),
       sb.from("galerias_entrega").select("id, titulo, data_evento, rascunho, suspensa, total_acessos, created_at")
         .eq("cliente_id", clienteId).order("created_at", { ascending: false }),
       sb.from("galerias_selecao").select("id, titulo, data_evento, status, total_fotos, created_at")
         .eq("cliente_id", clienteId).order("created_at", { ascending: false }),
+      // Rótulo/cor do status da oportunidade (configuráveis por fotógrafo) e etapas para a barra de progresso
+      sb.from("crm_oportunidade_status").select("chave, label, cor"),
+      sb.from("crm_funnel_stages").select("id, funil_id").order("ordem"),
     ]);
+    setOportunidades((o ?? []) as unknown as OppRel[]);
     setPedidos((p ?? []) as CrmOrder[]);
     setEntrega((e ?? []) as GaleriaEntrega[]);
     setSelecao((s ?? []) as GaleriaSelecao[]);
+    setOppStatusMap(Object.fromEntries(((st ?? []) as { chave: string; label: string; cor: string | null }[])
+      .map((x) => [x.chave, { label: x.label, cor: x.cor || "#6B7280" }])));
+    setEtapasFunil((et ?? []) as { id: string; funil_id: string }[]);
     setCarregandoRel(false);
   }
 
@@ -450,6 +472,7 @@ export default function ClienteDetailPage() {
         <div style={{ marginTop: 28 }}>
           <div style={{ display: "flex", gap: 2, borderBottom: "0.5px solid var(--color-border-tertiary)" }}>
             {([
+              { key: "oportunidades" as RelTab, label: `Oportunidades (${oportunidades.length})` },
               { key: "pedidos" as RelTab, label: `Pedidos (${pedidos.length})` },
               { key: "entrega" as RelTab, label: `Entrega (${entrega.length})` },
               { key: "selecao" as RelTab, label: `Seleção (${selecao.length})` },
@@ -467,6 +490,50 @@ export default function ClienteDetailPage() {
           <div style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderTop: "none", borderRadius: "0 0 10px 10px" }}>
             {carregandoRel ? (
               <div style={{ padding: 24, textAlign: "center", color: "var(--color-text-secondary)", fontSize: 13 }}>Carregando…</div>
+            ) : tab === "oportunidades" ? (
+              oportunidades.length === 0
+                ? <div style={{ padding: 32, textAlign: "center", fontSize: 13, color: "var(--color-text-secondary)" }}>Nenhuma oportunidade vinculada</div>
+                : <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                    <thead>
+                      <tr style={{ background: "var(--color-background-secondary)" }}>
+                        {["Oportunidade", "Evento", "Valor", "Etapa", "Status"].map(h => (
+                          <th key={h} style={{ padding: "8px 14px", textAlign: "left", fontWeight: 700, fontSize: 11, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.04em", borderBottom: "0.5px solid var(--color-border-tertiary)" }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {oportunidades.map(o => {
+                        const st = oppStatusMap[o.status] ?? { label: o.status, cor: "#6B7280" };
+                        // Posição da etapa dentro do funil dela — mesma conta da listagem de oportunidades
+                        const doFunil = etapasFunil.filter(e => e.funil_id === o.funil_id);
+                        const pos = o.etapa_id ? doFunil.findIndex(e => e.id === o.etapa_id) + 1 : 0;
+                        return (
+                          <tr key={o.id} onClick={() => router.push(`/crm/oportunidades/${o.id}`)} style={{ cursor: "pointer" }}
+                            onMouseEnter={e => (e.currentTarget.style.background = "var(--color-background-secondary)")}
+                            onMouseLeave={e => (e.currentTarget.style.background = "")}>
+                            <td style={{ padding: "10px 14px", borderBottom: "0.5px solid var(--color-border-tertiary)", fontSize: 12 }}>
+                              {o.titulo}
+                              {o.categoria && <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 2 }}>{o.categoria}</div>}
+                            </td>
+                            <td style={{ padding: "10px 14px", borderBottom: "0.5px solid var(--color-border-tertiary)", fontSize: 12, color: "var(--color-text-secondary)" }}>
+                              {o.data_evento ? new Date(o.data_evento + "T12:00").toLocaleDateString("pt-BR") : "—"}
+                            </td>
+                            <td style={{ padding: "10px 14px", borderBottom: "0.5px solid var(--color-border-tertiary)", fontSize: 12 }}>
+                              {o.valor_estimado != null ? `R$ ${Number(o.valor_estimado).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` : "—"}
+                            </td>
+                            <td style={{ padding: "10px 14px", borderBottom: "0.5px solid var(--color-border-tertiary)", fontSize: 12 }}>
+                              {pos > 0
+                                ? <BarraProgressoEtapa pos={pos} total={doFunil.length} nome={o.etapa?.nome ?? ""} />
+                                : <span style={{ color: "var(--color-text-secondary)" }}>—</span>}
+                            </td>
+                            <td style={{ padding: "10px 14px", borderBottom: "0.5px solid var(--color-border-tertiary)", fontSize: 12 }}>
+                              <span style={{ color: st.cor, fontWeight: 600 }}>{st.label}</span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
             ) : tab === "pedidos" ? (
               pedidos.length === 0
                 ? <div style={{ padding: 32, textAlign: "center", fontSize: 13, color: "var(--color-text-secondary)" }}>Nenhum pedido vinculado</div>
