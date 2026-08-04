@@ -505,9 +505,13 @@ export default function FormPedido({ inicial, onSalvo, onCancelar }: Props) {
 
       // Recriar lançamentos financeiros — NUNCA apagar parcela já paga (perderia pago_em,
       // conta_bancaria_id e o vínculo do recibo; só recalcula o que ainda está em aberto).
+      // Se o pedido não tem item vinculado a produto (ex.: importado do legado), não há como
+      // deduzir a conta pelos itens — mantém a conta que a parcela já tinha antes de apagar.
+      const { data: contaAnterior } = await sb.from("crm_financial_entries")
+        .select("conta_id").eq("pedido_id", id).eq("tipo", "receita").not("conta_id", "is", null).limit(1).maybeSingle();
       await sb.from("crm_financial_entries").delete().eq("pedido_id", id).eq("tipo", "receita").neq("status", "pago");
       if (planos.length > 0) {
-        const contaVendasId = itens.map(i => produtos.find(p => p.id === i.produto_id)?.conta_vendas_id).find(Boolean) ?? null;
+        const contaVendasId = itens.map(i => produtos.find(p => p.id === i.produto_id)?.conta_vendas_id).find(Boolean) ?? contaAnterior?.conta_id ?? null;
         const entries: object[] = [];
         for (const plano of planos) {
           const ps = plano.parcelasOverride ?? calcParcelas(plano);
