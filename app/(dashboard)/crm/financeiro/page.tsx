@@ -465,12 +465,18 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
   // Excluir lançamento
   const estornarPagamento = async (e: EntryWithPedido) => {
     if (!confirm(`Estornar pagamento de "${e.descricao}"? Ela voltará para ${e.tipo === "receita" ? "A Receber" : "A Pagar"}.`)) return;
-    await createClient()
+    const sb = createClient();
+    // A taxa/tarifa lançada no recebimento (despesa vinculada pelo mesmo recibo_grupo_id) não faz
+    // mais sentido sem o recebimento — sem apagar ela, dar baixa de novo cria uma taxa duplicada.
+    if (e.tipo === "receita" && e.recibo_grupo_id) {
+      await sb.from("crm_financial_entries").delete().eq("recibo_grupo_id", e.recibo_grupo_id).eq("tipo", "despesa");
+    }
+    await sb
       .from("crm_financial_entries")
-      .update({ status: "pendente", pago_em: null, conta_bancaria_id: null })
+      .update({ status: "pendente", pago_em: null, conta_bancaria_id: null, recibo_grupo_id: null })
       .eq("id", e.id);
     // Se o pedido ficou sem nenhuma receita paga, "Concluído" volta a "Em aberto".
-    if (e.tipo === "receita") await rebaixarPedidosSemPago(createClient(), [e.pedido_id]);
+    if (e.tipo === "receita") await rebaixarPedidosSemPago(sb, [e.pedido_id]);
     carregar();
   };
 
