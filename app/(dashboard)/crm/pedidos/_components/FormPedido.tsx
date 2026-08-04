@@ -510,26 +510,30 @@ export default function FormPedido({ inicial, onSalvo, onCancelar }: Props) {
       // conta_bancaria_id e o vínculo do recibo; só recalcula o que ainda está em aberto).
       // Se o pedido não tem item vinculado a produto (ex.: importado do legado), não há como
       // deduzir a conta pelos itens — mantém a conta que a parcela já tinha antes de apagar.
-      // Busca o status ATUAL (não o que foi carregado na abertura do form) — se a parcela foi
-      // paga em outra aba/tela enquanto este formulário estava aberto, o `planos` em memória
-      // ainda a lista como pendente; sem checar de novo aqui ela seria recriada e duplicada.
+      // Busca o estado ATUAL no banco (não o que foi carregado na abertura do form). Compara por
+      // vencimento+valor, NÃO por id — o id muda a cada recriação, então se esta aba ficou aberta
+      // desde antes de um save anterior (ou de a parcela ser paga em outra tela), o id em memória
+      // já não existe mais e um match por id deixaria passar a duplicata.
       const { data: atuais } = await sb.from("crm_financial_entries")
-        .select("id, status, conta_id").eq("pedido_id", id).eq("tipo", "receita");
-      const idsJaPagas = new Set((atuais ?? []).filter(e => e.status === "pago").map(e => e.id));
+        .select("status, valor, vencimento, conta_id").eq("pedido_id", id).eq("tipo", "receita");
+      const chave = (venc: string, valor: number) => `${venc}|${valor.toFixed(2)}`;
+      const chavesJaPagas = new Set((atuais ?? []).filter(e => e.status === "pago").map(e => chave(e.vencimento, e.valor)));
       const contaAnteriorId = (atuais ?? []).find(e => e.conta_id)?.conta_id ?? null;
       await sb.from("crm_financial_entries").delete().eq("pedido_id", id).eq("tipo", "receita").neq("status", "pago");
       if (planos.length > 0) {
         const contaVendasId = itens.map(i => produtos.find(p => p.id === i.produto_id)?.conta_vendas_id).find(Boolean) ?? contaAnteriorId;
         const entries: object[] = [];
         for (const plano of planos) {
-          if (idsJaPagas.has(plano.tmpId)) continue;
           const ps = plano.parcelasOverride ?? calcParcelas(plano);
           if (ps.length > 0) {
             for (const p of ps) {
+              if (chavesJaPagas.has(chave(p.vencimento, p.valor))) continue;
               entries.push({ fotografo_id: fotografo.id, pedido_id: id, tipo: "receita", descricao: p.label, valor: p.valor, vencimento: p.vencimento, status: "pendente", parcela: plano.numParcelas > 1 ? p.label.match(/Parcela (\d+)/)?.[1] ?? null : null, internal_account_type: "pedido", conta_id: contaVendasId });
             }
           } else {
-            entries.push({ fotografo_id: fotografo.id, pedido_id: id, tipo: "receita", descricao: plano.obs || "Pagamento", valor: parseFloat(plano.valor) || 0, vencimento: plano.dataPrazo, status: "pendente", parcela: null, internal_account_type: "pedido", conta_id: contaVendasId });
+            const valorPlano = parseFloat(plano.valor) || 0;
+            if (chavesJaPagas.has(chave(plano.dataPrazo, valorPlano))) continue;
+            entries.push({ fotografo_id: fotografo.id, pedido_id: id, tipo: "receita", descricao: plano.obs || "Pagamento", valor: valorPlano, vencimento: plano.dataPrazo, status: "pendente", parcela: null, internal_account_type: "pedido", conta_id: contaVendasId });
           }
         }
         if (entries.length > 0) await sb.from("crm_financial_entries").insert(entries);
