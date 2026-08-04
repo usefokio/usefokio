@@ -338,7 +338,7 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
       pago_em: dataPagamento,
       conta_bancaria_id: contaId || null,
     };
-    if (contaPlanoId && !entry.conta_id) updates.conta_id = contaPlanoId;
+    if (contaPlanoId && contaPlanoId !== entry.conta_id) updates.conta_id = contaPlanoId;
     if (grupo) updates.recibo_grupo_id = grupo;
     const sb = createClient();
     const { error } = await sb
@@ -891,15 +891,17 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
               />
             </div>
 
-            {/* Plano de contas — receita sem categoria (senão o DRE descarta o recebimento) */}
-            {aba === "receber" && !modalReceber.entry.conta_id && (
+            {/* Plano de contas (receita) — sempre editável; obrigatório só quando ainda vazio */}
+            {aba === "receber" && (
               <div style={{ marginBottom: 18 }}>
                 <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>
-                  Plano de contas (receita) *
+                  Plano de contas (receita){!modalReceber.entry.conta_id ? " *" : ""}
                 </div>
-                <div style={{ fontSize: 12, color: "#D97706", marginBottom: 8, background: "rgba(217,119,6,0.08)", border: "0.5px solid rgba(217,119,6,0.3)", borderRadius: 8, padding: "8px 12px" }}>
-                  Esta receita não tem categoria — selecione para ela aparecer no relatório.
-                </div>
+                {!modalReceber.entry.conta_id && (
+                  <div style={{ fontSize: 12, color: "#D97706", marginBottom: 8, background: "rgba(217,119,6,0.08)", border: "0.5px solid rgba(217,119,6,0.3)", borderRadius: 8, padding: "8px 12px" }}>
+                    Esta receita não tem categoria — selecione para ela aparecer no relatório.
+                  </div>
+                )}
                 <ComboSelect
                   options={chartAccounts.filter(c => c.codigo.startsWith("3")).map(c => ({ id: c.id, label: `${c.codigo} — ${c.nome}` }))}
                   value={modalReceber.contaPlanoId}
@@ -944,15 +946,17 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
               );
             })()}
 
-            {/* Plano de contas — só para despesas sem categoria */}
-            {aba === "pagar" && !modalReceber.entry.conta_id && (
+            {/* Plano de contas (despesa) — sempre editável; obrigatório só quando ainda vazio */}
+            {aba === "pagar" && (
               <div style={{ marginBottom: 18 }}>
                 <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>
-                  Plano de contas *
+                  Plano de contas{!modalReceber.entry.conta_id ? " *" : ""}
                 </div>
-                <div style={{ fontSize: 12, color: "#D97706", marginBottom: 8, background: "rgba(217,119,6,0.08)", border: "0.5px solid rgba(217,119,6,0.3)", borderRadius: 8, padding: "8px 12px" }}>
-                  Esta despesa não tem categoria — selecione o plano de contas.
-                </div>
+                {!modalReceber.entry.conta_id && (
+                  <div style={{ fontSize: 12, color: "#D97706", marginBottom: 8, background: "rgba(217,119,6,0.08)", border: "0.5px solid rgba(217,119,6,0.3)", borderRadius: 8, padding: "8px 12px" }}>
+                    Esta despesa não tem categoria — selecione o plano de contas.
+                  </div>
+                )}
                 <ComboSelect
                   options={chartAccounts.filter(c => c.codigo.startsWith("4") || c.codigo.startsWith("5")).map(c => ({ id: c.id, label: `${c.codigo} — ${c.nome}` }))}
                   value={modalReceber.contaPlanoId}
