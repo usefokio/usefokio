@@ -503,8 +503,9 @@ export default function FormPedido({ inicial, onSalvo, onCancelar }: Props) {
         agendaAtualizado = true;
       }
 
-      // Recriar lançamentos financeiros
-      await sb.from("crm_financial_entries").delete().eq("pedido_id", id).eq("tipo", "receita");
+      // Recriar lançamentos financeiros — NUNCA apagar parcela já paga (perderia pago_em,
+      // conta_bancaria_id e o vínculo do recibo; só recalcula o que ainda está em aberto).
+      await sb.from("crm_financial_entries").delete().eq("pedido_id", id).eq("tipo", "receita").neq("status", "pago");
       if (planos.length > 0) {
         const contaVendasId = itens.map(i => produtos.find(p => p.id === i.produto_id)?.conta_vendas_id).find(Boolean) ?? null;
         const entries: object[] = [];
