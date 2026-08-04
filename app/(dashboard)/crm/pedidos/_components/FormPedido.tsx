@@ -203,13 +203,16 @@ export default function FormPedido({ inicial, onSalvo, onCancelar }: Props) {
 
     if (isEditing && inicial?.id) {
       const p3 = sb.from("crm_financial_entries")
-        .select("id, descricao, valor, vencimento")
+        .select("id, descricao, valor, vencimento, status")
         .eq("pedido_id", inicial.id)
         .eq("tipo", "receita")
         .order("vencimento");
       Promise.all([p2, p3]).then(([r2, r3]) => {
         setProdutos((r2.data ?? []) as CrmProduct[]);
-        const entries = (r3.data ?? []) as { id: string; descricao: string; valor: number; vencimento: string }[];
+        // Parcela já paga não entra no "plano de pagamento" editável — ela não é apagada/recriada
+        // ao salvar (ver delete abaixo), então incluí-la aqui só duplicaria a parcela como pendente.
+        const entries = ((r3.data ?? []) as { id: string; descricao: string; valor: number; vencimento: string; status: string }[])
+          .filter(e => e.status !== "pago");
         if (entries.length > 0) {
           setPlanos(entries.map(e => ({
             tmpId: e.id, forma: "", dataPrazo: e.vencimento, numDocumento: "",
