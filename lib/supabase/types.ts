@@ -711,6 +711,7 @@ export type SiteLead = {
   dados: Record<string, string> | null;
   origem: string;
   lido: boolean;
+  oportunidade_id: string | null;  // preenchido ao gerar a oportunidade a partir deste contato
   created_at: string;
 };
 
