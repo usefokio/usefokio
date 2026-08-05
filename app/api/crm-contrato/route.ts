@@ -20,7 +20,7 @@ export async function GET(request: Request) {
     const admin = createAdminClient();
     const { data: contrato } = await admin
       .from("crm_contracts")
-      .select("id, fotografo_id, pedido_id, nome_template, corpo_gerado, arquivo_url, arquivo_nome, created_at")
+      .select("id, fotografo_id, pedido_id, nome_template, corpo_gerado, arquivo_url, arquivo_nome, created_at, assinado_em, assinado_nome, assinatura_png")
       .eq("id", id)
       .maybeSingle();
 

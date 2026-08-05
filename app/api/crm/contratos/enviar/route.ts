@@ -41,7 +41,7 @@ export async function POST(request: Request) {
 
     const [{ data: fot }, { data: contrato }] = await Promise.all([
       supabase.from("fotografos").select("crm_email_config, nome_empresa, nome_completo, email").eq("id", fotografo_id).single(),
-      supabase.from("crm_contracts").select("corpo_gerado, nome_template").eq("id", contrato_id).single(),
+      supabase.from("crm_contracts").select("corpo_gerado, nome_template, assinado_em").eq("id", contrato_id).single(),
     ]);
 
     if (!contrato) return NextResponse.json({ error: "Contrato não encontrado" }, { status: 404 });
@@ -56,6 +56,13 @@ export async function POST(request: Request) {
       ? `<p style="font-family:system-ui,sans-serif;font-size:14px;color:#374151;line-height:1.6;margin-bottom:24px">${mensagem.replace(/\n/g, "<br>")}</p>`
       : "";
 
+    const jaAssinado = !!(contrato as { assinado_em: string | null }).assinado_em;
+    const linkAssinatura = `${process.env.NEXT_PUBLIC_APP_URL}/crm-contrato/${contrato_id}`;
+    const botaoAssinar = jaAssinado ? "" : `
+        <div style="padding:0 40px 28px;text-align:center">
+          <a href="${linkAssinatura}" style="display:inline-block;padding:12px 28px;border-radius:8px;background:#111827;color:#fff;font-weight:600;font-size:14px;text-decoration:none">Assinar contrato online</a>
+        </div>`;
+
     const html = `<!DOCTYPE html><html><body style="margin:0;padding:24px;background:#F3F4F6;font-family:system-ui,sans-serif">
       ${mensagemHtml}
       <div style="background:#fff;border-radius:8px;overflow:hidden;max-width:800px;margin:0 auto;box-shadow:0 2px 8px rgba(0,0,0,0.08)">
@@ -67,6 +74,7 @@ export async function POST(request: Request) {
         <div style="padding:32px 40px;font-size:14px;line-height:1.8;color:#1F2937">
           ${(contrato as { corpo_gerado: string }).corpo_gerado}
         </div>
+        ${botaoAssinar}
         <div style="background:#F9FAFB;border-top:1px solid #E5E7EB;padding:12px 32px;font-size:11px;color:#9CA3AF">
           Documento gerado por UseFokio
         </div>
