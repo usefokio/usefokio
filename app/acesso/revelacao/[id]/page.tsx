@@ -17,8 +17,9 @@ function RevelacaoConteudo() {
   const [fotos, setFotos] = useState<GaleriaEntregaFoto[]>([]);
   const [itens, setItens] = useState<RevelacaoPedidoItem[]>([]);
   const [pagamento, setPagamento] = useState<Pagamento>(null);
+  const [minimoFotos, setMinimoFotos] = useState<number | null>(null);
 
-  const [tamanhoGrid, setTamanhoGrid] = useState(150);
+  const [colunas, setColunas] = useState(4);
   const [passo, setPasso] = useState<Passo>("tamanho");
   const [tamanhoAtual, setTamanhoAtual] = useState<CrmRevelacaoTamanho | null>(null);
   const [confirmados, setConfirmados] = useState<Set<string>>(new Set());
@@ -39,6 +40,7 @@ function RevelacaoConteudo() {
       setFotos(json.fotos ?? []);
       setItens(json.itens ?? []);
       setPagamento(json.pagamento ?? null);
+      setMinimoFotos(json.minimoFotos ?? null);
     }).catch(() => setPedido(null));
   };
 
@@ -84,6 +86,9 @@ function RevelacaoConteudo() {
   const cesta: Record<string, RevelacaoPedidoItem[]> = {};
   for (const it of itens) (cesta[it.tamanho_id] ??= []).push(it);
   const temAlgoNaCesta = Object.values(cesta).some(arr => arr.length > 0);
+  const totalFotos = itens.length;
+  const faltamFotos = minimoFotos ? Math.max(0, minimoFotos - totalFotos) : 0;
+  const podeFinalizar = temAlgoNaCesta && faltamFotos === 0;
 
   const escolherTamanho = (t: CrmRevelacaoTamanho) => {
     setTamanhoAtual(t);
@@ -150,6 +155,10 @@ function RevelacaoConteudo() {
 
         {passo === "tamanho" && (
           <>
+            <a href={`/acesso/entrega/${pedido.galeria_entrega_id}`}
+              style={{ display: "inline-block", fontSize: 13, color: "#6B7280", textDecoration: "none", marginBottom: 16 }}>
+              ← Voltar para a galeria
+            </a>
             <h2 style={{ fontSize: 18, fontWeight: 800, margin: "0 0 4px" }}>Escolha o tamanho</h2>
             <p style={{ fontSize: 13, color: "#6B7280", margin: "0 0 20px" }}>Selecione um tamanho para começar a escolher as fotos.</p>
             {toast && (
@@ -177,16 +186,27 @@ function RevelacaoConteudo() {
               </div>
             )}
             {temAlgoNaCesta && (
-              <button onClick={() => setPasso("resumo")}
-                style={{ padding: "12px 24px", borderRadius: 8, background: "#111827", color: "#fff", border: "none", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>
-                Finalizar pedido →
-              </button>
+              <>
+                {faltamFotos > 0 && (
+                  <div style={{ fontSize: 13, color: "#D97706", marginBottom: 10 }}>
+                    Faltam {faltamFotos} foto{faltamFotos !== 1 ? "s" : ""} para atingir o mínimo de {minimoFotos} do pedido.
+                  </div>
+                )}
+                <button onClick={() => setPasso("resumo")} disabled={!podeFinalizar}
+                  style={{ padding: "12px 24px", borderRadius: 8, background: podeFinalizar ? "#111827" : "#D1D5DB", color: "#fff", border: "none", fontSize: 14, fontWeight: 700, cursor: podeFinalizar ? "pointer" : "not-allowed" }}>
+                  Finalizar pedido →
+                </button>
+              </>
             )}
           </>
         )}
 
         {passo === "fotos" && tamanhoAtual && (
           <>
+            <button onClick={() => setPasso("tamanho")}
+              style={{ background: "none", border: "none", color: "#6B7280", fontSize: 13, cursor: "pointer", padding: 0, marginBottom: 16 }}>
+              ← Voltar
+            </button>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 8 }}>
               <div>
                 <p style={{ fontSize: 12, color: "#6B7280", margin: 0 }}>Tamanho selecionado</p>
@@ -195,15 +215,20 @@ function RevelacaoConteudo() {
               <p style={{ fontSize: 13, color: "#6B7280", margin: 0 }}>{(cesta[tamanhoAtual.id] ?? []).length} foto(s) marcada(s)</p>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-              <span style={{ fontSize: 12, color: "#9CA3AF" }}>Tamanho da grade</span>
-              <input type="range" min={90} max={260} step={10} value={tamanhoGrid} onChange={e => setTamanhoGrid(Number(e.target.value))}
+              <span style={{ fontSize: 12, color: "#9CA3AF" }}>Colunas da grade</span>
+              <input type="range" min={2} max={6} step={1} value={colunas} onChange={e => setColunas(Number(e.target.value))}
                 style={{ flex: 1, maxWidth: 200 }} />
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: `repeat(auto-fill, minmax(${tamanhoGrid}px, 1fr))`, gap: 10, marginBottom: 20 }}>
+            <style>{`
+              .revelacao-grid { column-gap: 10px; }
+              .revelacao-grid .revelacao-foto { break-inside: avoid; margin: 0 0 10px; }
+              @media (max-width: 560px) { .revelacao-grid { column-count: 2 !important; } }
+            `}</style>
+            <div className="revelacao-grid" style={{ columnCount: colunas, marginBottom: 20 }}>
               {fotos.map(foto => {
                 const on = (cesta[tamanhoAtual.id] ?? []).some(i => i.foto_id === foto.id);
                 return (
-                  <div key={foto.id} onClick={() => toggleFoto(foto)}
+                  <div key={foto.id} className="revelacao-foto" onClick={() => toggleFoto(foto)}
                     style={{ position: "relative", borderRadius: 8, cursor: "pointer", overflow: "hidden", lineHeight: 0, outline: on ? "3px solid #2563EB" : "none", outlineOffset: -3 }}>
                     <img src={foto.url_publica} alt="" style={{ width: "100%", height: "auto", display: "block" }} />
                     {on && (
@@ -218,16 +243,26 @@ function RevelacaoConteudo() {
                 style={{ padding: "11px 18px", borderRadius: 8, border: "1px solid #D1D5DB", background: "transparent", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
                 ✓ Confirmar estas fotos e escolher outro tamanho
               </button>
-              <button onClick={irParaResumo}
-                style={{ padding: "11px 18px", borderRadius: 8, background: "#111827", color: "#fff", border: "none", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+              <button onClick={irParaResumo} disabled={!podeFinalizar}
+                title={faltamFotos > 0 ? `Faltam ${faltamFotos} foto(s) para o mínimo de ${minimoFotos}` : undefined}
+                style={{ padding: "11px 18px", borderRadius: 8, background: podeFinalizar ? "#111827" : "#D1D5DB", color: "#fff", border: "none", fontSize: 13, fontWeight: 700, cursor: podeFinalizar ? "pointer" : "not-allowed" }}>
                 Finalizar pedido →
               </button>
             </div>
+            {faltamFotos > 0 && (
+              <div style={{ fontSize: 12, color: "#D97706", marginTop: 10 }}>
+                Faltam {faltamFotos} foto{faltamFotos !== 1 ? "s" : ""} no total para atingir o mínimo de {minimoFotos} do pedido.
+              </div>
+            )}
           </>
         )}
 
         {passo === "resumo" && (
           <>
+            <button onClick={() => setPasso("tamanho")}
+              style={{ background: "none", border: "none", color: "#6B7280", fontSize: 13, cursor: "pointer", padding: 0, marginBottom: 16 }}>
+              ← Voltar
+            </button>
             <h2 style={{ fontSize: 18, fontWeight: 800, margin: "0 0 16px" }}>Resumo do pedido</h2>
             <div style={{ border: "1px solid #E5E7EB", borderRadius: 10, overflow: "hidden", marginBottom: 16 }}>
               {Object.entries(cesta).filter(([, arr]) => arr.length > 0).map(([tid, arr], i, all) => {

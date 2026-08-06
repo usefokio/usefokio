@@ -38,8 +38,13 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   const { data: galeria } = await admin.from("galerias_entrega").select("titulo").eq("id", pedido.galeria_entrega_id).maybeSingle();
   const { data: fotografo } = await admin.from("fotografos")
-    .select("id, nome_empresa, nome_completo, cidade, email, asaas_api_key_enc, asaas_ambiente, asaas_ativo, pix_ativo, pix_chave, pix_tipo")
+    .select("id, nome_empresa, nome_completo, cidade, email, asaas_api_key_enc, asaas_ambiente, asaas_ativo, pix_ativo, pix_chave, pix_tipo, revelacao_minimo_fotos")
     .eq("id", pedido.fotografo_id).maybeSingle();
+
+  const minimo = fotografo?.revelacao_minimo_fotos ?? null;
+  if (minimo && itens.length < minimo) {
+    return NextResponse.json({ erro: `Este pedido precisa de pelo menos ${minimo} fotos para ser finalizado (tem ${itens.length}).` }, { status: 400 });
+  }
 
   const gateway =
     fotografo?.pix_ativo && fotografo.pix_chave ? "pix_manual" :

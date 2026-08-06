@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { IcoTrash } from "@/app/(dashboard)/crm/_components/Icons";
@@ -8,6 +9,7 @@ import { mascaraValor, parsearValor, formatNum } from "@/lib/utils/format";
 import type { CrmRevelacaoTamanho } from "@/lib/supabase/types";
 
 export default function RevelacaoTamanhosPage() {
+  const router = useRouter();
   const { fotografo } = useFotografo();
   const fid = fotografo?.id ?? null;
   const [tamanhos, setTamanhos] = useState<CrmRevelacaoTamanho[]>([]);
@@ -15,16 +17,28 @@ export default function RevelacaoTamanhosPage() {
   const [novoNome, setNovoNome] = useState("");
   const [novoValor, setNovoValor] = useState("");
   const [salvando, setSalvando] = useState(false);
+  const [minimoFotos, setMinimoFotos] = useState("");
 
   const carregar = useCallback(async () => {
     if (!fid) return;
     setLoading(true);
-    const { data } = await createClient().from("crm_revelacao_tamanhos").select("*").eq("fotografo_id", fid).order("ordem");
+    const sb = createClient();
+    const [{ data }, { data: fot }] = await Promise.all([
+      sb.from("crm_revelacao_tamanhos").select("*").eq("fotografo_id", fid).order("ordem"),
+      sb.from("fotografos").select("revelacao_minimo_fotos").eq("id", fid).maybeSingle(),
+    ]);
     setTamanhos((data ?? []) as CrmRevelacaoTamanho[]);
+    setMinimoFotos(fot?.revelacao_minimo_fotos ? String(fot.revelacao_minimo_fotos) : "");
     setLoading(false);
   }, [fid]);
 
   useEffect(() => { carregar(); }, [carregar]);
+
+  const salvarMinimo = async (valor: string) => {
+    if (!fid) return;
+    const n = parseInt(valor.replace(/\D/g, ""), 10);
+    await createClient().from("fotografos").update({ revelacao_minimo_fotos: n > 0 ? n : null }).eq("id", fid);
+  };
 
   const adicionar = async () => {
     if (!fid || !novoNome.trim() || salvando) return;
@@ -62,11 +76,21 @@ export default function RevelacaoTamanhosPage() {
 
   return (
     <div style={{ padding: "28px 32px", maxWidth: 640, fontFamily: "var(--font-sans)" }}>
+      <button onClick={() => router.push("/revelacao")} style={{ background: "none", border: "none", color: "var(--color-text-secondary)", fontSize: 13, cursor: "pointer", padding: 0, marginBottom: 16 }}>← Voltar</button>
+
       <div style={{ marginBottom: 24 }}>
         <h1 style={{ fontSize: 20, fontWeight: 800, letterSpacing: "-0.03em", color: "var(--color-text-primary)", margin: 0 }}>Tamanhos de revelação</h1>
         <p style={{ fontSize: 13, color: "var(--color-text-secondary)", margin: "4px 0 0" }}>
           Tamanhos e preços que o cliente vê ao pedir revelação (impressão física) das fotos da entrega.
         </p>
+      </div>
+
+      <div style={{ marginBottom: 24 }}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)", marginBottom: 4 }}>Mínimo de fotos por pedido</div>
+        <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginBottom: 8 }}>O cliente só consegue finalizar o pedido a partir dessa quantidade de fotos (somando todos os tamanhos). Deixe em branco para não ter mínimo.</div>
+        <input value={minimoFotos} onChange={(e) => setMinimoFotos(e.target.value.replace(/\D/g, ""))} onBlur={(e) => salvarMinimo(e.target.value)}
+          placeholder="Ex. 10" inputMode="numeric"
+          style={{ width: 100, padding: "9px 12px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-secondary)", fontSize: 13, color: "var(--color-text-primary)", outline: "none" }} />
       </div>
 
       {loading ? (
