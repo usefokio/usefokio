@@ -18,6 +18,7 @@ function RevelacaoConteudo() {
   const [itens, setItens] = useState<RevelacaoPedidoItem[]>([]);
   const [pagamento, setPagamento] = useState<Pagamento>(null);
 
+  const [tamanhoGrid, setTamanhoGrid] = useState(150);
   const [passo, setPasso] = useState<Passo>("tamanho");
   const [tamanhoAtual, setTamanhoAtual] = useState<CrmRevelacaoTamanho | null>(null);
   const [confirmados, setConfirmados] = useState<Set<string>>(new Set());
@@ -193,13 +194,18 @@ function RevelacaoConteudo() {
               </div>
               <p style={{ fontSize: 13, color: "#6B7280", margin: 0 }}>{(cesta[tamanhoAtual.id] ?? []).length} foto(s) marcada(s)</p>
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(110px, 1fr))", gap: 10, marginBottom: 20 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+              <span style={{ fontSize: 12, color: "#9CA3AF" }}>Tamanho da grade</span>
+              <input type="range" min={90} max={260} step={10} value={tamanhoGrid} onChange={e => setTamanhoGrid(Number(e.target.value))}
+                style={{ flex: 1, maxWidth: 200 }} />
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: `repeat(auto-fill, minmax(${tamanhoGrid}px, 1fr))`, gap: 10, marginBottom: 20 }}>
               {fotos.map(foto => {
                 const on = (cesta[tamanhoAtual.id] ?? []).some(i => i.foto_id === foto.id);
                 return (
                   <div key={foto.id} onClick={() => toggleFoto(foto)}
-                    style={{ position: "relative", aspectRatio: "1", borderRadius: 8, cursor: "pointer", overflow: "hidden", outline: on ? "3px solid #2563EB" : "none", outlineOffset: -3 }}>
-                    <img src={foto.url_publica} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                    style={{ position: "relative", borderRadius: 8, cursor: "pointer", overflow: "hidden", lineHeight: 0, outline: on ? "3px solid #2563EB" : "none", outlineOffset: -3 }}>
+                    <img src={foto.url_publica} alt="" style={{ width: "100%", height: "auto", display: "block" }} />
                     {on && (
                       <span style={{ position: "absolute", top: 6, right: 6, width: 20, height: 20, borderRadius: "50%", background: "#2563EB", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12 }}>✓</span>
                     )}
