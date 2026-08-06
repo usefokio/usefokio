@@ -13,8 +13,10 @@ const COLS_REC: ColunaDef[] = [
   { id: "valor",   largura: 100, min: 70 },
   { id: "status",  largura: 90,  min: 70 },
   { id: "data",    largura: 90,  min: 70 },
-  { id: "acoes",   largura: 100, min: 80 },
+  { id: "acoes",   largura: 160, min: 130 },
 ];
+
+const LARGURA_MIN_TABELA = 760;
 
 type Pagamento = {
   id: string;
@@ -313,6 +315,8 @@ export default function RecebimentosPage() {
         </div>
       ) : (
         <div style={{ background: "var(--color-background-primary)", border: "1px solid var(--color-border-secondary)", borderRadius: 12, overflow: "hidden" }}>
+        <div style={{ overflowX: "auto" }}>
+        <div style={{ minWidth: LARGURA_MIN_TABELA }}>
           {/* Header */}
           <div style={{ display: "grid", gridTemplateColumns: cols.template, gap: 0, padding: "10px 20px", background: "var(--color-background-secondary)", borderBottom: "1px solid var(--color-border-secondary)", fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em" }}>
             <span>Cliente</span>
@@ -385,7 +389,7 @@ export default function RecebimentosPage() {
                 </div>
 
                 {/* Ações */}
-                <div style={{ display: "flex", gap: 6, alignItems: "center" }} onClick={(e) => e.stopPropagation()}>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center", justifyContent: "flex-end" }} onClick={(e) => e.stopPropagation()}>
                   {confirmando ? (
                     <>
                       <button
@@ -454,6 +458,8 @@ export default function RecebimentosPage() {
               </div>
             );
           })}
+        </div>
+        </div>
         </div>
       )}
 

@@ -293,6 +293,47 @@ export function templateRevelacaoSelecao(p: RevelacaoSelecaoParams): { subject: 
   };
 }
 
+// ─── 3d. Pedido de revelação: dados de pagamento → cliente ───────────────────
+export type RevelacaoPagamentoParams = {
+  clienteNome:    string;
+  galeriaTitulo:  string;
+  totalFotos:     number;
+  valorTotal:     number;
+  gateway:        "pix_manual" | "asaas";
+  pixCopiaECola?: string | null;
+  pixQrDataUrl?:  string | null;
+  invoiceUrl?:    string | null;
+};
+
+export function templateRevelacaoPagamento(p: RevelacaoPagamentoParams): { subject: string; html: string } {
+  const valorFmt = p.valorTotal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  const pagamentoHtml = p.gateway === "pix_manual"
+    ? `
+      ${p.pixQrDataUrl ? `<div style="text-align:center; margin:20px 0;"><img src="${p.pixQrDataUrl}" alt="QR Code PIX" width="200" height="200" style="border-radius:8px;" /></div>` : ""}
+      ${p.pixCopiaECola ? `
+        <p style="font-size:13px; color:#555; margin:0 0 6px;">PIX copia e cola:</p>
+        <div style="background:#f5f5f5; border-radius:8px; padding:12px 14px; font-family:monospace; font-size:11px; color:#333; word-break:break-all; margin-bottom:8px;">${esc(p.pixCopiaECola)}</div>
+      ` : ""}
+    `
+    : `<a href="${p.invoiceUrl}" style="${BTN_STYLE("#111")}">Pagar agora →</a>`;
+
+  return {
+    subject: `Pagamento do seu pedido de revelação — ${p.galeriaTitulo}`,
+    html: base(`
+      <h2 style="margin:0 0 8px; font-size:20px; color:#111; letter-spacing:-0.02em;">Seu pedido de revelação 🖨️</h2>
+      <p style="color:#555; font-size:14px; line-height:1.6; margin:0 0 20px;">
+        Olá, <strong>${esc(p.clienteNome)}</strong>! Guarde este email com os dados do seu pedido — você pode usá-lo pra pagar mesmo se sair da página.
+      </p>
+      <div style="background:#f9fafb; border:1px solid #e5e7eb; border-radius:8px; padding:16px 20px; margin-bottom:20px;">
+        <p style="margin:0 0 6px; font-size:14px; color:#333;">📷 Galeria: <strong>${esc(p.galeriaTitulo)}</strong></p>
+        <p style="margin:0 0 6px; font-size:14px; color:#333;">🖼 ${p.totalFotos} foto${p.totalFotos !== 1 ? "s" : ""}</p>
+        <p style="margin:0; font-size:14px; color:#111; font-weight:700;">💰 Total: ${valorFmt}</p>
+      </div>
+      ${pagamentoHtml}
+    `),
+  };
+}
+
 // ─── 4. Campanha de reativação → cliente ─────────────────────────────────────
 export type CampanhaReativacaoParams = {
   clienteNome:      string;

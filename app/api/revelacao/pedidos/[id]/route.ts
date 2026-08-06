@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { rateLimitOk, clientIp } from "@/lib/rate-limit";
+import { fotografoIdAtual } from "@/lib/auth/fotografoAtual";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -32,4 +33,24 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     minimoFotos: fotografo?.revelacao_minimo_fotos ?? null,
     clienteNome: cliente?.nome ?? null,
   });
+}
+
+// Exclui um pedido de revelação — painel do fotógrafo, só enquanto não estiver pago
+// (itens cascateiam via FK; pagamentos pendentes/cancelados vinculados são excluídos antes,
+// já que bloqueariam a exclusão do pedido por FK).
+export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const fotografoId = await fotografoIdAtual();
+  if (!fotografoId) return NextResponse.json({ erro: "Não autenticado." }, { status: 401 });
+
+  const admin = createAdminClient();
+  const { data: pedido } = await admin.from("revelacao_pedidos").select("id, fotografo_id, status").eq("id", id).maybeSingle();
+  if (!pedido || pedido.fotografo_id !== fotografoId) return NextResponse.json({ erro: "Pedido não encontrado." }, { status: 404 });
+  if (pedido.status === "pago") return NextResponse.json({ erro: "Pedido já pago não pode ser excluído." }, { status: 409 });
+
+  await admin.from("pagamentos").delete().eq("revelacao_pedido_id", id);
+  const { error } = await admin.from("revelacao_pedidos").delete().eq("id", id);
+  if (error) return NextResponse.json({ erro: error.message }, { status: 500 });
+
+  return NextResponse.json({ ok: true });
 }

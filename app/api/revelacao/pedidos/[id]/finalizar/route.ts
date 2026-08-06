@@ -7,9 +7,41 @@ import { decryptKey, criarCobranca, registrarWebhook, type AsaasAmbiente } from 
 import { rateLimitOk, clientIp } from "@/lib/rate-limit";
 import QRCode from "qrcode";
 import { gerarBrCodePix } from "@/lib/pix/brcode";
+import nodemailer from "nodemailer";
+import { getResend, FROM_DEFAULT } from "@/lib/email/resend";
+import { templateRevelacaoPagamento, type RevelacaoPagamentoParams } from "@/lib/email/templates";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// Envia ao CLIENTE os dados de pagamento por email (resumo + QR/PIX ou link) — assim ele não perde
+// o acesso se sair da página de finalização. Resend primeiro, SMTP do fotógrafo como fallback
+// (mesmo padrão de app/api/email/galeria-criada/route.ts). Nunca bloqueia a resposta da rota.
+async function enviarEmailPagamentoCliente(
+  destino: string,
+  dados: RevelacaoPagamentoParams,
+  smtp: { smtp_host: string | null; smtp_port: number | null; smtp_user: string | null; smtp_pass_enc: string | null; smtp_from: string | null } | null,
+) {
+  try {
+    const { subject, html } = templateRevelacaoPagamento(dados);
+    try {
+      await getResend().emails.send({ from: FROM_DEFAULT, to: destino, subject, html });
+      return;
+    } catch (e) {
+      console.error("[revelacao/finalizar] Resend falhou:", e instanceof Error ? e.message : e);
+    }
+    if (smtp?.smtp_host && smtp.smtp_pass_enc) {
+      const transporter = nodemailer.createTransport({
+        host: smtp.smtp_host, port: smtp.smtp_port ?? 587,
+        secure: (smtp.smtp_port ?? 587) === 465,
+        auth: { user: smtp.smtp_user ?? undefined, pass: decryptKey(smtp.smtp_pass_enc) },
+      });
+      await transporter.sendMail({ from: smtp.smtp_from || smtp.smtp_user || undefined, to: destino, subject, html });
+    }
+  } catch (e) {
+    console.error("[revelacao/finalizar] Falha ao enviar email de pagamento ao cliente:", e instanceof Error ? e.message : e);
+  }
+}
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -38,7 +70,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   const { data: galeria } = await admin.from("galerias_entrega").select("titulo").eq("id", pedido.galeria_entrega_id).maybeSingle();
   const { data: fotografo } = await admin.from("fotografos")
-    .select("id, nome_empresa, nome_completo, cidade, email, asaas_api_key_enc, asaas_ambiente, asaas_ativo, pix_ativo, pix_chave, pix_tipo, revelacao_minimo_fotos")
+    .select("id, nome_empresa, nome_completo, cidade, email, asaas_api_key_enc, asaas_ambiente, asaas_ativo, pix_ativo, pix_chave, pix_tipo, revelacao_minimo_fotos, smtp_host, smtp_port, smtp_user, smtp_pass_enc, smtp_from")
     .eq("id", pedido.fotografo_id).maybeSingle();
 
   const minimo = fotografo?.revelacao_minimo_fotos ?? null;
@@ -83,6 +115,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       console.error("[revelacao/finalizar] Falha ao gerar QR PIX:", e instanceof Error ? e.message : e);
     }
 
+    await enviarEmailPagamentoCliente(emailNorm, {
+      clienteNome: nome!.trim(), galeriaTitulo: galeria?.titulo ?? "Galeria", totalFotos: itens.length,
+      valorTotal: total, gateway: "pix_manual", pixCopiaECola, pixQrDataUrl,
+    }, fotografo);
+
     return NextResponse.json({ ok: true, gateway: "pix_manual", pixChave: fotografo!.pix_chave, pixTipo: fotografo!.pix_tipo, valor: total, pixCopiaECola, pixQrDataUrl, pagamentoId: pgto.id });
   }
 
@@ -111,6 +148,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       pagador_nome: nome!.trim(), pagador_email: emailNorm,
     }).select("id").single();
     if (error) return NextResponse.json({ erro: error.message }, { status: 500 });
+
+    await enviarEmailPagamentoCliente(emailNorm, {
+      clienteNome: nome!.trim(), galeriaTitulo: galeria?.titulo ?? "Galeria", totalFotos: itens.length,
+      valorTotal: total, gateway: "asaas", invoiceUrl: resultado.invoiceUrl,
+    }, fotografo);
 
     return NextResponse.json({ ok: true, gateway: "asaas", invoiceUrl: resultado.invoiceUrl, pagamentoId: pgto.id });
   } catch (e) {

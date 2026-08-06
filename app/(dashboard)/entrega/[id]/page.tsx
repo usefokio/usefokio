@@ -295,6 +295,8 @@ export default function EntregaDetailPage() {
   const [confirmandoRevId, setConfirmandoRevId] = useState<string | null>(null);
   const [msgRevId, setMsgRevId] = useState<{ id: string; texto: string; ok: boolean } | null>(null);
   const [copiadoTam, setCopiadoTam] = useState<string | null>(null);
+  const [revColapsados, setRevColapsados] = useState<Set<string>>(new Set());
+  const [excluindoRevId, setExcluindoRevId] = useState<string | null>(null);
   const [loading,  setLoading]  = useState(true);
   const [copiado,  setCopiado]  = useState(false);
   const [modalLista, setModalLista] = useState(false);
@@ -398,6 +400,27 @@ export default function EntregaDetailPage() {
     navigator.clipboard.writeText(lista);
     setCopiadoTam(chave);
     setTimeout(() => setCopiadoTam(null), 2000);
+  }
+
+  function toggleRevColapsado(pedidoId: string) {
+    setRevColapsados((prev) => {
+      const next = new Set(prev);
+      if (next.has(pedidoId)) next.delete(pedidoId); else next.add(pedidoId);
+      return next;
+    });
+  }
+
+  async function excluirPedidoRevelacao(pedidoId: string) {
+    if (!confirm("Excluir este pedido de revelação? Essa ação não pode ser desfeita.")) return;
+    setExcluindoRevId(pedidoId);
+    const res = await fetch(`/api/revelacao/pedidos/${pedidoId}`, { method: "DELETE" });
+    const json = await res.json();
+    setExcluindoRevId(null);
+    if (json.ok) {
+      setRevelacaoPedidos((prev) => prev.filter((r) => r.id !== pedidoId));
+    } else {
+      alert(json.erro ?? "Não foi possível excluir.");
+    }
   }
 
   function toggleFotoSelecionada(fotoId: string) {
@@ -609,29 +632,44 @@ export default function EntregaDetailPage() {
                           {confirmandoRevId === rp.id ? "…" : "✓ Confirmar pagamento"}
                         </button>
                       )}
+                      {rp.status !== "pago" && (
+                        <button onClick={() => excluirPedidoRevelacao(rp.id)} disabled={excluindoRevId === rp.id}
+                          title="Excluir pedido"
+                          style={{ padding: "4px 7px", borderRadius: 6, border: "0.5px solid rgba(239,68,68,0.3)", background: "rgba(239,68,68,0.07)", color: "#EF4444", cursor: excluindoRevId === rp.id ? "default" : "pointer", fontSize: 13, lineHeight: 1, display: "flex", alignItems: "center" }}>
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+                        </button>
+                      )}
+                      <button onClick={() => toggleRevColapsado(rp.id)} title={revColapsados.has(rp.id) ? "Expandir" : "Minimizar"}
+                        style={{ padding: "4px 7px", borderRadius: 6, border: "0.5px solid var(--color-border-secondary)", background: "transparent", color: "var(--color-text-secondary)", cursor: "pointer", display: "flex", alignItems: "center" }}>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ transform: revColapsados.has(rp.id) ? "rotate(-90deg)" : "none", transition: "transform 0.15s" }}><polyline points="6 9 12 15 18 9"/></svg>
+                      </button>
                     </div>
                   </div>
-                  {msgRevId?.id === rp.id && (
-                    <div style={{ fontSize: 11, fontWeight: 600, color: msgRevId.ok ? "#059669" : "#B45309", marginBottom: 8 }}>{msgRevId.texto}</div>
+                  {!revColapsados.has(rp.id) && (
+                    <>
+                      {msgRevId?.id === rp.id && (
+                        <div style={{ fontSize: 11, fontWeight: 600, color: msgRevId.ok ? "#059669" : "#B45309", marginBottom: 8 }}>{msgRevId.texto}</div>
+                      )}
+                      {Object.entries(porTamanho).map(([tid, arr]) => {
+                        const nomeTamanho = arr[0]?.crm_revelacao_tamanhos?.nome ?? "Tamanho";
+                        const lista = arr.map((a) => a.nome_arquivo).join(", ");
+                        const chave = `${rp.id}:${tid}`;
+                        return (
+                          <div key={tid} style={{ border: "0.5px solid var(--color-border-tertiary)", borderRadius: 8, padding: "10px 12px", marginBottom: 8 }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                              <div style={{ fontSize: 12, fontWeight: 700, color: "var(--color-text-primary)" }}>{nomeTamanho} <span style={{ color: "var(--color-text-secondary)", fontWeight: 400 }}>({arr.length} fotos)</span></div>
+                              <button onClick={() => copiarListaRevelacao(chave, lista)}
+                                style={{ padding: "4px 10px", borderRadius: 6, background: copiadoTam === chave ? "rgba(5,150,105,0.1)" : "var(--color-background-secondary)", border: "0.5px solid var(--color-border-secondary)", color: copiadoTam === chave ? "#059669" : "var(--color-text-secondary)", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
+                                {copiadoTam === chave ? "✓ Copiado" : "📋 Copiar lista"}
+                              </button>
+                            </div>
+                            <textarea readOnly value={lista} rows={2} onClick={(e) => (e.target as HTMLTextAreaElement).select()}
+                              style={{ width: "100%", fontSize: 11, fontFamily: "var(--font-mono)", padding: "6px 8px", borderRadius: 6, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-secondary)", color: "var(--color-text-primary)", resize: "vertical", boxSizing: "border-box" }} />
+                          </div>
+                        );
+                      })}
+                    </>
                   )}
-                  {Object.entries(porTamanho).map(([tid, arr]) => {
-                    const nomeTamanho = arr[0]?.crm_revelacao_tamanhos?.nome ?? "Tamanho";
-                    const lista = arr.map((a) => a.nome_arquivo).join(", ");
-                    const chave = `${rp.id}:${tid}`;
-                    return (
-                      <div key={tid} style={{ border: "0.5px solid var(--color-border-tertiary)", borderRadius: 8, padding: "10px 12px", marginBottom: 8 }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                          <div style={{ fontSize: 12, fontWeight: 700, color: "var(--color-text-primary)" }}>{nomeTamanho} <span style={{ color: "var(--color-text-secondary)", fontWeight: 400 }}>({arr.length} fotos)</span></div>
-                          <button onClick={() => copiarListaRevelacao(chave, lista)}
-                            style={{ padding: "4px 10px", borderRadius: 6, background: copiadoTam === chave ? "rgba(5,150,105,0.1)" : "var(--color-background-secondary)", border: "0.5px solid var(--color-border-secondary)", color: copiadoTam === chave ? "#059669" : "var(--color-text-secondary)", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
-                            {copiadoTam === chave ? "✓ Copiado" : "📋 Copiar lista"}
-                          </button>
-                        </div>
-                        <textarea readOnly value={lista} rows={2} onClick={(e) => (e.target as HTMLTextAreaElement).select()}
-                          style={{ width: "100%", fontSize: 11, fontFamily: "var(--font-mono)", padding: "6px 8px", borderRadius: 6, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-secondary)", color: "var(--color-text-primary)", resize: "vertical", boxSizing: "border-box" }} />
-                      </div>
-                    );
-                  })}
                 </div>
               );
             })
