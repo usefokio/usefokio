@@ -172,6 +172,7 @@ export type GaleriaEntrega = {
   apenas_zip: boolean;
   identificacao_obrigatoria: boolean;
   drive_apenas_identificado: boolean;
+  revelacao_ativa: boolean;
   suspensa: boolean;
   rascunho: boolean;
   renovacao_dias: number;

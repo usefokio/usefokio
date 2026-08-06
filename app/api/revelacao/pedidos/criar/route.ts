@@ -18,8 +18,9 @@ export async function POST(request: NextRequest) {
   }
 
   const admin = createAdminClient();
-  const { data: galeria } = await admin.from("galerias_entrega").select("id, fotografo_id").eq("id", galeria_entrega_id).maybeSingle();
+  const { data: galeria } = await admin.from("galerias_entrega").select("id, fotografo_id, revelacao_ativa").eq("id", galeria_entrega_id).maybeSingle();
   if (!galeria) return NextResponse.json({ erro: "Galeria não encontrada." }, { status: 404 });
+  if (!galeria.revelacao_ativa) return NextResponse.json({ erro: "Pedido de revelação não está disponível nesta galeria." }, { status: 403 });
 
   // Reaproveita um pedido "aberto" já existente pra essa galeria (não duplica a cesta em progresso).
   const { data: existente } = await admin.from("revelacao_pedidos")

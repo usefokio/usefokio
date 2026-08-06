@@ -68,6 +68,7 @@ export default function EditarEntregaPage() {
   const [ordenacaoFotos,        setOrdenacaoFotos]        = useState<"envio" | "nome" | "nome_desc" | "data">("nome");
   const [identificacaoObrig,    setIdentificacaoObrig]    = useState(false);
   const [driveApenasIdentif,    setDriveApenasIdentif]    = useState(false);
+  const [revelacaoAtiva,        setRevelacaoAtiva]        = useState(false);
   const [categoriaId,  setCategoriaId]  = useState<string>("");
   const [categorias,   setCategorias]   = useState<Categoria[]>([]);
   const [saving,      setSaving]     = useState(false);
@@ -114,6 +115,7 @@ export default function EditarEntregaPage() {
         setOrdenacaoFotos(g.ordenacao_fotos ?? "envio");
         setIdentificacaoObrig(g.identificacao_obrigatoria ?? false);
         setDriveApenasIdentif(g.drive_apenas_identificado ?? false);
+        setRevelacaoAtiva(g.revelacao_ativa ?? false);
 
         setTitulo(g.titulo);
         setClienteId(g.cliente_id ?? "");
@@ -161,6 +163,7 @@ export default function EditarEntregaPage() {
     ordenacaoFotos !== (original.ordenacao_fotos ?? "envio") ||
     identificacaoObrig !== (original.identificacao_obrigatoria ?? false) ||
     driveApenasIdentif !== (original.drive_apenas_identificado ?? false) ||
+    revelacaoAtiva !== (original.revelacao_ativa ?? false) ||
     (expiresAt?.getTime() ?? null) !== (original.expires_at ? new Date(original.expires_at).getTime() : null) ||
     categoriaId !== (original.categoria_id ?? "")
   );
@@ -218,6 +221,7 @@ export default function EditarEntregaPage() {
         apenas_zip:                 apenaZip,
         identificacao_obrigatoria:  identificacaoObrig,
         drive_apenas_identificado:  driveApenasIdentif,
+        revelacao_ativa:            revelacaoAtiva,
         ordenacao_fotos:            ordenacaoFotos,
         foto_capa_url:              novaCapa ? novaCapa.url : capaUrl,
         foto_capa_storage_path:     novaCapa ? novaCapa.storage_path : undefined,
@@ -448,6 +452,13 @@ export default function EditarEntregaPage() {
               <div>
                 <div style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)", marginBottom: 3 }}>Exigir identificação</div>
                 <div style={{ fontSize: 12, color: "var(--color-text-secondary)", lineHeight: 1.5 }}>O cliente precisa informar nome e e-mail antes de acessar, mesmo que já esteja vinculado.</div>
+              </div>
+            </label>
+            <label style={{ display: "flex", alignItems: "flex-start", gap: 12, cursor: "pointer" }}>
+              <input type="checkbox" checked={revelacaoAtiva} onChange={(e) => setRevelacaoAtiva(e.target.checked)} style={{ marginTop: 2, width: 16, height: 16, accentColor: "var(--color-text-primary)", cursor: "pointer", flexShrink: 0 }} />
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)", marginBottom: 3 }}>Permitir pedido de revelação</div>
+                <div style={{ fontSize: 12, color: "var(--color-text-secondary)", lineHeight: 1.5 }}>Mostra o botão "Pedir revelação" nesta galeria, pra o cliente escolher fotos por tamanho e pagar a impressão física.</div>
               </div>
             </label>
             <label style={{ display: "flex", alignItems: "flex-start", gap: 12, cursor: "pointer" }}>

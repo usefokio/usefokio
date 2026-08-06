@@ -856,7 +856,7 @@ export default function AcessoEntregaPage() {
             </button>
           </div>
         )}
-        {fotos.length > 0 && (
+        {fotos.length > 0 && galeria?.revelacao_ativa && (
           <button
             onClick={pedirRevelacao} disabled={pedindoRevelacao}
             style={{ display: "flex", alignItems: "center", gap: 6, padding: isMobile ? "8px 10px" : "8px 14px", borderRadius: 8, background: "transparent", border: "1px solid #ddd", color: "#444", fontSize: 12, fontWeight: 700, cursor: pedindoRevelacao ? "wait" : "pointer", flexShrink: 0 }}
