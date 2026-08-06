@@ -17,17 +17,20 @@ export default function RevelacaoDetalhePage() {
   const [loading, setLoading] = useState(true);
   const [verificando, setVerificando] = useState(false);
   const [copiado, setCopiado] = useState<string | null>(null);
+  const [gatewayPagamento, setGatewayPagamento] = useState<string | null>(null);
 
   const carregar = useCallback(async () => {
     if (!id) return;
     setLoading(true);
     const sb = createClient();
-    const [{ data: p }, { data: it }] = await Promise.all([
+    const [{ data: p }, { data: it }, { data: pgto }] = await Promise.all([
       sb.from("revelacao_pedidos").select("*, galerias_entrega(titulo), clientes(nome, email)").eq("id", id).single(),
       sb.from("revelacao_pedido_itens").select("*").eq("pedido_id", id),
+      sb.from("pagamentos").select("gateway").eq("revelacao_pedido_id", id).order("created_at", { ascending: false }).limit(1).maybeSingle(),
     ]);
     setPedido(p as Pedido | null);
     setItens((it ?? []) as RevelacaoPedidoItem[]);
+    setGatewayPagamento(pgto?.gateway ?? null);
     if (p) {
       const { data: t } = await sb.from("crm_revelacao_tamanhos").select("*").eq("fotografo_id", (p as Pedido).fotografo_id);
       setTamanhos((t ?? []) as CrmRevelacaoTamanho[]);
@@ -45,6 +48,20 @@ export default function RevelacaoDetalhePage() {
       const json = await res.json();
       if (json.pago) carregar();
       else alert(json.mensagem ?? json.erro ?? "Pagamento ainda não confirmado.");
+    } finally {
+      setVerificando(false);
+    }
+  };
+
+  const confirmarPixManual = async () => {
+    if (verificando) return;
+    if (!confirm("Confirmar que este pagamento PIX caiu na sua conta?")) return;
+    setVerificando(true);
+    try {
+      const res = await fetch(`/api/revelacao/pedidos/${id}/confirmar-pix-manual`, { method: "POST" });
+      const json = await res.json();
+      if (json.ok) carregar();
+      else alert(json.erro ?? "Não foi possível confirmar.");
     } finally {
       setVerificando(false);
     }
@@ -79,10 +96,16 @@ export default function RevelacaoDetalhePage() {
         </div>
       </div>
 
-      {pedido.status === "aguardando_pagamento" && (
+      {pedido.status === "aguardando_pagamento" && gatewayPagamento === "asaas" && (
         <button onClick={verificarPagamento} disabled={verificando}
           style={{ marginBottom: 20, padding: "8px 16px", borderRadius: 8, background: "transparent", border: "0.5px solid var(--color-border-secondary)", fontSize: 12, fontWeight: 600, color: "var(--color-text-primary)", cursor: "pointer" }}>
           {verificando ? "Verificando…" : "Verificar pagamento"}
+        </button>
+      )}
+      {pedido.status === "aguardando_pagamento" && gatewayPagamento === "pix_manual" && (
+        <button onClick={confirmarPixManual} disabled={verificando}
+          style={{ marginBottom: 20, padding: "8px 16px", borderRadius: 8, background: "transparent", border: "0.5px solid var(--color-border-secondary)", fontSize: 12, fontWeight: 600, color: "var(--color-text-primary)", cursor: "pointer" }}>
+          {verificando ? "Confirmando…" : "Confirmar pagamento (PIX manual)"}
         </button>
       )}
 
