@@ -18,6 +18,12 @@ function RevelacaoConteudo() {
   const [itens, setItens] = useState<RevelacaoPedidoItem[]>([]);
   const [pagamento, setPagamento] = useState<Pagamento>(null);
   const [minimoFotos, setMinimoFotos] = useState<number | null>(null);
+  const [clienteNome, setClienteNome] = useState<string | null>(null);
+
+  const [autenticado, setAutenticado] = useState(false);
+  const [senhaInput, setSenhaInput] = useState("");
+  const [erroSenha, setErroSenha] = useState("");
+  const [verificandoSenha, setVerificandoSenha] = useState(false);
 
   const [colunas, setColunas] = useState(4);
   const [passo, setPasso] = useState<Passo>("tamanho");
@@ -41,16 +47,63 @@ function RevelacaoConteudo() {
       setItens(json.itens ?? []);
       setPagamento(json.pagamento ?? null);
       setMinimoFotos(json.minimoFotos ?? null);
+      setClienteNome(json.clienteNome ?? null);
     }).catch(() => setPedido(null));
   };
 
   useEffect(() => { carregar(); }, [id]);
+
+  const verificarSenha = async () => {
+    if (!senhaInput.trim() || verificandoSenha) return;
+    setVerificandoSenha(true);
+    setErroSenha("");
+    try {
+      const res = await fetch(`/api/revelacao/pedidos/${id}/verificar-senha`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ senha: senhaInput }),
+      });
+      const json = await res.json();
+      if (!json.ok) { setErroSenha(json.erro ?? "Senha incorreta. Tente novamente."); return; }
+      setAutenticado(true);
+      if (json.email) setPagadorEmail(json.email);
+    } catch {
+      setErroSenha("Não foi possível verificar a senha. Verifique sua conexão.");
+    } finally {
+      setVerificandoSenha(false);
+    }
+  };
 
   if (pedido === undefined) {
     return <div style={estiloTela}><div style={{ fontSize: 14, color: "#6B7280" }}>Carregando…</div></div>;
   }
   if (pedido === null) {
     return <div style={estiloTela}><div style={{ textAlign: "center" }}><div style={{ fontSize: 40, marginBottom: 12 }}>🔍</div><div style={{ fontSize: 18, fontWeight: 700, color: "#111827" }}>Pedido não encontrado</div></div></div>;
+  }
+
+  if (!autenticado) {
+    return (
+      <div style={estiloTela}>
+        <div style={{ width: "100%", maxWidth: 340, background: "#fff", borderRadius: 12, boxShadow: "0 4px 32px rgba(0,0,0,0.1)", padding: "32px 28px", textAlign: "center" }}>
+          <div style={{ fontSize: 18, fontWeight: 800, marginBottom: 4 }}>Pedido de revelação</div>
+          <div style={{ fontSize: 14, color: "#6B7280", marginBottom: 20 }}>
+            {clienteNome ? `Olá, ${clienteNome}! ` : ""}Informe sua senha para continuar.
+          </div>
+          <form onSubmit={e => { e.preventDefault(); verificarSenha(); }}>
+            <input
+              type="password" value={senhaInput} onChange={e => { setSenhaInput(e.target.value); setErroSenha(""); }}
+              autoFocus placeholder="Senha"
+              style={{ width: "100%", boxSizing: "border-box", padding: "12px 14px", borderRadius: 8, border: "1px solid #D1D5DB", fontSize: 16, textAlign: "center", letterSpacing: "0.08em", marginBottom: 10 }}
+            />
+            {erroSenha && <div style={{ color: "#DC2626", fontSize: 12, marginBottom: 10 }}>{erroSenha}</div>}
+            <button type="submit" disabled={verificandoSenha || !senhaInput.trim()}
+              style={{ width: "100%", padding: "12px", borderRadius: 8, background: "#111827", color: "#fff", border: "none", fontSize: 14, fontWeight: 700, cursor: verificandoSenha ? "default" : "pointer", opacity: verificandoSenha || !senhaInput.trim() ? 0.6 : 1 }}>
+              {verificandoSenha ? "Verificando…" : "Entrar"}
+            </button>
+          </form>
+          <div style={{ fontSize: 11, color: "#9CA3AF", marginTop: 16 }}>É a mesma senha das suas galerias. Em caso de dúvida, fale com o fotógrafo.</div>
+        </div>
+      </div>
+    );
   }
 
   if (pedido.status === "pago") {

@@ -18,16 +18,18 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const { data: pedido } = await admin.from("revelacao_pedidos").select("*").eq("id", id).maybeSingle();
   if (!pedido) return NextResponse.json({ pedido: null });
 
-  const [{ data: tamanhos }, { data: fotos }, { data: itens }, { data: pagamento }, { data: fotografo }] = await Promise.all([
+  const [{ data: tamanhos }, { data: fotos }, { data: itens }, { data: pagamento }, { data: fotografo }, { data: cliente }] = await Promise.all([
     admin.from("crm_revelacao_tamanhos").select("*").eq("fotografo_id", pedido.fotografo_id).eq("ativo", true).order("ordem"),
     admin.from("galerias_entrega_fotos").select("id, storage_path, url_publica, nome_arquivo, ordem").eq("galeria_id", pedido.galeria_entrega_id).order("ordem"),
     admin.from("revelacao_pedido_itens").select("id, tamanho_id, foto_id, nome_arquivo, valor_unit").eq("pedido_id", id),
     admin.from("pagamentos").select("status, invoice_url, gateway").eq("revelacao_pedido_id", id).order("created_at", { ascending: false }).limit(1).maybeSingle(),
     admin.from("fotografos").select("revelacao_minimo_fotos").eq("id", pedido.fotografo_id).maybeSingle(),
+    pedido.cliente_id ? admin.from("clientes").select("nome").eq("id", pedido.cliente_id).maybeSingle() : Promise.resolve({ data: null }),
   ]);
 
   return NextResponse.json({
     pedido, tamanhos: tamanhos ?? [], fotos: fotos ?? [], itens: itens ?? [], pagamento: pagamento ?? null,
     minimoFotos: fotografo?.revelacao_minimo_fotos ?? null,
+    clienteNome: cliente?.nome ?? null,
   });
 }
