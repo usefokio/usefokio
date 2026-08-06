@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { useFotografo } from "@/lib/context/FotografoContext";
+import { createClient } from "@/lib/supabase/client";
+import { garantirSenhaCliente } from "@/lib/clientes/garantirSenha";
 import type { GaleriaEntrega, EstagioFunil } from "@/lib/supabase/types";
 
 type TemplateId = "link" | "expirando" | "suspensa" | "renovacao" | "lembrete_renovacao" | "campanha";
@@ -180,8 +182,29 @@ export function ModalEmailCliente({ galeria, onFechar, templateInicial, onEstagi
   onEstagioAvancado?: (patch: { estagio: EstagioFunil; email_1_em: string | null; email_2_em: string | null; whatsapp_em: string | null; resposta: "renovar" | "tem_arquivos" | null }) => void;
 }) {
   const { fotografo } = useFotografo();
+
+  // Pedido de revelação exige a senha do cliente (mesma de álbum/seleção) — se essa galeria
+  // permite, garante que o cliente tenha uma senha, pra incluir no template "Enviar link de acesso".
+  const [senhaRevelacao, setSenhaRevelacao] = useState<string | null>(null);
+  useEffect(() => {
+    if (!galeria.revelacao_ativa || !galeria.clientes?.id) return;
+    const clienteId = galeria.clientes.id;
+    (async () => {
+      await garantirSenhaCliente(clienteId);
+      const { data } = await createClient().from("clientes").select("senha_acesso").eq("id", clienteId).maybeSingle();
+      if (data?.senha_acesso) setSenhaRevelacao(data.senha_acesso);
+    })();
+  }, [galeria.revelacao_ativa, galeria.clientes?.id]);
+
   const [templateId,   setTemplateId]   = useState<TemplateId | null>(templateInicial ?? null);
   const [mensagem,     setMensagem]     = useState("");
+
+  // A senha pode chegar (busca async) depois de o fotógrafo já ter aberto o template "link" —
+  // se ainda não estiver na mensagem, acrescenta assim que ela ficar disponível.
+  useEffect(() => {
+    if (templateId !== "link" || !senhaRevelacao) return;
+    setMensagem(prev => prev.includes(senhaRevelacao) ? prev : `${prev}\n\n🔑 Senha para pedir revelação: ${senhaRevelacao}`);
+  }, [senhaRevelacao, templateId]);
   const [assunto,      setAssunto]      = useState("");
   const [copiado,      setCopiado]      = useState(false);
   const [enviando,     setEnviando]     = useState(false);
@@ -256,7 +279,11 @@ export function ModalEmailCliente({ galeria, onFechar, templateInicial, onEstagi
       const prazoEfetivo = t.id === "renovacao" && galeria.expires_at && diasRestantes !== null && diasRestantes > 0
         ? `até ${new Date(galeria.expires_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric", timeZone: "America/Sao_Paulo" })}`
         : prazo;
-      setMensagem(substituirVars(customText ?? t.padrao, { ...vars, prazo: prazoEfetivo }));
+      let texto = substituirVars(customText ?? t.padrao, { ...vars, prazo: prazoEfetivo });
+      if (t.id === "link" && galeria.revelacao_ativa && senhaRevelacao) {
+        texto += `\n\n🔑 Senha para pedir revelação: ${senhaRevelacao}`;
+      }
+      setMensagem(texto);
       setAssunto(t.assunto.replace("{titulo}", galeria.titulo));
     }
     setTemplateId(t.id);
