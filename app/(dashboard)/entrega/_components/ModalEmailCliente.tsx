@@ -86,6 +86,18 @@ function substituirVars(texto: string, vars: TemplateVars & { prazo: string; dat
     .replace(/\{emailCliente\}/g, vars.emailCliente || "(não informado)");
 }
 
+// Insere a linha da senha logo após o parágrafo que contém o link — antes do encerramento
+// ("Qualquer dúvida...", "Atenciosamente...") — em vez de só grudar no fim da mensagem.
+function inserirSenhaAposLink(texto: string, link: string, senha: string): string {
+  const linhaSenha = `🔑 Senha para pedir revelação: ${senha}`;
+  if (texto.includes(linhaSenha)) return texto;
+  const partes = texto.split("\n\n");
+  const idxLink = partes.findIndex((p) => p.includes(link));
+  if (idxLink === -1) return `${texto}\n\n${linhaSenha}`;
+  partes.splice(idxLink + 1, 0, linhaSenha);
+  return partes.join("\n\n");
+}
+
 function formatarDataContato(iso: string | null): string {
   if (!iso) return "—";
   return new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
@@ -203,7 +215,8 @@ export function ModalEmailCliente({ galeria, onFechar, templateInicial, onEstagi
   // se ainda não estiver na mensagem, acrescenta assim que ela ficar disponível.
   useEffect(() => {
     if (templateId !== "link" || !senhaRevelacao) return;
-    setMensagem(prev => prev.includes(senhaRevelacao) ? prev : `${prev}\n\n🔑 Senha para pedir revelação: ${senhaRevelacao}`);
+    setMensagem(prev => inserirSenhaAposLink(prev, link, senhaRevelacao));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [senhaRevelacao, templateId]);
   const [assunto,      setAssunto]      = useState("");
   const [copiado,      setCopiado]      = useState(false);
@@ -281,7 +294,7 @@ export function ModalEmailCliente({ galeria, onFechar, templateInicial, onEstagi
         : prazo;
       let texto = substituirVars(customText ?? t.padrao, { ...vars, prazo: prazoEfetivo });
       if (t.id === "link" && galeria.revelacao_ativa && senhaRevelacao) {
-        texto += `\n\n🔑 Senha para pedir revelação: ${senhaRevelacao}`;
+        texto = inserirSenhaAposLink(texto, link, senhaRevelacao);
       }
       setMensagem(texto);
       setAssunto(t.assunto.replace("{titulo}", galeria.titulo));
