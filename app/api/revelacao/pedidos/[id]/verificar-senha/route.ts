@@ -1,6 +1,6 @@
 // Gate de senha do pedido de revelação — mesma senha_acesso usada em álbum/seleção. Nunca
-// devolve a senha no corpo; só confirma acerto/erro e libera o e-mail do cliente pra pré-preencher
-// o formulário de pagamento (o Fernando pediu isso especificamente).
+// devolve a senha no corpo; só confirma acerto/erro e libera nome/e-mail/CPF do cliente pra
+// pré-preencher o formulário de pagamento (o Fernando pediu isso especificamente).
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -22,10 +22,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const { data: pedido } = await admin.from("revelacao_pedidos").select("cliente_id").eq("id", id).maybeSingle();
   if (!pedido?.cliente_id) return NextResponse.json({ ok: false, erro: "Pedido não encontrado." }, { status: 404 });
 
-  const { data: cliente } = await admin.from("clientes").select("senha_acesso, email").eq("id", pedido.cliente_id).maybeSingle();
+  const { data: cliente } = await admin.from("clientes").select("senha_acesso, email, nome, cpf").eq("id", pedido.cliente_id).maybeSingle();
   if (!cliente?.senha_acesso || senha.trim() !== String(cliente.senha_acesso).trim()) {
     return NextResponse.json({ ok: false, erro: "Senha incorreta. Tente novamente." }, { status: 401 });
   }
 
-  return NextResponse.json({ ok: true, email: cliente.email ?? null });
+  return NextResponse.json({ ok: true, email: cliente.email ?? null, nome: cliente.nome ?? null, cpf: cliente.cpf ?? null });
 }

@@ -58,7 +58,7 @@ export default function RevelacaoListaPage() {
           {pedidos.map((p, i) => {
             const st = STATUS_MAP[p.status] ?? STATUS_MAP.aberto;
             return (
-              <div key={p.id} onClick={() => router.push(`/revelacao/${p.id}`)}
+              <div key={p.id} onClick={() => router.push(`/entrega/${p.galeria_entrega_id}`)}
                 style={{ display: "flex", alignItems: "center", gap: 12, padding: "13px 18px", borderBottom: i < pedidos.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", cursor: "pointer" }}
                 onMouseEnter={(e) => (e.currentTarget.style.background = "var(--color-background-secondary)")}
                 onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}

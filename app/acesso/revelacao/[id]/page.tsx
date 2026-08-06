@@ -66,6 +66,8 @@ function RevelacaoConteudo() {
       if (!json.ok) { setErroSenha(json.erro ?? "Senha incorreta. Tente novamente."); return; }
       setAutenticado(true);
       if (json.email) setPagadorEmail(json.email);
+      if (json.nome) setPagadorNome(json.nome);
+      if (json.cpf) setPagadorCpf(json.cpf);
     } catch {
       setErroSenha("Não foi possível verificar a senha. Verifique sua conexão.");
     } finally {
@@ -175,8 +177,16 @@ function RevelacaoConteudo() {
     setPasso("tamanho");
   };
 
+  const notificarFotografo = () => {
+    fetch(`/api/email/revelacao-selecao`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pedidoId: id }),
+    }).catch(() => {});
+  };
+
   const irParaResumo = () => {
     confirmarRodada();
+    notificarFotografo();
     setPasso("resumo");
   };
 
@@ -245,7 +255,7 @@ function RevelacaoConteudo() {
                     Faltam {faltamFotos} foto{faltamFotos !== 1 ? "s" : ""} para atingir o mínimo de {minimoFotos} do pedido.
                   </div>
                 )}
-                <button onClick={() => setPasso("resumo")} disabled={!podeFinalizar}
+                <button onClick={irParaResumo} disabled={!podeFinalizar}
                   style={{ padding: "12px 24px", borderRadius: 8, background: podeFinalizar ? "#111827" : "#D1D5DB", color: "#fff", border: "none", fontSize: 14, fontWeight: 700, cursor: podeFinalizar ? "pointer" : "not-allowed" }}>
                   Finalizar pedido →
                 </button>

@@ -8,10 +8,22 @@ import { fetchAllRows } from "@/lib/supabase/fetchAll";
 import { deleteFilesClient } from "@/lib/storage/deleteClient";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { ClienteLink } from "@/components/ui/ClienteLink";
-import type { GaleriaEntrega, GaleriaEntregaFoto, ContatoCategoria, Pagamento } from "@/lib/supabase/types";
+import type { GaleriaEntrega, GaleriaEntregaFoto, ContatoCategoria, Pagamento, RevelacaoPedido, RevelacaoPedidoItem } from "@/lib/supabase/types";
 import { ModalEnviarAcesso } from "../_components/ModalEnviarAcesso";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+type RevelacaoPedidoView = RevelacaoPedido & {
+  revelacao_pedido_itens: (RevelacaoPedidoItem & { crm_revelacao_tamanhos: { nome: string } | null })[];
+  gateway?: string | null;
+};
+
+const REV_STATUS_CONFIG: Record<string, { label: string; bg: string; color: string }> = {
+  aberto: { label: "Em andamento", bg: "rgba(107,114,128,0.08)", color: "#6B7280" },
+  aguardando_pagamento: { label: "Aguardando pagamento", bg: "rgba(245,158,11,0.1)", color: "#B45309" },
+  pago: { label: "Pago", bg: "rgba(16,185,129,0.1)", color: "#059669" },
+  cancelado: { label: "Cancelado", bg: "rgba(239,68,68,0.08)", color: "#DC2626" },
+};
 
 // ── Modal: salvar emails dos acessos em uma lista/categoria ──────────────────
 function VerificarPagamentoBtn({ galeriaId, onConfirmado }: { galeriaId: string; onConfirmado: () => void }) {
@@ -279,6 +291,10 @@ export default function EntregaDetailPage() {
   const [acessos,  setAcessos]  = useState<{ id: string; nome: string; email: string; acessado_em: string }[]>([]);
   const [funilInfo, setFunilInfo] = useState<{ estagio: string; resposta: string | null; respondido_em: string | null; respondido_nome: string | null; email_1_em: string | null; email_2_em: string | null; whatsapp_em: string | null; ignorar_funil: boolean } | null | undefined>(undefined);
   const [pagamentos, setPagamentos] = useState<Pick<Pagamento, "id" | "valor" | "status" | "paid_at" | "pagador_nome" | "pagador_email" | "dias_liberados" | "gateway">[]>([]);
+  const [revelacaoPedidos, setRevelacaoPedidos] = useState<RevelacaoPedidoView[]>([]);
+  const [confirmandoRevId, setConfirmandoRevId] = useState<string | null>(null);
+  const [msgRevId, setMsgRevId] = useState<{ id: string; texto: string; ok: boolean } | null>(null);
+  const [copiadoTam, setCopiadoTam] = useState<string | null>(null);
   const [loading,  setLoading]  = useState(true);
   const [copiado,  setCopiado]  = useState(false);
   const [modalLista, setModalLista] = useState(false);
@@ -318,16 +334,71 @@ export default function EntregaDetailPage() {
         .eq("tipo", "renovacao")
         .in("status", ["pago", "pendente"])
         .order("created_at", { ascending: false }),
-    ]).then(([{ data: g }, f, { data: a }, { data: funil }, { data: pags }]) => {
+      supabase.from("revelacao_pedidos")
+        .select("*, revelacao_pedido_itens(*, crm_revelacao_tamanhos(nome))")
+        .eq("galeria_entrega_id", id)
+        .eq("fotografo_id", fotografo.id)
+        .order("created_at", { ascending: false }),
+    ]).then(([{ data: g }, f, { data: a }, { data: funil }, { data: pags }, { data: revs }]) => {
       if (!g) { router.replace("/entrega"); return; }
       setGaleria(g);
       setFotos(f ?? []);
       setAcessos((a as any[]) ?? []);
       setFunilInfo(funil as any ?? null);
       setPagamentos((pags as any[]) ?? []);
+      const revsList = (revs as RevelacaoPedidoView[]) ?? [];
+      setRevelacaoPedidos(revsList);
       setLoading(false);
+
+      const pendentesIds = revsList.filter((r) => r.status === "aguardando_pagamento").map((r) => r.id);
+      if (pendentesIds.length > 0) {
+        supabase.from("pagamentos").select("revelacao_pedido_id, gateway")
+          .in("revelacao_pedido_id", pendentesIds)
+          .order("created_at", { ascending: false })
+          .then(({ data: pgs }) => {
+            setRevelacaoPedidos((prev) => prev.map((r) => {
+              const pg = (pgs as any[] ?? []).find((x) => x.revelacao_pedido_id === r.id);
+              return pg ? { ...r, gateway: pg.gateway } : r;
+            }));
+          });
+      }
     });
   }, [fotografo, id]);
+
+  async function verificarPagamentoRevelacao(pedidoId: string) {
+    setConfirmandoRevId(pedidoId);
+    setMsgRevId(null);
+    const res = await fetch(`/api/revelacao/pedidos/${pedidoId}/verificar-pagamento`, { method: "POST" });
+    const json = await res.json();
+    setConfirmandoRevId(null);
+    if (json.pago) {
+      setRevelacaoPedidos((prev) => prev.map((r) => r.id === pedidoId ? { ...r, status: "pago" } : r));
+      setMsgRevId({ id: pedidoId, texto: "Pagamento confirmado!", ok: true });
+    } else {
+      setMsgRevId({ id: pedidoId, texto: json.erro ?? json.mensagem ?? "Ainda não confirmado.", ok: false });
+    }
+  }
+
+  async function confirmarPixRevelacao(pedidoId: string) {
+    if (!confirm("Confirmar que este pagamento PIX caiu na sua conta?")) return;
+    setConfirmandoRevId(pedidoId);
+    setMsgRevId(null);
+    const res = await fetch(`/api/revelacao/pedidos/${pedidoId}/confirmar-pix-manual`, { method: "POST" });
+    const json = await res.json();
+    setConfirmandoRevId(null);
+    if (json.ok) {
+      setRevelacaoPedidos((prev) => prev.map((r) => r.id === pedidoId ? { ...r, status: "pago" } : r));
+      setMsgRevId({ id: pedidoId, texto: "Pagamento confirmado!", ok: true });
+    } else {
+      setMsgRevId({ id: pedidoId, texto: json.erro ?? "Erro ao confirmar.", ok: false });
+    }
+  }
+
+  function copiarListaRevelacao(chave: string, lista: string) {
+    navigator.clipboard.writeText(lista);
+    setCopiadoTam(chave);
+    setTimeout(() => setCopiadoTam(null), 2000);
+  }
 
   function toggleFotoSelecionada(fotoId: string) {
     setSelecionadas((prev) => {
@@ -503,6 +574,70 @@ export default function EntregaDetailPage() {
           </div>
         );
       })()}
+
+      {/* Revelação — pedidos ligados a esta galeria */}
+      {(g.revelacao_ativa || revelacaoPedidos.length > 0) && (
+        <div style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 10, padding: "14px 18px", marginBottom: 14 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "var(--color-text-primary)", marginBottom: revelacaoPedidos.length > 0 ? 12 : 0 }}>
+            📸 Revelação
+          </div>
+          {revelacaoPedidos.length === 0 ? (
+            <div style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>Nenhum pedido de revelação ainda.</div>
+          ) : (
+            revelacaoPedidos.map((rp, idx) => {
+              const cfg = REV_STATUS_CONFIG[rp.status] ?? REV_STATUS_CONFIG.aberto;
+              const porTamanho: Record<string, (RevelacaoPedidoItem & { crm_revelacao_tamanhos: { nome: string } | null })[]> = {};
+              for (const it of rp.revelacao_pedido_itens) (porTamanho[it.tamanho_id] ??= []).push(it);
+              return (
+                <div key={rp.id} style={{ paddingTop: idx > 0 ? 14 : 0, marginTop: idx > 0 ? 14 : 0, borderTop: idx > 0 ? "0.5px solid var(--color-border-tertiary)" : "none" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8, marginBottom: 8 }}>
+                    <div>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)" }}>{rp.pagador_nome ?? "Cliente"}</span>
+                      <span style={{ marginLeft: 8, padding: "2px 9px", borderRadius: 20, background: cfg.bg, color: cfg.color, fontSize: 11, fontWeight: 700 }}>{cfg.label}</span>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: "var(--color-text-primary)" }}>R$ {Number(rp.valor_total).toFixed(2).replace(".", ",")}</span>
+                      {rp.status === "aguardando_pagamento" && rp.gateway === "asaas" && (
+                        <button onClick={() => verificarPagamentoRevelacao(rp.id)} disabled={confirmandoRevId === rp.id}
+                          style={{ padding: "4px 10px", borderRadius: 6, border: "0.5px solid rgba(37,99,235,0.3)", background: "rgba(37,99,235,0.07)", color: "#2563EB", fontSize: 11, fontWeight: 600, cursor: confirmandoRevId === rp.id ? "default" : "pointer", whiteSpace: "nowrap" }}>
+                          {confirmandoRevId === rp.id ? "…" : "🔄 Verificar"}
+                        </button>
+                      )}
+                      {rp.status === "aguardando_pagamento" && rp.gateway === "pix_manual" && (
+                        <button onClick={() => confirmarPixRevelacao(rp.id)} disabled={confirmandoRevId === rp.id}
+                          style={{ padding: "4px 10px", borderRadius: 6, border: "0.5px solid rgba(16,185,129,0.4)", background: "rgba(16,185,129,0.12)", color: "#065F46", fontSize: 11, fontWeight: 600, cursor: confirmandoRevId === rp.id ? "default" : "pointer", whiteSpace: "nowrap" }}>
+                          {confirmandoRevId === rp.id ? "…" : "✓ Confirmar pagamento"}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  {msgRevId?.id === rp.id && (
+                    <div style={{ fontSize: 11, fontWeight: 600, color: msgRevId.ok ? "#059669" : "#B45309", marginBottom: 8 }}>{msgRevId.texto}</div>
+                  )}
+                  {Object.entries(porTamanho).map(([tid, arr]) => {
+                    const nomeTamanho = arr[0]?.crm_revelacao_tamanhos?.nome ?? "Tamanho";
+                    const lista = arr.map((a) => a.nome_arquivo).join(", ");
+                    const chave = `${rp.id}:${tid}`;
+                    return (
+                      <div key={tid} style={{ border: "0.5px solid var(--color-border-tertiary)", borderRadius: 8, padding: "10px 12px", marginBottom: 8 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                          <div style={{ fontSize: 12, fontWeight: 700, color: "var(--color-text-primary)" }}>{nomeTamanho} <span style={{ color: "var(--color-text-secondary)", fontWeight: 400 }}>({arr.length} fotos)</span></div>
+                          <button onClick={() => copiarListaRevelacao(chave, lista)}
+                            style={{ padding: "4px 10px", borderRadius: 6, background: copiadoTam === chave ? "rgba(5,150,105,0.1)" : "var(--color-background-secondary)", border: "0.5px solid var(--color-border-secondary)", color: copiadoTam === chave ? "#059669" : "var(--color-text-secondary)", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
+                            {copiadoTam === chave ? "✓ Copiado" : "📋 Copiar lista"}
+                          </button>
+                        </div>
+                        <textarea readOnly value={lista} rows={2} onClick={(e) => (e.target as HTMLTextAreaElement).select()}
+                          style={{ width: "100%", fontSize: 11, fontFamily: "var(--font-mono)", padding: "6px 8px", borderRadius: 6, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-secondary)", color: "var(--color-text-primary)", resize: "vertical", boxSizing: "border-box" }} />
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })
+          )}
+        </div>
+      )}
 
       {/* Funil de Campanha — adicionar quando não há registro */}
       {funilInfo === null && (

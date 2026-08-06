@@ -260,6 +260,39 @@ export function templateAlbumRevisao(p: AlbumRevisaoParams): { subject: string; 
   };
 }
 
+// ─── 3c. Pedido de revelação: cliente finalizou a seleção → fotógrafo ────────
+export type RevelacaoSelecaoParams = {
+  fotografoNome:  string;
+  clienteNome:    string;
+  galeriaTitulo:  string;
+  totalFotos:     number;
+  valorTotal:     number;
+  galeriaAdminUrl: string;
+};
+
+export function templateRevelacaoSelecao(p: RevelacaoSelecaoParams): { subject: string; html: string } {
+  const valorFmt = p.valorTotal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  return {
+    subject: `${p.clienteNome} pediu revelação de fotos — ${p.galeriaTitulo}`,
+    html: base(`
+      <h2 style="margin:0 0 8px; font-size:20px; color:#111; letter-spacing:-0.02em;">Pedido de revelação 🖨️</h2>
+      <p style="color:#555; font-size:14px; line-height:1.6; margin:0 0 20px;">
+        Olá, <strong>${esc(p.fotografoNome)}</strong>! Seu cliente selecionou as fotos que quer revelar.
+      </p>
+      <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; padding:16px 20px; margin-bottom:20px;">
+        <p style="margin:0 0 6px; font-size:14px; color:#333;">📷 Galeria: <strong>${esc(p.galeriaTitulo)}</strong></p>
+        <p style="margin:0 0 6px; font-size:14px; color:#333;">👤 Cliente: <strong>${esc(p.clienteNome)}</strong></p>
+        <p style="margin:0 0 6px; font-size:14px; color:#333;">🖼 ${p.totalFotos} foto${p.totalFotos !== 1 ? "s" : ""} selecionada${p.totalFotos !== 1 ? "s" : ""}</p>
+        <p style="margin:0; font-size:14px; color:#059669; font-weight:700;">💰 Total: ${valorFmt}</p>
+      </div>
+      <a href="${p.galeriaAdminUrl}" style="${BTN_STYLE("#059669")}">Ver galeria →</a>
+      <p style="font-size:12px; color:#aaa; margin:12px 0 0;">
+        Se o botão não funcionar: <a href="${p.galeriaAdminUrl}" style="color:#2563EB;">${esc(p.galeriaAdminUrl)}</a>
+      </p>
+    `),
+  };
+}
+
 // ─── 4. Campanha de reativação → cliente ─────────────────────────────────────
 export type CampanhaReativacaoParams = {
   clienteNome:      string;
