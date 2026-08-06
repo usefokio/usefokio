@@ -191,10 +191,11 @@ export type GaleriaEntrega = {
 
 export type Pagamento = {
   id: string;
-  tipo: "renovacao" | "doacao";
+  tipo: "renovacao" | "doacao" | "revelacao";
   galeria_id: string | null;
   fotografo_id: string | null;
   doador_fotografo_id: string | null;
+  revelacao_pedido_id: string | null;
   asaas_payment_id: string | null;
   gateway: string | null;
   valor: number;
@@ -206,6 +207,41 @@ export type Pagamento = {
   doacao_sugerida: boolean;
   created_at: string;
   paid_at: string | null;
+};
+
+// ── Pedido de revelação (impressão física) — fotos da galeria de Entrega, escolhidas por
+// tamanho (com preço configurável), num único pedido com várias "cestas" por tamanho.
+export type CrmRevelacaoTamanho = {
+  id: string;
+  fotografo_id: string;
+  nome: string;
+  valor: number;
+  ativo: boolean;
+  ordem: number;
+  created_at: string;
+};
+
+export type RevelacaoPedido = {
+  id: string;
+  fotografo_id: string;
+  galeria_entrega_id: string;
+  cliente_id: string | null;
+  status: "aberto" | "aguardando_pagamento" | "pago" | "cancelado";
+  valor_total: number;
+  pagador_nome: string | null;
+  pagador_email: string | null;
+  created_at: string;
+  finalizado_em: string | null;
+};
+
+export type RevelacaoPedidoItem = {
+  id: string;
+  pedido_id: string;
+  tamanho_id: string;
+  foto_id: string;
+  nome_arquivo: string;
+  valor_unit: number;
+  created_at: string;
 };
 
 export type WebmasterConfig = {

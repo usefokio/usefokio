@@ -54,6 +54,16 @@ const USEFOKIO_ITEMS = [
     ),
   },
   {
+    href: "/revelacao",
+    label: "Revelação",
+    icon: (
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+        <rect x="2" y="3" width="9" height="10" rx="1.3" stroke="currentColor" strokeWidth="1.3" fill="none" opacity=".8" />
+        <path d="M11 6l3-1.5v9L11 12" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" fill="none" opacity=".5" />
+      </svg>
+    ),
+  },
+  {
     href: "/album",
     label: "Álbuns",
     icon: (
@@ -505,7 +515,7 @@ export function Sidebar({ isMobile = false, mobileAberta = false, onFechar }: Si
       <nav style={{ padding: (isMobile || !collapsed) ? 8 : "8px 6px", flex: 1, overflowY: "auto" }}>
         {(() => {
           const recursosPorRota: Record<string, keyof NonNullable<typeof fotografo>["recursos"]> = {
-            "/selecao": "selecao", "/entrega": "entrega", "/album": "album", "/contatos": "contatos",
+            "/selecao": "selecao", "/entrega": "entrega", "/revelacao": "entrega", "/album": "album", "/contatos": "contatos",
             "/recebimentos": "pagamentos",
           };
 

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { confirmarRenovacaoPaga } from "@/lib/pagamentos/confirmar";
+import { confirmarRenovacaoPaga, confirmarRevelacaoPaga } from "@/lib/pagamentos/confirmar";
 import { compararSegredo } from "@/lib/seguranca";
 
 // Health-check: alguns validadores do Asaas checam a URL via GET. Responde 200.
@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
 
     const { data: pagamento } = await admin
       .from("pagamentos")
-      .select("id, galeria_id, dias_liberados, status")
+      .select("id, tipo, galeria_id, dias_liberados, revelacao_pedido_id, status")
       .eq("asaas_payment_id", asaasPaymentId)
       .eq("status", "pendente")
       .maybeSingle();
@@ -59,11 +59,18 @@ export async function POST(request: NextRequest) {
 
     if (!isPaid) return NextResponse.json({ ok: true });
 
-    await confirmarRenovacaoPaga(admin, {
-      id: pagamento.id,
-      galeria_id: pagamento.galeria_id,
-      dias_liberados: pagamento.dias_liberados,
-    });
+    if (pagamento.tipo === "revelacao") {
+      await confirmarRevelacaoPaga(admin, {
+        id: pagamento.id,
+        revelacao_pedido_id: pagamento.revelacao_pedido_id,
+      });
+    } else {
+      await confirmarRenovacaoPaga(admin, {
+        id: pagamento.id,
+        galeria_id: pagamento.galeria_id,
+        dias_liberados: pagamento.dias_liberados,
+      });
+    }
 
     return NextResponse.json({ ok: true });
   } catch (err) {
