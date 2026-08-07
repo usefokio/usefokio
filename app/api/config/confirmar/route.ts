@@ -76,11 +76,12 @@ export async function POST(req: NextRequest) {
       console.error("[confirmar] Falha ao registrar webhook:", e);
     }
   } else if (conf.action === "pix_key") {
-    const { pix_chave, pix_tipo, pix_ativo } = payload;
+    const { pix_chave, pix_tipo, pix_ativo, revelacao_pix_manual } = payload;
     const { error } = await admin.from("fotografos").update({
       pix_chave: (pix_chave as string) || null,
       pix_tipo:  (pix_tipo as string) || null,
       pix_ativo: Boolean(pix_ativo),
+      revelacao_pix_manual: Boolean(revelacao_pix_manual),
     }).eq("id", fotografoId);
     if (error) return NextResponse.json({ erro: error.message }, { status: 500 });
   }
