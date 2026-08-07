@@ -5,7 +5,8 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { uploadFileClient } from "@/lib/storage/uploadClient";
-import { PLANOS, pctUso, corBarra, limiteEfetivo, formatarBytes, type PlanoId } from "@/lib/planos";
+import { PLANOS, corBarra, limiteEfetivo, formatarBytes, type PlanoId } from "@/lib/planos";
+import { useUsoPlano } from "@/lib/hooks/useUsoPlano";
 import type { Categoria } from "@/lib/supabase/types";
 import { inputStyle } from "@/lib/styles";
 import { mascaraMoeda, parseMoeda, formatarMoeda } from "@/lib/moeda";
@@ -1163,25 +1164,18 @@ function IdentidadeVisual() {
 // ── Card de plano ─────────────────────────────────────────────────────────────
 function CardPlano() {
   const { fotografo } = useFotografo();
-  // Uso de ARMAZENAMENTO (bytes + limite em GB) — planos por espaço; valores do banco.
-  const [usoStorage, setUsoStorage] = useState<{ bytes_usados: number; limite_gb: number | null } | null>(null);
-  useEffect(() => {
-    if (!fotografo) return;
-    fetch("/api/conta/uso")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((j) => { if (j && typeof j.bytes_usados === "number") setUsoStorage({ bytes_usados: j.bytes_usados, limite_gb: j.limite_gb ?? null }); })
-      .catch(() => {});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fotografo?.id]);
+  // Uso real (fotos + armazenamento) — sempre via /api/conta/uso (planos_config + override do
+  // fotógrafo, vale o maior dos dois), nunca o objeto PLANOS fixo sozinho.
+  const usoPlano = useUsoPlano();
   if (!fotografo) return null;
   const plano  = PLANOS[fotografo.plano as PlanoId] ?? PLANOS.gratuito;
-  const usadas = fotografo.total_fotos_usadas ?? 0;
-  const limite = limiteEfetivo(plano, fotografo.limite_fotos_custom);
-  const pct    = pctUso(usadas, plano, fotografo.limite_fotos_custom);
+  const usadas = usoPlano ? usoPlano.fotos_usadas : (fotografo.total_fotos_usadas ?? 0);
+  const limite = usoPlano ? usoPlano.limite_fotos : limiteEfetivo(plano, fotografo.limite_fotos_custom);
+  const pct    = limite !== null ? Math.min(100, Math.round((usadas / limite) * 100)) : null;
   const bc     = pct !== null ? corBarra(pct) : "#2563EB";
-  const limiteGb = usoStorage?.limite_gb ?? null;
-  const pctS = usoStorage && limiteGb !== null
-    ? Math.min(100, Math.round((usoStorage.bytes_usados / (limiteGb * 1024 ** 3)) * 100))
+  const limiteGb = usoPlano?.limite_gb ?? null;
+  const pctS = usoPlano && limiteGb !== null
+    ? Math.min(100, Math.round((usoPlano.bytes_usados / (limiteGb * 1024 ** 3)) * 100))
     : null;
   const bcS = pctS !== null ? corBarra(pctS) : "#2563EB";
 
@@ -1229,12 +1223,12 @@ function CardPlano() {
         )}
 
         {/* Uso de armazenamento (GB) — some se o plano não tem limite de espaço */}
-        {usoStorage && pctS !== null && (
+        {usoPlano && pctS !== null && (
           <div style={{ marginTop: 12 }}>
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6, fontSize: 12 }}>
               <span style={{ color: "var(--color-text-secondary)" }}>Armazenamento</span>
               <span style={{ fontWeight: 600, color: pctS >= 80 ? bcS : "var(--color-text-primary)" }}>
-                {formatarBytes(usoStorage.bytes_usados)} / {limiteGb} GB
+                {formatarBytes(usoPlano.bytes_usados)} / {limiteGb} GB
               </span>
             </div>
             <div style={{ height: 6, background: "rgba(0,0,0,0.08)", borderRadius: 3, overflow: "hidden" }}>

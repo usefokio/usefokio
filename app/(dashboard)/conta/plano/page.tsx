@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { PLANOS, corBarra, limiteEfetivo, formatarBytes, type PlanoId } from "@/lib/planos";
+import { useUsoPlano } from "@/lib/hooks/useUsoPlano";
 
 type UsoPorRecurso = {
   selecao: number;
@@ -208,16 +209,7 @@ export default function PlanoPage() {
   const [planoExpiraEm,    setPlanoExpiraEm]    = useState<string | null>(null);
   // Uso de fotos e ARMAZENAMENTO (bytes + limite em GB) — vem de /api/conta/uso, que já lê
   // planos_config do banco (mesma fonte usada pela rota de upload pra aplicar o limite de verdade).
-  const [usoStorage,       setUsoStorage]       = useState<{ bytes_usados: number; limite_gb: number | null; fotos_usadas: number; limite_fotos: number | null } | null>(null);
-
-  useEffect(() => {
-    if (!fotografo) return;
-    fetch("/api/conta/uso")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((j) => { if (j && typeof j.bytes_usados === "number") setUsoStorage({ bytes_usados: j.bytes_usados, limite_gb: j.limite_gb ?? null, fotos_usadas: j.fotos_usadas ?? 0, limite_fotos: j.limite_fotos ?? null }); })
-      .catch(() => {});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fotografo?.id]);
+  const usoStorage = useUsoPlano();
   const [modalCheckout,    setModalCheckout]    = useState(false);
   const [planosDB,         setPlanosDB]         = useState<PlanoPublico[]>([]);
   const [planoSelecionado, setPlanoSelecionado] = useState<{ id?: string; nome: string; preco: number; periodo?: "mensal" | "anual" } | null>(null);
