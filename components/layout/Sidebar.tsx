@@ -6,7 +6,8 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Avatar } from "@/components/ui/Avatar";
 import { useFotografo } from "@/lib/context/FotografoContext";
-import { PLANOS, pctUso, corBarra, limiteEfetivo, formatarBytes, type PlanoId } from "@/lib/planos";
+import { PLANOS, corBarra, limiteEfetivo, formatarBytes, type PlanoId } from "@/lib/planos";
+import { useUsoPlano } from "@/lib/hooks/useUsoPlano";
 import { temProdutoFotografia, temProdutoCRM, temProdutoSite } from "@/lib/recursos";
 
 const USEFOKIO_ITEMS = [
@@ -354,17 +355,9 @@ export function Sidebar({ isMobile = false, mobileAberta = false, onFechar }: Si
   const [crmOpen,      setCrmOpen]      = useState(true);
   const [siteOpen,     setSiteOpen]     = useState(true);
   const [resetando, setResetando]       = useState(false);
-  // Uso de ARMAZENAMENTO (bytes + limite em GB) — planos por espaço; valores vêm do banco.
-  const [usoStorage, setUsoStorage] = useState<{ bytes_usados: number; limite_gb: number | null } | null>(null);
-
-  useEffect(() => {
-    if (!fotografo) return;
-    fetch("/api/conta/uso")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((j) => { if (j && typeof j.bytes_usados === "number") setUsoStorage({ bytes_usados: j.bytes_usados, limite_gb: j.limite_gb ?? null }); })
-      .catch(() => {});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fotografo?.id]);
+  // Uso real (fotos + armazenamento) — sempre via /api/conta/uso (planos_config + override do
+  // fotógrafo, vale o maior dos dois), nunca o objeto PLANOS fixo sozinho.
+  const usoPlano = useUsoPlano();
 
   // Persistência do aberto/minimizado dos módulos-mãe entre refreshes.
   // Lido em efeito (não no initializer) para não causar hydration mismatch.
@@ -699,9 +692,9 @@ export function Sidebar({ isMobile = false, mobileAberta = false, onFechar }: Si
         {/* Barra de uso — oculta quando recolhida */}
         {!collapsed && fotografo && (() => {
           const plano = PLANOS[fotografo.plano as PlanoId] ?? PLANOS.gratuito;
-          const usadas = fotografo.total_fotos_usadas ?? 0;
-          const limite = limiteEfetivo(plano, fotografo.limite_fotos_custom);
-          const pct    = pctUso(usadas, plano, fotografo.limite_fotos_custom);
+          const usadas = usoPlano ? usoPlano.fotos_usadas : (fotografo.total_fotos_usadas ?? 0);
+          const limite = usoPlano ? usoPlano.limite_fotos : limiteEfetivo(plano, fotografo.limite_fotos_custom);
+          const pct    = limite !== null ? Math.min(100, Math.round((usadas / limite) * 100)) : null;
           if (pct === null || limite === null) return null;
           const bc = corBarra(pct);
           return (
@@ -727,16 +720,16 @@ export function Sidebar({ isMobile = false, mobileAberta = false, onFechar }: Si
         })()}
 
         {/* Barra de ARMAZENAMENTO (GB) — planos por espaço; some se ilimitado */}
-        {!collapsed && fotografo && usoStorage && usoStorage.limite_gb !== null && (() => {
-          const limiteBytes = usoStorage.limite_gb! * 1024 ** 3;
-          const pctS = Math.min(100, Math.round((usoStorage.bytes_usados / limiteBytes) * 100));
+        {!collapsed && fotografo && usoPlano && usoPlano.limite_gb !== null && (() => {
+          const limiteBytes = usoPlano.limite_gb! * 1024 ** 3;
+          const pctS = Math.min(100, Math.round((usoPlano.bytes_usados / limiteBytes) * 100));
           const bcS = corBarra(pctS);
           return (
             <Link href="/conta/plano" style={{ display: "block", padding: "8px 13px 0", textDecoration: "none" }}>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
                 <span style={{ fontSize: 10, color: "var(--color-text-secondary)", fontWeight: 500 }}>Espaço</span>
                 <span style={{ fontSize: 10, color: pctS >= 80 ? bcS : "var(--color-text-secondary)", fontWeight: 600 }}>
-                  {formatarBytes(usoStorage.bytes_usados)} / {usoStorage.limite_gb} GB
+                  {formatarBytes(usoPlano.bytes_usados)} / {usoPlano.limite_gb} GB
                 </span>
               </div>
               <div style={{ height: 4, background: "var(--color-background-secondary)", borderRadius: 2, overflow: "hidden" }}>
