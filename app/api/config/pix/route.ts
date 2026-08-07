@@ -2,12 +2,18 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { fotografoIdAtual } from "@/lib/auth/fotografoAtual";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { validarChavePix } from "@/lib/pix/validarChave";
 
 export async function POST(req: NextRequest) {
   const fotografoId = await fotografoIdAtual();
   if (!fotografoId) return NextResponse.json({ erro: "Não autenticado." }, { status: 401 });
 
   const { pix_chave, pix_tipo, pix_ativo, revelacao_pix_manual } = await req.json().catch(() => ({}));
+
+  if (pix_chave?.trim()) {
+    const erroChave = validarChavePix(pix_tipo || "aleatoria", pix_chave);
+    if (erroChave) return NextResponse.json({ erro: erroChave }, { status: 400 });
+  }
 
   const admin = createAdminClient();
   const { error } = await admin.from("fotografos").update({

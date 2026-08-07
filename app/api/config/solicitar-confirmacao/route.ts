@@ -6,6 +6,7 @@ import { fotografoIdAtual } from "@/lib/auth/fotografoAtual";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { encryptKey, decryptKey, validarKey, type AsaasAmbiente } from "@/lib/asaas";
 import { getResend, FROM_DEFAULT } from "@/lib/email/resend";
+import { validarChavePix } from "@/lib/pix/validarChave";
 
 function sha256(text: string) {
   return crypto.createHash("sha256").update(text).digest("hex");
@@ -89,11 +90,14 @@ export async function POST(req: NextRequest) {
     }
     payload = { apiKey_enc: encryptKey(apiKey), ambiente };
   } else {
-    const { pix_chave, pix_tipo, pix_ativo } = body;
-    if (!pix_chave?.trim()) {
-      return NextResponse.json({ erro: "Chave PIX não pode ser vazia." }, { status: 400 });
-    }
-    payload = { pix_chave: pix_chave.trim(), pix_tipo: pix_tipo ?? "aleatoria", pix_ativo: Boolean(pix_ativo) };
+    const { pix_chave, pix_tipo, pix_ativo, revelacao_pix_manual } = body;
+    const tipo = pix_tipo ?? "aleatoria";
+    const erroChave = validarChavePix(tipo, pix_chave ?? "");
+    if (erroChave) return NextResponse.json({ erro: erroChave }, { status: 400 });
+    payload = {
+      pix_chave: pix_chave.trim(), pix_tipo: tipo,
+      pix_ativo: Boolean(pix_ativo), revelacao_pix_manual: Boolean(revelacao_pix_manual),
+    };
   }
 
   // Gerar código OTP de 6 dígitos

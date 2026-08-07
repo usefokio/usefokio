@@ -11,6 +11,7 @@ import type { Categoria } from "@/lib/supabase/types";
 import { inputStyle } from "@/lib/styles";
 import { mascaraMoeda, parseMoeda, formatarMoeda } from "@/lib/moeda";
 import { aplicarMarcaDagua } from "@/lib/imageResize";
+import { validarChavePix } from "@/lib/pix/validarChave";
 
 type Tab = "categorias" | "identidade" | "pagamentos" | "seguranca" | "mensagens" | "email";
 
@@ -586,8 +587,12 @@ function ConfigPagamentos() {
   }
 
   async function salvarPix() {
-    setPixSalvando(true);
     setPixMsg(null);
+    if (pixAtivo || revelacaoPixManual) {
+      const erroChave = validarChavePix(pixTipo, pixChave);
+      if (erroChave) { setPixMsg({ tipo: "erro", texto: erroChave }); return; }
+    }
+    setPixSalvando(true);
     // Desativar (nos dois usos) não exige confirmação; em dev também salvamos direto (não há email
     // real para o OTP — a confirmação por email protege contas reais apenas em produção).
     if (!(pixAtivo || revelacaoPixManual) || process.env.NODE_ENV === "development") {
