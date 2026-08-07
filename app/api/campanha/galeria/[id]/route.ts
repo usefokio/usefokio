@@ -50,12 +50,12 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   const fotografoId = await fotografoIdDaRequisicao(admin, id);
   if (!fotografoId) return NextResponse.json({ erro: "Não autenticado." }, { status: 401 });
 
-  // Marca como ignorado em vez de deletar — impede que a auto-inscrição reinscreva a galeria
+  // Marca como ignorado em vez de deletar — impede que a auto-inscrição reinscreva a galeria.
+  // upsert (não update): cobre tanto remover uma galeria já no funil quanto marcar de antemão
+  // uma galeria que nunca teve registro (ex.: "Apenas suspender", sem passar pelo funil).
   const { error } = await admin
     .from("respostas_campanha")
-    .update({ ignorar_funil: true })
-    .eq("galeria_id", id)
-    .eq("fotografo_id", fotografoId);
+    .upsert({ galeria_id: id, fotografo_id: fotografoId, ignorar_funil: true }, { onConflict: "galeria_id" });
 
   if (error) return NextResponse.json({ erro: error.message }, { status: 500 });
   return NextResponse.json({ ok: true });
