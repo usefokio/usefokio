@@ -31,13 +31,18 @@ export async function POST(request: Request) {
 
     if (!marcado) return NextResponse.json({ skipped: true, reason: "Já notificado ou pedido não está aberto" });
 
-    const [{ data: fotografo }, { data: galeria }, { count: totalFotos }] = await Promise.all([
+    const [{ data: fotografo }, { data: galeria }, { data: itens }] = await Promise.all([
       admin.from("fotografos").select("nome_completo, email").eq("id", marcado.fotografo_id).single(),
       admin.from("galerias_entrega").select("titulo").eq("id", marcado.galeria_entrega_id).single(),
-      admin.from("revelacao_pedido_itens").select("id", { count: "exact", head: true }).eq("pedido_id", pedidoId),
+      admin.from("revelacao_pedido_itens").select("valor_unit").eq("pedido_id", pedidoId),
     ]);
 
     if (!fotografo?.email) return NextResponse.json({ skipped: true, reason: "Fotógrafo sem email" });
+
+    // valor_total do pedido só é calculado no fechamento (finalizar) -- aqui (seleção ainda em
+    // andamento) precisa somar os itens direto, senão o email sai sempre com R$0,00.
+    const totalFotos = itens?.length ?? 0;
+    const valorTotal = (itens ?? []).reduce((s, i) => s + Number(i.valor_unit), 0);
 
     let clienteNome = "Seu cliente";
     if (marcado.cliente_id) {
@@ -49,8 +54,8 @@ export async function POST(request: Request) {
       fotografoNome: fotografo.nome_completo,
       clienteNome,
       galeriaTitulo: galeria?.titulo ?? "Galeria",
-      totalFotos: totalFotos ?? 0,
-      valorTotal: Number(marcado.valor_total),
+      totalFotos,
+      valorTotal,
       galeriaAdminUrl: `${APP_URL}/entrega/${marcado.galeria_entrega_id}`,
     });
 
