@@ -45,6 +45,7 @@ export type Fotografo = {
   pix_chave: string | null;
   pix_tipo: string | null;
   pix_ativo: boolean;
+  revelacao_pix_manual: boolean;
   mp_api_key_enc: string | null;
   mp_ativo: boolean;
   abacate_api_key_enc: string | null;
