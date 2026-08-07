@@ -43,6 +43,7 @@ export function FotografoProvider({ children }: { children: ReactNode }) {
         templates_mensagem: null, asaas_api_key_enc: null,
         asaas_ambiente: "sandbox", asaas_ativo: false,
         pix_chave: null, pix_tipo: null, pix_ativo: false,
+        revelacao_pix_manual: false,
         mp_api_key_enc: null, mp_ativo: false,
         abacate_api_key_enc: null, abacate_ativo: false,
         smtp_host: null, smtp_port: null, smtp_user: null, smtp_from: null, smtp_ativo: false,

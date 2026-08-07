@@ -503,6 +503,7 @@ function ConfigPagamentos() {
   const [pixChave,    setPixChave]    = useState(fotografo?.pix_chave ?? "");
   const [pixTipo,     setPixTipo]     = useState(fotografo?.pix_tipo ?? "aleatoria");
   const [pixAtivo,    setPixAtivo]    = useState(fotografo?.pix_ativo ?? false);
+  const [revelacaoPixManual, setRevelacaoPixManual] = useState(fotografo?.revelacao_pix_manual ?? false);
   const [pixSalvando, setPixSalvando] = useState(false);
   const [pixMsg,      setPixMsg]      = useState<{ tipo: "ok" | "erro"; texto: string } | null>(null);
 
@@ -522,6 +523,7 @@ function ConfigPagamentos() {
       setPixChave(fotografo.pix_chave ?? "");
       setPixTipo(fotografo.pix_tipo ?? "aleatoria");
       setPixAtivo(fotografo.pix_ativo ?? false);
+      setRevelacaoPixManual(fotografo.revelacao_pix_manual ?? false);
     }
   }, [fotografo]);
 
@@ -573,7 +575,7 @@ function ConfigPagamentos() {
     setConfirmCode("");
     const payload = confirmModal.action === "asaas_key"
       ? { apiKey: apiKey.trim(), ambiente }
-      : { pix_chave: pixChave, pix_tipo: pixTipo, pix_ativo: pixAtivo };
+      : { pix_chave: pixChave, pix_tipo: pixTipo, pix_ativo: pixAtivo, revelacao_pix_manual: revelacaoPixManual };
     const result = await solicitarConfirmacao(confirmModal.action, payload);
     if ("erro" in result) {
       if (result.erro === "aguarde_reenvio") setConfirmErro("Aguarde 1 minuto antes de reenviar.");
@@ -586,22 +588,22 @@ function ConfigPagamentos() {
   async function salvarPix() {
     setPixSalvando(true);
     setPixMsg(null);
-    // Desativar não exige confirmação; em dev também salvamos direto (não há email real para o OTP —
-    // a confirmação por email protege contas reais apenas em produção).
-    if (!pixAtivo || process.env.NODE_ENV === "development") {
+    // Desativar (nos dois usos) não exige confirmação; em dev também salvamos direto (não há email
+    // real para o OTP — a confirmação por email protege contas reais apenas em produção).
+    if (!(pixAtivo || revelacaoPixManual) || process.env.NODE_ENV === "development") {
       const res = await fetch("/api/config/pix", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pix_chave: pixChave, pix_tipo: pixTipo, pix_ativo: pixAtivo }),
+        body: JSON.stringify({ pix_chave: pixChave, pix_tipo: pixTipo, pix_ativo: pixAtivo, revelacao_pix_manual: revelacaoPixManual }),
       });
       const json = await res.json();
       setPixSalvando(false);
-      if (json.ok) { setPixMsg({ tipo: "ok", texto: pixAtivo ? "Configuração PIX salva!" : "PIX desativado." }); await reload(); }
+      if (json.ok) { setPixMsg({ tipo: "ok", texto: (pixAtivo || revelacaoPixManual) ? "Configuração PIX salva!" : "PIX desativado." }); await reload(); }
       else setPixMsg({ tipo: "erro", texto: json.erro ?? "Erro ao salvar." });
       return;
     }
-    // Ativar ou alterar chave PIX requer confirmação por email (produção)
-    const result = await solicitarConfirmacao("pix_key", { pix_chave: pixChave, pix_tipo: pixTipo, pix_ativo: true });
+    // Ativar ou alterar chave PIX (renovação ou revelação) requer confirmação por email (produção)
+    const result = await solicitarConfirmacao("pix_key", { pix_chave: pixChave, pix_tipo: pixTipo, pix_ativo: pixAtivo, revelacao_pix_manual: revelacaoPixManual });
     setPixSalvando(false);
     if ("erro" in result) { setPixMsg({ tipo: "erro", texto: result.erro ?? "Erro." }); return; }
     setConfirmCode("");
@@ -730,13 +732,23 @@ function ConfigPagamentos() {
         <p style={{ fontSize: 13, color: "var(--color-text-secondary)", margin: "0 0 16px", lineHeight: 1.6 }}>
           O cliente recebe sua chave PIX e paga diretamente para você. Zero taxas de gateway. Confirmação manual no painel.
         </p>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
           <label style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)", cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }}>
             <input type="checkbox" checked={pixAtivo} onChange={(e) => setPixAtivo(e.target.checked)} style={{ width: 16, height: 16, cursor: "pointer" }} />
-            Ativar PIX manual
+            Ativar PIX manual (renovação de acesso)
           </label>
         </div>
-        {pixAtivo && (
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+          <label style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)", cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }}>
+            <input type="checkbox" checked={revelacaoPixManual} onChange={(e) => setRevelacaoPixManual(e.target.checked)} style={{ width: 16, height: 16, cursor: "pointer" }} />
+            Usar PIX manual para pedidos de Revelação
+          </label>
+        </div>
+        <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: "-4px 0 14px", lineHeight: 1.5 }}>
+          Independente da opção acima — a renovação de acesso continua pelo Asaas. Marque só esta se
+          quiser que os pedidos de revelação (impressão física) sejam pagos via PIX direto pra sua conta.
+        </p>
+        {(pixAtivo || revelacaoPixManual) && (
           <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 14 }}>
             <div>
               <label style={{ fontSize: 12, fontWeight: 600, color: "var(--color-text-secondary)", display: "block", marginBottom: 5 }}>Tipo de chave</label>
@@ -752,6 +764,11 @@ function ConfigPagamentos() {
               <label style={{ fontSize: 12, fontWeight: 600, color: "var(--color-text-secondary)", display: "block", marginBottom: 5 }}>Chave PIX</label>
               <input value={pixChave} onChange={(e) => setPixChave(e.target.value)} placeholder="Cole sua chave PIX aqui" style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} />
             </div>
+            {revelacaoPixManual && !pixChave.trim() && (
+              <div style={{ fontSize: 12, color: "#B45309", background: "rgba(217,119,6,0.08)", border: "0.5px solid rgba(217,119,6,0.3)", borderRadius: 8, padding: "8px 12px" }}>
+                Preencha a chave PIX acima para os pedidos de revelação poderem ser fechados.
+              </div>
+            )}
           </div>
         )}
         {pixMsg && (

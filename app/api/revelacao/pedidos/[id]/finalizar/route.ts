@@ -70,7 +70,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   const { data: galeria } = await admin.from("galerias_entrega").select("titulo").eq("id", pedido.galeria_entrega_id).maybeSingle();
   const { data: fotografo } = await admin.from("fotografos")
-    .select("id, nome_empresa, nome_completo, cidade, email, asaas_api_key_enc, asaas_ambiente, asaas_ativo, pix_ativo, pix_chave, pix_tipo, revelacao_minimo_fotos, smtp_host, smtp_port, smtp_user, smtp_pass_enc, smtp_from")
+    .select("id, nome_empresa, nome_completo, cidade, email, asaas_api_key_enc, asaas_ambiente, asaas_ativo, pix_ativo, pix_chave, pix_tipo, revelacao_pix_manual, revelacao_minimo_fotos, smtp_host, smtp_port, smtp_user, smtp_pass_enc, smtp_from")
     .eq("id", pedido.fotografo_id).maybeSingle();
 
   const minimo = fotografo?.revelacao_minimo_fotos ?? null;
@@ -78,9 +78,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     return NextResponse.json({ erro: `Este pedido precisa de pelo menos ${minimo} fotos para ser finalizado (tem ${itens.length}).` }, { status: 400 });
   }
 
-  const gateway =
-    fotografo?.pix_ativo && fotografo.pix_chave ? "pix_manual" :
-    fotografo?.asaas_ativo && fotografo.asaas_api_key_enc ? "asaas" : null;
+  // Preferência independente da renovação: se ligada, revelação força PIX manual (mesma chave PIX),
+  // sem depender de pix_ativo (que continua controlando só a renovação de galeria).
+  const gateway = fotografo?.revelacao_pix_manual
+    ? (fotografo.pix_chave ? "pix_manual" : null)
+    : (fotografo?.pix_ativo && fotografo.pix_chave ? "pix_manual" :
+       fotografo?.asaas_ativo && fotografo.asaas_api_key_enc ? "asaas" : null);
 
   if (!gateway) {
     return NextResponse.json({ erro: "Pagamento online não disponível. Entre em contato com o fotógrafo." }, { status: 400 });
