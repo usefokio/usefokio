@@ -922,9 +922,6 @@ export default function PedidoDetailPage() {
                     <div style={{ fontSize: 13, fontWeight: 500, color: "var(--color-text-primary)", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                       {c.nome_template ?? "Contrato"}
                       {c.arquivo_url && <span style={{ fontSize: 10, fontWeight: 700, color: "#059669", background: "rgba(16,185,129,0.1)", borderRadius: 10, padding: "1px 8px", textTransform: "uppercase", letterSpacing: "0.04em" }}>Enviado</span>}
-                      {!c.arquivo_url && (c.assinado_em
-                        ? <span style={{ fontSize: 10, fontWeight: 700, color: "#059669", background: "rgba(16,185,129,0.1)", borderRadius: 10, padding: "1px 8px", textTransform: "uppercase", letterSpacing: "0.04em" }}>✓ Assinado {new Date(c.assinado_em).toLocaleDateString("pt-BR")}</span>
-                        : <span style={{ fontSize: 10, fontWeight: 700, color: "#D97706", background: "rgba(217,119,6,0.1)", borderRadius: 10, padding: "1px 8px", textTransform: "uppercase", letterSpacing: "0.04em" }}>Aguardando assinatura</span>)}
                     </div>
                     <div style={{ fontSize: 11, color: "var(--color-text-secondary)" }}>{c.arquivo_url ? "Enviado" : "Gerado"} em {new Date(c.created_at).toLocaleDateString("pt-BR")}</div>
                   </div>
