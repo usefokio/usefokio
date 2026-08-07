@@ -236,6 +236,7 @@ export type RevelacaoPedido = {
   created_at: string;
   finalizado_em: string | null;
   notificado_selecao_em: string | null;
+  cliente_avisou_pagamento_em: string | null;
 };
 
 export type RevelacaoPedidoItem = {

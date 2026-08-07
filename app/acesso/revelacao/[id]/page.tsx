@@ -3,6 +3,7 @@
 import { useEffect, useState, Suspense } from "react";
 import { useParams } from "next/navigation";
 import type { RevelacaoPedido, CrmRevelacaoTamanho, GaleriaEntregaFoto, RevelacaoPedidoItem } from "@/lib/supabase/types";
+import { linkWhatsApp } from "@/lib/site/whatsapp";
 
 type Pagamento = { status: string; invoice_url: string | null; gateway: string | null } | null;
 type Passo = "tamanho" | "fotos" | "resumo";
@@ -19,6 +20,10 @@ function RevelacaoConteudo() {
   const [pagamento, setPagamento] = useState<Pagamento>(null);
   const [minimoFotos, setMinimoFotos] = useState<number | null>(null);
   const [clienteNome, setClienteNome] = useState<string | null>(null);
+  const [fotografoWhatsapp, setFotografoWhatsapp] = useState<string | null>(null);
+  const [galeriaTitulo, setGaleriaTitulo] = useState<string | null>(null);
+  const [avisoPagamentoEnviado, setAvisoPagamentoEnviado] = useState(false);
+  const [avisandoPagamento, setAvisandoPagamento] = useState(false);
 
   const [autenticado, setAutenticado] = useState(false);
   const [senhaInput, setSenhaInput] = useState("");
@@ -48,7 +53,49 @@ function RevelacaoConteudo() {
       setPagamento(json.pagamento ?? null);
       setMinimoFotos(json.minimoFotos ?? null);
       setClienteNome(json.clienteNome ?? null);
+      setFotografoWhatsapp(json.fotografoWhatsapp ?? null);
+      setGaleriaTitulo(json.galeriaTitulo ?? null);
+      setAvisoPagamentoEnviado(!!json.pedido?.cliente_avisou_pagamento_em);
     }).catch(() => setPedido(null));
+  };
+
+  const avisarPagamento = async () => {
+    if (avisoPagamentoEnviado || avisandoPagamento) return;
+    setAvisandoPagamento(true);
+    try {
+      await fetch(`/api/email/revelacao-aviso-pagamento`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pedidoId: id }),
+      });
+      setAvisoPagamentoEnviado(true);
+    } catch {
+      // silencioso — o botão continua disponível pra tentar de novo
+    } finally {
+      setAvisandoPagamento(false);
+    }
+  };
+
+  const BlocoAvisoPagamento = () => {
+    const valor = pedido?.valor_total ?? 0;
+    const msgWhats = `Olá! Acabei de pagar o pedido de revelação de fotos${galeriaTitulo ? ` (${galeriaTitulo})` : ""}, valor ${fmt(valor)}. Pode confirmar o recebimento?`;
+    const whatsUrl = linkWhatsApp(fotografoWhatsapp, msgWhats);
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "center" }}>
+        <p style={{ fontSize: 12, color: "#9CA3AF", margin: 0 }}>Já pagou? Avise o fotógrafo:</p>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
+          {whatsUrl && (
+            <a href={whatsUrl} target="_blank" rel="noopener noreferrer"
+              style={{ display: "inline-block", padding: "10px 18px", borderRadius: 8, background: "#25D366", color: "#fff", fontWeight: 600, fontSize: 13, textDecoration: "none" }}>
+              💬 Avisar por WhatsApp
+            </a>
+          )}
+          <button onClick={avisarPagamento} disabled={avisoPagamentoEnviado || avisandoPagamento}
+            style={{ padding: "10px 18px", borderRadius: 8, border: "1px solid #D1D5DB", background: avisoPagamentoEnviado ? "#ECFDF5" : "#fff", color: avisoPagamentoEnviado ? "#059669" : "#111827", fontWeight: 600, fontSize: 13, cursor: avisoPagamentoEnviado || avisandoPagamento ? "default" : "pointer" }}>
+            {avisoPagamentoEnviado ? "✓ Fotógrafo avisado" : avisandoPagamento ? "Avisando…" : "✓ Já paguei, avisar o fotógrafo"}
+          </button>
+        </div>
+      </div>
+    );
   };
 
   useEffect(() => { carregar(); }, [id]);
@@ -129,10 +176,11 @@ function RevelacaoConteudo() {
           <div style={{ fontSize: 14, color: "#6B7280", marginBottom: 16 }}>Total: {fmt(pedido.valor_total)}</div>
           {pagamento?.invoice_url && (
             <a href={pagamento.invoice_url} target="_blank" rel="noopener noreferrer"
-              style={{ display: "inline-block", padding: "12px 24px", borderRadius: 8, background: "#111827", color: "#fff", fontWeight: 600, fontSize: 14, textDecoration: "none" }}>
+              style={{ display: "inline-block", padding: "12px 24px", borderRadius: 8, background: "#111827", color: "#fff", fontWeight: 600, fontSize: 14, textDecoration: "none", marginBottom: 16 }}>
               Abrir pagamento
             </a>
           )}
+          <BlocoAvisoPagamento />
         </div>
       </div>
     );
@@ -376,6 +424,9 @@ function RevelacaoConteudo() {
                 ) : (
                   <p style={{ fontSize: 13, color: "#065F46", margin: 0 }}>Cobrança gerada — se a aba de pagamento não abriu, <a href={resultadoPagamento.invoiceUrl}>clique aqui</a>.</p>
                 )}
+                <div style={{ marginTop: 16, paddingTop: 16, borderTop: "1px solid rgba(16,185,129,0.2)" }}>
+                  <BlocoAvisoPagamento />
+                </div>
               </div>
             )}
           </>
