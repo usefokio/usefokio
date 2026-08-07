@@ -9,7 +9,7 @@ import { deleteFilesClient } from "@/lib/storage/deleteClient";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { ClienteLink } from "@/components/ui/ClienteLink";
 import type { GaleriaEntrega, GaleriaEntregaFoto, ContatoCategoria, Pagamento, RevelacaoPedido, RevelacaoPedidoItem } from "@/lib/supabase/types";
-import { ModalEnviarAcesso } from "../_components/ModalEnviarAcesso";
+import { ModalEmailCliente } from "../_components/ModalEmailCliente";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -1115,7 +1115,11 @@ export default function EntregaDetailPage() {
       )}
 
       {modalEnviar && (
-        <ModalEnviarAcesso galeria={g} onFechar={() => setModalEnviar(false)} />
+        <ModalEmailCliente
+          galeria={g}
+          onFechar={() => setModalEnviar(false)}
+          onEstagioAvancado={(patch) => setFunilInfo((prev) => prev ? { ...prev, ...patch } : prev)}
+        />
       )}
     </div>
   );
