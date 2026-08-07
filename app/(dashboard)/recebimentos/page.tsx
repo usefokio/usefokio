@@ -13,8 +13,10 @@ const COLS_REC: ColunaDef[] = [
   { id: "valor",   largura: 100, min: 70 },
   { id: "status",  largura: 90,  min: 70 },
   { id: "data",    largura: 90,  min: 70 },
-  { id: "acoes",   largura: 100, min: 80 },
+  { id: "acoes",   largura: 160, min: 130 },
 ];
+
+const LARGURA_MIN_TABELA = 760;
 
 type Pagamento = {
   id: string;
@@ -29,8 +31,23 @@ type Pagamento = {
   asaas_payment_id: string | null;
   created_at: string;
   paid_at: string | null;
+  revelacao_pedido_id: string | null;
   galerias_entrega: { id: string; titulo: string } | null;
+  revelacao_pedidos: { id: string; galeria_entrega_id: string; galerias_entrega: { titulo: string } | null } | null;
 };
+
+const TIPO_CONFIG: Record<string, { label: string; bg: string; color: string }> = {
+  renovacao: { label: "Renovação", bg: "rgba(37,99,235,0.10)", color: "#2563EB" },
+  revelacao: { label: "Revelação", bg: "rgba(124,58,237,0.10)", color: "#7C3AED" },
+};
+
+function galeriaTitulo(p: Pagamento): string {
+  return (p.tipo === "revelacao" ? p.revelacao_pedidos?.galerias_entrega?.titulo : p.galerias_entrega?.titulo) ?? "—";
+}
+
+function galeriaId(p: Pagamento): string | null {
+  return p.tipo === "revelacao" ? p.revelacao_pedidos?.galeria_entrega_id ?? null : p.galerias_entrega?.id ?? null;
+}
 
 function formatarData(iso: string | null): string {
   if (!iso) return "—";
@@ -54,6 +71,7 @@ const STATUS_CONFIG: Record<string, { label: string; bg: string; color: string }
 
 function ModalDetalhes({ pag, onFechar }: { pag: Pagamento; onFechar: () => void }) {
   const cfg = STATUS_CONFIG[pag.status] ?? STATUS_CONFIG.pendente;
+  const tipoCfg = TIPO_CONFIG[pag.tipo];
 
   const linha = (label: string, valor: React.ReactNode) => (
     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, padding: "12px 0", borderBottom: "1px solid #f0f0f0" }}>
@@ -98,9 +116,10 @@ function ModalDetalhes({ pag, onFechar }: { pag: Pagamento; onFechar: () => void
 
         {/* Linhas de detalhe */}
         <div style={{ marginBottom: 20 }}>
+          {tipoCfg && linha("Categoria", <span style={{ padding: "2px 8px", borderRadius: 20, background: tipoCfg.bg, color: tipoCfg.color, fontSize: 11, fontWeight: 700 }}>{tipoCfg.label}</span>)}
           {linha("Cliente", pag.pagador_nome ?? "—")}
           {linha("E-mail", pag.pagador_email ?? "—")}
-          {linha("Galeria", pag.galerias_entrega?.titulo ?? "—")}
+          {linha("Galeria", galeriaTitulo(pag))}
           {pag.dias_liberados && linha("Dias liberados", `+${pag.dias_liberados} dias`)}
           {linha("Criado em", formatarData(pag.created_at))}
           {pag.status === "pago" && linha("Pago em", formatarData(pag.paid_at))}
@@ -137,12 +156,15 @@ export default function RecebimentosPage() {
   const [pagamentos, setPagamentos] = useState<Pagamento[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [filtroStatus, setFiltroStatus] = useState<"todos" | "pago" | "pendente">("todos");
+  const [filtroTipo, setFiltroTipo] = useState<"todos" | "renovacao" | "revelacao">("todos");
   const [detalhe, setDetalhe] = useState<Pagamento | null>(null);
   const cols = useColunasLargura("recebimentos", COLS_REC);
   const [excluindoId, setExcluindoId] = useState<string | null>(null);
   const [confirmandoId, setConfirmandoId] = useState<string | null>(null);
   const [verificandoId, setVerificandoId] = useState<string | null>(null);
   const [verificandoMsg, setVerificandoMsg] = useState<{ id: string; texto: string; ok: boolean } | null>(null);
+  const [confirmandoPagId, setConfirmandoPagId] = useState<string | null>(null);
+  const [confirmandoPagMsg, setConfirmandoPagMsg] = useState<{ id: string; texto: string; ok: boolean } | null>(null);
 
   useEffect(() => {
     if (!fotografo) return;
@@ -151,9 +173,9 @@ export default function RecebimentosPage() {
       (sb, from, to) =>
         sb
           .from("pagamentos")
-          .select("*, galerias_entrega(id, titulo)")
+          .select("*, galerias_entrega(id, titulo), revelacao_pedidos(id, galeria_entrega_id, galerias_entrega(titulo))")
           .eq("fotografo_id", fotografo.id)
-          .eq("tipo", "renovacao")
+          .in("tipo", ["renovacao", "revelacao"])
           .order("created_at", { ascending: false })
           .range(from, to),
       supabase,
@@ -164,17 +186,40 @@ export default function RecebimentosPage() {
   }, [fotografo]);
 
   async function verificarPagamento(p: Pagamento) {
-    if (!p.galerias_entrega?.id) return;
+    const url = p.tipo === "revelacao"
+      ? `/api/revelacao/pedidos/${p.revelacao_pedido_id}/verificar-pagamento`
+      : `/api/entrega/${p.galerias_entrega?.id}/verificar-pagamento`;
+    if (p.tipo === "revelacao" ? !p.revelacao_pedido_id : !p.galerias_entrega?.id) return;
     setVerificandoId(p.id);
     setVerificandoMsg(null);
-    const res = await fetch(`/api/entrega/${p.galerias_entrega.id}/verificar-pagamento`, { method: "POST" });
+    const res = await fetch(url, { method: "POST" });
     const json = await res.json();
     setVerificandoId(null);
     if (json.pago) {
-      setPagamentos((prev) => prev.map((pg) => pg.id === p.id ? { ...pg, status: "pago", paid_at: json.expiresAt } : pg));
-      setVerificandoMsg({ id: p.id, texto: "Pagamento confirmado! Acesso liberado.", ok: true });
+      setPagamentos((prev) => prev.map((pg) => pg.id === p.id ? { ...pg, status: "pago", paid_at: json.expiresAt ?? new Date().toISOString() } : pg));
+      setVerificandoMsg({ id: p.id, texto: "Pagamento confirmado!", ok: true });
     } else {
       setVerificandoMsg({ id: p.id, texto: json.erro ?? json.mensagem ?? "Ainda não confirmado.", ok: false });
+    }
+  }
+
+  async function confirmarPixManual(p: Pagamento) {
+    const galId = galeriaId(p);
+    const url = p.tipo === "revelacao"
+      ? `/api/revelacao/pedidos/${p.revelacao_pedido_id}/confirmar-pix-manual`
+      : `/api/entrega/${galId}/renovar/confirmar`;
+    if (p.tipo === "revelacao" ? !p.revelacao_pedido_id : !galId) return;
+    if (!confirm("Confirmar que este pagamento PIX caiu na sua conta?")) return;
+    setConfirmandoPagId(p.id);
+    setConfirmandoPagMsg(null);
+    const res = await fetch(url, { method: "POST" });
+    const json = await res.json();
+    setConfirmandoPagId(null);
+    if (json.ok) {
+      setPagamentos((prev) => prev.map((pg) => pg.id === p.id ? { ...pg, status: "pago", paid_at: new Date().toISOString() } : pg));
+      setConfirmandoPagMsg({ id: p.id, texto: "Pagamento confirmado!", ok: true });
+    } else {
+      setConfirmandoPagMsg({ id: p.id, texto: json.erro ?? "Não foi possível confirmar.", ok: false });
     }
   }
 
@@ -190,7 +235,8 @@ export default function RecebimentosPage() {
   }
 
   const filtrados = pagamentos.filter((p) =>
-    filtroStatus === "todos" ? true : p.status === filtroStatus
+    (filtroStatus === "todos" ? true : p.status === filtroStatus) &&
+    (filtroTipo === "todos" ? true : p.tipo === filtroTipo)
   );
 
   const totalPago = pagamentos.filter((p) => p.status === "pago").reduce((acc, p) => acc + Number(p.valor), 0);
@@ -204,7 +250,7 @@ export default function RecebimentosPage() {
           Recebimentos
         </h1>
         <div style={{ fontSize: 13, color: "#888", marginTop: 4 }}>
-          Histórico de renovações de acesso pagas pelos seus clientes
+          Histórico de renovações de acesso e pedidos de revelação pagos pelos seus clientes
         </div>
       </div>
 
@@ -225,7 +271,7 @@ export default function RecebimentosPage() {
       </div>
 
       {/* Filtros */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+      <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
         {(["todos", "pago", "pendente"] as const).map((f) => (
           <button
             key={f}
@@ -237,6 +283,22 @@ export default function RecebimentosPage() {
             }}
           >
             {f === "todos" ? "Todos" : f === "pago" ? "Pagos" : "Pendentes"}
+          </button>
+        ))}
+      </div>
+      <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
+        {(["todos", "renovacao", "revelacao"] as const).map((f) => (
+          <button
+            key={f}
+            onClick={() => setFiltroTipo(f)}
+            style={{
+              padding: "6px 14px", borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: "pointer",
+              border: filtroTipo === f ? "none" : "0.5px solid var(--color-border-secondary)",
+              background: filtroTipo === f ? (TIPO_CONFIG[f]?.color ?? "#111") : "transparent",
+              color: filtroTipo === f ? "#fff" : "#555",
+            }}
+          >
+            {f === "todos" ? "Todos os tipos" : TIPO_CONFIG[f].label}
           </button>
         ))}
       </div>
@@ -253,6 +315,8 @@ export default function RecebimentosPage() {
         </div>
       ) : (
         <div style={{ background: "var(--color-background-primary)", border: "1px solid var(--color-border-secondary)", borderRadius: 12, overflow: "hidden" }}>
+        <div style={{ overflowX: "auto" }}>
+        <div style={{ minWidth: LARGURA_MIN_TABELA }}>
           {/* Header */}
           <div style={{ display: "grid", gridTemplateColumns: cols.template, gap: 0, padding: "10px 20px", background: "var(--color-background-secondary)", borderBottom: "1px solid var(--color-border-secondary)", fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em" }}>
             <span>Cliente</span>
@@ -296,7 +360,12 @@ export default function RecebimentosPage() {
 
                 {/* Galeria */}
                 <div style={{ fontSize: 13, color: "#444", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", paddingRight: 12 }}>
-                  {p.galerias_entrega?.titulo ?? "—"}
+                  {TIPO_CONFIG[p.tipo] && (
+                    <span style={{ display: "inline-block", marginRight: 6, padding: "1px 7px", borderRadius: 20, background: TIPO_CONFIG[p.tipo].bg, color: TIPO_CONFIG[p.tipo].color, fontSize: 10, fontWeight: 700 }}>
+                      {TIPO_CONFIG[p.tipo].label}
+                    </span>
+                  )}
+                  {galeriaTitulo(p)}
                   {p.dias_liberados && (
                     <span style={{ marginLeft: 6, fontSize: 11, color: "#aaa" }}>+{p.dias_liberados}d</span>
                   )}
@@ -320,7 +389,7 @@ export default function RecebimentosPage() {
                 </div>
 
                 {/* Ações */}
-                <div style={{ display: "flex", gap: 6, alignItems: "center" }} onClick={(e) => e.stopPropagation()}>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center", justifyContent: "flex-end" }} onClick={(e) => e.stopPropagation()}>
                   {confirmando ? (
                     <>
                       <button
@@ -339,7 +408,7 @@ export default function RecebimentosPage() {
                     </>
                   ) : (
                     <>
-                      {p.status === "pendente" && p.gateway === "asaas" && p.galerias_entrega?.id && (
+                      {p.status === "pendente" && p.gateway === "asaas" && galeriaId(p) && (
                         <button
                           onClick={() => verificarPagamento(p)}
                           disabled={verificandoId === p.id}
@@ -352,6 +421,21 @@ export default function RecebimentosPage() {
                       {verificandoMsg?.id === p.id && (
                         <span style={{ fontSize: 10, color: verificandoMsg.ok ? "#059669" : "#B45309", fontWeight: 600 }}>
                           {verificandoMsg.texto}
+                        </span>
+                      )}
+                      {p.status === "pendente" && p.gateway === "pix_manual" && galeriaId(p) && (
+                        <button
+                          onClick={() => confirmarPixManual(p)}
+                          disabled={confirmandoPagId === p.id}
+                          title="Confirmar pagamento PIX manual"
+                          style={{ fontSize: 11, fontWeight: 600, padding: "4px 8px", borderRadius: 6, border: "0.5px solid rgba(16,185,129,0.4)", background: "rgba(16,185,129,0.1)", color: "#059669", cursor: confirmandoPagId === p.id ? "default" : "pointer", whiteSpace: "nowrap" }}
+                        >
+                          {confirmandoPagId === p.id ? "…" : "✓ Confirmar"}
+                        </button>
+                      )}
+                      {confirmandoPagMsg?.id === p.id && (
+                        <span style={{ fontSize: 10, color: confirmandoPagMsg.ok ? "#059669" : "#B45309", fontWeight: 600 }}>
+                          {confirmandoPagMsg.texto}
                         </span>
                       )}
                       <button
@@ -374,6 +458,8 @@ export default function RecebimentosPage() {
               </div>
             );
           })}
+        </div>
+        </div>
         </div>
       )}
 

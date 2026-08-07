@@ -30,6 +30,7 @@ export function rotaPermitida(rec: Rec, pathname: string): boolean {
   // Itens com flag própria (idêntico ao gate do menu)
   if (sob("/selecao")) return rec?.selecao !== false;
   if (sob("/entrega")) return rec?.entrega !== false;
+  if (sob("/revelacao")) return rec?.entrega !== false;
   if (sob("/album")) return rec?.album === true;
   if (sob("/contatos")) return rec?.contatos !== false;
   if (sob("/recebimentos")) return rec?.pagamentos !== false;

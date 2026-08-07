@@ -51,6 +51,7 @@ export const FotosEntregaUpload = forwardRef<FotosEntregaUploadHandle, Props>(fu
   const inputRef      = useRef<HTMLInputElement>(null);
   const galeriaIdRef  = useRef<string | null>(galeriaId);
   galeriaIdRef.current = galeriaIdRef.current ?? galeriaId;
+  const capaGarantidaRef = useRef(false);
 
   // IDs dos placeholders pendentes (deferred) para o flushFila saber quais subir
   const pendentesRef = useRef<string[]>([]);
@@ -73,6 +74,26 @@ export const FotosEntregaUpload = forwardRef<FotosEntregaUploadHandle, Props>(fu
     const salvas = lista.filter((f) => !f._uploading) as GaleriaEntregaFoto[];
     onFotosChange?.(salvas);
   }, [onFotosChange]);
+
+  // Garante uma capa real e independente (arquivo próprio, não referência a uma foto da galeria) —
+  // se a galeria ainda não tem `foto_capa_url`, gera uma a partir da primeira foto enviada, do
+  // mesmo jeito que o upload manual de capa. Assim, excluir fotos depois nunca afeta a capa.
+  async function garantirCapaAutomatica(gId: string, file: File) {
+    if (capaGarantidaRef.current) return;
+    const supabase = createClient();
+    const { data: g } = await supabase.from("galerias_entrega").select("foto_capa_url").eq("id", gId).maybeSingle();
+    if (g?.foto_capa_url) { capaGarantidaRef.current = true; return; }
+    capaGarantidaRef.current = true;
+    try {
+      const processedCapa = await processarImagemEntrega(file, 1920);
+      const capaPath = `entrega/${fotografoId}/${gId}/capa.jpg`;
+      const { url_publica, storage_path } = await uploadFileClient(capaPath, processedCapa.blob, "image/jpeg");
+      await supabase.from("galerias_entrega").update({ foto_capa_url: url_publica, foto_capa_storage_path: storage_path }).eq("id", gId);
+    } catch (e) {
+      console.error("[FotosEntregaUpload] Falha ao gerar capa automática:", e instanceof Error ? e.message : e);
+      capaGarantidaRef.current = false;
+    }
+  }
 
   async function processarEEnviar(placeholderId: string, file: File, galeriaIdOverride?: string) {
     const gId = galeriaIdOverride ?? galeriaIdRef.current;
@@ -107,6 +128,8 @@ export const FotosEntregaUpload = forwardRef<FotosEntregaUploadHandle, Props>(fu
         .select()
         .single();
       if (dbErr) throw new Error(dbErr.message);
+
+      void garantirCapaAutomatica(gId, file);
 
       setFotos((prev) => {
         const next = prev.map((f) => {

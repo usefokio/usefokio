@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
-import { PLANOS, pctUso, corBarra, limiteEfetivo, formatarBytes, type PlanoId } from "@/lib/planos";
+import { PLANOS, corBarra, limiteEfetivo, formatarBytes, type PlanoId } from "@/lib/planos";
 
 type UsoPorRecurso = {
   selecao: number;
@@ -206,14 +206,15 @@ export default function PlanoPage() {
   const [uso,              setUso]              = useState<UsoPorRecurso | null>(null);
   const [carregandoUso,    setCarregandoUso]    = useState(true);
   const [planoExpiraEm,    setPlanoExpiraEm]    = useState<string | null>(null);
-  // Uso de ARMAZENAMENTO (bytes + limite em GB) — planos por espaço; valores do banco.
-  const [usoStorage,       setUsoStorage]       = useState<{ bytes_usados: number; limite_gb: number | null } | null>(null);
+  // Uso de fotos e ARMAZENAMENTO (bytes + limite em GB) — vem de /api/conta/uso, que já lê
+  // planos_config do banco (mesma fonte usada pela rota de upload pra aplicar o limite de verdade).
+  const [usoStorage,       setUsoStorage]       = useState<{ bytes_usados: number; limite_gb: number | null; fotos_usadas: number; limite_fotos: number | null } | null>(null);
 
   useEffect(() => {
     if (!fotografo) return;
     fetch("/api/conta/uso")
       .then((r) => (r.ok ? r.json() : null))
-      .then((j) => { if (j && typeof j.bytes_usados === "number") setUsoStorage({ bytes_usados: j.bytes_usados, limite_gb: j.limite_gb ?? null }); })
+      .then((j) => { if (j && typeof j.bytes_usados === "number") setUsoStorage({ bytes_usados: j.bytes_usados, limite_gb: j.limite_gb ?? null, fotos_usadas: j.fotos_usadas ?? 0, limite_fotos: j.limite_fotos ?? null }); })
       .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fotografo?.id]);
@@ -262,9 +263,11 @@ export default function PlanoPage() {
   );
 
   const planoAtual    = PLANOS[fotografo.plano as PlanoId] ?? PLANOS.gratuito;
-  const usadas        = fotografo.total_fotos_usadas ?? 0;
-  const limiteAtual   = limiteEfetivo(planoAtual, fotografo.limite_fotos_custom);
-  const pct           = pctUso(usadas, planoAtual, fotografo.limite_fotos_custom);
+  const usadas        = usoStorage?.fotos_usadas ?? fotografo.total_fotos_usadas ?? 0;
+  // Enquanto /api/conta/uso não carrega, cai no valor fixo do plano só como placeholder inicial —
+  // assim que chega a resposta do banco (planos_config), esse valor sempre prevalece.
+  const limiteAtual   = usoStorage ? usoStorage.limite_fotos : limiteEfetivo(planoAtual, fotografo.limite_fotos_custom);
+  const pct           = limiteAtual !== null ? Math.min(100, Math.round((usadas / limiteAtual) * 100)) : null;
   const barCor        = pct !== null ? corBarra(pct) : "#2563EB";
   const planoDBAtual  = planosDB.find(p => p.codigo === fotografo.plano);
   const limiteGalerias = planoDBAtual?.limite_galerias ?? null;

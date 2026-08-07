@@ -117,6 +117,22 @@ export default function AcessoEntregaPage() {
   const [fotos,         setFotos]         = useState<GaleriaEntregaFoto[]>([]);
   const [identificacao, setIdentificacao] = useState<Identificacao | null>(null);
   const [lightboxIdx,   setLightboxIdx]   = useState<number | null>(null);
+  const [pedindoRevelacao, setPedindoRevelacao] = useState(false);
+
+  const pedirRevelacao = async () => {
+    if (pedindoRevelacao) return;
+    setPedindoRevelacao(true);
+    try {
+      const res = await fetch("/api/revelacao/pedidos/criar", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ galeria_entrega_id: id }),
+      });
+      const json = await res.json();
+      if (json.pedidoId) window.location.href = `/acesso/revelacao/${json.pedidoId}`;
+    } finally {
+      setPedindoRevelacao(false);
+    }
+  };
 
   // Seleção de fotos para download
   const [modoSelecao,   setModoSelecao]   = useState(false);
@@ -839,6 +855,14 @@ export default function AcessoEntregaPage() {
               Cancelar
             </button>
           </div>
+        )}
+        {fotos.length > 0 && galeria?.revelacao_ativa && galeria?.cliente_id && (
+          <button
+            onClick={pedirRevelacao} disabled={pedindoRevelacao}
+            style={{ display: "flex", alignItems: "center", gap: 6, padding: isMobile ? "8px 10px" : "8px 14px", borderRadius: 8, background: "transparent", border: "1px solid #ddd", color: "#444", fontSize: 12, fontWeight: 700, cursor: pedindoRevelacao ? "wait" : "pointer", flexShrink: 0 }}
+          >
+            {pedindoRevelacao ? "Abrindo…" : (isMobile ? "Revelar" : "Pedir revelação")}
+          </button>
         )}
       </div>
 

@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
+import { createClient } from "@/lib/supabase/client";
+import { garantirSenhaCliente } from "@/lib/clientes/garantirSenha";
 import type { GaleriaEntrega } from "@/lib/supabase/types";
 
 export function ModalEnviarAcesso({
@@ -15,6 +17,19 @@ export function ModalEnviarAcesso({
   const email       = galeria.clientes?.email ?? "";
   const whatsapp    = galeria.clientes?.whatsapp ?? galeria.clientes?.telefone ?? "";
 
+  // Pedido de revelação exige a senha do cliente (mesma de álbum/seleção) — se essa galeria
+  // permite, garante que o cliente tenha uma senha e manda ela junto na mensagem.
+  const [senhaRevelacao, setSenhaRevelacao] = useState<string | null>(null);
+  useEffect(() => {
+    if (!galeria.revelacao_ativa || !galeria.clientes?.id) return;
+    const clienteId = galeria.clientes.id;
+    (async () => {
+      await garantirSenhaCliente(clienteId);
+      const { data } = await createClient().from("clientes").select("senha_acesso").eq("id", clienteId).maybeSingle();
+      if (data?.senha_acesso) setSenhaRevelacao(data.senha_acesso);
+    })();
+  }, [galeria.revelacao_ativa, galeria.clientes?.id]);
+
   const msgBase = galeria.mensagem?.trim()
     ? galeria.mensagem.replace(/\{nome\}/gi, nomeCliente || "cliente")
     : `Olá${nomeCliente ? `, ${nomeCliente.split(" ")[0]}` : ""}! 🎉\n\nSuas fotos estão prontas para download!\n\n📸 ${galeria.titulo}`;
@@ -23,7 +38,11 @@ export function ModalEnviarAcesso({
     ? `\n\n⏳ Disponível até ${new Date(galeria.expires_at).toLocaleDateString("pt-BR")}.`
     : "";
 
-  const mensagemDefault = `${msgBase}\n\n🔗 Acesso: ${link}${expiracaoStr}\n\nQualquer dúvida, é só me chamar!`;
+  const senhaStr = senhaRevelacao
+    ? `\n\n🔑 Senha para pedir revelação: ${senhaRevelacao}`
+    : "";
+
+  const mensagemDefault = `${msgBase}\n\n🔗 Acesso: ${link}${expiracaoStr}${senhaStr}\n\nQualquer dúvida, é só me chamar!`;
 
   const [assunto,     setAssunto]     = useState(`Suas fotos estão prontas — ${galeria.titulo}`);
   const [mensagem,    setMensagem]    = useState(mensagemDefault);
@@ -31,6 +50,15 @@ export function ModalEnviarAcesso({
   const [copiado,     setCopiado]     = useState<"link" | "msg" | null>(null);
   const [enviando,    setEnviando]    = useState(false);
   const [envioMsg,    setEnvioMsg]    = useState<{ tipo: "ok" | "erro"; texto: string } | null>(null);
+
+  // A senha chega depois (busca async) — se o fotógrafo ainda não editou a mensagem (ela continua
+  // igual ao último default calculado), atualiza pra incluir a linha da senha quando ela chegar.
+  const ultimoDefault = useRef(mensagemDefault);
+  useEffect(() => {
+    setMensagem(prev => (prev === ultimoDefault.current ? mensagemDefault : prev));
+    ultimoDefault.current = mensagemDefault;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mensagemDefault]);
 
   const emailDestino = email || emailManual.trim();
 

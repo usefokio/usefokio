@@ -47,3 +47,28 @@ export async function confirmarRenovacaoPaga(
 
   return novaDataISO;
 }
+
+export type PagamentoRevelacao = {
+  id: string;
+  revelacao_pedido_id: string | null;
+};
+
+/**
+ * Confirma um pedido de revelação PAGO — mesma ideia de `confirmarRenovacaoPaga`: fonte única
+ * usada pelo webhook, verificação manual e cron. Não mexe em galeria/expiração (não tem
+ * relação com essa lógica); só marca o pedido e o pagamento como pagos.
+ */
+export async function confirmarRevelacaoPaga(
+  admin: SupabaseClient,
+  pagamento: PagamentoRevelacao,
+): Promise<void> {
+  if (pagamento.revelacao_pedido_id) {
+    await admin.from("revelacao_pedidos")
+      .update({ status: "pago", finalizado_em: new Date().toISOString() })
+      .eq("id", pagamento.revelacao_pedido_id);
+  }
+
+  await admin.from("pagamentos")
+    .update({ status: "pago", paid_at: new Date().toISOString() })
+    .eq("id", pagamento.id);
+}

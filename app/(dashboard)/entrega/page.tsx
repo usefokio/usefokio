@@ -313,6 +313,15 @@ export default function EntregaPage() {
           ? { ...g, respostas_campanha: [{ token: "", estagio: "nao_contatado", resposta: null, respondido_em: null }] }
           : g
       ));
+    } else {
+      // "Apenas suspender": marca ignorar_funil pra essa escolha não ser sobrescrita depois pela
+      // auto-inscrição (que reinscreveria a galeria por ela não ter nenhum registro de funil).
+      await fetch(`/api/campanha/galeria/${id}`, { method: "DELETE" }).catch(() => {});
+      setGalerias((prev) => prev.map((g) =>
+        g.id === id
+          ? { ...g, respostas_campanha: [{ token: "", estagio: "nao_contatado", resposta: null, respondido_em: null, ignorar_funil: true }] }
+          : g
+      ));
     }
   }
 
