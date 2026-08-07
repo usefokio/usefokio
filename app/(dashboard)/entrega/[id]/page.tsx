@@ -340,6 +340,7 @@ export default function EntregaDetailPage() {
         .select("*, revelacao_pedido_itens(*, crm_revelacao_tamanhos(nome))")
         .eq("galeria_entrega_id", id)
         .eq("fotografo_id", fotografo.id)
+        .neq("status", "aberto")
         .order("created_at", { ascending: false }),
     ]).then(([{ data: g }, f, { data: a }, { data: funil }, { data: pags }, { data: revs }]) => {
       if (!g) { router.replace("/entrega"); return; }
