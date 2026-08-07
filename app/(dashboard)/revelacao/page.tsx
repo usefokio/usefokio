@@ -28,7 +28,7 @@ export default function RevelacaoListaPage() {
     if (!fid) return;
     setLoading(true);
     const data = await fetchAllRows<Row>((sbc, f, t) =>
-      sbc.from("revelacao_pedidos").select("*, galerias_entrega(titulo), clientes(nome)").eq("fotografo_id", fid).order("created_at", { ascending: false }).range(f, t),
+      sbc.from("revelacao_pedidos").select("*, galerias_entrega(titulo), clientes(nome)").eq("fotografo_id", fid).neq("status", "aberto").order("created_at", { ascending: false }).range(f, t),
     createClient());
     setPedidos(data);
     setLoading(false);
