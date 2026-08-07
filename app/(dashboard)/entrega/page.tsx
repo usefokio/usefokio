@@ -8,7 +8,6 @@ import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { ClienteLink } from "@/components/ui/ClienteLink";
 import type { GaleriaEntrega } from "@/lib/supabase/types";
-import { ModalEnviarAcesso } from "./_components/ModalEnviarAcesso";
 import { normalizar } from "@/lib/utils/normalizar";
 import { ModalEmailCliente } from "./_components/ModalEmailCliente";
 import { fetchAllRows } from "@/lib/supabase/fetchAll";
@@ -145,7 +144,6 @@ export default function EntregaPage() {
   const [anoFiltro,      setAnoFiltro]      = usePersistedState<number | null>("entrega:ano", null);
   const [ordenacao,      setOrdenacao]      = usePersistedState<Ordenacao>("entrega:ordenacao", "evento");
   const [busca,          setBusca]          = useState("");
-  const [enviarAcessoId, setEnviarAcessoId] = useState<string | null>(null);
   const [emailClienteId, setEmailClienteId] = useState<string | null>(null);
   const [recarregarKey,  setRecarregarKey]  = useState(0);
   const [deletarId,      setDeletarId]      = useState<string | null>(null);
@@ -843,11 +841,6 @@ export default function EntregaPage() {
       )}
 
       {/* Modais */}
-      {enviarAcessoId && (() => {
-        const g = galerias.find((g) => g.id === enviarAcessoId);
-        return g ? <ModalEnviarAcesso galeria={g} onFechar={() => setEnviarAcessoId(null)} /> : null;
-      })()}
-
       {emailClienteId && (() => {
         const g = galerias.find((g) => g.id === emailClienteId);
         if (!g) return null;
