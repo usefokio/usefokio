@@ -39,6 +39,8 @@ export type Fotografo = {
   renewal_fee_padrao: number | null;
   revelacao_minimo_fotos: number | null;
   revelacao_valor_minimo: number | null;
+  revelacao_extras_titulo: string;
+  revelacao_extras_subtitulo: string;
   templates_mensagem: { link?: string; pronta?: string; expirando?: string; suspensa?: string; campanha?: string; campanha_email1?: string; campanha_email2?: string; campanha_whatsapp?: string; campanha_agradecimento?: string } | null;
   asaas_api_key_enc: string | null;
   asaas_ambiente: "producao" | "sandbox";
@@ -228,6 +230,8 @@ export type CrmRevelacaoTamanho = {
 
 // Produtos extras oferecidos junto do pedido de revelação (porta-retratos, quadros, álbuns
 // para montar) — cadastro do fotógrafo, vendidos na tela de resumo do pedido do cliente.
+export type RevelacaoProdutoExtraImagem = { url_publica: string; storage_path: string };
+
 export type RevelacaoProdutoExtra = {
   id: string;
   fotografo_id: string;
@@ -235,6 +239,7 @@ export type RevelacaoProdutoExtra = {
   descricao: string | null;
   imagem_url: string | null;
   storage_path: string | null;
+  imagens: RevelacaoProdutoExtraImagem[];
   valor: number;
   ativo: boolean;
   ordem: number;

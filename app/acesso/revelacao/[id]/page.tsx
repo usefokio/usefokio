@@ -18,8 +18,11 @@ function RevelacaoConteudo() {
   const [fotos, setFotos] = useState<GaleriaEntregaFoto[]>([]);
   const [itens, setItens] = useState<RevelacaoPedidoItem[]>([]);
   const [extrasAtivo, setExtrasAtivo] = useState(false);
+  const [extrasTitulo, setExtrasTitulo] = useState("Quer aproveitar e levar mais alguma coisa?");
+  const [extrasSubtitulo, setExtrasSubtitulo] = useState("Porta-retratos, quadros e álbuns para montar com estas fotos.");
   const [produtosExtras, setProdutosExtras] = useState<RevelacaoProdutoExtra[]>([]);
   const [extrasSelecionados, setExtrasSelecionados] = useState<RevelacaoPedidoExtra[]>([]);
+  const [fotoAtualExtra, setFotoAtualExtra] = useState<Record<string, number>>({});
   const [pagamento, setPagamento] = useState<Pagamento>(null);
   const [minimoFotos, setMinimoFotos] = useState<number | null>(null);
   const [valorMinimo, setValorMinimo] = useState<number | null>(null);
@@ -56,6 +59,8 @@ function RevelacaoConteudo() {
       setFotos(json.fotos ?? []);
       setItens(json.itens ?? []);
       setExtrasAtivo(!!json.extrasAtivo);
+      if (json.extrasTitulo) setExtrasTitulo(json.extrasTitulo);
+      if (json.extrasSubtitulo !== undefined) setExtrasSubtitulo(json.extrasSubtitulo ?? "");
       setProdutosExtras(json.produtosExtras ?? []);
       setExtrasSelecionados(json.extrasSelecionados ?? []);
       setPagamento(json.pagamento ?? null);
@@ -435,16 +440,34 @@ function RevelacaoConteudo() {
             </div>
             {extrasAtivo && produtosExtras.length > 0 && !resultadoPagamento && (
               <div style={{ marginBottom: 20 }}>
-                <h3 style={{ fontSize: 14, fontWeight: 700, margin: "0 0 4px" }}>Quer aproveitar e levar mais alguma coisa?</h3>
-                <p style={{ fontSize: 12, color: "#6B7280", margin: "0 0 12px" }}>Porta-retratos, quadros e álbuns para montar com estas fotos.</p>
+                <h3 style={{ fontSize: 14, fontWeight: 700, margin: "0 0 4px" }}>{extrasTitulo}</h3>
+                {extrasSubtitulo && <p style={{ fontSize: 12, color: "#6B7280", margin: "0 0 12px" }}>{extrasSubtitulo}</p>}
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 10 }}>
                   {produtosExtras.map(produto => {
                     const qtd = extrasSelecionados.find(e => e.produto_id === produto.id)?.quantidade ?? 0;
+                    const fotosProduto = produto.imagens?.length ? produto.imagens.map(im => im.url_publica) : (produto.imagem_url ? [produto.imagem_url] : []);
+                    const idx = fotoAtualExtra[produto.id] ?? 0;
+                    const trocarFoto = (delta: number) => setFotoAtualExtra(prev => ({ ...prev, [produto.id]: (idx + delta + fotosProduto.length) % fotosProduto.length }));
                     return (
                       <div key={produto.id} style={{ border: "1px solid #E5E7EB", borderRadius: 10, overflow: "hidden", display: "flex", flexDirection: "column" }}>
-                        {produto.imagem_url && (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={produto.imagem_url} alt="" style={{ width: "100%", height: 120, objectFit: "cover", display: "block" }} />
+                        {fotosProduto.length > 0 && (
+                          <div style={{ position: "relative" }}>
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={fotosProduto[idx]} alt="" style={{ width: "100%", height: 120, objectFit: "cover", display: "block" }} />
+                            {fotosProduto.length > 1 && (
+                              <>
+                                <button onClick={() => trocarFoto(-1)} aria-label="Foto anterior"
+                                  style={{ position: "absolute", top: "50%", left: 6, transform: "translateY(-50%)", width: 24, height: 24, borderRadius: "50%", border: "none", background: "rgba(0,0,0,0.5)", color: "#fff", fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>‹</button>
+                                <button onClick={() => trocarFoto(1)} aria-label="Próxima foto"
+                                  style={{ position: "absolute", top: "50%", right: 6, transform: "translateY(-50%)", width: 24, height: 24, borderRadius: "50%", border: "none", background: "rgba(0,0,0,0.5)", color: "#fff", fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>›</button>
+                                <div style={{ position: "absolute", bottom: 6, left: 0, right: 0, display: "flex", justifyContent: "center", gap: 4 }}>
+                                  {fotosProduto.map((_, i) => (
+                                    <span key={i} style={{ width: 5, height: 5, borderRadius: "50%", background: i === idx ? "#fff" : "rgba(255,255,255,0.5)" }} />
+                                  ))}
+                                </div>
+                              </>
+                            )}
+                          </div>
                         )}
                         <div style={{ padding: "10px 12px", display: "flex", flexDirection: "column", gap: 6, flex: 1 }}>
                           <div style={{ fontSize: 13, fontWeight: 700 }}>{produto.titulo}</div>
