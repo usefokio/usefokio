@@ -43,10 +43,16 @@ export default function RevelacaoListaPage() {
           <h1 style={{ fontSize: 20, fontWeight: 800, letterSpacing: "-0.03em", color: "var(--color-text-primary)", margin: 0 }}>Revelação</h1>
           <p style={{ fontSize: 13, color: "var(--color-text-secondary)", margin: "4px 0 0" }}>Pedidos de revelação (impressão física) feitos pelos clientes</p>
         </div>
-        <button onClick={() => router.push("/revelacao/tamanhos")}
-          style={{ padding: "9px 18px", borderRadius: 8, background: "transparent", border: "0.5px solid var(--color-border-secondary)", color: "var(--color-text-primary)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
-          Tamanhos e preços
-        </button>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={() => router.push("/revelacao/tamanhos")}
+            style={{ padding: "9px 18px", borderRadius: 8, background: "transparent", border: "0.5px solid var(--color-border-secondary)", color: "var(--color-text-primary)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+            Tamanhos e preços
+          </button>
+          <button onClick={() => router.push("/revelacao/extras")}
+            style={{ padding: "9px 18px", borderRadius: 8, background: "transparent", border: "0.5px solid var(--color-border-secondary)", color: "var(--color-text-primary)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+            Produtos extras
+          </button>
+        </div>
       </div>
 
       {loading ? (

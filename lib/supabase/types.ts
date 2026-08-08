@@ -225,6 +225,21 @@ export type CrmRevelacaoTamanho = {
   created_at: string;
 };
 
+// Produtos extras oferecidos junto do pedido de revelação (porta-retratos, quadros, álbuns
+// para montar) — cadastro do fotógrafo; venda ao cliente é etapa separada.
+export type RevelacaoProdutoExtra = {
+  id: string;
+  fotografo_id: string;
+  titulo: string;
+  descricao: string | null;
+  imagem_url: string | null;
+  storage_path: string | null;
+  valor: number;
+  ativo: boolean;
+  ordem: number;
+  created_at: string;
+};
+
 export type RevelacaoPedido = {
   id: string;
   fotografo_id: string;
