@@ -75,8 +75,7 @@ function RevelacaoConteudo() {
     }
   };
 
-  const BlocoAvisoPagamento = () => {
-    const valor = pedido?.valor_total ?? 0;
+  const BlocoAvisoPagamento = ({ valor }: { valor: number }) => {
     const msgWhats = `Olá! Acabei de pagar o pedido de revelação de fotos${galeriaTitulo ? ` (${galeriaTitulo})` : ""}, valor ${fmt(valor)}. Pode confirmar o recebimento?`;
     const whatsUrl = linkWhatsApp(fotografoWhatsapp, msgWhats);
     return (
@@ -180,7 +179,7 @@ function RevelacaoConteudo() {
               Abrir pagamento
             </a>
           )}
-          <BlocoAvisoPagamento />
+          <BlocoAvisoPagamento valor={pedido.valor_total} />
         </div>
       </div>
     );
@@ -425,7 +424,7 @@ function RevelacaoConteudo() {
                   <p style={{ fontSize: 13, color: "#065F46", margin: 0 }}>Cobrança gerada — se a aba de pagamento não abriu, <a href={resultadoPagamento.invoiceUrl}>clique aqui</a>.</p>
                 )}
                 <div style={{ marginTop: 16, paddingTop: 16, borderTop: "1px solid rgba(16,185,129,0.2)" }}>
-                  <BlocoAvisoPagamento />
+                  <BlocoAvisoPagamento valor={total} />
                 </div>
               </div>
             )}
