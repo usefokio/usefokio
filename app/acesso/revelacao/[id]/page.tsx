@@ -31,6 +31,7 @@ function RevelacaoConteudo() {
   const [verificandoSenha, setVerificandoSenha] = useState(false);
 
   const [colunas, setColunas] = useState(4);
+  const [ordenacao, setOrdenacao] = useState<"ordem" | "nome">("ordem");
   const [passo, setPasso] = useState<Passo>("tamanho");
   const [tamanhoAtual, setTamanhoAtual] = useState<CrmRevelacaoTamanho | null>(null);
   const [confirmados, setConfirmados] = useState<Set<string>>(new Set());
@@ -185,6 +186,10 @@ function RevelacaoConteudo() {
     );
   }
 
+  const fotosOrdenadas = ordenacao === "nome"
+    ? [...fotos].sort((a, b) => (a.nome_arquivo ?? "").localeCompare(b.nome_arquivo ?? "", "pt-BR"))
+    : fotos;
+
   const cesta: Record<string, RevelacaoPedidoItem[]> = {};
   for (const it of itens) (cesta[it.tamanho_id] ??= []).push(it);
   const temAlgoNaCesta = Object.values(cesta).some(arr => arr.length > 0);
@@ -324,10 +329,20 @@ function RevelacaoConteudo() {
               </div>
               <p style={{ fontSize: 13, color: "#6B7280", margin: 0 }}>{(cesta[tamanhoAtual.id] ?? []).length} foto(s) marcada(s)</p>
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-              <span style={{ fontSize: 12, color: "#9CA3AF" }}>Colunas da grade</span>
-              <input type="range" min={2} max={6} step={1} value={colunas} onChange={e => setColunas(Number(e.target.value))}
-                style={{ flex: 1, maxWidth: 200 }} />
+            <div style={{ display: "flex", alignItems: "center", gap: 18, marginBottom: 14, flexWrap: "wrap" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ fontSize: 12, color: "#9CA3AF" }}>Tamanho das fotos</span>
+                <input type="range" min={2} max={6} step={1} value={8 - colunas} onChange={e => setColunas(8 - Number(e.target.value))}
+                  style={{ flex: 1, maxWidth: 200 }} />
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 12, color: "#9CA3AF" }}>Ordenar por</span>
+                <select value={ordenacao} onChange={e => setOrdenacao(e.target.value as "ordem" | "nome")}
+                  style={{ padding: "6px 10px", borderRadius: 7, border: "1px solid #D1D5DB", fontSize: 12, background: "#fff" }}>
+                  <option value="ordem">Ordem do álbum</option>
+                  <option value="nome">Nome do arquivo</option>
+                </select>
+              </div>
             </div>
             <style>{`
               .revelacao-grid { column-gap: 10px; }
@@ -335,7 +350,7 @@ function RevelacaoConteudo() {
               @media (max-width: 560px) { .revelacao-grid { column-count: 2 !important; } }
             `}</style>
             <div className="revelacao-grid" style={{ columnCount: colunas, marginBottom: 20 }}>
-              {fotos.map(foto => {
+              {fotosOrdenadas.map(foto => {
                 const on = (cesta[tamanhoAtual.id] ?? []).some(i => i.foto_id === foto.id);
                 return (
                   <div key={foto.id} className="revelacao-foto" onClick={() => toggleFoto(foto)}
