@@ -451,9 +451,9 @@ function RevelacaoConteudo() {
                     return (
                       <div key={produto.id} style={{ border: "1px solid #E5E7EB", borderRadius: 10, overflow: "hidden", display: "flex", flexDirection: "column" }}>
                         {fotosProduto.length > 0 && (
-                          <div style={{ position: "relative" }}>
+                          <div style={{ position: "relative", aspectRatio: "1 / 1" }}>
                             {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img src={fotosProduto[idx]} alt="" style={{ width: "100%", height: 120, objectFit: "cover", display: "block" }} />
+                            <img src={fotosProduto[idx]} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
                             {fotosProduto.length > 1 && (
                               <>
                                 <button onClick={() => trocarFoto(-1)} aria-label="Foto anterior"
