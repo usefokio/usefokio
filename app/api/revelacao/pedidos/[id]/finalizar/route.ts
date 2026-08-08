@@ -70,12 +70,17 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   const { data: galeria } = await admin.from("galerias_entrega").select("titulo").eq("id", pedido.galeria_entrega_id).maybeSingle();
   const { data: fotografo } = await admin.from("fotografos")
-    .select("id, nome_empresa, nome_completo, cidade, email, asaas_api_key_enc, asaas_ambiente, asaas_ativo, pix_ativo, pix_chave, pix_tipo, revelacao_pix_manual, revelacao_minimo_fotos, smtp_host, smtp_port, smtp_user, smtp_pass_enc, smtp_from")
+    .select("id, nome_empresa, nome_completo, cidade, email, asaas_api_key_enc, asaas_ambiente, asaas_ativo, pix_ativo, pix_chave, pix_tipo, revelacao_pix_manual, revelacao_minimo_fotos, revelacao_valor_minimo, smtp_host, smtp_port, smtp_user, smtp_pass_enc, smtp_from")
     .eq("id", pedido.fotografo_id).maybeSingle();
 
   const minimo = fotografo?.revelacao_minimo_fotos ?? null;
   if (minimo && itens.length < minimo) {
     return NextResponse.json({ erro: `Este pedido precisa de pelo menos ${minimo} fotos para ser finalizado (tem ${itens.length}).` }, { status: 400 });
+  }
+
+  const valorMinimo = fotografo?.revelacao_valor_minimo ?? null;
+  if (valorMinimo && total < valorMinimo) {
+    return NextResponse.json({ erro: `Este pedido precisa de no mínimo R$ ${valorMinimo.toFixed(2).replace(".", ",")} para ser finalizado (está em R$ ${total.toFixed(2).replace(".", ",")}).` }, { status: 400 });
   }
 
   // Preferência independente da renovação: se ligada, revelação força PIX manual (mesma chave PIX),

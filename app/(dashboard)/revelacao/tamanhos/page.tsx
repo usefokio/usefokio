@@ -18,6 +18,7 @@ export default function RevelacaoTamanhosPage() {
   const [novoValor, setNovoValor] = useState("");
   const [salvando, setSalvando] = useState(false);
   const [minimoFotos, setMinimoFotos] = useState("");
+  const [valorMinimo, setValorMinimo] = useState("");
 
   const carregar = useCallback(async () => {
     if (!fid) return;
@@ -25,10 +26,11 @@ export default function RevelacaoTamanhosPage() {
     const sb = createClient();
     const [{ data }, { data: fot }] = await Promise.all([
       sb.from("crm_revelacao_tamanhos").select("*").eq("fotografo_id", fid).order("ordem"),
-      sb.from("fotografos").select("revelacao_minimo_fotos").eq("id", fid).maybeSingle(),
+      sb.from("fotografos").select("revelacao_minimo_fotos, revelacao_valor_minimo").eq("id", fid).maybeSingle(),
     ]);
     setTamanhos((data ?? []) as CrmRevelacaoTamanho[]);
     setMinimoFotos(fot?.revelacao_minimo_fotos ? String(fot.revelacao_minimo_fotos) : "");
+    setValorMinimo(fot?.revelacao_valor_minimo ? formatNum(fot.revelacao_valor_minimo) : "");
     setLoading(false);
   }, [fid]);
 
@@ -38,6 +40,12 @@ export default function RevelacaoTamanhosPage() {
     if (!fid) return;
     const n = parseInt(valor.replace(/\D/g, ""), 10);
     await createClient().from("fotografos").update({ revelacao_minimo_fotos: n > 0 ? n : null }).eq("id", fid);
+  };
+
+  const salvarValorMinimo = async (valorStr: string) => {
+    if (!fid) return;
+    const valor = parsearValor(valorStr);
+    await createClient().from("fotografos").update({ revelacao_valor_minimo: valor > 0 ? valor : null }).eq("id", fid);
   };
 
   const adicionar = async () => {
@@ -91,6 +99,17 @@ export default function RevelacaoTamanhosPage() {
         <input value={minimoFotos} onChange={(e) => setMinimoFotos(e.target.value.replace(/\D/g, ""))} onBlur={(e) => salvarMinimo(e.target.value)}
           placeholder="Ex. 10" inputMode="numeric"
           style={{ width: 100, padding: "9px 12px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-secondary)", fontSize: 13, color: "var(--color-text-primary)", outline: "none" }} />
+      </div>
+
+      <div style={{ marginBottom: 24 }}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)", marginBottom: 4 }}>Valor mínimo do pedido</div>
+        <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginBottom: 8 }}>O cliente só consegue finalizar o pedido a partir desse valor total. Deixe em branco para não ter mínimo.</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <span style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>R$</span>
+          <input value={valorMinimo} onChange={(e) => setValorMinimo(mascaraValor(e.target.value))} onBlur={(e) => salvarValorMinimo(e.target.value)}
+            placeholder="Ex. 50,00" inputMode="decimal"
+            style={{ width: 110, padding: "9px 12px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-secondary)", fontSize: 13, color: "var(--color-text-primary)", outline: "none" }} />
+        </div>
       </div>
 
       {loading ? (
