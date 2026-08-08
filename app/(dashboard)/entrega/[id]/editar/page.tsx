@@ -69,6 +69,7 @@ export default function EditarEntregaPage() {
   const [identificacaoObrig,    setIdentificacaoObrig]    = useState(false);
   const [driveApenasIdentif,    setDriveApenasIdentif]    = useState(false);
   const [revelacaoAtiva,        setRevelacaoAtiva]        = useState(false);
+  const [produtosExtrasAtivo,   setProdutosExtrasAtivo]   = useState(false);
   const [categoriaId,  setCategoriaId]  = useState<string>("");
   const [categorias,   setCategorias]   = useState<Categoria[]>([]);
   const [saving,      setSaving]     = useState(false);
@@ -116,6 +117,7 @@ export default function EditarEntregaPage() {
         setIdentificacaoObrig(g.identificacao_obrigatoria ?? false);
         setDriveApenasIdentif(g.drive_apenas_identificado ?? false);
         setRevelacaoAtiva(g.revelacao_ativa ?? false);
+        setProdutosExtrasAtivo(g.produtos_extras_ativo ?? false);
 
         setTitulo(g.titulo);
         setClienteId(g.cliente_id ?? "");
@@ -164,6 +166,7 @@ export default function EditarEntregaPage() {
     identificacaoObrig !== (original.identificacao_obrigatoria ?? false) ||
     driveApenasIdentif !== (original.drive_apenas_identificado ?? false) ||
     revelacaoAtiva !== (original.revelacao_ativa ?? false) ||
+    produtosExtrasAtivo !== (original.produtos_extras_ativo ?? false) ||
     (expiresAt?.getTime() ?? null) !== (original.expires_at ? new Date(original.expires_at).getTime() : null) ||
     categoriaId !== (original.categoria_id ?? "")
   );
@@ -222,6 +225,7 @@ export default function EditarEntregaPage() {
         identificacao_obrigatoria:  identificacaoObrig,
         drive_apenas_identificado:  driveApenasIdentif,
         revelacao_ativa:            revelacaoAtiva,
+        produtos_extras_ativo:      produtosExtrasAtivo,
         ordenacao_fotos:            ordenacaoFotos,
         foto_capa_url:              novaCapa ? novaCapa.url : capaUrl,
         foto_capa_storage_path:     novaCapa ? novaCapa.storage_path : undefined,
@@ -459,6 +463,13 @@ export default function EditarEntregaPage() {
               <div>
                 <div style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)", marginBottom: 3 }}>Permitir pedido de revelação</div>
                 <div style={{ fontSize: 12, color: "var(--color-text-secondary)", lineHeight: 1.5 }}>Mostra o botão "Pedir revelação" nesta galeria, pra o cliente escolher fotos por tamanho e pagar a impressão física.</div>
+              </div>
+            </label>
+            <label style={{ display: "flex", alignItems: "flex-start", gap: 12, cursor: "pointer" }}>
+              <input type="checkbox" checked={produtosExtrasAtivo} onChange={(e) => setProdutosExtrasAtivo(e.target.checked)} style={{ marginTop: 2, width: 16, height: 16, accentColor: "var(--color-text-primary)", cursor: "pointer", flexShrink: 0 }} />
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)", marginBottom: 3 }}>Vender produtos extras</div>
+                <div style={{ fontSize: 12, color: "var(--color-text-secondary)", lineHeight: 1.5 }}>Oferece os produtos cadastrados em Revelação → Produtos extras (porta-retratos, quadros, álbuns) na tela de finalização do pedido de revelação desta galeria.</div>
               </div>
             </label>
             <label style={{ display: "flex", alignItems: "flex-start", gap: 12, cursor: "pointer" }}>

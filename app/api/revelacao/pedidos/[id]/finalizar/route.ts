@@ -9,7 +9,7 @@ import QRCode from "qrcode";
 import { gerarBrCodePix } from "@/lib/pix/brcode";
 import nodemailer from "nodemailer";
 import { getResend, FROM_DEFAULT } from "@/lib/email/resend";
-import { templateRevelacaoPagamento, type RevelacaoPagamentoParams } from "@/lib/email/templates";
+import { templateRevelacaoPagamento, type RevelacaoPagamentoParams, templateRevelacaoPedidoFinalizado, type RevelacaoPedidoFinalizadoParams } from "@/lib/email/templates";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -43,6 +43,34 @@ async function enviarEmailPagamentoCliente(
   }
 }
 
+// Avisa o FOTÓGRAFO, no fechamento do pedido, com o detalhamento completo (tamanhos + extras) —
+// o e-mail de "seleção concluída" já dispara antes disso, sem ainda saber os extras escolhidos.
+async function enviarEmailPedidoFotografo(
+  destino: string,
+  dados: RevelacaoPedidoFinalizadoParams,
+  smtp: { smtp_host: string | null; smtp_port: number | null; smtp_user: string | null; smtp_pass_enc: string | null; smtp_from: string | null } | null,
+) {
+  try {
+    const { subject, html } = templateRevelacaoPedidoFinalizado(dados);
+    try {
+      await getResend().emails.send({ from: FROM_DEFAULT, to: destino, subject, html });
+      return;
+    } catch (e) {
+      console.error("[revelacao/finalizar] Resend falhou (fotógrafo):", e instanceof Error ? e.message : e);
+    }
+    if (smtp?.smtp_host && smtp.smtp_pass_enc) {
+      const transporter = nodemailer.createTransport({
+        host: smtp.smtp_host, port: smtp.smtp_port ?? 587,
+        secure: (smtp.smtp_port ?? 587) === 465,
+        auth: { user: smtp.smtp_user ?? undefined, pass: decryptKey(smtp.smtp_pass_enc) },
+      });
+      await transporter.sendMail({ from: smtp.smtp_from || smtp.smtp_user || undefined, to: destino, subject, html });
+    }
+  } catch (e) {
+    console.error("[revelacao/finalizar] Falha ao enviar email de pedido ao fotógrafo:", e instanceof Error ? e.message : e);
+  }
+}
+
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const ip = clientIp(request);
@@ -62,11 +90,26 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (pedido.status !== "aberto") return NextResponse.json({ erro: "Este pedido já foi fechado." }, { status: 409 });
 
   // Nunca confia no valor que o cliente viu na tela — recalcula pela cesta salva no banco.
-  const { data: itens } = await admin.from("revelacao_pedido_itens").select("valor_unit").eq("pedido_id", id);
-  const total = (itens ?? []).reduce((s, i) => s + Number(i.valor_unit), 0);
-  if (!itens || itens.length === 0 || total <= 0) {
+  const { data: itens } = await admin.from("revelacao_pedido_itens")
+    .select("valor_unit, tamanho_id, crm_revelacao_tamanhos(nome)").eq("pedido_id", id);
+  const { data: extras } = await admin.from("revelacao_pedido_extras").select("titulo, valor_unit, quantidade").eq("pedido_id", id);
+  const totalFotos = (itens ?? []).reduce((s, i) => s + Number(i.valor_unit), 0);
+  const totalExtras = (extras ?? []).reduce((s, e) => s + Number(e.valor_unit) * e.quantidade, 0);
+  const total = totalFotos + totalExtras;
+  if (!itens || itens.length === 0 || totalFotos <= 0) {
     return NextResponse.json({ erro: "Nenhuma foto selecionada." }, { status: 400 });
   }
+
+  const tamanhosAgrupados = new Map<string, { quantidade: number; subtotal: number }>();
+  for (const i of itens) {
+    const nome = (i as unknown as { crm_revelacao_tamanhos: { nome: string } | null }).crm_revelacao_tamanhos?.nome ?? "Tamanho";
+    const atual = tamanhosAgrupados.get(nome) ?? { quantidade: 0, subtotal: 0 };
+    atual.quantidade += 1;
+    atual.subtotal += Number(i.valor_unit);
+    tamanhosAgrupados.set(nome, atual);
+  }
+  const tamanhosDetalhados = Array.from(tamanhosAgrupados.entries()).map(([nome, v]) => ({ nome, ...v }));
+  const extrasDetalhados = (extras ?? []).map((e) => ({ titulo: e.titulo, quantidade: e.quantidade, subtotal: Number(e.valor_unit) * e.quantidade }));
 
   const { data: galeria } = await admin.from("galerias_entrega").select("titulo").eq("id", pedido.galeria_entrega_id).maybeSingle();
   const { data: fotografo } = await admin.from("fotografos")
@@ -96,6 +139,16 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   const emailNorm = email!.trim().toLowerCase();
   const descricao = `Revelação de fotos — ${galeria?.titulo ?? "galeria"}`;
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://www.usefokio.com.br";
+  const dadosFotografo: RevelacaoPedidoFinalizadoParams = {
+    fotografoNome: fotografo!.nome_empresa || fotografo!.nome_completo || "Fotógrafo",
+    clienteNome: nome!.trim(),
+    galeriaTitulo: galeria?.titulo ?? "Galeria",
+    tamanhos: tamanhosDetalhados,
+    extras: extrasDetalhados,
+    valorTotal: total,
+    galeriaAdminUrl: `${appUrl}/entrega/${pedido.galeria_entrega_id}`,
+  };
 
   await admin.from("revelacao_pedidos").update({
     status: "aguardando_pagamento", valor_total: total, pagador_nome: nome!.trim(), pagador_email: emailNorm,
@@ -127,6 +180,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       clienteNome: nome!.trim(), galeriaTitulo: galeria?.titulo ?? "Galeria", totalFotos: itens.length,
       valorTotal: total, gateway: "pix_manual", pixCopiaECola, pixQrDataUrl,
     }, fotografo);
+    if (fotografo!.email) await enviarEmailPedidoFotografo(fotografo!.email, dadosFotografo, fotografo);
 
     return NextResponse.json({ ok: true, gateway: "pix_manual", pixChave: fotografo!.pix_chave, pixTipo: fotografo!.pix_tipo, valor: total, pixCopiaECola, pixQrDataUrl, pagamentoId: pgto.id });
   }
@@ -143,7 +197,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     });
 
     try {
-      const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://www.usefokio.com.br";
       await registrarWebhook(apiKey, fotografo!.asaas_ambiente as AsaasAmbiente, `${appUrl}/api/asaas/webhook`, process.env.ASAAS_WEBHOOK_TOKEN, fotografo!.email ?? undefined);
     } catch (we) {
       console.error("[revelacao/finalizar] re-registro de webhook falhou:", we instanceof Error ? we.message : we);
@@ -161,6 +214,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       clienteNome: nome!.trim(), galeriaTitulo: galeria?.titulo ?? "Galeria", totalFotos: itens.length,
       valorTotal: total, gateway: "asaas", invoiceUrl: resultado.invoiceUrl,
     }, fotografo);
+    if (fotografo!.email) await enviarEmailPedidoFotografo(fotografo!.email, dadosFotografo, fotografo);
 
     return NextResponse.json({ ok: true, gateway: "asaas", invoiceUrl: resultado.invoiceUrl, pagamentoId: pgto.id });
   } catch (e) {
