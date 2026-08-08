@@ -10,7 +10,7 @@ import { uploadFileClient } from "@/lib/storage/uploadClient";
 import { deleteFilesClient } from "@/lib/storage/deleteClient";
 import { processarImagemEntrega } from "@/lib/imageResize";
 import { mascaraValor, parsearValor, formatNum } from "@/lib/utils/format";
-import type { RevelacaoProdutoExtra } from "@/lib/supabase/types";
+import type { RevelacaoProdutoExtra, RevelacaoProdutoExtraImagem } from "@/lib/supabase/types";
 
 const inputStyle: React.CSSProperties = {
   width: "100%", padding: "10px 12px", borderRadius: 8, boxSizing: "border-box",
@@ -23,10 +23,9 @@ type FormState = {
   titulo: string;
   descricao: string;
   valorStr: string;
-  imagem_url: string | null;
-  storage_path: string | null;
+  imagens: RevelacaoProdutoExtraImagem[];
 };
-const FORM_VAZIO: FormState = { id: null, titulo: "", descricao: "", valorStr: "", imagem_url: null, storage_path: null };
+const FORM_VAZIO: FormState = { id: null, titulo: "", descricao: "", valorStr: "", imagens: [] };
 
 export default function RevelacaoExtrasPage() {
   const router = useRouter();
@@ -37,12 +36,35 @@ export default function RevelacaoExtrasPage() {
   const [salvando, setSalvando] = useState(false);
   const inputFileRef = useRef<HTMLInputElement>(null);
 
+  const [textoTitulo, setTextoTitulo] = useState("");
+  const [textoSubtitulo, setTextoSubtitulo] = useState("");
+  const [textoSalvando, setTextoSalvando] = useState(false);
+  const [textoSalvo, setTextoSalvo] = useState(false);
+
   useEffect(() => {
     if (!fotografo) return;
     const supabase = createClient();
     supabase.from("revelacao_produtos_extras").select("*").eq("fotografo_id", fotografo.id).order("ordem")
       .then(({ data }) => { setItens((data as RevelacaoProdutoExtra[]) ?? []); setLoading(false); });
+    supabase.from("fotografos").select("revelacao_extras_titulo, revelacao_extras_subtitulo").eq("id", fotografo.id).maybeSingle()
+      .then(({ data }) => {
+        setTextoTitulo(data?.revelacao_extras_titulo ?? "Quer aproveitar e levar mais alguma coisa?");
+        setTextoSubtitulo(data?.revelacao_extras_subtitulo ?? "Porta-retratos, quadros e álbuns para montar com estas fotos.");
+      });
   }, [fotografo]);
+
+  async function salvarTextos() {
+    if (!fotografo || textoSalvando) return;
+    setTextoSalvando(true);
+    const supabase = createClient();
+    await supabase.from("fotografos").update({
+      revelacao_extras_titulo: textoTitulo.trim() || "Quer aproveitar e levar mais alguma coisa?",
+      revelacao_extras_subtitulo: textoSubtitulo.trim(),
+    }).eq("id", fotografo.id);
+    setTextoSalvando(false);
+    setTextoSalvo(true);
+    setTimeout(() => setTextoSalvo(false), 2000);
+  }
 
   async function salvar() {
     if (!form || !fotografo) return;
@@ -50,15 +72,17 @@ export default function RevelacaoExtrasPage() {
     if (!form.titulo.trim() || !valor || valor <= 0) return;
     setSalvando(true);
     const supabase = createClient();
+    const imagem_url = form.imagens[0]?.url_publica ?? null;
+    const storage_path = form.imagens[0]?.storage_path ?? null;
     if (form.id) {
       const { data } = await supabase.from("revelacao_produtos_extras")
-        .update({ titulo: form.titulo.trim(), descricao: form.descricao.trim() || null, valor, imagem_url: form.imagem_url, storage_path: form.storage_path })
+        .update({ titulo: form.titulo.trim(), descricao: form.descricao.trim() || null, valor, imagem_url, storage_path, imagens: form.imagens })
         .eq("id", form.id).select("*").single();
       if (data) setItens((prev) => prev.map((i) => i.id === form.id ? (data as RevelacaoProdutoExtra) : i));
     } else {
       const ordem = itens.length > 0 ? Math.max(...itens.map((i) => i.ordem)) + 1 : 0;
       const { data } = await supabase.from("revelacao_produtos_extras")
-        .insert({ fotografo_id: fotografo.id, titulo: form.titulo.trim(), descricao: form.descricao.trim() || null, valor, imagem_url: form.imagem_url, storage_path: form.storage_path, ordem, ativo: true })
+        .insert({ fotografo_id: fotografo.id, titulo: form.titulo.trim(), descricao: form.descricao.trim() || null, valor, imagem_url, storage_path, imagens: form.imagens, ordem, ativo: true })
         .select("*").single();
       if (data) setItens((prev) => [...prev, data as RevelacaoProdutoExtra]);
     }
@@ -75,7 +99,8 @@ export default function RevelacaoExtrasPage() {
   async function excluir(item: RevelacaoProdutoExtra) {
     if (!confirm(`Excluir o produto "${item.titulo}"?`)) return;
     const supabase = createClient();
-    if (item.storage_path) await deleteFilesClient([{ storage_path: item.storage_path, url_publica: item.imagem_url }]);
+    const imagens = item.imagens?.length ? item.imagens : (item.storage_path ? [{ storage_path: item.storage_path, url_publica: item.imagem_url }] : []);
+    if (imagens.length > 0) await deleteFilesClient(imagens.map((im) => ({ storage_path: im.storage_path, url_publica: im.url_publica })));
     await supabase.from("revelacao_produtos_extras").delete().eq("id", item.id);
     setItens((prev) => prev.filter((i) => i.id !== item.id));
   }
@@ -85,8 +110,17 @@ export default function RevelacaoExtrasPage() {
     const { blob } = await processarImagemEntrega(files[0], 800, 0.85);
     const path = `revelacao/${fotografo.id}/extras/${crypto.randomUUID().slice(0, 8)}.jpg`;
     const { url_publica, storage_path } = await uploadFileClient(path, blob);
-    setForm((prev) => prev ? { ...prev, imagem_url: url_publica, storage_path } : prev);
+    setForm((prev) => prev ? { ...prev, imagens: [...prev.imagens, { url_publica, storage_path }] } : prev);
     if (inputFileRef.current) inputFileRef.current.value = "";
+  }
+
+  async function removerImagem(index: number) {
+    setForm((prev) => {
+      if (!prev) return prev;
+      const alvo = prev.imagens[index];
+      if (alvo) deleteFilesClient([{ storage_path: alvo.storage_path, url_publica: alvo.url_publica }]).catch(() => {});
+      return { ...prev, imagens: prev.imagens.filter((_, i) => i !== index) };
+    });
   }
 
   const cardStyle: React.CSSProperties = { border: "1px solid var(--color-border-secondary)", borderRadius: 12, padding: 18, background: "var(--color-background-secondary)" };
@@ -100,14 +134,23 @@ export default function RevelacaoExtrasPage() {
         <input value={f.valorStr} onChange={(e) => setForm({ ...f, valorStr: mascaraValor(e.target.value) })} placeholder="Valor *"
           style={{ ...inputStyle, width: 120 }} />
       </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        {f.imagem_url && <img src={f.imagem_url} alt="" style={{ width: 44, height: 44, borderRadius: 8, objectFit: "cover" }} />}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+        {f.imagens.map((im, i) => (
+          <div key={i} style={{ position: "relative" }}>
+            <img src={im.url_publica} alt="" style={{ width: 44, height: 44, borderRadius: 8, objectFit: "cover", display: "block" }} />
+            <button onClick={() => removerImagem(i)} title="Remover"
+              style={{ position: "absolute", top: -6, right: -6, width: 18, height: 18, borderRadius: "50%", border: "none", background: "#DC2626", color: "#fff", fontSize: 11, lineHeight: "18px", cursor: "pointer", padding: 0 }}>×</button>
+          </div>
+        ))}
         <button onClick={() => inputFileRef.current?.click()}
           style={{ padding: "8px 14px", borderRadius: 8, border: "1px solid var(--color-border-secondary)", background: "transparent", fontSize: 12, fontWeight: 600, color: "var(--color-text-primary)", cursor: "pointer" }}>
-          {f.imagem_url ? "Trocar imagem" : "+ Imagem (opcional)"}
+          {f.imagens.length > 0 ? "+ Adicionar outra foto" : "+ Fotos (opcional)"}
         </button>
         <input ref={inputFileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={(e) => enviarImagem(e.target.files)} />
       </div>
+      {f.imagens.length > 1 && (
+        <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: 0 }}>O cliente verá estas fotos com setas ‹ › pra alternar.</p>
+      )}
       <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
         <button onClick={() => setForm(null)} style={{ padding: "9px 16px", borderRadius: 8, border: "1px solid var(--color-border-secondary)", background: "transparent", fontSize: 12, color: "var(--color-text-secondary)", cursor: "pointer" }}>Cancelar</button>
         <button onClick={salvar} disabled={salvando || !f.titulo.trim() || !parsearValor(f.valorStr)}
@@ -133,6 +176,20 @@ export default function RevelacaoExtrasPage() {
         Porta-retratos, quadros, álbuns pra montar — cadastre aqui pra oferecer aos clientes no pedido de revelação.
       </p>
 
+      <div style={{ ...cardStyle, marginBottom: 24, display: "flex", flexDirection: "column", gap: 10 }}>
+        <p style={{ fontSize: 12, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.04em", margin: 0 }}>
+          Título e subtítulo exibidos ao cliente
+        </p>
+        <input value={textoTitulo} onChange={(e) => { setTextoTitulo(e.target.value); setTextoSalvo(false); }} placeholder="Título" style={inputStyle} />
+        <input value={textoSubtitulo} onChange={(e) => { setTextoSubtitulo(e.target.value); setTextoSalvo(false); }} placeholder="Subtítulo (opcional)" style={inputStyle} />
+        <div style={{ display: "flex", justifyContent: "flex-end" }}>
+          <button onClick={salvarTextos} disabled={textoSalvando || !textoTitulo.trim()}
+            style={{ padding: "8px 16px", borderRadius: 8, border: "none", background: textoSalvo ? "#059669" : "var(--color-text-primary)", color: "var(--color-background-primary)", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+            {textoSalvando ? "Salvando…" : textoSalvo ? "Salvo ✓" : "Salvar"}
+          </button>
+        </div>
+      </div>
+
       {form && form.id === null && (
         <div style={{ ...cardStyle, marginBottom: 20 }}>
           {camposForm(form)}
@@ -150,7 +207,8 @@ export default function RevelacaoExtrasPage() {
               </div>
             ) : (
               <div key={p.id} style={{ border: "1px solid var(--color-border-tertiary)", borderRadius: 10, padding: "12px 16px", display: "flex", gap: 12, alignItems: "flex-start" }}>
-                {p.imagem_url && <img src={p.imagem_url} alt={p.titulo} style={{ width: 44, height: 44, borderRadius: 8, objectFit: "cover", flexShrink: 0 }} />}
+                {(p.imagens?.[0]?.url_publica ?? p.imagem_url) && <img src={p.imagens?.[0]?.url_publica ?? p.imagem_url!} alt={p.titulo} style={{ width: 44, height: 44, borderRadius: 8, objectFit: "cover", flexShrink: 0 }} />}
+                {p.imagens?.length > 1 && <span style={{ fontSize: 10, color: "var(--color-text-secondary)" }}>+{p.imagens.length - 1}</span>}
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
                     <span style={{ fontSize: 14, fontWeight: 700, color: "var(--color-text-primary)" }}>{p.titulo}</span>
@@ -166,7 +224,7 @@ export default function RevelacaoExtrasPage() {
                   )}
                 </div>
                 <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
-                  <button onClick={() => setForm({ id: p.id, titulo: p.titulo, descricao: p.descricao ?? "", valorStr: formatNum(p.valor), imagem_url: p.imagem_url, storage_path: p.storage_path })} title="Editar"
+                  <button onClick={() => setForm({ id: p.id, titulo: p.titulo, descricao: p.descricao ?? "", valorStr: formatNum(p.valor), imagens: p.imagens?.length ? p.imagens : (p.imagem_url && p.storage_path ? [{ url_publica: p.imagem_url, storage_path: p.storage_path }] : []) })} title="Editar"
                     style={{ border: "none", background: "transparent", cursor: "pointer", fontSize: 13, color: "var(--color-text-secondary)" }}>✏️</button>
                   <button onClick={() => alternarAtivo(p)} title={p.ativo ? "Desativar" : "Ativar"}
                     style={{ border: "none", background: "transparent", cursor: "pointer", fontSize: 13, color: "var(--color-text-secondary)" }}>{p.ativo ? "🙈" : "👁"}</button>

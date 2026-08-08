@@ -24,7 +24,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     admin.from("galerias_entrega_fotos").select("id, storage_path, url_publica, nome_arquivo, ordem").eq("galeria_id", pedido.galeria_entrega_id).order("ordem"),
     admin.from("revelacao_pedido_itens").select("id, tamanho_id, foto_id, nome_arquivo, valor_unit").eq("pedido_id", id),
     admin.from("pagamentos").select("status, invoice_url, gateway").eq("revelacao_pedido_id", id).order("created_at", { ascending: false }).limit(1).maybeSingle(),
-    admin.from("fotografos").select("revelacao_minimo_fotos, revelacao_valor_minimo, whatsapp").eq("id", pedido.fotografo_id).maybeSingle(),
+    admin.from("fotografos").select("revelacao_minimo_fotos, revelacao_valor_minimo, whatsapp, revelacao_extras_titulo, revelacao_extras_subtitulo").eq("id", pedido.fotografo_id).maybeSingle(),
     pedido.cliente_id ? admin.from("clientes").select("nome").eq("id", pedido.cliente_id).maybeSingle() : Promise.resolve({ data: null }),
     admin.from("galerias_entrega").select("titulo, produtos_extras_ativo").eq("id", pedido.galeria_entrega_id).maybeSingle(),
     admin.from("revelacao_produtos_extras").select("*").eq("fotografo_id", pedido.fotografo_id).eq("ativo", true).order("ordem"),
@@ -41,6 +41,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     galeriaTitulo: galeria?.titulo ?? null,
     clienteNome: cliente?.nome ?? null,
     extrasAtivo,
+    extrasTitulo: fotografo?.revelacao_extras_titulo ?? "Quer aproveitar e levar mais alguma coisa?",
+    extrasSubtitulo: fotografo?.revelacao_extras_subtitulo ?? "Porta-retratos, quadros e álbuns para montar com estas fotos.",
     produtosExtras: extrasAtivo ? (produtosExtras ?? []) : [],
     extrasSelecionados: extrasSelecionados ?? [],
   });

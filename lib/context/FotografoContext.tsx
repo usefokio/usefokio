@@ -40,6 +40,7 @@ export function FotografoProvider({ children }: { children: ReactNode }) {
         total_fotos_usadas: 0,
         aprovado: true,
         mensagem_padrao_entrega: null, renewal_fee_padrao: null, revelacao_minimo_fotos: null, revelacao_valor_minimo: null,
+        revelacao_extras_titulo: "Quer aproveitar e levar mais alguma coisa?", revelacao_extras_subtitulo: "Porta-retratos, quadros e álbuns para montar com estas fotos.",
         templates_mensagem: null, asaas_api_key_enc: null,
         asaas_ambiente: "sandbox", asaas_ativo: false,
         pix_chave: null, pix_tipo: null, pix_ativo: false,
