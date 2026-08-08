@@ -334,6 +334,37 @@ export function templateRevelacaoPagamento(p: RevelacaoPagamentoParams): { subje
   };
 }
 
+// ─── 3e. Pedido de revelação: cliente avisou que pagou → fotógrafo ───────────
+export type RevelacaoAvisoPagamentoParams = {
+  fotografoNome:  string;
+  clienteNome:    string;
+  galeriaTitulo:  string;
+  valorTotal:     number;
+  galeriaAdminUrl: string;
+};
+
+export function templateRevelacaoAvisoPagamento(p: RevelacaoAvisoPagamentoParams): { subject: string; html: string } {
+  const valorFmt = p.valorTotal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  return {
+    subject: `${p.clienteNome} avisou que pagou a revelação — ${p.galeriaTitulo}`,
+    html: base(`
+      <h2 style="margin:0 0 8px; font-size:20px; color:#111; letter-spacing:-0.02em;">Aviso de pagamento 💰</h2>
+      <p style="color:#555; font-size:14px; line-height:1.6; margin:0 0 20px;">
+        Olá, <strong>${esc(p.fotografoNome)}</strong>! Seu cliente avisou que já pagou o pedido de revelação. Confira e confirme no painel.
+      </p>
+      <div style="background:#fffbeb; border:1px solid #fde68a; border-radius:8px; padding:16px 20px; margin-bottom:20px;">
+        <p style="margin:0 0 6px; font-size:14px; color:#333;">📷 Galeria: <strong>${esc(p.galeriaTitulo)}</strong></p>
+        <p style="margin:0 0 6px; font-size:14px; color:#333;">👤 Cliente: <strong>${esc(p.clienteNome)}</strong></p>
+        <p style="margin:0; font-size:14px; color:#B45309; font-weight:700;">💰 Total: ${valorFmt}</p>
+      </div>
+      <a href="${p.galeriaAdminUrl}" style="${BTN_STYLE("#111")}">Conferir no painel →</a>
+      <p style="font-size:12px; color:#aaa; margin:12px 0 0;">
+        Se o botão não funcionar: <a href="${p.galeriaAdminUrl}" style="color:#2563EB;">${esc(p.galeriaAdminUrl)}</a>
+      </p>
+    `),
+  };
+}
+
 // ─── 4. Campanha de reativação → cliente ─────────────────────────────────────
 export type CampanhaReativacaoParams = {
   clienteNome:      string;
