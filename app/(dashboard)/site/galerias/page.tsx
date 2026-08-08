@@ -12,10 +12,11 @@ import { auditarTrabalho, resumo } from "@/lib/site/seoAudit";
 import { CardGaleria, GRID } from "@/app/(dashboard)/site/galerias/_components/CardGaleria";
 import type { SiteTrabalho, SiteCategoria } from "@/lib/supabase/types";
 
-type SortKey = "legacy_id" | "titulo" | "categoria" | "views" | "likes";
+type SortKey = "recentes" | "data_evento" | "legacy_id" | "titulo" | "categoria" | "views" | "likes";
 
 const SORT_LABEL: Record<SortKey, string> = {
-  legacy_id: "ID (URL)", titulo: "Título", categoria: "Categoria", views: "Visualizações", likes: "Curtidas",
+  recentes: "Mais recentes", data_evento: "Data do evento", legacy_id: "ID (URL)",
+  titulo: "Título", categoria: "Categoria", views: "Visualizações", likes: "Curtidas",
 };
 
 const inputCtrl: React.CSSProperties = {
@@ -31,7 +32,7 @@ export default function GaleriasPage() {
   const [loading, setLoading] = useState(true);
   const [busca, setBusca] = useState("");
   const [catFiltro, setCatFiltro] = useState<string>("todas");
-  const [sortKey, setSortKey] = useState<SortKey>("legacy_id");
+  const [sortKey, setSortKey] = useState<SortKey>("recentes");
   const [sortAsc, setSortAsc] = useState(false);
 
   useEffect(() => {
@@ -71,6 +72,12 @@ export default function GaleriasPage() {
     return [...lista].sort((a, b) => {
       const dir = sortAsc ? 1 : -1;
       if (sortKey === "titulo" || sortKey === "categoria") return String(a[sortKey]).localeCompare(String(b[sortKey]), "pt-BR") * dir;
+      if (sortKey === "recentes") return ((new Date(a.created_at).getTime()) - (new Date(b.created_at).getTime())) * dir;
+      if (sortKey === "data_evento") {
+        const va = a.data_evento ? new Date(a.data_evento).getTime() : 0;
+        const vb = b.data_evento ? new Date(b.data_evento).getTime() : 0;
+        return (va - vb) * dir;
+      }
       return (Number(a[sortKey] ?? 0) - Number(b[sortKey] ?? 0)) * dir;
     });
   }, [trabalhos, catFiltro, busca, sortKey, sortAsc]);
@@ -117,7 +124,7 @@ export default function GaleriasPage() {
             </select>
             <div style={{ display: "flex", gap: 4, marginLeft: "auto", alignItems: "center" }}>
               <select value={sortKey} onChange={(e) => setSortKey(e.target.value as SortKey)} style={inputCtrl} title="Ordenar por">
-                {(["legacy_id", "titulo", "categoria", "views", "likes"] as SortKey[]).map((k) => (
+                {(["recentes", "data_evento", "legacy_id", "titulo", "categoria", "views", "likes"] as SortKey[]).map((k) => (
                   <option key={k} value={k}>Ordenar: {SORT_LABEL[k]}</option>
                 ))}
               </select>

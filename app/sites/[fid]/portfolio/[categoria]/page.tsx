@@ -34,7 +34,7 @@ export default async function CategoriaPage({ params }: { params: Promise<{ fid:
   const [{ data: trabalhos }, info, { data: cfg }] = await Promise.all([
     admin.from("site_trabalhos").select("*")
       .eq("fotografo_id", fid).eq("publicado", true)
-      .order("data_evento", { ascending: false }),
+      .order("created_at", { ascending: false }),
     infoCategorias(fid),
     admin.from("site_config").select("design").eq("fotografo_id", fid).maybeSingle(),
   ]);
