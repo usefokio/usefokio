@@ -80,6 +80,7 @@ export function TrabalhoForm({ trabalhoId }: { trabalhoId?: string }) {
   const [fotos, setFotos]           = useState<SiteTrabalhoFoto[]>([]);
   const [fila, setFila]             = useState<{ total: number; feitas: number } | null>(null);
   const inputFileRef                = useRef<HTMLInputElement>(null);
+  const canceladoRef                = useRef(false);
   // Reordenar fotos por arrastar — mesmo padrão do bloco galeria em EditorBlocos.tsx
   const fotoDrag = useRef<number | null>(null);
   const [fotoSobre, setFotoSobre] = useState<number | null>(null);
@@ -250,6 +251,7 @@ export function TrabalhoForm({ trabalhoId }: { trabalhoId?: string }) {
     if (!tid) return; // criação falhou (faltou título/categoria) — mensagem já exibida
     const supabase = createClient();
     const lista = Array.from(files).filter((f) => f.type.startsWith("image/"));
+    canceladoRef.current = false;
     setFila({ total: lista.length, feitas: 0 });
     let ordem = fotos.length > 0 ? Math.max(...fotos.map((f) => f.ordem)) + 1 : 0;
     // Flag local: capaUrl é uma closure fixa do render; sem ela, "!capaUrl" seria true em
@@ -257,7 +259,9 @@ export function TrabalhoForm({ trabalhoId }: { trabalhoId?: string }) {
     let capaDefinida = !!capaUrl;
     // Site nunca publica alta resolução: 1400px é bom em tela e ruim para impressão.
     const marca = marcaDaguaSite(fotografo, marcaAtiva);
+    let enviadas = 0, falhas = 0;
     for (const file of lista) {
+      if (canceladoRef.current) break;
       try {
         const { blob, largura, altura, tamanho_bytes } = await processarImagemEntrega(file, SITE_MAX_PX, SITE_QUALIDADE, marca);
         // Preserva o nome original do arquivo (descritivo = melhor pra SEO de imagem);
@@ -268,19 +272,28 @@ export function TrabalhoForm({ trabalhoId }: { trabalhoId?: string }) {
         const { data } = await supabase.from("site_trabalho_fotos")
           .insert({ trabalho_id: tid, storage_path, url_publica, ordem: ordem++, largura, altura, tamanho_bytes })
           .select("*").single();
-        if (data) setFotos((prev) => [...prev, data as SiteTrabalhoFoto]);
+        if (data) { setFotos((prev) => [...prev, data as SiteTrabalhoFoto]); enviadas++; }
         if (!capaDefinida) {
           capaDefinida = true;
           setCapaUrl(url_publica);
           await supabase.from("site_trabalhos").update({ capa_url: url_publica }).eq("id", tid);
         }
       } catch (e) {
+        falhas++;
         console.error("[site] upload falhou:", e instanceof Error ? e.message : e);
       }
       setFila((prev) => prev ? { ...prev, feitas: prev.feitas + 1 } : prev);
     }
     setFila(null);
     if (inputFileRef.current) inputFileRef.current.value = "";
+    const s = (n: number) => (n !== 1 ? "s" : "");
+    if (canceladoRef.current) setMsg({ tipo: "erro", texto: `Envio cancelado — ${enviadas} foto${s(enviadas)} enviada${s(enviadas)}.` });
+    else if (falhas > 0) setMsg({ tipo: "erro", texto: `${enviadas} foto${s(enviadas)} enviada${s(enviadas)}, ${falhas} falhou${falhas !== 1 ? "aram" : ""}.` });
+    else setMsg({ tipo: "ok", texto: `✓ ${enviadas} foto${s(enviadas)} enviada${s(enviadas)}!` });
+  }
+
+  function cancelarUpload() {
+    canceladoRef.current = true;
   }
 
   async function definirCapa(foto: SiteTrabalhoFoto) {
@@ -552,6 +565,24 @@ export function TrabalhoForm({ trabalhoId }: { trabalhoId?: string }) {
         onSairSemSalvar={estado.sairAgora}
         onContinuar={estado.fecharModal}
       />
+
+      {fila && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 90 }}>
+          <div style={{ background: "var(--color-background-primary)", borderRadius: 14, padding: "30px 36px", width: 360, textAlign: "center", boxShadow: "0 8px 40px rgba(0,0,0,0.25)" }}>
+            <div style={{ fontSize: 28, marginBottom: 12 }}>📤</div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: "var(--color-text-primary)", marginBottom: 6 }}>Enviando fotos…</div>
+            <div style={{ fontSize: 13, color: "var(--color-text-secondary)", marginBottom: 16 }}>{fila.feitas} de {fila.total}</div>
+            <div style={{ height: 8, background: "var(--color-background-secondary)", borderRadius: 4, overflow: "hidden" }}>
+              <div style={{ height: "100%", borderRadius: 4, background: "#2563EB", width: `${Math.round((fila.feitas / fila.total) * 100)}%`, transition: "width 0.3s" }} />
+            </div>
+            <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 12 }}>Não feche esta janela até concluir.</div>
+            <button onClick={cancelarUpload}
+              style={{ marginTop: 16, padding: "7px 18px", borderRadius: 7, border: "0.5px solid var(--color-border-secondary)", background: "transparent", fontSize: 13, color: "var(--color-text-secondary)", cursor: "pointer" }}>
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
