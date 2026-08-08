@@ -23,9 +23,10 @@ type FormState = {
   titulo: string;
   descricao: string;
   valorStr: string;
+  estoqueStr: string;
   imagens: RevelacaoProdutoExtraImagem[];
 };
-const FORM_VAZIO: FormState = { id: null, titulo: "", descricao: "", valorStr: "", imagens: [] };
+const FORM_VAZIO: FormState = { id: null, titulo: "", descricao: "", valorStr: "", estoqueStr: "", imagens: [] };
 
 export default function RevelacaoExtrasPage() {
   const router = useRouter();
@@ -74,15 +75,17 @@ export default function RevelacaoExtrasPage() {
     const supabase = createClient();
     const imagem_url = form.imagens[0]?.url_publica ?? null;
     const storage_path = form.imagens[0]?.storage_path ?? null;
+    const estoqueNum = form.estoqueStr.trim();
+    const estoque = estoqueNum === "" ? null : Math.max(0, Math.floor(Number(estoqueNum.replace(",", "."))));
     if (form.id) {
       const { data } = await supabase.from("revelacao_produtos_extras")
-        .update({ titulo: form.titulo.trim(), descricao: form.descricao.trim() || null, valor, imagem_url, storage_path, imagens: form.imagens })
+        .update({ titulo: form.titulo.trim(), descricao: form.descricao.trim() || null, valor, estoque, imagem_url, storage_path, imagens: form.imagens })
         .eq("id", form.id).select("*").single();
       if (data) setItens((prev) => prev.map((i) => i.id === form.id ? (data as RevelacaoProdutoExtra) : i));
     } else {
       const ordem = itens.length > 0 ? Math.max(...itens.map((i) => i.ordem)) + 1 : 0;
       const { data } = await supabase.from("revelacao_produtos_extras")
-        .insert({ fotografo_id: fotografo.id, titulo: form.titulo.trim(), descricao: form.descricao.trim() || null, valor, imagem_url, storage_path, imagens: form.imagens, ordem, ativo: true })
+        .insert({ fotografo_id: fotografo.id, titulo: form.titulo.trim(), descricao: form.descricao.trim() || null, valor, estoque, imagem_url, storage_path, imagens: form.imagens, ordem, ativo: true })
         .select("*").single();
       if (data) setItens((prev) => [...prev, data as RevelacaoProdutoExtra]);
     }
@@ -129,10 +132,17 @@ export default function RevelacaoExtrasPage() {
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
       <input value={f.titulo} onChange={(e) => setForm({ ...f, titulo: e.target.value })} placeholder="Título do produto *" style={inputStyle} />
       <textarea value={f.descricao} onChange={(e) => setForm({ ...f, descricao: e.target.value })} rows={3} placeholder="Descrição (opcional)" style={{ ...inputStyle, resize: "vertical" }} />
-      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-        <span style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>R$</span>
-        <input value={f.valorStr} onChange={(e) => setForm({ ...f, valorStr: mascaraValor(e.target.value) })} placeholder="Valor *"
-          style={{ ...inputStyle, width: 120 }} />
+      <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <span style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>R$</span>
+          <input value={f.valorStr} onChange={(e) => setForm({ ...f, valorStr: mascaraValor(e.target.value) })} placeholder="Valor *"
+            style={{ ...inputStyle, width: 120 }} />
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <input value={f.estoqueStr} onChange={(e) => setForm({ ...f, estoqueStr: e.target.value.replace(/[^0-9]/g, "") })} placeholder="Estoque"
+            inputMode="numeric" style={{ ...inputStyle, width: 90 }} />
+          <span style={{ fontSize: 11, color: "var(--color-text-secondary)" }}>em branco = ilimitado</span>
+        </div>
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
         {f.imagens.map((im, i) => (
@@ -216,6 +226,11 @@ export default function RevelacaoExtrasPage() {
                       {p.ativo ? "Ativo" : "Inativo"}
                     </span>
                     <span style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-secondary)" }}>R$ {formatNum(p.valor)}</span>
+                    {p.estoque != null && (
+                      <span style={{ fontSize: 11, fontWeight: 700, color: p.estoque === 0 ? "#DC2626" : "#B45309" }}>
+                        Estoque: {p.estoque}
+                      </span>
+                    )}
                   </div>
                   {p.descricao && (
                     <div style={{ fontSize: 12, color: "var(--color-text-secondary)", lineHeight: 1.6 }}>
@@ -224,7 +239,7 @@ export default function RevelacaoExtrasPage() {
                   )}
                 </div>
                 <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
-                  <button onClick={() => setForm({ id: p.id, titulo: p.titulo, descricao: p.descricao ?? "", valorStr: formatNum(p.valor), imagens: p.imagens?.length ? p.imagens : (p.imagem_url && p.storage_path ? [{ url_publica: p.imagem_url, storage_path: p.storage_path }] : []) })} title="Editar"
+                  <button onClick={() => setForm({ id: p.id, titulo: p.titulo, descricao: p.descricao ?? "", valorStr: formatNum(p.valor), estoqueStr: p.estoque != null ? String(p.estoque) : "", imagens: p.imagens?.length ? p.imagens : (p.imagem_url && p.storage_path ? [{ url_publica: p.imagem_url, storage_path: p.storage_path }] : []) })} title="Editar"
                     style={{ border: "none", background: "transparent", cursor: "pointer", fontSize: 13, color: "var(--color-text-secondary)" }}>✏️</button>
                   <button onClick={() => alternarAtivo(p)} title={p.ativo ? "Desativar" : "Ativar"}
                     style={{ border: "none", background: "transparent", cursor: "pointer", fontSize: 13, color: "var(--color-text-secondary)" }}>{p.ativo ? "🙈" : "👁"}</button>

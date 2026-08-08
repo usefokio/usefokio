@@ -445,6 +445,8 @@ function RevelacaoConteudo() {
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 10 }}>
                   {produtosExtras.map(produto => {
                     const qtd = extrasSelecionados.find(e => e.produto_id === produto.id)?.quantidade ?? 0;
+                    const esgotado = produto.estoque != null && produto.estoque <= 0;
+                    const atingiuLimite = produto.estoque != null && qtd >= produto.estoque;
                     const fotosProduto = produto.imagens?.length ? produto.imagens.map(im => im.url_publica) : (produto.imagem_url ? [produto.imagem_url] : []);
                     const idx = fotoAtualExtra[produto.id] ?? 0;
                     const trocarFoto = (delta: number) => setFotoAtualExtra(prev => ({ ...prev, [produto.id]: (idx + delta + fotosProduto.length) % fotosProduto.length }));
@@ -473,13 +475,17 @@ function RevelacaoConteudo() {
                           <div style={{ fontSize: 13, fontWeight: 700 }}>{produto.titulo}</div>
                           {produto.descricao && <div style={{ fontSize: 12, color: "#6B7280" }}>{produto.descricao}</div>}
                           <div style={{ fontSize: 13, color: "#111827", fontWeight: 600 }}>{fmt(produto.valor)}</div>
-                          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: "auto" }}>
-                            <button onClick={() => alterarExtra(produto, qtd - 1)} disabled={qtd === 0}
-                              style={{ width: 28, height: 28, borderRadius: 6, border: "1px solid #D1D5DB", background: "#fff", cursor: qtd === 0 ? "default" : "pointer", fontSize: 15, opacity: qtd === 0 ? 0.4 : 1 }}>−</button>
-                            <span style={{ fontSize: 14, fontWeight: 700, minWidth: 18, textAlign: "center" }}>{qtd}</span>
-                            <button onClick={() => alterarExtra(produto, qtd + 1)}
-                              style={{ width: 28, height: 28, borderRadius: 6, border: "1px solid #D1D5DB", background: "#fff", cursor: "pointer", fontSize: 15 }}>+</button>
-                          </div>
+                          {esgotado ? (
+                            <div style={{ marginTop: "auto", fontSize: 12, fontWeight: 700, color: "#DC2626" }}>Esgotado</div>
+                          ) : (
+                            <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: "auto" }}>
+                              <button onClick={() => alterarExtra(produto, qtd - 1)} disabled={qtd === 0}
+                                style={{ width: 28, height: 28, borderRadius: 6, border: "1px solid #D1D5DB", background: "#fff", cursor: qtd === 0 ? "default" : "pointer", fontSize: 15, opacity: qtd === 0 ? 0.4 : 1 }}>−</button>
+                              <span style={{ fontSize: 14, fontWeight: 700, minWidth: 18, textAlign: "center" }}>{qtd}</span>
+                              <button onClick={() => alterarExtra(produto, qtd + 1)} disabled={atingiuLimite}
+                                style={{ width: 28, height: 28, borderRadius: 6, border: "1px solid #D1D5DB", background: "#fff", cursor: atingiuLimite ? "default" : "pointer", fontSize: 15, opacity: atingiuLimite ? 0.4 : 1 }}>+</button>
+                            </div>
+                          )}
                         </div>
                       </div>
                     );

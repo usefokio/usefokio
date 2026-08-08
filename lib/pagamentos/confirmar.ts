@@ -66,9 +66,28 @@ export async function confirmarRevelacaoPaga(
     await admin.from("revelacao_pedidos")
       .update({ status: "pago", finalizado_em: new Date().toISOString() })
       .eq("id", pagamento.revelacao_pedido_id);
+
+    await baixarEstoqueExtras(admin, pagamento.revelacao_pedido_id);
   }
 
   await admin.from("pagamentos")
     .update({ status: "pago", paid_at: new Date().toISOString() })
     .eq("id", pagamento.id);
+}
+
+// Debita do estoque dos produtos extras comprados no pedido — só produtos com controle de
+// estoque (coluna não-nula) são afetados; nunca deixa ir abaixo de zero.
+async function baixarEstoqueExtras(admin: SupabaseClient, pedidoId: string): Promise<void> {
+  const { data: extras } = await admin.from("revelacao_pedido_extras")
+    .select("produto_id, quantidade").eq("pedido_id", pedidoId);
+  if (!extras || extras.length === 0) return;
+
+  for (const extra of extras) {
+    const { data: produto } = await admin.from("revelacao_produtos_extras")
+      .select("estoque").eq("id", extra.produto_id).maybeSingle();
+    if (produto?.estoque == null) continue;
+    await admin.from("revelacao_produtos_extras")
+      .update({ estoque: Math.max(0, produto.estoque - extra.quantidade) })
+      .eq("id", extra.produto_id);
+  }
 }
