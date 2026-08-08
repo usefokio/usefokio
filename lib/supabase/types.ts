@@ -176,6 +176,7 @@ export type GaleriaEntrega = {
   identificacao_obrigatoria: boolean;
   drive_apenas_identificado: boolean;
   revelacao_ativa: boolean;
+  produtos_extras_ativo: boolean;
   suspensa: boolean;
   rascunho: boolean;
   renovacao_dias: number;
@@ -226,7 +227,7 @@ export type CrmRevelacaoTamanho = {
 };
 
 // Produtos extras oferecidos junto do pedido de revelação (porta-retratos, quadros, álbuns
-// para montar) — cadastro do fotógrafo; venda ao cliente é etapa separada.
+// para montar) — cadastro do fotógrafo, vendidos na tela de resumo do pedido do cliente.
 export type RevelacaoProdutoExtra = {
   id: string;
   fotografo_id: string;
@@ -262,6 +263,18 @@ export type RevelacaoPedidoItem = {
   foto_id: string;
   nome_arquivo: string;
   valor_unit: number;
+  created_at: string;
+};
+
+// Produtos extras comprados dentro de um pedido de revelação — título e valor são um snapshot
+// do produto no momento da compra (editar o produto depois não muda pedidos já feitos).
+export type RevelacaoPedidoExtra = {
+  id: string;
+  pedido_id: string;
+  produto_id: string;
+  titulo: string;
+  valor_unit: number;
+  quantidade: number;
   created_at: string;
 };
 

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, Suspense } from "react";
 import { useParams } from "next/navigation";
-import type { RevelacaoPedido, CrmRevelacaoTamanho, GaleriaEntregaFoto, RevelacaoPedidoItem } from "@/lib/supabase/types";
+import type { RevelacaoPedido, CrmRevelacaoTamanho, GaleriaEntregaFoto, RevelacaoPedidoItem, RevelacaoProdutoExtra, RevelacaoPedidoExtra } from "@/lib/supabase/types";
 import { linkWhatsApp } from "@/lib/site/whatsapp";
 
 type Pagamento = { status: string; invoice_url: string | null; gateway: string | null } | null;
@@ -17,6 +17,9 @@ function RevelacaoConteudo() {
   const [tamanhos, setTamanhos] = useState<CrmRevelacaoTamanho[]>([]);
   const [fotos, setFotos] = useState<GaleriaEntregaFoto[]>([]);
   const [itens, setItens] = useState<RevelacaoPedidoItem[]>([]);
+  const [extrasAtivo, setExtrasAtivo] = useState(false);
+  const [produtosExtras, setProdutosExtras] = useState<RevelacaoProdutoExtra[]>([]);
+  const [extrasSelecionados, setExtrasSelecionados] = useState<RevelacaoPedidoExtra[]>([]);
   const [pagamento, setPagamento] = useState<Pagamento>(null);
   const [minimoFotos, setMinimoFotos] = useState<number | null>(null);
   const [valorMinimo, setValorMinimo] = useState<number | null>(null);
@@ -52,6 +55,9 @@ function RevelacaoConteudo() {
       setTamanhos(json.tamanhos ?? []);
       setFotos(json.fotos ?? []);
       setItens(json.itens ?? []);
+      setExtrasAtivo(!!json.extrasAtivo);
+      setProdutosExtras(json.produtosExtras ?? []);
+      setExtrasSelecionados(json.extrasSelecionados ?? []);
       setPagamento(json.pagamento ?? null);
       setMinimoFotos(json.minimoFotos ?? null);
       setValorMinimo(json.valorMinimo ?? null);
@@ -196,7 +202,9 @@ function RevelacaoConteudo() {
   for (const it of itens) (cesta[it.tamanho_id] ??= []).push(it);
   const temAlgoNaCesta = Object.values(cesta).some(arr => arr.length > 0);
   const totalFotos = itens.length;
-  const total = Object.values(cesta).reduce((s, arr) => s + arr.reduce((s2, i) => s2 + Number(i.valor_unit), 0), 0);
+  const totalFotosValor = Object.values(cesta).reduce((s, arr) => s + arr.reduce((s2, i) => s2 + Number(i.valor_unit), 0), 0);
+  const totalExtrasValor = extrasSelecionados.reduce((s, e) => s + Number(e.valor_unit) * e.quantidade, 0);
+  const total = totalFotosValor + totalExtrasValor;
   const faltamFotos = minimoFotos ? Math.max(0, minimoFotos - totalFotos) : 0;
   const faltamValor = valorMinimo ? Math.max(0, valorMinimo - total) : 0;
   const podeFinalizar = temAlgoNaCesta && faltamFotos === 0 && faltamValor === 0;
@@ -218,6 +226,18 @@ function RevelacaoConteudo() {
     await fetch(`/api/revelacao/pedidos/${id}/itens`, {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ tamanho_id: tamanhoAtual.id, foto_id: foto.id, acao }),
+    }).catch(() => {});
+  };
+
+  const alterarExtra = async (produto: RevelacaoProdutoExtra, quantidade: number) => {
+    const qtd = Math.max(0, quantidade);
+    setExtrasSelecionados(prev => {
+      const outros = prev.filter(e => e.produto_id !== produto.id);
+      return qtd <= 0 ? outros : [...outros, { id: "tmp", pedido_id: id, produto_id: produto.id, titulo: produto.titulo, valor_unit: produto.valor, quantidade: qtd, created_at: "" }];
+    });
+    await fetch(`/api/revelacao/pedidos/${id}/extras`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ produto_id: produto.id, quantidade: qtd }),
     }).catch(() => {});
   };
 
@@ -413,6 +433,44 @@ function RevelacaoConteudo() {
                 );
               })}
             </div>
+            {extrasAtivo && produtosExtras.length > 0 && !resultadoPagamento && (
+              <div style={{ marginBottom: 20 }}>
+                <h3 style={{ fontSize: 14, fontWeight: 700, margin: "0 0 4px" }}>Quer aproveitar e levar mais alguma coisa?</h3>
+                <p style={{ fontSize: 12, color: "#6B7280", margin: "0 0 12px" }}>Porta-retratos, quadros e álbuns para montar com estas fotos.</p>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 10 }}>
+                  {produtosExtras.map(produto => {
+                    const qtd = extrasSelecionados.find(e => e.produto_id === produto.id)?.quantidade ?? 0;
+                    return (
+                      <div key={produto.id} style={{ border: "1px solid #E5E7EB", borderRadius: 10, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+                        {produto.imagem_url && (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={produto.imagem_url} alt="" style={{ width: "100%", height: 120, objectFit: "cover", display: "block" }} />
+                        )}
+                        <div style={{ padding: "10px 12px", display: "flex", flexDirection: "column", gap: 6, flex: 1 }}>
+                          <div style={{ fontSize: 13, fontWeight: 700 }}>{produto.titulo}</div>
+                          {produto.descricao && <div style={{ fontSize: 12, color: "#6B7280" }}>{produto.descricao}</div>}
+                          <div style={{ fontSize: 13, color: "#111827", fontWeight: 600 }}>{fmt(produto.valor)}</div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: "auto" }}>
+                            <button onClick={() => alterarExtra(produto, qtd - 1)} disabled={qtd === 0}
+                              style={{ width: 28, height: 28, borderRadius: 6, border: "1px solid #D1D5DB", background: "#fff", cursor: qtd === 0 ? "default" : "pointer", fontSize: 15, opacity: qtd === 0 ? 0.4 : 1 }}>−</button>
+                            <span style={{ fontSize: 14, fontWeight: 700, minWidth: 18, textAlign: "center" }}>{qtd}</span>
+                            <button onClick={() => alterarExtra(produto, qtd + 1)}
+                              style={{ width: 28, height: 28, borderRadius: 6, border: "1px solid #D1D5DB", background: "#fff", cursor: "pointer", fontSize: 15 }}>+</button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {totalExtrasValor > 0 && (
+              <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", fontSize: 13, color: "#6B7280" }}>
+                <span>Produtos extras</span>
+                <span>{fmt(totalExtrasValor)}</span>
+              </div>
+            )}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 20 }}>
               <span style={{ fontSize: 14, color: "#6B7280" }}>Total</span>
               <span style={{ fontSize: 24, fontWeight: 800 }}>{fmt(total)}</span>

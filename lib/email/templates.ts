@@ -365,6 +365,54 @@ export function templateRevelacaoAvisoPagamento(p: RevelacaoAvisoPagamentoParams
   };
 }
 
+// ─── 3f. Pedido de revelação: fechado (pago/gerado) → fotógrafo, com o detalhamento completo ─
+export type RevelacaoPedidoFinalizadoParams = {
+  fotografoNome:  string;
+  clienteNome:    string;
+  galeriaTitulo:  string;
+  tamanhos:       { nome: string; quantidade: number; subtotal: number }[];
+  extras:         { titulo: string; quantidade: number; subtotal: number }[];
+  valorTotal:     number;
+  galeriaAdminUrl: string;
+};
+
+export function templateRevelacaoPedidoFinalizado(p: RevelacaoPedidoFinalizadoParams): { subject: string; html: string } {
+  const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  const linhaItem = (nome: string, qtd: number, subtotal: number) => `
+    <p style="margin:0 0 4px; font-size:13px; color:#333; display:flex; justify-content:space-between;">
+      <span>${esc(nome)} <span style="color:#9CA3AF;">× ${qtd}</span></span>
+      <span style="color:#555;">${fmt(subtotal)}</span>
+    </p>`;
+  const blocoTamanhos = p.tamanhos.map((t) => linhaItem(t.nome, t.quantidade, t.subtotal)).join("");
+  const blocoExtras = p.extras.length > 0 ? `
+    <p style="margin:12px 0 4px; font-size:12px; font-weight:700; color:#9CA3AF; text-transform:uppercase; letter-spacing:0.04em;">Produtos extras</p>
+    ${p.extras.map((e) => linhaItem(e.titulo, e.quantidade, e.subtotal)).join("")}
+  ` : "";
+
+  return {
+    subject: `Pedido de revelação fechado — ${p.galeriaTitulo}`,
+    html: base(`
+      <h2 style="margin:0 0 8px; font-size:20px; color:#111; letter-spacing:-0.02em;">Pedido fechado 🖨️</h2>
+      <p style="color:#555; font-size:14px; line-height:1.6; margin:0 0 20px;">
+        Olá, <strong>${esc(p.fotografoNome)}</strong>! O pedido de revelação de <strong>${esc(p.clienteNome)}</strong> foi finalizado. Confira o detalhamento:
+      </p>
+      <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; padding:16px 20px; margin-bottom:20px;">
+        <p style="margin:0 0 10px; font-size:14px; color:#333;">📷 Galeria: <strong>${esc(p.galeriaTitulo)}</strong></p>
+        ${blocoTamanhos}
+        ${blocoExtras}
+        <div style="border-top:1px solid #bbf7d0; margin-top:12px; padding-top:10px; display:flex; justify-content:space-between;">
+          <span style="font-size:14px; font-weight:700; color:#111;">Total</span>
+          <span style="font-size:16px; font-weight:800; color:#059669;">${fmt(p.valorTotal)}</span>
+        </div>
+      </div>
+      <a href="${p.galeriaAdminUrl}" style="${BTN_STYLE("#059669")}">Ver galeria →</a>
+      <p style="font-size:12px; color:#aaa; margin:12px 0 0;">
+        Se o botão não funcionar: <a href="${p.galeriaAdminUrl}" style="color:#2563EB;">${esc(p.galeriaAdminUrl)}</a>
+      </p>
+    `),
+  };
+}
+
 // ─── 4. Campanha de reativação → cliente ─────────────────────────────────────
 export type CampanhaReativacaoParams = {
   clienteNome:      string;

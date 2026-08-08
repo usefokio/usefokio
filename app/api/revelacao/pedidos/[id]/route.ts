@@ -19,15 +19,19 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const { data: pedido } = await admin.from("revelacao_pedidos").select("*").eq("id", id).maybeSingle();
   if (!pedido) return NextResponse.json({ pedido: null });
 
-  const [{ data: tamanhos }, { data: fotos }, { data: itens }, { data: pagamento }, { data: fotografo }, { data: cliente }, { data: galeria }] = await Promise.all([
+  const [{ data: tamanhos }, { data: fotos }, { data: itens }, { data: pagamento }, { data: fotografo }, { data: cliente }, { data: galeria }, { data: produtosExtras }, { data: extrasSelecionados }] = await Promise.all([
     admin.from("crm_revelacao_tamanhos").select("*").eq("fotografo_id", pedido.fotografo_id).eq("ativo", true).order("ordem"),
     admin.from("galerias_entrega_fotos").select("id, storage_path, url_publica, nome_arquivo, ordem").eq("galeria_id", pedido.galeria_entrega_id).order("ordem"),
     admin.from("revelacao_pedido_itens").select("id, tamanho_id, foto_id, nome_arquivo, valor_unit").eq("pedido_id", id),
     admin.from("pagamentos").select("status, invoice_url, gateway").eq("revelacao_pedido_id", id).order("created_at", { ascending: false }).limit(1).maybeSingle(),
     admin.from("fotografos").select("revelacao_minimo_fotos, revelacao_valor_minimo, whatsapp").eq("id", pedido.fotografo_id).maybeSingle(),
     pedido.cliente_id ? admin.from("clientes").select("nome").eq("id", pedido.cliente_id).maybeSingle() : Promise.resolve({ data: null }),
-    admin.from("galerias_entrega").select("titulo").eq("id", pedido.galeria_entrega_id).maybeSingle(),
+    admin.from("galerias_entrega").select("titulo, produtos_extras_ativo").eq("id", pedido.galeria_entrega_id).maybeSingle(),
+    admin.from("revelacao_produtos_extras").select("*").eq("fotografo_id", pedido.fotografo_id).eq("ativo", true).order("ordem"),
+    admin.from("revelacao_pedido_extras").select("*").eq("pedido_id", id),
   ]);
+
+  const extrasAtivo = !!galeria?.produtos_extras_ativo;
 
   return NextResponse.json({
     pedido, tamanhos: tamanhos ?? [], fotos: fotos ?? [], itens: itens ?? [], pagamento: pagamento ?? null,
@@ -36,6 +40,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     fotografoWhatsapp: fotografo?.whatsapp ?? null,
     galeriaTitulo: galeria?.titulo ?? null,
     clienteNome: cliente?.nome ?? null,
+    extrasAtivo,
+    produtosExtras: extrasAtivo ? (produtosExtras ?? []) : [],
+    extrasSelecionados: extrasSelecionados ?? [],
   });
 }
 
