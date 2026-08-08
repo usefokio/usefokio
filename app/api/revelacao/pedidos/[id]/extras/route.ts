@@ -33,8 +33,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   }
 
   const { data: produto } = await admin.from("revelacao_produtos_extras")
-    .select("id, titulo, valor").eq("id", produto_id).eq("fotografo_id", pedido.fotografo_id).eq("ativo", true).maybeSingle();
+    .select("id, titulo, valor, estoque").eq("id", produto_id).eq("fotografo_id", pedido.fotografo_id).eq("ativo", true).maybeSingle();
   if (!produto) return NextResponse.json({ erro: "Produto inválido." }, { status: 400 });
+  if (produto.estoque != null && quantidade > produto.estoque) {
+    return NextResponse.json({ erro: `Só há ${produto.estoque} unidade(s) em estoque.` }, { status: 400 });
+  }
 
   const { error } = await admin.from("revelacao_pedido_extras").upsert({
     pedido_id: id,

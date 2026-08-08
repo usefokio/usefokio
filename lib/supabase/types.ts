@@ -241,6 +241,7 @@ export type RevelacaoProdutoExtra = {
   storage_path: string | null;
   imagens: RevelacaoProdutoExtraImagem[];
   valor: number;
+  estoque: number | null;
   ativo: boolean;
   ordem: number;
   created_at: string;
