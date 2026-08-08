@@ -19,7 +19,7 @@ export default async function HomeSite({ params }: { params: Promise<{ fid: stri
 
   const [banners, trabalhos, videos, posts, depoimentos, selos, info] = await Promise.all([
     fetchAllRows<SiteBanner>((sb, f, t) => sb.from("site_banners").select("*").eq("fotografo_id", fid).eq("publicado", true).order("ordem").range(f, t), admin),
-    fetchAllRows<SiteTrabalho>((sb, f, t) => sb.from("site_trabalhos").select("*").eq("fotografo_id", fid).eq("publicado", true).order("created_at", { ascending: false }).range(f, t), admin),
+    fetchAllRows<SiteTrabalho>((sb, f, t) => sb.from("site_trabalhos").select("*").eq("fotografo_id", fid).eq("publicado", true).order("data_evento", { ascending: false }).range(f, t), admin),
     fetchAllRows<SiteVideo>((sb, f, t) => sb.from("site_videos").select("*").eq("fotografo_id", fid).eq("publicado", true).order("ordem").range(f, t), admin),
     fetchAllRows<SitePost>((sb, f, t) => sb.from("site_posts").select("*").eq("fotografo_id", fid).eq("publicado", true).order("ordem").range(f, t), admin),
     fetchAllRows<SiteDepoimento>((sb, f, t) => sb.from("site_depoimentos").select("*").eq("fotografo_id", fid).eq("publicado", true).order("ordem").range(f, t), admin),
