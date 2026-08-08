@@ -39,7 +39,7 @@ export function FotografoProvider({ children }: { children: ReactNode }) {
         plano: "estudio",
         total_fotos_usadas: 0,
         aprovado: true,
-        mensagem_padrao_entrega: null, renewal_fee_padrao: null, revelacao_minimo_fotos: null,
+        mensagem_padrao_entrega: null, renewal_fee_padrao: null, revelacao_minimo_fotos: null, revelacao_valor_minimo: null,
         templates_mensagem: null, asaas_api_key_enc: null,
         asaas_ambiente: "sandbox", asaas_ativo: false,
         pix_chave: null, pix_tipo: null, pix_ativo: false,

@@ -19,6 +19,7 @@ function RevelacaoConteudo() {
   const [itens, setItens] = useState<RevelacaoPedidoItem[]>([]);
   const [pagamento, setPagamento] = useState<Pagamento>(null);
   const [minimoFotos, setMinimoFotos] = useState<number | null>(null);
+  const [valorMinimo, setValorMinimo] = useState<number | null>(null);
   const [clienteNome, setClienteNome] = useState<string | null>(null);
   const [fotografoWhatsapp, setFotografoWhatsapp] = useState<string | null>(null);
   const [galeriaTitulo, setGaleriaTitulo] = useState<string | null>(null);
@@ -53,6 +54,7 @@ function RevelacaoConteudo() {
       setItens(json.itens ?? []);
       setPagamento(json.pagamento ?? null);
       setMinimoFotos(json.minimoFotos ?? null);
+      setValorMinimo(json.valorMinimo ?? null);
       setClienteNome(json.clienteNome ?? null);
       setFotografoWhatsapp(json.fotografoWhatsapp ?? null);
       setGaleriaTitulo(json.galeriaTitulo ?? null);
@@ -194,8 +196,10 @@ function RevelacaoConteudo() {
   for (const it of itens) (cesta[it.tamanho_id] ??= []).push(it);
   const temAlgoNaCesta = Object.values(cesta).some(arr => arr.length > 0);
   const totalFotos = itens.length;
+  const total = Object.values(cesta).reduce((s, arr) => s + arr.reduce((s2, i) => s2 + Number(i.valor_unit), 0), 0);
   const faltamFotos = minimoFotos ? Math.max(0, minimoFotos - totalFotos) : 0;
-  const podeFinalizar = temAlgoNaCesta && faltamFotos === 0;
+  const faltamValor = valorMinimo ? Math.max(0, valorMinimo - total) : 0;
+  const podeFinalizar = temAlgoNaCesta && faltamFotos === 0 && faltamValor === 0;
 
   const escolherTamanho = (t: CrmRevelacaoTamanho) => {
     setTamanhoAtual(t);
@@ -241,8 +245,6 @@ function RevelacaoConteudo() {
     notificarFotografo();
     setPasso("resumo");
   };
-
-  const total = Object.values(cesta).reduce((s, arr) => s + arr.reduce((s2, i) => s2 + Number(i.valor_unit), 0), 0);
 
   const gerarPagamento = async () => {
     if (!pagadorNome.trim() || !pagadorEmail.trim() || gerando) return;
@@ -307,6 +309,11 @@ function RevelacaoConteudo() {
                     Faltam {faltamFotos} foto{faltamFotos !== 1 ? "s" : ""} para atingir o mínimo de {minimoFotos} do pedido.
                   </div>
                 )}
+                {faltamValor > 0 && (
+                  <div style={{ fontSize: 13, color: "#D97706", marginBottom: 10 }}>
+                    Faltam {fmt(faltamValor)} para atingir o valor mínimo do pedido ({fmt(valorMinimo!)}).
+                  </div>
+                )}
                 <button onClick={irParaResumo} disabled={!podeFinalizar}
                   style={{ padding: "12px 24px", borderRadius: 8, background: podeFinalizar ? "#111827" : "#D1D5DB", color: "#fff", border: "none", fontSize: 14, fontWeight: 700, cursor: podeFinalizar ? "pointer" : "not-allowed" }}>
                   Finalizar pedido →
@@ -369,7 +376,7 @@ function RevelacaoConteudo() {
                 ✓ Confirmar estas fotos e escolher outro tamanho
               </button>
               <button onClick={irParaResumo} disabled={!podeFinalizar}
-                title={faltamFotos > 0 ? `Faltam ${faltamFotos} foto(s) para o mínimo de ${minimoFotos}` : undefined}
+                title={faltamFotos > 0 ? `Faltam ${faltamFotos} foto(s) para o mínimo de ${minimoFotos}` : faltamValor > 0 ? `Faltam ${fmt(faltamValor)} para o valor mínimo` : undefined}
                 style={{ padding: "11px 18px", borderRadius: 8, background: podeFinalizar ? "#111827" : "#D1D5DB", color: "#fff", border: "none", fontSize: 13, fontWeight: 700, cursor: podeFinalizar ? "pointer" : "not-allowed" }}>
                 Finalizar pedido →
               </button>
@@ -377,6 +384,11 @@ function RevelacaoConteudo() {
             {faltamFotos > 0 && (
               <div style={{ fontSize: 12, color: "#D97706", marginTop: 10 }}>
                 Faltam {faltamFotos} foto{faltamFotos !== 1 ? "s" : ""} no total para atingir o mínimo de {minimoFotos} do pedido.
+              </div>
+            )}
+            {faltamValor > 0 && (
+              <div style={{ fontSize: 12, color: "#D97706", marginTop: 10 }}>
+                Faltam {fmt(faltamValor)} para atingir o valor mínimo do pedido ({fmt(valorMinimo!)}).
               </div>
             )}
           </>
