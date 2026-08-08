@@ -325,8 +325,8 @@ function RevelacaoConteudo() {
               <p style={{ fontSize: 13, color: "#6B7280", margin: 0 }}>{(cesta[tamanhoAtual.id] ?? []).length} foto(s) marcada(s)</p>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-              <span style={{ fontSize: 12, color: "#9CA3AF" }}>Colunas da grade</span>
-              <input type="range" min={2} max={6} step={1} value={colunas} onChange={e => setColunas(Number(e.target.value))}
+              <span style={{ fontSize: 12, color: "#9CA3AF" }}>Tamanho das fotos</span>
+              <input type="range" min={2} max={6} step={1} value={8 - colunas} onChange={e => setColunas(8 - Number(e.target.value))}
                 style={{ flex: 1, maxWidth: 200 }} />
             </div>
             <style>{`
