@@ -86,6 +86,8 @@ export default function OportunidadesPage() {
   const [busca,     setBusca]     = usePersistState("oportunidades:busca",    "");
   const [status,    setStatus]    = usePersistState<StatusFiltro>("oportunidades:status",   "");
   const [catFiltro, setCatFiltro] = usePersistState("oportunidades:catFiltro", "");
+  const [dataInicio, setDataInicio] = usePersistState("oportunidades:dataInicio", "");
+  const [dataFim,    setDataFim]    = usePersistState("oportunidades:dataFim",    "");
   const largura = useWindowWidth();
   const cols = useColunasLargura("oportunidades", COLS_OPP);
   const [sortCol, setSortCol] = usePersistState("oportunidades:sortCol", "created_at");
@@ -94,6 +96,31 @@ export default function OportunidadesPage() {
     if (sortCol === col) setSortDir(d => d === "asc" ? "desc" : "asc");
     else { setSortCol(col); setSortDir("asc"); }
   };
+
+  const iso = (d: Date) => d.toISOString().slice(0, 10);
+  type AtalhoData = "ultimo-mes" | "este-ano" | "ano-passado" | "ultimo-trimestre" | "ultimo-semestre";
+  const aplicarAtalho = (tipo: AtalhoData) => {
+    const hoje = new Date();
+    const ano = hoje.getFullYear();
+    const mes = hoje.getMonth();
+    if (tipo === "ultimo-mes") {
+      setDataInicio(iso(new Date(ano, mes - 1, 1)));
+      setDataFim(iso(new Date(ano, mes, 0)));
+    } else if (tipo === "este-ano") {
+      setDataInicio(iso(new Date(ano, 0, 1)));
+      setDataFim(iso(hoje));
+    } else if (tipo === "ano-passado") {
+      setDataInicio(iso(new Date(ano - 1, 0, 1)));
+      setDataFim(iso(new Date(ano - 1, 11, 31)));
+    } else if (tipo === "ultimo-trimestre") {
+      setDataInicio(iso(new Date(ano, mes - 3, 1)));
+      setDataFim(iso(new Date(ano, mes, 0)));
+    } else if (tipo === "ultimo-semestre") {
+      setDataInicio(iso(new Date(ano, mes - 6, 1)));
+      setDataFim(iso(new Date(ano, mes, 0)));
+    }
+  };
+  const limparData = () => { setDataInicio(""); setDataFim(""); };
 
   const carregar = useCallback(async () => {
     if (!fotografo) return;
@@ -149,11 +176,13 @@ export default function OportunidadesPage() {
   }, [fotografo]);
 
   useEffect(() => { carregar(); }, [carregar]);
-  useEffect(() => { setPage(1); }, [busca, status, catFiltro, sortCol, sortDir]);
+  useEffect(() => { setPage(1); }, [busca, status, catFiltro, dataInicio, dataFim, sortCol, sortDir]);
 
   const filtradas = opps.filter((o: OppWithRelations) => {
     if (status && o.status !== status) return false;
     if (catFiltro && o.categoria !== catFiltro) return false;
+    if (dataInicio && o.created_at < dataInicio) return false;
+    if (dataFim && o.created_at > dataFim + "T23:59:59") return false;
     if (busca !== "" &&
       !o.titulo.toLowerCase().includes(busca.toLowerCase()) &&
       !(o.clientes?.nome ?? "").toLowerCase().includes(busca.toLowerCase()) &&
@@ -289,6 +318,39 @@ export default function OportunidadesPage() {
             <option value="">Todas as categorias</option>
             {categorias.map((c) => <option key={c} value={c}>{c}</option>)}
           </select>
+        )}
+      </div>
+
+      {/* Atalhos de data */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 18, flexWrap: "wrap", alignItems: "center" }}>
+        {([
+          { id: "ultimo-mes", label: "Último mês" },
+          { id: "este-ano", label: "Este ano" },
+          { id: "ano-passado", label: "Ano passado" },
+          { id: "ultimo-trimestre", label: "Último trimestre" },
+          { id: "ultimo-semestre", label: "Último semestre" },
+        ] as { id: AtalhoData; label: string }[]).map((a) => (
+          <button
+            key={a.id}
+            onClick={() => aplicarAtalho(a.id)}
+            style={{ padding: "6px 12px", borderRadius: 20, fontSize: 12, fontWeight: 500, cursor: "pointer", border: "0.5px solid var(--color-border-secondary)", background: "transparent", color: "var(--color-text-secondary)" }}
+          >
+            {a.label}
+          </button>
+        ))}
+        <input
+          type="date" value={dataInicio} onChange={(e) => setDataInicio(e.target.value)}
+          style={{ padding: "7px 10px", borderRadius: 8, border: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-primary)", fontSize: 12, color: "var(--color-text-primary)" }}
+        />
+        <span style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>até</span>
+        <input
+          type="date" value={dataFim} onChange={(e) => setDataFim(e.target.value)}
+          style={{ padding: "7px 10px", borderRadius: 8, border: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-primary)", fontSize: 12, color: "var(--color-text-primary)" }}
+        />
+        {(dataInicio || dataFim) && (
+          <button onClick={limparData} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--color-text-secondary)", fontSize: 12, textDecoration: "underline", padding: 0 }}>
+            Limpar
+          </button>
         )}
       </div>
 
