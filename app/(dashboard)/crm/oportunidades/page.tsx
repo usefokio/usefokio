@@ -178,8 +178,9 @@ export default function OportunidadesPage() {
   useEffect(() => { carregar(); }, [carregar]);
   useEffect(() => { setPage(1); }, [busca, status, catFiltro, dataInicio, dataFim, sortCol, sortDir]);
 
-  const filtradas = opps.filter((o: OppWithRelations) => {
-    if (status && o.status !== status) return false;
+  // Sem o filtro de status — base pras pilulas de contagem (cada pilula soma sobre o mesmo
+  // recorte de busca/categoria/data que a lista está usando, só variando o próprio status).
+  const semStatus = opps.filter((o: OppWithRelations) => {
     if (catFiltro && o.categoria !== catFiltro) return false;
     if (dataInicio && o.created_at < dataInicio) return false;
     if (dataFim && o.created_at > dataFim + "T23:59:59") return false;
@@ -190,6 +191,8 @@ export default function OportunidadesPage() {
     ) return false;
     return true;
   });
+
+  const filtradas = semStatus.filter((o: OppWithRelations) => !status || o.status === status);
 
   async function excluir(id: string) {
     setDeletando(true);
@@ -202,8 +205,8 @@ export default function OportunidadesPage() {
   const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
   const fmtData = (s: string) => new Date(s + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
 
-  const contagens: Record<string, number> = { "": opps.length };
-  for (const o of opps) contagens[o.status] = (contagens[o.status] ?? 0) + 1;
+  const contagens: Record<string, number> = { "": semStatus.length };
+  for (const o of semStatus) contagens[o.status] = (contagens[o.status] ?? 0) + 1;
 
   const FILTROS: { id: StatusFiltro; label: string }[] = [
     { id: "", label: `Todos (${contagens[""] ?? 0})` },
