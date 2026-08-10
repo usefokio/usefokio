@@ -148,7 +148,7 @@ export default function RelatorioLeadsPage() {
   const [preset, setPreset] = usePersistState<Preset>("leads:preset", "ano");
   const [customDe, setCustomDe] = usePersistState("leads:de", "");
   const [customAte, setCustomAte] = usePersistState("leads:ate", "");
-  const [incluirDiretos, setIncluirDiretos] = usePersistState("leads:diretos", true);
+  const [incluirDiretos, setIncluirDiretos] = usePersistState("leads:diretos", false);
   const [drill, setDrill] = useState<{ titulo: string; itens: Lead[] } | null>(null);
 
   const carregar = useCallback(async () => {
