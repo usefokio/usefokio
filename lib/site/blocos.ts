@@ -51,6 +51,9 @@ export type SiteBloco = {
     titulo_escala?: number;
     // hero (texto = subtítulo; com_formulario sobrepõe o formulário à imagem de fundo)
     imagem_url?: string | null;
+    // Legenda/texto alternativo da `imagem_url` acima — usado como `alt` (SEO de imagem) em
+    // hero, duas_colunas e pacote. Sem preencher, cai no título do bloco (comportamento antigo).
+    imagem_alt?: string | null;
     logo_url?: string | null;
     titulo?: string | null;
     com_formulario?: boolean;
@@ -59,6 +62,7 @@ export type SiteBloco = {
     html?: string | null;
     // imagem
     url?: string | null;
+    alt?: string | null; // legenda/texto alternativo da imagem única (bloco "imagem")
     largura_total?: boolean;
     largura?: number; // largura da imagem em % (20-100); largura_total ignora e ocupa 100%
     // duas_colunas / pacote
@@ -90,6 +94,7 @@ export type SiteBloco = {
       valor?: string | null;
       valor_prefixo?: string | null;
       imagem_url?: string | null;
+      imagem_alt?: string | null; // legenda/texto alternativo da imagem deste pacote
       destaque?: boolean;         // coluna em evidência (ex.: o pacote mais vendido)
       etiqueta?: string | null;   // selo acima do nome (ex.: "Mais escolhido")
     }[];
@@ -100,6 +105,7 @@ export type SiteBloco = {
     cards?: { nome: string; foto_url?: string | null; href?: string | null }[];
     // galeria / texto_carrossel
     fotos?: string[];
+    fotos_legendas?: string[]; // legenda/alt de cada foto acima, casado por índice
     colunas?: number; // 2, 3 ou 4
     // depoimentos
     escrever_url?: string | null;
@@ -216,8 +222,8 @@ export function novoBloco(tipo: TipoBloco): SiteBloco {
     ],
   };
   if (tipo === "cards") base.dados.cards = [];
-  if (tipo === "galeria") { base.dados.fotos = []; base.dados.colunas = 3; }
-  if (tipo === "texto_carrossel") base.dados.fotos = [];
+  if (tipo === "galeria") { base.dados.fotos = []; base.dados.fotos_legendas = []; base.dados.colunas = 3; }
+  if (tipo === "texto_carrossel") { base.dados.fotos = []; base.dados.fotos_legendas = []; }
   if (tipo === "espaco") base.dados.altura = 40;
   if (tipo === "botao") base.dados = { texto: "Reservar minha data", acao: "whatsapp", mensagem: "Olá! Quero reservar minha data.", estilo_botao: "solido", alinhamento: "centro" };
   if (tipo === "depoimentos") base.dados.titulo = "O que meus clientes dizem";

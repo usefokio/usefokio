@@ -98,7 +98,14 @@ export function EditorBlocos({ blocos, onChange, fotografoId, pasta, acaoBloco }
       const fotos = [...(x.dados.fotos ?? [])];
       const [m] = fotos.splice(from, 1);
       fotos.splice(to, 0, m);
-      return { ...x, dados: { ...x.dados, fotos } };
+      const patch: Partial<SiteBloco["dados"]> = { fotos };
+      if (x.dados.fotos_legendas?.length) {
+        const legendas = [...x.dados.fotos_legendas];
+        const [ml] = legendas.splice(from, 1);
+        legendas.splice(to, 0, ml ?? "");
+        patch.fotos_legendas = legendas;
+      }
+      return { ...x, dados: { ...x.dados, ...patch } };
     }));
   }
 
@@ -171,7 +178,7 @@ export function EditorBlocos({ blocos, onChange, fotografoId, pasta, acaoBloco }
         const nome = file.name.replace(/\.[a-z0-9]+$/i, "").normalize("NFD").replace(/[^\x20-\x7E]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-") || "img";
         const path = `site/${fotografoId}/${pasta}/galeria-${nome}-${crypto.randomUUID().slice(0, 6)}.jpg`;
         const { url_publica } = await uploadFileClient(path, blob);
-        aplicar((prev) => prev.map((b) => b.id === blocoId ? { ...b, dados: { ...b.dados, fotos: [...(b.dados.fotos ?? []), url_publica] } } : b));
+        aplicar((prev) => prev.map((b) => b.id === blocoId ? { ...b, dados: { ...b.dados, fotos: [...(b.dados.fotos ?? []), url_publica], fotos_legendas: [...(b.dados.fotos_legendas ?? []), ""] } } : b));
       } catch (e) {
         setMsg("Erro no upload: " + (e instanceof Error ? e.message : ""));
       }
@@ -266,6 +273,7 @@ export function EditorBlocos({ blocos, onChange, fotografoId, pasta, acaoBloco }
             {opcaoTitulo(b)}
             <div><label style={labelStyle}>Texto (subtítulo — opcional)</label><textarea value={d.texto ?? ""} onChange={(e) => mudar(b.id, { texto: e.target.value })} rows={2} style={{ ...inputStyle, resize: "vertical" }} /></div>
             <div><label style={labelStyle}>Imagem de fundo</label>{btnImagem({ blocoId: b.id, campo: "imagem_url", urlAtual: d.imagem_url, rotulo: "imagem" })}</div>
+            {d.imagem_url && <div><label style={labelStyle}>Legenda / texto alternativo da imagem (SEO)</label><input value={d.imagem_alt ?? ""} onChange={(e) => mudar(b.id, { imagem_alt: e.target.value })} style={inputStyle} placeholder={d.titulo || ""} /></div>}
             <div><label style={labelStyle}>Logo (sobre a imagem)</label>{btnImagem({ blocoId: b.id, campo: "logo_url", urlAtual: d.logo_url, rotulo: "logo" })}</div>
             {campo("Altura do topo", <Range label="Altura" value={d.altura ?? 0} min={0} max={720} unidade={d.altura ? "px" : ""}
               onChange={(v) => mudar(b.id, { altura: v || undefined })} />)}
@@ -297,6 +305,7 @@ export function EditorBlocos({ blocos, onChange, fotografoId, pasta, acaoBloco }
         return (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {btnImagem({ blocoId: b.id, campo: "url", urlAtual: d.url, rotulo: "imagem" })}
+            {d.url && <div><label style={labelStyle}>Legenda / texto alternativo da imagem (SEO)</label><input value={d.alt ?? ""} onChange={(e) => mudar(b.id, { alt: e.target.value })} style={inputStyle} /></div>}
             <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--color-text-primary)", cursor: "pointer" }}>
               <input type="checkbox" checked={d.largura_total ?? false} onChange={(e) => mudar(b.id, { largura_total: e.target.checked })} />
               Largura total da página
@@ -314,6 +323,7 @@ export function EditorBlocos({ blocos, onChange, fotografoId, pasta, acaoBloco }
             {opcaoTitulo(b)}
             <div><label style={labelStyle}>Texto</label><SiteRichEditor value={d.html ?? ""} onChange={(html) => mudar(b.id, { html })} minHeight={120} pasta={pasta} /></div>
             {btnImagem({ blocoId: b.id, campo: "imagem_url", urlAtual: d.imagem_url, rotulo: "imagem" })}
+            {d.imagem_url && <div><label style={labelStyle}>Legenda / texto alternativo da imagem (SEO)</label><input value={d.imagem_alt ?? ""} onChange={(e) => mudar(b.id, { imagem_alt: e.target.value })} style={inputStyle} placeholder={d.titulo || ""} /></div>}
             {campo("Posição da imagem", <div style={{ display: "flex", gap: 6 }}>
               <Seg value={d.imagem_posicao ?? (d.invertido ? "esquerda" : "direita")}
                 options={[{ v: "direita", l: "À direita" }, { v: "esquerda", l: "À esquerda" }, { v: "acima", l: "Acima do texto" }] as const}
@@ -425,6 +435,7 @@ export function EditorBlocos({ blocos, onChange, fotografoId, pasta, acaoBloco }
                 onChange={(html) => mudar(b.id, { itens_html: html })} minHeight={120} pasta={pasta} />
             </div>
             {btnImagem({ blocoId: b.id, campo: "imagem_url", urlAtual: d.imagem_url, rotulo: "imagem" })}
+            {d.imagem_url && <div><label style={labelStyle}>Legenda / texto alternativo da imagem (SEO)</label><input value={d.imagem_alt ?? ""} onChange={(e) => mudar(b.id, { imagem_alt: e.target.value })} style={inputStyle} placeholder={d.nome || ""} /></div>}
             {campo("Posição da imagem", <Seg value={d.imagem_posicao ?? (d.invertido ? "esquerda" : "direita")}
               options={[{ v: "direita", l: "À direita" }, { v: "esquerda", l: "À esquerda" }, { v: "acima", l: "Acima do texto" }] as const}
               onChange={(v) => mudar(b.id, { imagem_posicao: v, invertido: v === "esquerda" })} />)}
@@ -503,6 +514,10 @@ export function EditorBlocos({ blocos, onChange, fotografoId, pasta, acaoBloco }
                         onEscolher={(url) => mudarPac(i, { imagem_url: url })} />
                       {p.imagem_url && <button style={{ ...btnPeq, color: "#DC2626", borderColor: "#DC2626" }} onClick={() => mudarPac(i, { imagem_url: null })}>Remover foto</button>}
                     </div>
+                    {p.imagem_url && (
+                      <input value={p.imagem_alt ?? ""} placeholder="Legenda / texto alternativo da foto (SEO)"
+                        onChange={(e) => mudarPac(i, { imagem_alt: e.target.value })} style={{ ...inputStyle, marginTop: 8 }} />
+                    )}
                   </div>
                   {linhaChave("Coluna em destaque", p.destaque ?? false, (v) => mudarPac(i, { destaque: v }),
                     "Deixa a borda mais forte e mostra a etiqueta, para puxar o olho do cliente para este pacote.")}
@@ -590,8 +605,8 @@ export function EditorBlocos({ blocos, onChange, fotografoId, pasta, acaoBloco }
               value={String(d.colunas ?? 0)}
               options={[{ v: "0", l: "Automático" }, { v: "2", l: "2" }, { v: "3", l: "3" }, { v: "4", l: "4" }, { v: "5", l: "5" }]}
               onChange={(v) => mudar(b.id, { colunas: Number(v) })} />)}
-            <p style={{ ...mini, margin: 0 }}>Em <strong>Automático</strong>, as fotos entram em linhas justificadas, cada uma na proporção natural (mesmo layout das galerias do site). Escolhendo um número de colunas, elas viram um grid nessa quantidade, sempre na proporção natural. <strong>Arraste as miniaturas para reordenar.</strong></p>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(96px, 1fr))", gap: 8 }}>
+            <p style={{ ...mini, margin: 0 }}>Em <strong>Automático</strong>, as fotos entram em linhas justificadas, cada uma na proporção natural (mesmo layout das galerias do site). Escolhendo um número de colunas, elas viram um grid nessa quantidade, sempre na proporção natural. <strong>Arraste as miniaturas para reordenar.</strong> A legenda vira o texto alternativo da foto (SEO de imagem).</p>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 10 }}>
               {(d.fotos ?? []).map((f, i) => {
                 const alvo = fotoSobre?.blocoId === b.id && fotoSobre.idx === i;
                 return (
@@ -604,12 +619,17 @@ export function EditorBlocos({ blocos, onChange, fotografoId, pasta, acaoBloco }
                   onDragLeave={() => { if (alvo) setFotoSobre(null); }}
                   onDrop={(e) => { e.preventDefault(); const dg = fotoDrag.current; if (dg && dg.blocoId === b.id) moverFoto(b.id, dg.idx, i); fotoDrag.current = null; setFotoSobre(null); }}
                   onDragEnd={() => { fotoDrag.current = null; setFotoSobre(null); }}
-                  style={{ position: "relative", cursor: "grab", borderRadius: 6, outline: alvo ? "2px solid #2563EB" : "none", outlineOffset: 2 }}>
-                  <img src={f} alt="" draggable={false} style={{ width: "100%", aspectRatio: "1/1", objectFit: "cover", borderRadius: 6, display: "block", pointerEvents: "none" }} />
-                  <span style={{ position: "absolute", bottom: 4, left: 4, minWidth: 18, height: 18, padding: "0 5px", borderRadius: 9, background: "rgba(0,0,0,0.6)", color: "#fff", fontSize: 10, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>{i + 1}</span>
-                  <button title="Remover foto"
-                    onClick={() => mudar(b.id, { fotos: (d.fotos ?? []).filter((_, j) => j !== i) })}
-                    style={{ position: "absolute", top: 4, right: 4, border: "none", borderRadius: 999, width: 22, height: 22, background: "rgba(0,0,0,0.55)", color: "#fff", fontSize: 11, cursor: "pointer" }}>✕</button>
+                  style={{ position: "relative", borderRadius: 6, outline: alvo ? "2px solid #2563EB" : "none", outlineOffset: 2 }}>
+                  <div style={{ position: "relative", cursor: "grab" }}>
+                    <img src={f} alt="" draggable={false} style={{ width: "100%", aspectRatio: "1/1", objectFit: "cover", borderRadius: 6, display: "block", pointerEvents: "none" }} />
+                    <span style={{ position: "absolute", bottom: 4, left: 4, minWidth: 18, height: 18, padding: "0 5px", borderRadius: 9, background: "rgba(0,0,0,0.6)", color: "#fff", fontSize: 10, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>{i + 1}</span>
+                    <button title="Remover foto"
+                      onClick={() => mudar(b.id, { fotos: (d.fotos ?? []).filter((_, j) => j !== i), fotos_legendas: (d.fotos_legendas ?? []).filter((_, j) => j !== i) })}
+                      style={{ position: "absolute", top: 4, right: 4, border: "none", borderRadius: 999, width: 22, height: 22, background: "rgba(0,0,0,0.55)", color: "#fff", fontSize: 11, cursor: "pointer" }}>✕</button>
+                  </div>
+                  <input value={d.fotos_legendas?.[i] ?? ""} placeholder="Legenda (opcional)"
+                    onChange={(e) => { const legendas = [...(d.fotos_legendas ?? [])]; legendas[i] = e.target.value; mudar(b.id, { fotos_legendas: legendas }); }}
+                    style={{ ...inputStyle, marginTop: 5, fontSize: 11, padding: "5px 8px" }} />
                 </div>
                 );
               })}
@@ -621,7 +641,7 @@ export function EditorBlocos({ blocos, onChange, fotografoId, pasta, acaoBloco }
               </button>
               {/* uma foto por vez, anexada ao fim da galeria */}
               <BotaoEscolherDoSite pasta={pasta} rotulo="Do site" estilo={btnPeq}
-                onEscolher={(url) => aplicar((prev) => prev.map((x) => x.id === b.id ? { ...x, dados: { ...x.dados, fotos: [...(x.dados.fotos ?? []), url] } } : x))} />
+                onEscolher={(url) => aplicar((prev) => prev.map((x) => x.id === b.id ? { ...x, dados: { ...x.dados, fotos: [...(x.dados.fotos ?? []), url], fotos_legendas: [...(x.dados.fotos_legendas ?? []), ""] } } : x))} />
             </div>
           </div>
         );
