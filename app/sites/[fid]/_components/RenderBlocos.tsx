@@ -101,7 +101,7 @@ function Bloco({ bloco, ctx }: { bloco: SiteBloco; ctx: ContextoBlocos }) {
       if (d.imagem_url) {
         return (
           <section className="lp-hero" style={d.altura ? { minHeight: d.altura } : undefined}>
-            <img className="lp-hero-bg" src={d.imagem_url} alt={d.titulo ?? ""}
+            <img className="lp-hero-bg" src={d.imagem_url} alt={d.imagem_alt || d.titulo || ""}
               style={{ objectPosition: OBJECT_POSITION[d.ancora ?? "centro"] }} />
             <div className="lp-hero-inner">{miolo}</div>
           </section>
@@ -127,11 +127,11 @@ function Bloco({ bloco, ctx }: { bloco: SiteBloco; ctx: ContextoBlocos }) {
       if (!d.url) return null;
       const est = estiloImagem(d);
       return d.largura_total
-        ? <img className="lp-full-img" src={d.url} alt="" loading="lazy" style={est} />
+        ? <img className="lp-full-img" src={d.url} alt={d.alt || ""} loading="lazy" style={est} />
         : (
           <div className="lp-secao" style={{ paddingTop: 24, paddingBottom: 24 }}>
             {/* est vem primeiro: a largura escolhida no editor tem que vencer o width:100% da proporção */}
-            <img src={d.url} alt="" loading="lazy"
+            <img src={d.url} alt={d.alt || ""} loading="lazy"
               style={{ ...est, width: `${Math.min(100, Math.max(20, d.largura ?? 100))}%`, height: "auto", display: "block", borderRadius: 4, margin: "0 auto" }} />
           </div>
         );
@@ -144,7 +144,7 @@ function Bloco({ bloco, ctx }: { bloco: SiteBloco; ctx: ContextoBlocos }) {
             {d.titulo && <h2 className="lp-pacote-nome" style={estTit}>{d.titulo}</h2>}
             {d.html && <div className="site-conteudo" style={{ fontSize: 16, lineHeight: 1.8 }} dangerouslySetInnerHTML={{ __html: d.html }} />}
           </div>
-          {d.imagem_url && <img className="lp-duas-img" src={d.imagem_url} alt={d.titulo ?? ""} loading="lazy" style={estiloImagem(d)} />}
+          {d.imagem_url && <img className="lp-duas-img" src={d.imagem_url} alt={d.imagem_alt || d.titulo || ""} loading="lazy" style={estiloImagem(d)} />}
         </div>
       );
 
@@ -184,7 +184,7 @@ function Bloco({ bloco, ctx }: { bloco: SiteBloco; ctx: ContextoBlocos }) {
               {valor && (<><div className="lp-valor-label">Valor</div><div className="lp-valor">{valor}</div></>)}
               {valor && ctx.mascararValores && ctx.landingId && <VerValorGate landingId={ctx.landingId} />}
             </div>
-            {d.imagem_url && <img className="lp-duas-img" src={d.imagem_url} alt={d.nome ?? ""} loading="lazy" style={estiloImagem(d)} />}
+            {d.imagem_url && <img className="lp-duas-img" src={d.imagem_url} alt={d.imagem_alt || d.nome || ""} loading="lazy" style={estiloImagem(d)} />}
           </div>
         </>
       );
@@ -204,7 +204,7 @@ function Bloco({ bloco, ctx }: { bloco: SiteBloco; ctx: ContextoBlocos }) {
                 <div key={i} className={`lp-plano${p.destaque ? " destaque" : ""}`}>
                   {/* a etiqueta é o selo da coluna em destaque — sem destaque, não aparece */}
                   {p.destaque && p.etiqueta && <span className="lp-plano-etiqueta">{p.etiqueta}</span>}
-                  {p.imagem_url && <img className="lp-plano-img" src={p.imagem_url} alt={p.nome} loading="lazy" style={estiloImagem(d)} />}
+                  {p.imagem_url && <img className="lp-plano-img" src={p.imagem_url} alt={p.imagem_alt || p.nome} loading="lazy" style={estiloImagem(d)} />}
                   {p.nome && <h3 className="lp-plano-nome" style={estTit}>{p.nome}</h3>}
                   <ItensPacote html={p.itens_html} itens={p.itens} estilo={estilo} />
                   {valor && (<><div className="lp-valor-label">Valor</div><div className="lp-valor">{valor}</div></>)}
@@ -272,7 +272,7 @@ function Bloco({ bloco, ctx }: { bloco: SiteBloco; ctx: ContextoBlocos }) {
           {d.titulo && <h2 className="lp-titulo" style={estTit}>{d.titulo}</h2>}
           {/* mesmo layout justificado das galerias do site: linhas alinhadas, cada foto na
               sua proporção natural (medida no load), responsivo + lightbox ao clicar */}
-          <GaleriaFotos modo="grid" colunas={d.colunas} fotos={d.fotos!.map((f) => ({ id: f, url: f, alt: d.titulo ?? "" }))} />
+          <GaleriaFotos modo="grid" colunas={d.colunas} fotos={d.fotos!.map((f, i) => ({ id: f, url: f, alt: d.fotos_legendas?.[i] || d.titulo || "" }))} />
         </section>
       ) : null;
 
