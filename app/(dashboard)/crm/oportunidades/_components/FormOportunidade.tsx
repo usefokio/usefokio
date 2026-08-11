@@ -21,6 +21,7 @@ type FormData = {
   prioridade: CrmOpportunity["prioridade"];
   valor_estimado: string;
   data_evento: string;
+  criada_em: string;
   nome_noiva: string;
   nome_noivo: string;
   local_cerimonia: string;
@@ -38,7 +39,7 @@ type FormData = {
 const EMPTY: FormData = {
   titulo: "", cliente_id: "", categoria: "", status: "em_aberto",
   canal_origem: "", prioridade: "media", valor_estimado: "",
-  data_evento: "", nome_noiva: "", nome_noivo: "",
+  data_evento: "", criada_em: new Date().toISOString().slice(0, 10), nome_noiva: "", nome_noivo: "",
   local_cerimonia: "", local_recepcao: "", eh_casamento: false, local_evento: "",
   cidade_evento: "", estado_evento: "", convidados: "",
   indicado_por_id: "", indicado_por_nome: "", observacoes: "",
@@ -164,6 +165,7 @@ export default function FormOportunidade({ inicial, onSalvo, leadId }: Props) {
   const handleSave = async () => {
     if (!form.titulo.trim()) { setError("Título é obrigatório."); return; }
     if (form.data_evento && !isValidDate(form.data_evento)) { setError("Data do evento inválida."); return; }
+    if (form.criada_em && !isValidDate(form.criada_em)) { setError("Data de criação inválida."); return; }
     if (!fotografo) return;
     setSaving(true);
     setError("");
@@ -192,6 +194,7 @@ export default function FormOportunidade({ inicial, onSalvo, leadId }: Props) {
       indicado_por_nome: isIndicacao ? (form.indicado_por_nome.trim() || null) : null,
       observacoes:      form.observacoes.trim()     || null,
       updated_at:       new Date().toISOString(),
+      ...(form.criada_em ? { created_at: new Date(form.criada_em + "T12:00:00").toISOString() } : {}),
     };
 
     let id = inicial?.id;
@@ -284,7 +287,10 @@ export default function FormOportunidade({ inicial, onSalvo, leadId }: Props) {
           </Field>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 14 }}>
+          <Field label="Data de criação">
+            <input type="date" value={form.criada_em} onChange={(e) => upd("criada_em", e.target.value)} style={inputStyle} />
+          </Field>
           <Field label="Valor estimado (R$)">
             <input
               value={form.valor_estimado}

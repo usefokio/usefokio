@@ -419,6 +419,7 @@ export default function OportunidadeDetailPage() {
             prioridade:      opp.prioridade,
             valor_estimado:  opp.valor_estimado != null ? formatNum(opp.valor_estimado) : "",
             data_evento:     opp.data_evento ?? "",
+            criada_em:       opp.created_at ? opp.created_at.slice(0, 10) : "",
             nome_noiva:      opp.nome_noiva ?? "",
             nome_noivo:      opp.nome_noivo ?? "",
             local_cerimonia: opp.local_cerimonia ?? "",
