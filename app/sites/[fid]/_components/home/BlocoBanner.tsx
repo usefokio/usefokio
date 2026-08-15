@@ -9,7 +9,7 @@
 //    percorre TODAS as fotos; 0 = grade estática com todas as fotos (ocupa a página).
 // Onde falta imagem (site sem conteúdo / prévia fictícia) → gradiente placeholder.
 import { useEffect, useRef, useState } from "react";
-import { ASPECT, OBJECT_POSITION, type HomeBloco } from "@/lib/site/design";
+import { ASPECT, objectPositionDe, type HomeBloco } from "@/lib/site/design";
 import { gradPlaceholder } from "./placeholder";
 import type { SiteBanner } from "@/lib/supabase/types";
 
@@ -83,7 +83,7 @@ export function BlocoBanner({ config, banners, base }: { config: HomeBloco; bann
   const tipo = config.tipo ?? "deslizante";
   const altura = config.altura ?? 300;
   const aspect = ASPECT[config.proporcao ?? "horizontal_3x2"];   // orientação da foto (grade)
-  const objPos = OBJECT_POSITION[config.ancora ?? "centro"];      // alinhamento do recorte
+  const objPos = objectPositionDe(config);      // alinhamento do recorte (ponto focal tem prioridade sobre a âncora)
   const resolver = (link: string) => (link.startsWith("/") ? `${base}${link}` : link);
   const envolver = (b: SiteBanner, conteudo: React.ReactNode, extra?: React.CSSProperties) =>
     b.link
