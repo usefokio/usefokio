@@ -8,14 +8,17 @@ import { inputStyle } from "@/lib/styles";
 import { gerarSenhaAcesso } from "@/lib/utils";
 import { normalizar } from "@/lib/utils/normalizar";
 import { mascaraTelefone } from "@/lib/utils/format";
+import { mesmoWhatsapp } from "@/lib/utils/telefone";
 import type { Cliente } from "@/lib/supabase/types";
 import { DropdownPortal } from "./DropdownPortal";
 
 // ── Modal criar novo cliente ─────────────────────────────────────────────────
 function ModalNovoCliente({
+  clientes,
   onCriado,
   onFechar,
 }: {
+  clientes: Cliente[];
   onCriado: (c: Cliente) => void;
   onFechar: () => void;
 }) {
@@ -36,11 +39,10 @@ function ModalNovoCliente({
     setErroEmail(dup ? `Email já cadastrado para "${(dup as { nome: string }).nome}"` : "");
   }
 
-  async function checkWppDup() {
-    if (!whatsapp.replace(/\D/g, "") || !fotografo) return;
-    const { data: dup } = await createClient().from("clientes").select("id, nome")
-      .eq("fotografo_id", fotografo.id).eq("whatsapp", whatsapp).maybeSingle();
-    setErroWpp(dup ? `WhatsApp já cadastrado para "${(dup as { nome: string }).nome}"` : "");
+  function checkWppDup() {
+    if (!whatsapp.replace(/\D/g, "")) return;
+    const dup = clientes.find((c) => mesmoWhatsapp(c.whatsapp, whatsapp));
+    setErroWpp(dup ? `WhatsApp já cadastrado para "${dup.nome}"` : "");
   }
 
   async function handleSalvar() {
@@ -56,9 +58,8 @@ function ModalNovoCliente({
       if (dup) { setErroEmail(`Email já cadastrado para "${(dup as { nome: string }).nome}"`); setSaving(false); return; }
     }
     if (whatsapp.replace(/\D/g, "")) {
-      const { data: dup } = await supabase.from("clientes").select("id, nome")
-        .eq("fotografo_id", fid).eq("whatsapp", whatsapp).maybeSingle();
-      if (dup) { setErroWpp(`WhatsApp já cadastrado para "${(dup as { nome: string }).nome}"`); setSaving(false); return; }
+      const dup = clientes.find((c) => mesmoWhatsapp(c.whatsapp, whatsapp));
+      if (dup) { setErroWpp(`WhatsApp já cadastrado para "${dup.nome}"`); setSaving(false); return; }
     }
     const { data, error } = await supabase
       .from("clientes")
@@ -411,6 +412,7 @@ export function ClienteSelect({
 
       {modalAberto && (
         <ModalNovoCliente
+          clientes={clientes}
           onCriado={handleClienteCriado}
           onFechar={() => setModalAberto(false)}
         />
