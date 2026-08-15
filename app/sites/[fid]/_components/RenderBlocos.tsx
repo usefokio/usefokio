@@ -3,7 +3,7 @@
 import Link from "next/link";
 import type { CSSProperties } from "react";
 import { valorExibido, mascararDinheiro, mascararDinheiroHtml, type SiteBloco } from "@/lib/site/blocos";
-import { ASPECT, OBJECT_POSITION } from "@/lib/site/design";
+import { ASPECT, OBJECT_POSITION, objectPositionDe } from "@/lib/site/design";
 import type { SiteDepoimento } from "@/lib/supabase/types";
 import { ContatoForm } from "./ContatoForm";
 import { GaleriaFotos } from "./GaleriaFotos";
@@ -28,12 +28,12 @@ function linkInterno(base: string, href: string) {
 
 // Estilo de imagem a partir das opções do bloco (mesmo vocabulário da Aparência).
 // Sem `proporcao` escolhida, devolve {} — a imagem sai exatamente como saía antes.
-function estiloImagem(d: SiteBloco["dados"]): CSSProperties {
+function estiloImagem(d: SiteBloco["dados"], foco?: { foco_x?: number | null; foco_y?: number | null }): CSSProperties {
   if (!d.proporcao) return {};
   return {
     aspectRatio: ASPECT[d.proporcao],
     objectFit: d.ajuste === "manter_proporcao" ? "contain" : "cover",
-    objectPosition: OBJECT_POSITION[d.ancora ?? "centro"],
+    objectPosition: objectPositionDe({ ancora: d.ancora, foco_x: foco?.foco_x ?? d.foco_x, foco_y: foco?.foco_y ?? d.foco_y }),
     // inline vence o CSS das classes/media queries (ex.: .lp-duas-img usa width:auto no mobile),
     // senão a proporção escolhida não aparecia
     width: "100%",
@@ -102,7 +102,7 @@ function Bloco({ bloco, ctx }: { bloco: SiteBloco; ctx: ContextoBlocos }) {
         return (
           <section className="lp-hero" style={d.altura ? { minHeight: d.altura } : undefined}>
             <img className="lp-hero-bg" src={d.imagem_url} alt={d.imagem_alt || d.titulo || ""}
-              style={{ objectPosition: OBJECT_POSITION[d.ancora ?? "centro"] }} />
+              style={{ objectPosition: objectPositionDe(d) }} />
             <div className="lp-hero-inner">{miolo}</div>
           </section>
         );
@@ -204,7 +204,7 @@ function Bloco({ bloco, ctx }: { bloco: SiteBloco; ctx: ContextoBlocos }) {
                 <div key={i} className={`lp-plano${p.destaque ? " destaque" : ""}`}>
                   {/* a etiqueta é o selo da coluna em destaque — sem destaque, não aparece */}
                   {p.destaque && p.etiqueta && <span className="lp-plano-etiqueta">{p.etiqueta}</span>}
-                  {p.imagem_url && <img className="lp-plano-img" src={p.imagem_url} alt={p.imagem_alt || p.nome} loading="lazy" style={estiloImagem(d)} />}
+                  {p.imagem_url && <img className="lp-plano-img" src={p.imagem_url} alt={p.imagem_alt || p.nome} loading="lazy" style={estiloImagem(d, p)} />}
                   {p.nome && <h3 className="lp-plano-nome" style={estTit}>{p.nome}</h3>}
                   <ItensPacote html={p.itens_html} itens={p.itens} estilo={estilo} />
                   {valor && (<><div className="lp-valor-label">Valor</div><div className="lp-valor">{valor}</div></>)}

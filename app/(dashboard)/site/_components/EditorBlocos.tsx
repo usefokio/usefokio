@@ -14,9 +14,11 @@ import { CATALOGO_BLOCOS, novoBloco, valorExibido, separarValor, itensParaHtml, 
 import { mascaraValor } from "@/lib/utils/format";
 import { Seg, Range, campo, linhaChave, PROP_OPTS, ANC_OPTS, mini } from "@/app/(dashboard)/site/_components/ControlesUI";
 import { BotaoEscolherDoSite } from "@/app/(dashboard)/site/_components/SeletorImagemSite";
+import { SeletorFoco } from "@/app/(dashboard)/site/_components/SeletorFoco";
 import { PaletaBlocos } from "@/app/(dashboard)/site/_components/PaletaBlocos";
 import { ModalSalvarModelo, ModalModelos } from "@/app/(dashboard)/site/_components/ModelosBloco";
 import type { ProporcaoCapa, AncoraFoto, BannerAjuste } from "@/lib/site/design";
+import { ASPECT } from "@/lib/site/design";
 
 // Campos do bloco que guardam uma imagem (o alvo do upload / do "escolher do site").
 type CampoImagem = "imagem_url" | "logo_url" | "url" | "titulo_bg_url";
@@ -224,9 +226,13 @@ export function EditorBlocos({ blocos, onChange, fotografoId, pasta, acaoBloco }
         {d.proporcao && campo("Alinhamento do recorte",
           <>
             <Seg value={d.ancora ?? "centro"} options={ANC_OPTS as readonly { v: AncoraFoto; l: string }[]}
-              onChange={(v) => mudar(b.id, { ancora: v })} />
+              onChange={(v) => mudar(b.id, { ancora: v, foco_x: null, foco_y: null })} />
             <p style={{ ...mini, margin: "4px 0 0" }}>Escolhe qual parte da foto aparece quando ela é cortada.</p>
           </>)}
+        {d.proporcao && d.imagem_url && campo("Ponto focal (opcional)",
+          <SeletorFoco url={d.imagem_url} x={d.foco_x} y={d.foco_y} aspecto={ASPECT[d.proporcao]}
+            onChange={(x, y) => mudar(b.id, { foco_x: x, foco_y: y })}
+            onLimpar={() => mudar(b.id, { foco_x: null, foco_y: null })} />)}
         {d.proporcao && !opts?.semAjuste && campo("Ajuste da imagem",
           <Seg value={d.ajuste ?? "preencher"}
             options={[{ v: "preencher", l: "Preencher" }, { v: "manter_proporcao", l: "Manter proporção" }] as readonly { v: BannerAjuste; l: string }[]}
@@ -279,7 +285,11 @@ export function EditorBlocos({ blocos, onChange, fotografoId, pasta, acaoBloco }
               onChange={(v) => mudar(b.id, { altura: v || undefined })} />)}
             {campo("Alinhamento do recorte",
               <Seg value={d.ancora ?? "centro"} options={ANC_OPTS as readonly { v: AncoraFoto; l: string }[]}
-                onChange={(v) => mudar(b.id, { ancora: v })} />)}
+                onChange={(v) => mudar(b.id, { ancora: v, foco_x: null, foco_y: null })} />)}
+            {d.imagem_url && campo("Ponto focal (opcional)",
+              <SeletorFoco url={d.imagem_url} x={d.foco_x} y={d.foco_y}
+                onChange={(x, y) => mudar(b.id, { foco_x: x, foco_y: y })}
+                onLimpar={() => mudar(b.id, { foco_x: null, foco_y: null })} />)}
             <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--color-text-primary)", cursor: "pointer" }}>
               <input type="checkbox" checked={d.com_formulario ?? false} onChange={(e) => mudar(b.id, { com_formulario: e.target.checked })} />
               Incluir formulário de contato sobreposto
@@ -515,8 +525,15 @@ export function EditorBlocos({ blocos, onChange, fotografoId, pasta, acaoBloco }
                       {p.imagem_url && <button style={{ ...btnPeq, color: "#DC2626", borderColor: "#DC2626" }} onClick={() => mudarPac(i, { imagem_url: null })}>Remover foto</button>}
                     </div>
                     {p.imagem_url && (
-                      <input value={p.imagem_alt ?? ""} placeholder="Legenda / texto alternativo da foto (SEO)"
-                        onChange={(e) => mudarPac(i, { imagem_alt: e.target.value })} style={{ ...inputStyle, marginTop: 8 }} />
+                      <>
+                        <input value={p.imagem_alt ?? ""} placeholder="Legenda / texto alternativo da foto (SEO)"
+                          onChange={(e) => mudarPac(i, { imagem_alt: e.target.value })} style={{ ...inputStyle, marginTop: 8 }} />
+                        <div style={{ marginTop: 8 }}>
+                          <SeletorFoco url={p.imagem_url} x={p.foco_x} y={p.foco_y}
+                            onChange={(x, y) => mudarPac(i, { foco_x: x, foco_y: y })}
+                            onLimpar={() => mudarPac(i, { foco_x: null, foco_y: null })} />
+                        </div>
+                      </>
                     )}
                   </div>
                   {linhaChave("Coluna em destaque", p.destaque ?? false, (v) => mudarPac(i, { destaque: v }),

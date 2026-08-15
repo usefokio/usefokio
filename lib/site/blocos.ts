@@ -54,6 +54,10 @@ export type SiteBloco = {
     // Legenda/texto alternativo da `imagem_url` acima — usado como `alt` (SEO de imagem) em
     // hero, duas_colunas e pacote. Sem preencher, cai no título do bloco (comportamento antigo).
     imagem_alt?: string | null;
+    // Ponto focal (0-100%) da `imagem_url` acima — ajuste fino por cima da `ancora`; quando
+    // definido, tem prioridade no cálculo do object-position (ver objectPositionDe em design.ts).
+    foco_x?: number | null;
+    foco_y?: number | null;
     logo_url?: string | null;
     titulo?: string | null;
     com_formulario?: boolean;
@@ -95,6 +99,8 @@ export type SiteBloco = {
       valor_prefixo?: string | null;
       imagem_url?: string | null;
       imagem_alt?: string | null; // legenda/texto alternativo da imagem deste pacote
+      foco_x?: number | null;     // ponto focal (0-100%) desta imagem — ver objectPositionDe
+      foco_y?: number | null;
       destaque?: boolean;         // coluna em evidência (ex.: o pacote mais vendido)
       etiqueta?: string | null;   // selo acima do nome (ex.: "Mais escolhido")
     }[];

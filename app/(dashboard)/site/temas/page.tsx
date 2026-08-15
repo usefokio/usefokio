@@ -14,7 +14,7 @@ import { uploadFileClient } from "@/lib/storage/uploadClient";
 import { getTema } from "@/lib/site/temas";
 import { useEditorEstado, SeloEstado, BotaoSalvarEstado, ModalNaoSalvo } from "@/app/(dashboard)/_components/EditorEstado";
 import {
-  PARES_FONTE, CATEGORIA_LABEL, FONTE_NOME, normalizarDesign, DESIGN_PADRAO, BLOCO_LABEL,
+  PARES_FONTE, CATEGORIA_LABEL, FONTE_NOME, normalizarDesign, DESIGN_PADRAO, BLOCO_LABEL, ASPECT,
   type ConfigDesign, type BarraConfig, type HeaderConfig, type CategoriaFonte,
   type HomeBloco, type HomeBlocoKey, type BlogLayout, type DepoLayout, type GradeConfig,
 } from "@/lib/site/design";
@@ -23,6 +23,7 @@ import { normalizarConfig } from "@/lib/site/formulario";
 import { processarImagemEntrega } from "@/lib/imageResize";
 import { SiteRichEditor } from "@/app/(dashboard)/site/_components/SiteRichEditor";
 import { BotaoEscolherDoSite } from "@/app/(dashboard)/site/_components/SeletorImagemSite";
+import { SeletorFoco } from "@/app/(dashboard)/site/_components/SeletorFoco";
 import { FormularioConfigEditor } from "@/app/(dashboard)/site/_components/FormularioConfigEditor";
 import { PreviewSite, BarraDispositivo } from "@/app/(dashboard)/site/_components/PreviewSite";
 import { Seg, Range, Chave, Card, campo, linhaChave, PROP_OPTS, POS_OPTS, ANC_OPTS, lbl, mini, cardBox, inp } from "@/app/(dashboard)/site/_components/ControlesUI";
@@ -345,8 +346,15 @@ export default function AparenciaPage() {
             {b.tipo === "grid" && campo("Colunas", <Range label="Colunas" value={b.colunas ?? 3} min={2} max={6} onChange={(v) => setBloco("banner", { colunas: v })} />)}
             {b.tipo === "grid" && campo("Orientação das fotos", <Seg value={b.proporcao ?? "horizontal_3x2"} options={PROP_OPTS} onChange={(v) => setBloco("banner", { proporcao: v })} />)}
             {campo("Alinhamento do recorte", <>
-              <Seg value={b.ancora ?? "centro"} options={ANC_OPTS} onChange={(v) => setBloco("banner", { ancora: v })} />
+              <Seg value={b.ancora ?? "centro"} options={ANC_OPTS} onChange={(v) => setBloco("banner", { ancora: v, foco_x: null, foco_y: null })} />
               <p style={{ ...mini, margin: "4px 0 0" }}>Escolhe qual parte da foto aparece quando ela é cortada.</p>
+            </>)}
+            {dadosPreview.banners[0]?.imagem_url && campo("Ponto focal (opcional)", <>
+              <SeletorFoco url={dadosPreview.banners[0].imagem_url} x={b.foco_x} y={b.foco_y}
+                aspecto={b.tipo === "grid" ? ASPECT[b.proporcao ?? "horizontal_3x2"] : undefined}
+                onChange={(x, y) => setBloco("banner", { foco_x: x, foco_y: y })}
+                onLimpar={() => setBloco("banner", { foco_x: null, foco_y: null })} />
+              <p style={{ ...mini, margin: "4px 0 0" }}>Vale igual pra todas as fotos do banner (mesmo alinhamento compartilhado de hoje) — prévia mostra a 1ª foto.</p>
             </>)}
             {b.tipo === "grid" && campo("Limite de linhas", <>
               <Range label={(b.linhas ?? 0) === 0 ? "Sem limite" : "Linhas"} value={b.linhas ?? 0} min={0} max={20} onChange={(v) => setBloco("banner", { linhas: v })} />

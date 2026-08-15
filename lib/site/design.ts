@@ -88,6 +88,10 @@ export type HomeBloco = {
   velocidade?: number;
   linhas?: number; // banner(grid): limite de linhas da grade; 0 = sem limite (mostra tudo)
   ancora?: AncoraFoto; // banner: alinhamento do recorte da foto (superior/centro/inferior/esquerda/direita)
+  // banner: ponto focal (0-100%) — ajuste fino por cima da âncora; quando definido, tem prioridade
+  // sobre `ancora` no cálculo do object-position (ver objectPositionDe). null/ausente = usa a âncora.
+  foco_x?: number | null;
+  foco_y?: number | null;
   // banner(grid) / trabalhos / blog / depoimentos(grade)
   colunas?: number;
   // banner(grid) / trabalhos / blog
@@ -126,6 +130,13 @@ export const OBJECT_POSITION: Record<AncoraFoto, string> = {
   esquerda: "left center",
   direita: "right center",
 };
+
+// object-position final: ponto focal (contínuo, x%/y%) tem prioridade sobre a âncora (5 posições
+// fixas) quando definido — permite marcar exatamente o assunto que não pode sair do corte.
+export function objectPositionDe(d: { ancora?: AncoraFoto | null; foco_x?: number | null; foco_y?: number | null }): string {
+  if (d.foco_x != null && d.foco_y != null) return `${d.foco_x}% ${d.foco_y}%`;
+  return OBJECT_POSITION[d.ancora ?? "centro"];
+}
 
 // Aspect-ratio CSS por proporção da capa (a capa mantém a proporção — sem altura fixa).
 export const ASPECT: Record<ProporcaoCapa, string> = {
@@ -234,6 +245,11 @@ function num(v: unknown, def: number, min: number, max: number): number {
   const n = typeof v === "number" ? v : Number(v);
   return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : def;
 }
+function numOuNull(v: unknown, min: number, max: number): number | null {
+  if (v == null) return null;
+  const n = typeof v === "number" ? v : Number(v);
+  return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : null;
+}
 function bool(v: unknown, def: boolean): boolean {
   return typeof v === "boolean" ? v : def;
 }
@@ -283,7 +299,9 @@ function normalizarBloco(key: HomeBlocoKey, raw: unknown): HomeBloco {
         colunas: num(r.colunas, d.colunas!, 2, 6),
         linhas: num(r.linhas, d.linhas!, 0, 20),
         proporcao: umDe(r.proporcao, PROPORCOES, d.proporcao!),
-        ancora: umDe(r.ancora, ANCORAS, d.ancora!) };
+        ancora: umDe(r.ancora, ANCORAS, d.ancora!),
+        foco_x: numOuNull(r.foco_x, 0, 100),
+        foco_y: numOuNull(r.foco_y, 0, 100) };
     case "trabalhos":
       return { key, on,
         colunas: num(r.colunas, d.colunas!, 1, 6),
