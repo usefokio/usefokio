@@ -98,12 +98,15 @@ export default function OportunidadesPage() {
   };
 
   const iso = (d: Date) => d.toISOString().slice(0, 10);
-  type AtalhoData = "ultimo-mes" | "este-ano" | "ano-passado" | "ultimo-trimestre" | "ultimo-semestre";
+  type AtalhoData = "este-mes" | "ultimo-mes" | "este-ano" | "ano-passado" | "ultimo-trimestre" | "ultimo-semestre";
   const aplicarAtalho = (tipo: AtalhoData) => {
     const hoje = new Date();
     const ano = hoje.getFullYear();
     const mes = hoje.getMonth();
-    if (tipo === "ultimo-mes") {
+    if (tipo === "este-mes") {
+      setDataInicio(iso(new Date(ano, mes, 1)));
+      setDataFim(iso(new Date(ano, mes + 1, 0)));
+    } else if (tipo === "ultimo-mes") {
       setDataInicio(iso(new Date(ano, mes - 1, 1)));
       setDataFim(iso(new Date(ano, mes, 0)));
     } else if (tipo === "este-ano") {
@@ -327,6 +330,7 @@ export default function OportunidadesPage() {
       {/* Atalhos de data */}
       <div style={{ display: "flex", gap: 8, marginBottom: 18, flexWrap: "wrap", alignItems: "center" }}>
         {([
+          { id: "este-mes", label: "Este mês" },
           { id: "ultimo-mes", label: "Último mês" },
           { id: "este-ano", label: "Este ano" },
           { id: "ano-passado", label: "Ano passado" },

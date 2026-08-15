@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { isValidDate, mascaraTelefone } from "@/lib/utils/format";
 import { gerarSenhaAcesso } from "@/lib/utils";
+import { mesmoWhatsapp } from "@/lib/utils/telefone";
 import { useEditorEstado, SeloEstado, ModalNaoSalvo } from "@/app/(dashboard)/_components/EditorEstado";
 
 const TIPO_MAP: Record<string, string> = {
@@ -86,9 +87,11 @@ export default function NovoClientePage() {
       if (dup) { setErro(`Email já cadastrado para "${(dup as { nome: string }).nome}"`); return; }
     }
     if (whatsapp.replace(/\D/g, "")) {
-      const { data: dup } = await sb.from("clientes").select("id, nome")
-        .eq("fotografo_id", fid).eq("whatsapp", whatsapp).maybeSingle();
-      if (dup) { setErro(`WhatsApp já cadastrado para "${(dup as { nome: string }).nome}"`); return; }
+      const { data: existentes } = await sb.from("clientes").select("nome, whatsapp")
+        .eq("fotografo_id", fid).not("whatsapp", "is", null);
+      const dup = (existentes as { nome: string; whatsapp: string | null }[] | null)
+        ?.find((c) => mesmoWhatsapp(c.whatsapp, whatsapp));
+      if (dup) { setErro(`WhatsApp já cadastrado para "${dup.nome}"`); return; }
     }
     setSalvando(true);
     const { data, error } = await sb.from("clientes").insert({
