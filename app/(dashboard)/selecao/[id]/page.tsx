@@ -10,7 +10,7 @@ import { uploadFileClient } from "@/lib/storage/uploadClient";
 import { deleteFilesClient } from "@/lib/storage/deleteClient";
 import { fetchAllRows } from "@/lib/supabase/fetchAll";
 import exifr from "exifr";
-import { PLANOS, BETA_RESOLUCAO_MAXIMA, limiteEfetivo, type PlanoId } from "@/lib/planos";
+import { PLANOS, BETA_RESOLUCAO_MAXIMA, type PlanoId } from "@/lib/planos";
 import { useUsoPlano } from "@/lib/hooks/useUsoPlano";
 import type { GaleriaSelecao, GaleriaSelecaoFoto, Cliente, Categoria } from "@/lib/supabase/types";
 
@@ -163,9 +163,11 @@ function GaleriaSelecaoConteudo() {
     if (rejeitados.length > 0) alert(`${rejeitados.length} arquivo(s) ignorado(s):\n${rejeitados.join("\n")}`);
     if (validos.length === 0) return;
 
-    const plano = PLANOS[fotografo.plano as PlanoId] ?? PLANOS.gratuito;
-    const limite = usoPlano ? usoPlano.limite_fotos : limiteEfetivo(plano, fotografo.limite_fotos_custom);
-    const usadas = usoPlano ? usoPlano.fotos_usadas : (fotografo.total_fotos_usadas ?? 0);
+    // Só bloqueia com o dado FRESCO de /api/conta/uso (aplica planos_config + override real).
+    // Nunca cair para um cálculo local com fotografo.limite_fotos_custom: esse campo fica
+    // desatualizado quando o limite do plano muda depois da ativação, e já causou aviso falso.
+    const limite = usoPlano ? usoPlano.limite_fotos : null;
+    const usadas = usoPlano ? usoPlano.fotos_usadas : 0;
     if (limite !== null && usadas >= limite) {
       setAvisoLimite(true);
       return;
@@ -534,7 +536,7 @@ function GaleriaSelecaoConteudo() {
               <div style={{ background: "rgba(245,158,11,0.08)", border: "0.5px solid rgba(245,158,11,0.4)", borderRadius: 10, padding: "12px 16px", marginBottom: 16, display: "flex", alignItems: "center", gap: 12 }}>
                 <span style={{ fontSize: 18 }}>⚠️</span>
                 <div style={{ flex: 1, fontSize: 13, color: "#92400E" }}>
-                  <strong>Limite do plano {plano.nome} atingido</strong> ({(usoPlano ? usoPlano.limite_fotos : limiteEfetivo(plano, fotografo.limite_fotos_custom))?.toLocaleString("pt-BR")} fotos).
+                  <strong>Limite do plano {plano.nome} atingido</strong> ({usoPlano?.limite_fotos?.toLocaleString("pt-BR")} fotos).
                   O upload continua durante o período beta, mas considere fazer upgrade.
                 </div>
                 <a href="/conta/plano" style={{ fontSize: 12, fontWeight: 700, color: "#B45309", whiteSpace: "nowrap", padding: "5px 12px", borderRadius: 8, border: "0.5px solid rgba(245,158,11,0.5)", background: "rgba(245,158,11,0.1)", textDecoration: "none" }}>

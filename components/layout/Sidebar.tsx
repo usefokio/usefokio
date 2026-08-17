@@ -6,7 +6,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Avatar } from "@/components/ui/Avatar";
 import { useFotografo } from "@/lib/context/FotografoContext";
-import { PLANOS, corBarra, limiteEfetivo, formatarBytes, type PlanoId } from "@/lib/planos";
+import { PLANOS, corBarra, formatarBytes, type PlanoId } from "@/lib/planos";
 import { useUsoPlano } from "@/lib/hooks/useUsoPlano";
 import { temProdutoFotografia, temProdutoCRM, temProdutoSite } from "@/lib/recursos";
 
@@ -693,7 +693,9 @@ export function Sidebar({ isMobile = false, mobileAberta = false, onFechar }: Si
         {!collapsed && fotografo && (() => {
           const plano = PLANOS[fotografo.plano as PlanoId] ?? PLANOS.gratuito;
           const usadas = usoPlano ? usoPlano.fotos_usadas : (fotografo.total_fotos_usadas ?? 0);
-          const limite = usoPlano ? usoPlano.limite_fotos : limiteEfetivo(plano, fotografo.limite_fotos_custom);
+          // Só o dado FRESCO de /api/conta/uso — fotografo.limite_fotos_custom fica desatualizado
+          // quando o limite do plano muda depois da ativação, já causou aviso falso de limite.
+          const limite = usoPlano ? usoPlano.limite_fotos : null;
           const pct    = limite !== null ? Math.min(100, Math.round((usadas / limite) * 100)) : null;
           if (pct === null || limite === null) return null;
           const bc = corBarra(pct);

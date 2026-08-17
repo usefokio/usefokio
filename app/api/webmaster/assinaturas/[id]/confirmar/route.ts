@@ -39,15 +39,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     : 31;
   const planoPeriodo = duracaoDias > 200 ? "anual" : "mensal";
 
-  // Busca o limite de fotos do plano para aplicar junto com a ativação
-  const { data: pc } = await admin
-    .from("planos_config")
-    .select("limite_fotos")
-    .eq("codigo", ass.plano)
-    .eq("ativo", true)
-    .maybeSingle();
-  const limiteFotos: number | null = pc?.limite_fotos ?? null;
-
+  // Nunca grava limite_fotos_custom aqui — esse campo é SÓ um override manual do webmaster
+  // (app/webmaster). Congelar o limite do plano nele nesse momento fazia o valor ficar
+  // desatualizado assim que o limite do plano mudasse depois — o limite de verdade sempre vem
+  // ao vivo de planos_config (via limiteEfetivoMax em /api/conta/uso e nas rotas de upload).
   const [{ error: errAss }, { error: errFoto }] = await Promise.all([
     admin.from("assinaturas").update({ status: "pago", pago_em: agora }).eq("id", id),
     admin.from("fotografos").update({
@@ -55,7 +50,6 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       plano_ativado_em:    agora,
       plano_expira_em:     expira.toISOString(),
       plano_periodo:       planoPeriodo,
-      limite_fotos_custom: limiteFotos,
     }).eq("id", ass.fotografo_id),
   ]);
 

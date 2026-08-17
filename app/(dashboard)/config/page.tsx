@@ -5,7 +5,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { uploadFileClient } from "@/lib/storage/uploadClient";
-import { PLANOS, corBarra, limiteEfetivo, formatarBytes, type PlanoId } from "@/lib/planos";
+import { PLANOS, corBarra, formatarBytes, type PlanoId } from "@/lib/planos";
 import { useUsoPlano } from "@/lib/hooks/useUsoPlano";
 import type { Categoria } from "@/lib/supabase/types";
 import { inputStyle } from "@/lib/styles";
@@ -1192,7 +1192,9 @@ function CardPlano() {
   if (!fotografo) return null;
   const plano  = PLANOS[fotografo.plano as PlanoId] ?? PLANOS.gratuito;
   const usadas = usoPlano ? usoPlano.fotos_usadas : (fotografo.total_fotos_usadas ?? 0);
-  const limite = usoPlano ? usoPlano.limite_fotos : limiteEfetivo(plano, fotografo.limite_fotos_custom);
+  // Só o dado FRESCO de /api/conta/uso (planos_config + override real) — fotografo.limite_fotos_custom
+  // fica desatualizado quando o limite do plano muda depois da ativação, já causou aviso falso de limite.
+  const limite = usoPlano ? usoPlano.limite_fotos : null;
   const pct    = limite !== null ? Math.min(100, Math.round((usadas / limite) * 100)) : null;
   const bc     = pct !== null ? corBarra(pct) : "#2563EB";
   const limiteGb = usoPlano?.limite_gb ?? null;

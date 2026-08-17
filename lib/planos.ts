@@ -59,11 +59,6 @@ export const PLANOS: Record<PlanoId, PlanoConfig> = {
   },
 };
 
-/** Limite efetivo de fotos: o custom do fotógrafo (se definido) sobrepõe o do plano. */
-export function limiteEfetivo(plano: PlanoConfig, custom?: number | null): number | null {
-  return custom ?? plano.limite_fotos;
-}
-
 /**
  * Limite efetivo genérico (fotos ou GB) com valores vindos do BANCO (planos_config +
  * override do fotógrafo): se ambos definidos vale o MAIOR (o plano garante o mínimo);
@@ -80,13 +75,6 @@ export function formatarBytes(bytes: number): string {
   if (gb >= 1) return `${gb.toFixed(gb >= 10 ? 0 : 1)} GB`;
   const mb = bytes / 1024 ** 2;
   return `${Math.max(1, Math.round(mb))} MB`;
-}
-
-/** Retorna a porcentagem de uso (0–100). Retorna null se ilimitado. */
-export function pctUso(usadas: number, plano: PlanoConfig, custom?: number | null): number | null {
-  const limite = limiteEfetivo(plano, custom);
-  if (limite === null) return null;
-  return Math.min(100, Math.round((usadas / limite) * 100));
 }
 
 /** Cor da barra de progresso conforme o uso. */
