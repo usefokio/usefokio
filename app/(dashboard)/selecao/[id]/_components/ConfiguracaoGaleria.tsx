@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { ClienteSelect } from "@/components/ui/ClienteSelect";
 import type { GaleriaSelecao, Cliente, Categoria } from "@/lib/supabase/types";
 
 export function ConfiguracaoGaleria({
@@ -21,24 +22,11 @@ export function ConfiguracaoGaleria({
   const [limiteMin,     setLimiteMin]     = useState(galeria.limite_minimo?.toString() ?? "");
   const [limiteMax,     setLimiteMax]     = useState(galeria.limite_maximo?.toString() ?? "");
   const [clienteId,     setClienteId]     = useState(galeria.cliente_id ?? "");
+  const [clienteSel,    setClienteSel]    = useState<Cliente | null>(cliente);
 
-  const [clientes,     setClientes]     = useState<{ id: string; nome: string; email: string | null }[]>([]);
-  const [clientesLoad, setClientesLoad] = useState(false);
   const [salvando,     setSalvando]     = useState(false);
   const [erro,         setErro]         = useState("");
   const [salvo,        setSalvo]        = useState(false);
-
-  useEffect(() => {
-    setClientesLoad(true);
-    createClient()
-      .from("clientes")
-      .select("id, nome, email")
-      .order("nome")
-      .then(({ data }) => {
-        setClientes((data ?? []) as { id: string; nome: string; email: string | null }[]);
-        setClientesLoad(false);
-      });
-  }, []);
 
   async function salvar() {
     if (!titulo.trim()) { setErro("O título é obrigatório."); return; }
@@ -66,18 +54,7 @@ export function ConfiguracaoGaleria({
     setSalvando(false);
     if (error) { setErro(error.message); return; }
 
-    let novoCliente: Cliente | null = null;
-    if (clienteId && clienteId !== galeria.cliente_id) {
-      const { data } = await createClient()
-        .from("clientes").select("*").eq("id", clienteId).single();
-      novoCliente = data as Cliente | null;
-    } else if (!clienteId) {
-      novoCliente = null;
-    } else {
-      novoCliente = cliente;
-    }
-
-    onUpdate(patch as Partial<GaleriaSelecao>, novoCliente);
+    onUpdate(patch as Partial<GaleriaSelecao>, clienteId ? clienteSel : null);
     setSalvo(true);
     setTimeout(() => setSalvo(false), 2500);
   }
@@ -116,22 +93,10 @@ export function ConfiguracaoGaleria({
 
       <div style={field}>
         <label style={label}>Cliente vinculado</label>
-        {clientesLoad ? (
-          <div style={{ fontSize: 12, color: "var(--color-text-secondary)", padding: "8px 0" }}>Carregando clientes…</div>
-        ) : (
-          <select
-            style={{ ...inp, cursor: "pointer" }}
-            value={clienteId}
-            onChange={(e) => setClienteId(e.target.value)}
-          >
-            <option value="">— Sem cliente (acesso público pelo link) —</option>
-            {clientes.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.nome}{c.email ? ` — ${c.email}` : ""}
-              </option>
-            ))}
-          </select>
-        )}
+        <ClienteSelect
+          value={clienteId}
+          onChange={(id, c) => { setClienteId(id); setClienteSel(c); }}
+        />
         {!clienteId && (
           <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 5 }}>
             ℹ️ Sem cliente vinculado, qualquer pessoa com o link pode acessar a galeria sem senha.
