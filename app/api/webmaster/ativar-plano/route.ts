@@ -27,14 +27,13 @@ export async function POST(req: Request) {
   let diasAtivos = Number(dias ?? 31);
   let valor = 49;
   let resolvedPlanoConfigId: string | null = plano_config_id ?? null;
-  let limiteFotos: number | null = null;
   const periodoFinal: string = periodo === "anual" ? "anual" : "mensal";
 
   // Busca planos_config: por ID se fornecido, senão pelo código
   {
     const query = resolvedPlanoConfigId
-      ? admin.from("planos_config").select("id, codigo, preco, preco_anual, duracao_dias, limite_fotos").eq("id", resolvedPlanoConfigId)
-      : admin.from("planos_config").select("id, codigo, preco, preco_anual, duracao_dias, limite_fotos").eq("codigo", planoAtivo).eq("ativo", true);
+      ? admin.from("planos_config").select("id, codigo, preco, preco_anual, duracao_dias").eq("id", resolvedPlanoConfigId)
+      : admin.from("planos_config").select("id, codigo, preco, preco_anual, duracao_dias").eq("codigo", planoAtivo).eq("ativo", true);
 
     const { data: pc } = await query.maybeSingle();
     if (pc) {
@@ -42,7 +41,6 @@ export async function POST(req: Request) {
       planoAtivo = pc.codigo;
       diasAtivos = pc.duracao_dias ?? diasAtivos;
       valor = periodoFinal === "anual" && pc.preco_anual ? Number(pc.preco_anual) : Number(pc.preco);
-      limiteFotos = pc.limite_fotos ?? null;
     }
   }
 
@@ -52,13 +50,15 @@ export async function POST(req: Request) {
   const expira = new Date();
   expira.setDate(expira.getDate() + diasAtivos);
 
-  // Aplica o plano no fotógrafo, incluindo o limite de fotos do plano
+  // Aplica o plano no fotógrafo — NUNCA grava limite_fotos_custom aqui. Esse campo é só o
+  // override manual do webmaster (tela de fotógrafo); o limite de verdade sempre vem ao vivo
+  // de planos_config (via limiteEfetivoMax em /api/conta/uso e nas rotas de upload). Congelar
+  // o limite do plano nele na ativação fazia o valor ficar desatualizado quando o plano mudava.
   await admin.from("fotografos").update({
     plano:               planoAtivo,
     plano_ativado_em:    agora,
     plano_expira_em:     planoAtivo === "gratuito" ? null : expira.toISOString(),
     plano_periodo:       planoAtivo === "gratuito" ? null : periodoFinal,
-    limite_fotos_custom: limiteFotos,
     plano_cortesia:      planoAtivo !== "gratuito", // ativação manual pelo webmaster = brinde (não conta no financeiro)
   }).eq("id", fotografo_id);
 
@@ -76,5 +76,5 @@ export async function POST(req: Request) {
     });
   }
 
-  return NextResponse.json({ ok: true, limite_fotos: limiteFotos });
+  return NextResponse.json({ ok: true });
 }

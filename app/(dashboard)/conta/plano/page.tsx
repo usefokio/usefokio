@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
-import { PLANOS, corBarra, limiteEfetivo, formatarBytes, type PlanoId } from "@/lib/planos";
+import { PLANOS, corBarra, formatarBytes, type PlanoId } from "@/lib/planos";
 import { useUsoPlano } from "@/lib/hooks/useUsoPlano";
 
 type UsoPorRecurso = {
@@ -256,9 +256,9 @@ export default function PlanoPage() {
 
   const planoAtual    = PLANOS[fotografo.plano as PlanoId] ?? PLANOS.gratuito;
   const usadas        = usoStorage?.fotos_usadas ?? fotografo.total_fotos_usadas ?? 0;
-  // Enquanto /api/conta/uso não carrega, cai no valor fixo do plano só como placeholder inicial —
-  // assim que chega a resposta do banco (planos_config), esse valor sempre prevalece.
-  const limiteAtual   = usoStorage ? usoStorage.limite_fotos : limiteEfetivo(planoAtual, fotografo.limite_fotos_custom);
+  // Só o dado FRESCO de /api/conta/uso (planos_config + override real) — fotografo.limite_fotos_custom
+  // fica desatualizado quando o limite do plano muda depois da ativação, já causou aviso falso de limite.
+  const limiteAtual   = usoStorage ? usoStorage.limite_fotos : null;
   const pct           = limiteAtual !== null ? Math.min(100, Math.round((usadas / limiteAtual) * 100)) : null;
   const barCor        = pct !== null ? corBarra(pct) : "#2563EB";
   const planoDBAtual  = planosDB.find(p => p.codigo === fotografo.plano);
