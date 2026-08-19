@@ -8,7 +8,7 @@ import { useWindowWidth, MOBILE } from "@/lib/hooks/useWindowWidth";
 
 const SESSION_KEY = "usefokio_entrega_identificado";
 type Identificacao = { nome: string; email: string };
-type Tela = "carregando" | "nao_encontrada" | "identificacao" | "capa" | "galeria" | "expirada" | "suspensa";
+type Tela = "carregando" | "nao_encontrada" | "erro" | "identificacao" | "capa" | "galeria" | "expirada" | "suspensa";
 
 function diasRestantes(expiresAt: string | null): number | null {
   if (!expiresAt) return null;
@@ -174,11 +174,15 @@ export default function AcessoEntregaPage() {
     if (salvo) { try { setIdentificacao(JSON.parse(salvo)); } catch {} }
   }, [id]);
 
-  useEffect(() => {
+  const carregarGaleria = () => {
+    setTela("carregando");
     const supabase = createClient();
     // Leitura via RPC SECURITY DEFINER: entrega apenas ESTA galeria (por id), sem expor
     // a tabela ao anon (evita enumeração em massa das galerias/drive_links).
-    supabase.rpc("galeria_entrega_publica", { p_id: id }).then(({ data }) => {
+    supabase.rpc("galeria_entrega_publica", { p_id: id }).then(({ data, error }) => {
+      // Erro de rede/RPC (ex.: extensão do navegador bloqueando *.supabase.co) é diferente de
+      // "galeria não existe" — tratar igual mostrava "não encontrada" pra um problema temporário.
+      if (error) { setTela("erro"); return; }
       const res = data as { encontrada?: boolean; galeria?: any; fotografo?: any; fotos?: GaleriaEntregaFoto[] } | null;
       const g = res?.encontrada ? { ...res.galeria, fotografos: res.fotografo ?? null } : null;
       if (!g || g.rascunho) { setTela("nao_encontrada"); return; }
@@ -201,8 +205,10 @@ export default function AcessoEntregaPage() {
       // Identificação só é exigida quando o fotógrafo marca a opção — caso contrário acesso livre
       if (g.identificacao_obrigatoria && !jaIdentificado) { setTela("identificacao"); return; }
       setTela("capa");
-    });
-  }, [id]);
+    }, () => setTela("erro"));
+  };
+
+  useEffect(() => { carregarGaleria(); }, [id]);
 
   // Atualiza tela quando identificação muda (restaurada do session)
   useEffect(() => {
@@ -546,6 +552,18 @@ export default function AcessoEntregaPage() {
       <div style={{ fontSize: 36 }}>📷</div>
       <div style={{ fontSize: 16, fontWeight: 700, color: "#fff" }}>Galeria não encontrada</div>
       <div style={{ fontSize: 13, color: "rgba(255,255,255,0.4)" }}>O link pode estar incorreto ou a galeria foi removida.</div>
+    </div>
+  );
+
+  // ─── Tela: erro ao carregar (rede/extensão do navegador) — distinta de "não encontrada" ──────
+  if (tela === "erro") return (
+    <div style={{ height: "calc(100vh - var(--dev-banner-h, 0px))", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "#0a0a0a", gap: 12, padding: 20, textAlign: "center" }}>
+      <div style={{ fontSize: 36 }}>⚠️</div>
+      <div style={{ fontSize: 16, fontWeight: 700, color: "#fff" }}>Não foi possível carregar a galeria</div>
+      <div style={{ fontSize: 13, color: "rgba(255,255,255,0.4)", maxWidth: 340 }}>Verifique sua conexão (ou alguma extensão do navegador que possa estar bloqueando) e tente novamente.</div>
+      <button onClick={carregarGaleria} style={{ marginTop: 8, padding: "10px 24px", borderRadius: 8, background: "#2563EB", color: "#fff", border: "none", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+        Tentar novamente
+      </button>
     </div>
   );
 
