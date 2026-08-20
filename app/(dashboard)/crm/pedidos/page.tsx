@@ -54,6 +54,8 @@ export default function PedidosPage() {
   const [busca,      setBusca]      = usePersistState("pedidos:busca",    "");
   const [status,     setStatus]     = usePersistState<StatusFiltro>("pedidos:status",   "");
   const [catFiltro,  setCatFiltro]  = usePersistState("pedidos:catFiltro", "");
+  const [dataInicio, setDataInicio] = usePersistState("pedidos:dataInicio", "");
+  const [dataFim,    setDataFim]    = usePersistState("pedidos:dataFim",    "");
   const largura = useWindowWidth();
   const isMobile = largura < TABLET;
   const cols = useColunasLargura("pedidos", COLS_PED);
@@ -63,6 +65,34 @@ export default function PedidosPage() {
     if (sortCol === col) setSortDir(d => d === "asc" ? "desc" : "asc");
     else { setSortCol(col); setSortDir("asc"); }
   };
+
+  const iso = (d: Date) => d.toISOString().slice(0, 10);
+  type AtalhoData = "este-mes" | "ultimo-mes" | "este-ano" | "ano-passado" | "ultimo-trimestre" | "ultimo-semestre";
+  const aplicarAtalho = (tipo: AtalhoData) => {
+    const hoje = new Date();
+    const ano = hoje.getFullYear();
+    const mes = hoje.getMonth();
+    if (tipo === "este-mes") {
+      setDataInicio(iso(new Date(ano, mes, 1)));
+      setDataFim(iso(new Date(ano, mes + 1, 0)));
+    } else if (tipo === "ultimo-mes") {
+      setDataInicio(iso(new Date(ano, mes - 1, 1)));
+      setDataFim(iso(new Date(ano, mes, 0)));
+    } else if (tipo === "este-ano") {
+      setDataInicio(iso(new Date(ano, 0, 1)));
+      setDataFim(iso(hoje));
+    } else if (tipo === "ano-passado") {
+      setDataInicio(iso(new Date(ano - 1, 0, 1)));
+      setDataFim(iso(new Date(ano - 1, 11, 31)));
+    } else if (tipo === "ultimo-trimestre") {
+      setDataInicio(iso(new Date(ano, mes - 3, 1)));
+      setDataFim(iso(new Date(ano, mes, 0)));
+    } else if (tipo === "ultimo-semestre") {
+      setDataInicio(iso(new Date(ano, mes - 6, 1)));
+      setDataFim(iso(new Date(ano, mes, 0)));
+    }
+  };
+  const limparData = () => { setDataInicio(""); setDataFim(""); };
 
   const excluir = async (id: string, ev: React.MouseEvent) => {
     ev.stopPropagation();
@@ -100,11 +130,14 @@ export default function PedidosPage() {
     if (!fotografo) return;
     carregarPedidoStatus(createClient(), fotografo.id).then(setStatusDefs);
   }, [fotografo]);
-  useEffect(() => { setPage(1); }, [busca, status, catFiltro, sortCol, sortDir]);
+  useEffect(() => { setPage(1); }, [busca, status, catFiltro, dataInicio, dataFim, sortCol, sortDir]);
 
-  const filtrados = pedidos.filter(p => {
-    if (status    && p.status    !== status)    return false;
+  // Sem o filtro de status — base pras pilulas de contagem (cada pilula soma sobre o mesmo
+  // recorte de busca/categoria/data que a lista está usando, só variando o próprio status).
+  const semStatus = pedidos.filter(p => {
     if (catFiltro && p.categoria !== catFiltro) return false;
+    if (dataInicio && p.created_at < dataInicio) return false;
+    if (dataFim && p.created_at > dataFim + "T23:59:59") return false;
     if (busca !== "" &&
       !(p.nome ?? "").toLowerCase().includes(busca.toLowerCase()) &&
       !(p.clientes?.nome ?? "").toLowerCase().includes(busca.toLowerCase()) &&
@@ -112,6 +145,8 @@ export default function PedidosPage() {
     ) return false;
     return true;
   });
+
+  const filtrados = semStatus.filter(p => !status || p.status === status);
 
   const ordenados = [...filtrados].sort((a, b) => {
     let va: string | number | null | undefined;
@@ -134,8 +169,8 @@ export default function PedidosPage() {
   const fmt = formatBRL;
   const fmtData = formatData;
 
-  const contagens: Record<string, number> = { "": pedidos.length };
-  for (const p of pedidos) contagens[p.status] = (contagens[p.status] ?? 0) + 1;
+  const contagens: Record<string, number> = { "": semStatus.length };
+  for (const p of semStatus) contagens[p.status] = (contagens[p.status] ?? 0) + 1;
 
   const FILTROS: { id: StatusFiltro; label: string }[] = [
     { id: "", label: `Todos (${contagens[""] ?? 0})` },
@@ -223,6 +258,40 @@ export default function PedidosPage() {
             <option value="">Todas as categorias</option>
             {categorias.map((c) => <option key={c} value={c}>{c}</option>)}
           </select>
+        )}
+      </div>
+
+      {/* Atalhos de data */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 18, flexWrap: "wrap", alignItems: "center" }}>
+        {([
+          { id: "este-mes", label: "Este mês" },
+          { id: "ultimo-mes", label: "Último mês" },
+          { id: "este-ano", label: "Este ano" },
+          { id: "ano-passado", label: "Ano passado" },
+          { id: "ultimo-trimestre", label: "Último trimestre" },
+          { id: "ultimo-semestre", label: "Último semestre" },
+        ] as { id: AtalhoData; label: string }[]).map((a) => (
+          <button
+            key={a.id}
+            onClick={() => aplicarAtalho(a.id)}
+            style={{ padding: "6px 12px", borderRadius: 20, fontSize: 12, fontWeight: 500, cursor: "pointer", border: "0.5px solid var(--color-border-secondary)", background: "transparent", color: "var(--color-text-secondary)" }}
+          >
+            {a.label}
+          </button>
+        ))}
+        <input
+          type="date" value={dataInicio} onChange={(e) => setDataInicio(e.target.value)}
+          style={{ padding: "7px 10px", borderRadius: 8, border: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-primary)", fontSize: 12, color: "var(--color-text-primary)" }}
+        />
+        <span style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>até</span>
+        <input
+          type="date" value={dataFim} onChange={(e) => setDataFim(e.target.value)}
+          style={{ padding: "7px 10px", borderRadius: 8, border: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-primary)", fontSize: 12, color: "var(--color-text-primary)" }}
+        />
+        {(dataInicio || dataFim) && (
+          <button onClick={limparData} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--color-text-secondary)", fontSize: 12, textDecoration: "underline", padding: 0 }}>
+            Limpar
+          </button>
         )}
       </div>
 
