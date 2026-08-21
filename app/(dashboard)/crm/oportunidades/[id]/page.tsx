@@ -144,6 +144,8 @@ export default function OportunidadeDetailPage() {
     if (opp.observacoes)     params.set("observacoes",  opp.observacoes);
     // Dados do evento não eram levados: o pedido nascia sem local nem os dados de casamento
     if (opp.local_evento)    params.set("local_evento",    opp.local_evento);
+    if (opp.cidade_evento)   params.set("cidade_evento",   opp.cidade_evento);
+    if (opp.estado_evento)   params.set("estado_evento",   opp.estado_evento);
     if (opp.convidados != null) params.set("convidados",   String(opp.convidados));
     if (opp.eh_casamento) {
       params.set("eh_casamento", "1");

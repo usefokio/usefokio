@@ -33,6 +33,8 @@ type FormData = {
   data_evento: string;
   hora_evento: string;
   local_evento: string;
+  cidade_evento: string;
+  estado_evento: string;
   convidados: string;
   local_cerimonia: string;
   local_recepcao: string;
@@ -70,7 +72,7 @@ type ParcelaPreview = { vencimento: string; valor: number; label: string };
 const EMPTY: FormData = {
   nome: "", cliente_id: "", categoria: "", canal_origem: "", status: "em_aberto",
   total: "", discount: "0", other_expenses: "0",
-  data_evento: "", hora_evento: "", local_evento: "", convidados: "",
+  data_evento: "", hora_evento: "", local_evento: "", cidade_evento: "", estado_evento: "", convidados: "",
   local_cerimonia: "", local_recepcao: "", eh_casamento: false, observacoes: "",
 };
 
@@ -78,6 +80,11 @@ const EMPTY_PLANO: Omit<PlanoItem, "tmpId"> = {
   forma: "", dataPrazo: "", numDocumento: "", numParcelas: 1,
   intervalo: "mensal", percentual: "", valor: "", obs: "", parcelasOverride: null,
 };
+
+const ESTADOS_BR = [
+  "AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG",
+  "PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO",
+];
 
 const FORMAS_PAGAMENTO = [
   "Boleto", "Carnê", "Cartão de crédito", "Cartão de débito", "Cheque",
@@ -474,6 +481,8 @@ export default function FormPedido({ inicial, onSalvo, onCancelar }: Props) {
       data_evento:     flags.pede_data ? (form.data_evento || null) : null,
       hora_evento:     flags.pede_horario ? (form.hora_evento.trim() || null) : null,
       local_evento:    flags.pede_local ? (form.local_evento.trim() || null) : null,
+      cidade_evento:   flags.pede_local ? (form.cidade_evento.trim() || null) : null,
+      estado_evento:   flags.pede_local ? (form.estado_evento || null) : null,
       convidados:      form.convidados ? parseInt(form.convidados) || null : null,
       local_cerimonia: flags.pede_local && form.eh_casamento ? (form.local_cerimonia.trim() || null) : null,
       local_recepcao:  flags.pede_local && form.eh_casamento ? (form.local_recepcao.trim() || null) : null,
@@ -804,6 +813,17 @@ export default function FormPedido({ inicial, onSalvo, onCancelar }: Props) {
                 <input value={form.local_evento} onChange={e => upd("local_evento", e.target.value)} placeholder="Ex: Espaço Villa dos Sonhos" style={inputStyle} />
               </Field>
             )}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 80px", gap: 14 }}>
+              <Field label="Cidade do evento">
+                <input value={form.cidade_evento} onChange={e => upd("cidade_evento", e.target.value)} placeholder="Ex: Ourinhos" style={inputStyle} />
+              </Field>
+              <Field label="UF">
+                <select value={form.estado_evento} onChange={e => upd("estado_evento", e.target.value)} style={inputStyle}>
+                  <option value="">UF</option>
+                  {ESTADOS_BR.map(uf => <option key={uf} value={uf}>{uf}</option>)}
+                </select>
+              </Field>
+            </div>
           </>
         )}
       </div>

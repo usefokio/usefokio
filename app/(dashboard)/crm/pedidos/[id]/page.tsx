@@ -225,18 +225,14 @@ export default function PedidoDetailPage() {
     const { data } = await sb.from("crm_contract_templates").select("*").eq("fotografo_id", fotografoId).order("created_at");
     setTemplates((data ?? []) as CrmContractTemplate[]);
     setTemplateId((data ?? [])[0]?.id ?? "");
-    // Pré-preencher com dados do pedido, complementar com localStorage para campos não salvos
+    // Pré-preenche só com dados JÁ SALVOS neste pedido — nunca herda de outro pedido/contrato
+    // (bug corrigido: antes caía num cache do navegador por fotógrafo, que "grudava" o valor
+    // do último contrato gerado, de qualquer cliente, no próximo).
     setHoraEvento(pedido.hora_evento ?? "");
     setLocalEvento(pedido.local_evento ?? "");
     setConvidados(pedido.convidados != null ? String(pedido.convidados) : "");
-    try {
-      const saved = JSON.parse(localStorage.getItem("contrato_evento_" + fotografoId) ?? "{}");
-      if (!pedido.hora_evento)  setHoraEvento(saved.hora ?? "");
-      if (!pedido.local_evento) setLocalEvento(saved.local ?? "");
-      if (pedido.convidados == null) setConvidados(saved.convidados ?? "");
-      setCidadeEvento(saved.cidade ?? "");
-      setEstadoEvento(saved.estado ?? "");
-    } catch { /* ignore */ }
+    setCidadeEvento(pedido.cidade_evento ?? "");
+    setEstadoEvento(pedido.estado_evento ?? "");
     setModalContrato(true);
   };
 
@@ -294,8 +290,8 @@ export default function PedidoDetailPage() {
         }
         return pedido.local_evento ?? localEvento;
       })(),
-      CIDADE_EVENTO:        cidadeEvento,
-      ESTADO_EVENTO:        estadoEvento,
+      CIDADE_EVENTO:        pedido.cidade_evento ?? cidadeEvento,
+      ESTADO_EVENTO:        pedido.estado_evento ?? estadoEvento,
       CONVIDADOS:           pedido.convidados != null ? String(pedido.convidados) : convidados,
       LOCAL_CERIMONIA:      pedido.local_cerimonia ?? "",
       LOCAL_RECEPCAO:       pedido.local_recepcao ?? "",
@@ -340,10 +336,17 @@ export default function PedidoDetailPage() {
     setGerandoContrato(true);
     const sb = createClient();
 
-    // Salvar dados do evento no localStorage para próxima vez
-    try {
-      localStorage.setItem("contrato_evento_" + pedido.fotografo_id, JSON.stringify({ hora: horaEvento, local: localEvento, cidade: cidadeEvento, estado: estadoEvento, convidados }));
-    } catch { /* ignore */ }
+    // Dados do evento completados agora no modal (o pedido ainda não tinha) ficam salvos NELE —
+    // nunca num cache do navegador que "vazava" pro próximo contrato de outro cliente.
+    const completar: Record<string, string | number> = {};
+    if (!pedido.hora_evento && horaEvento)   completar.hora_evento = horaEvento;
+    if (!pedido.local_evento && localEvento) completar.local_evento = localEvento;
+    if (pedido.convidados == null && convidados) completar.convidados = parseInt(convidados) || 0;
+    if (!pedido.cidade_evento && cidadeEvento) completar.cidade_evento = cidadeEvento;
+    if (!pedido.estado_evento && estadoEvento) completar.estado_evento = estadoEvento;
+    if (Object.keys(completar).length > 0) {
+      await sb.from("crm_orders").update(completar).eq("id", pedido.id);
+    }
 
     const { data: contrato } = await sb.from("crm_contracts").insert({
       fotografo_id: pedido.fotografo_id,
@@ -628,6 +631,8 @@ export default function PedidoDetailPage() {
             data_evento:    pedido.data_evento ?? "",
             hora_evento:    pedido.hora_evento ?? "",
             local_evento:   pedido.local_evento ?? "",
+            cidade_evento:  pedido.cidade_evento ?? "",
+            estado_evento:  pedido.estado_evento ?? "",
             convidados:     pedido.convidados != null ? String(pedido.convidados) : "",
             local_cerimonia: pedido.local_cerimonia ?? "",
             local_recepcao:  pedido.local_recepcao ?? "",
@@ -1029,41 +1034,39 @@ export default function PedidoDetailPage() {
                   const chipSt: React.CSSProperties = { padding: "7px 10px", borderRadius: 7, background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-tertiary)", fontSize: 13, color: "var(--color-text-primary)" };
                   const labelSt: React.CSSProperties = { fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", marginBottom: 5 };
 
-                  const temPendentes = !horaSalva || !localSalvo || !convidadosSalvos || !cidadeEvento || !estadoEvento;
+                  const cidadeSalva = pedido.cidade_evento ?? "";
+                  const estadoSalvo = pedido.estado_evento ?? "";
+                  const temPendentes = !horaSalva || !localSalvo || !convidadosSalvos || !cidadeSalva || !estadoSalvo;
 
                   return (
                     <div style={{ borderTop: "0.5px solid var(--color-border-tertiary)", paddingTop: 16, display: "flex", flexDirection: "column", gap: 12 }}>
                       {/* Campos já preenchidos no pedido — exibição somente leitura */}
-                      {(horaSalva || localSalvo || convidadosSalvos) && (
+                      {(horaSalva || localSalvo || convidadosSalvos || cidadeSalva || estadoSalvo) && (
                         <div>
                           <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 10 }}>Dados do pedido</div>
                           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                             {horaSalva && <div><div style={labelSt}>Hora</div><div style={chipSt}>{horaSalva}</div></div>}
                             {localSalvo && <div style={!horaSalva && !convidadosSalvos ? { gridColumn: "1 / -1" } : {}}><div style={labelSt}>{pedido.eh_casamento ? "Cerimônia / Recepção" : "Local"}</div><div style={chipSt}>{localSalvo}</div></div>}
                             {convidadosSalvos && <div><div style={labelSt}>Convidados</div><div style={chipSt}>{convidadosSalvos}</div></div>}
+                            {cidadeSalva && <div><div style={labelSt}>Cidade</div><div style={chipSt}>{cidadeSalva}</div></div>}
+                            {estadoSalvo && <div><div style={labelSt}>Estado</div><div style={chipSt}>{estadoSalvo}</div></div>}
                           </div>
                         </div>
                       )}
 
-                      {/* Campos pendentes — inputs */}
+                      {/* Campos pendentes — inputs, sempre vazios (nunca herdam de outro pedido) */}
                       {temPendentes && (
                         <div>
                           <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 10 }}>
-                            {horaSalva || localSalvo || convidadosSalvos ? "Complementar informações" : "Dados do evento"}
+                            {horaSalva || localSalvo || convidadosSalvos || cidadeSalva || estadoSalvo ? "Complementar informações" : "Dados do evento"}
                           </div>
                           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                             {!horaSalva && <div><div style={labelSt}>Hora do evento</div><input value={horaEvento} onChange={e => setHoraEvento(mascaraHora(e.target.value))} onPaste={e => { e.preventDefault(); setHoraEvento(mascaraHora(e.clipboardData.getData("text"))); }} inputMode="numeric" placeholder="16:30" style={inpSt} /></div>}
                             {!localSalvo && <div><div style={labelSt}>Local / Espaço</div><input value={localEvento} onChange={e => setLocalEvento(e.target.value)} placeholder="Ex: Espaço Villa Lobos" style={inpSt} /></div>}
                             {!convidadosSalvos && <div><div style={labelSt}>Nº de convidados</div><input value={convidados} onChange={e => setConvidados(e.target.value)} placeholder="Ex: 200" style={inpSt} /></div>}
-                            <div><div style={labelSt}>Cidade do evento</div><input value={cidadeEvento} onChange={e => setCidadeEvento(e.target.value)} placeholder="Ex: Ourinhos" style={inpSt} /></div>
-                            <div><div style={labelSt}>Estado do evento</div><input value={estadoEvento} onChange={e => setEstadoEvento(e.target.value)} placeholder="Ex: SP" style={inpSt} /></div>
+                            {!cidadeSalva && <div><div style={labelSt}>Cidade do evento</div><input value={cidadeEvento} onChange={e => setCidadeEvento(e.target.value)} placeholder="Ex: Ourinhos" style={inpSt} /></div>}
+                            {!estadoSalvo && <div><div style={labelSt}>Estado do evento</div><input value={estadoEvento} onChange={e => setEstadoEvento(e.target.value)} placeholder="Ex: SP" style={inpSt} /></div>}
                           </div>
-                        </div>
-                      )}
-                      {!temPendentes && (
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                          <div><div style={labelSt}>Cidade do evento</div><input value={cidadeEvento} onChange={e => setCidadeEvento(e.target.value)} placeholder="Ex: Ourinhos" style={inpSt} /></div>
-                          <div><div style={labelSt}>Estado do evento</div><input value={estadoEvento} onChange={e => setEstadoEvento(e.target.value)} placeholder="Ex: SP" style={inpSt} /></div>
                         </div>
                       )}
                     </div>
