@@ -24,7 +24,7 @@ const COLS_OPP: ColunaDef[] = [
   { id: "valor",       largura: 120, min: 90 },
   { id: "etapa",       largura: 150, min: 100 },
   { id: "status",      largura: 110, min: 80 },
-  { id: "acoes",       largura: 118, min: 118 },
+  { id: "acoes",       largura: 190, min: 190 },
 ];
 
 type OppWithRelations = CrmOpportunity & {
@@ -197,6 +197,24 @@ export default function OportunidadesPage() {
 
   const filtradas = semStatus.filter((o: OppWithRelations) => !status || o.status === status);
 
+  // Atalho de status na própria listagem (sem abrir a edição) — replica a regra de data_fechamento
+  // de FormOportunidade.handleSave: preenche com hoje ao sair de "em_aberto", sem sobrescrever uma
+  // data já existente, pra não desalinhar do Relatório de Leads.
+  async function mudarStatus(id: string, novoStatus: string) {
+    const anterior = opps.find(o => o.id === id)?.status;
+    setOpps(prev => prev.map(o => o.id === id ? { ...o, status: novoStatus } : o));
+    const sb = createClient();
+    const { error } = await sb.from("crm_opportunities")
+      .update({ status: novoStatus, updated_at: new Date().toISOString() }).eq("id", id);
+    if (error) {
+      setOpps(prev => prev.map(o => o.id === id ? { ...o, status: anterior ?? o.status } : o));
+      return;
+    }
+    await sb.from("crm_opportunities")
+      .update({ data_fechamento: new Date().toISOString().slice(0, 10) })
+      .eq("id", id).is("data_fechamento", null);
+  }
+
   async function excluir(id: string) {
     setDeletando(true);
     await createClient().from("crm_opportunities").delete().eq("id", id);
@@ -244,7 +262,7 @@ export default function OportunidadesPage() {
   const gridTemplate = verLarge
     ? cols.template
     : verMedium
-    ? "1fr 150px 130px 110px 80px"
+    ? "1fr 150px 130px 110px 150px"
     : "1fr 110px 70px";
 
   const cabecalhos = verLarge
@@ -475,6 +493,20 @@ export default function OportunidadesPage() {
                       title="Editar"
                       style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 26, height: 26, borderRadius: 6, border: "0.5px solid var(--color-border-secondary)", color: "var(--color-text-secondary)", background: "transparent", cursor: "pointer" }}
                     ><IcoEdit /></button>
+                  )}
+                  {!verSmall && o.status !== "abandonado" && (
+                    <button
+                      onClick={() => mudarStatus(o.id, "abandonado")}
+                      title="Marcar como Abandonado"
+                      style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 26, height: 26, borderRadius: 6, border: "0.5px solid var(--color-border-secondary)", color: "var(--color-text-secondary)", background: "transparent", cursor: "pointer", fontSize: 13 }}
+                    >🚫</button>
+                  )}
+                  {!verSmall && o.status !== "nao_qualificado" && (
+                    <button
+                      onClick={() => mudarStatus(o.id, "nao_qualificado")}
+                      title="Marcar como Não Qualificado"
+                      style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 26, height: 26, borderRadius: 6, border: "0.5px solid var(--color-border-secondary)", color: "var(--color-text-secondary)", background: "transparent", cursor: "pointer", fontSize: 13 }}
+                    >🙅</button>
                   )}
                   {!verSmall && (
                     <button
