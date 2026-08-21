@@ -19,6 +19,8 @@ function NovoPedidoForm() {
     observacoes:     params.get("observacoes")      ?? undefined,
     // Dados do evento vindos da oportunidade (ver handleGerarPedido)
     local_evento:    params.get("local_evento")     ?? undefined,
+    cidade_evento:   params.get("cidade_evento")    ?? undefined,
+    estado_evento:   params.get("estado_evento")    ?? undefined,
     convidados:      params.get("convidados")       ?? undefined,
     local_cerimonia: params.get("local_cerimonia")  ?? undefined,
     local_recepcao:  params.get("local_recepcao")   ?? undefined,

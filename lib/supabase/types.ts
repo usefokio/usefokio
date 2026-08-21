@@ -1018,6 +1018,8 @@ export type CrmOrder = {
   data_evento: string | null;
   hora_evento: string | null;
   local_evento: string | null;
+  cidade_evento: string | null;
+  estado_evento: string | null;
   convidados: number | null;
   local_cerimonia: string | null;
   local_recepcao: string | null;
