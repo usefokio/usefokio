@@ -703,7 +703,7 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
               const resizavel = !isMobile && id !== "nome" && id !== "descricao" && id !== "acoes";
               return (
                 <div key={id} onClick={() => col && toggleSort(col)}
-                  style={{ position: "relative", display: "flex", alignItems: "center", gap: 3, fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.04em", cursor: col ? "pointer" : "default", userSelect: "none", paddingRight: resizavel ? 16 : 0 }}>
+                  style={{ position: "relative", display: "flex", alignItems: "center", gap: 3, fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.04em", cursor: col ? "pointer" : "default", userSelect: "none", paddingRight: resizavel ? 28 : 0 }}>
                   {label}
                   {col && sortCol === col && <span style={{ fontSize: 9, opacity: 0.7 }}>{sortDir === "asc" ? "↑" : "↓"}</span>}
                   {resizavel && <ResizeHandle {...colsFin.handleProps(id)} />}
