@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { fetchAllRows } from "@/lib/supabase/fetchAll";
 import { useFotografo } from "@/lib/context/FotografoContext";
-import { useWindowWidth } from "@/lib/hooks/useWindowWidth";
+import { useWindowWidth, TABLET } from "@/lib/hooks/useWindowWidth";
 import { usePersistState } from "@/lib/hooks/usePersistState";
 import { useColunasLargura, type ColunaDef } from "@/lib/hooks/useColunasLargura";
 import { IcoEdit, IcoTrash, IcoOpen } from "@/app/(dashboard)/crm/_components/Icons";
@@ -254,8 +254,8 @@ export default function OportunidadesPage() {
   const oppParaDeletar = opps.find(o => o.id === deletarId);
 
   // Layout responsivo
-  const verLarge  = largura >= 1100;
-  const verMedium = largura >= 700 && largura < 1100;
+  const verLarge  = largura >= TABLET;
+  const verMedium = largura >= 700 && largura < TABLET;
   const verSmall  = largura < 700;
 
   // Desktop: larguras redimensionáveis (hook). Telas menores mantêm o layout responsivo fixo.
@@ -405,7 +405,7 @@ export default function OportunidadesPage() {
               const resizavel = verLarge && id !== "acoes";
               return (
                 <div key={label || "acoes"} onClick={() => col && toggleSort(col)}
-                  style={{ position: "relative", display: "flex", alignItems: "center", gap: 3, fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.04em", cursor: col ? "pointer" : "default", userSelect: "none" }}>
+                  style={{ position: "relative", display: "flex", alignItems: "center", gap: 3, fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.04em", cursor: col ? "pointer" : "default", userSelect: "none", paddingRight: resizavel ? 16 : 0 }}>
                   {label}
                   {col && sortCol === col && <span style={{ fontSize: 9, opacity: 0.7 }}>{sortDir === "asc" ? "↑" : "↓"}</span>}
                   {resizavel && <ResizeHandle {...cols.handleProps(id)} />}
