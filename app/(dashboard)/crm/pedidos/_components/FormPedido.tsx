@@ -176,6 +176,8 @@ export default function FormPedido({ inicial, onSalvo, onCancelar }: Props) {
 
   // Planos de pagamento
   const [planos,             setPlanos]             = useState<PlanoItem[]>([]);
+  // Parcelas JÁ PAGAS — só exibição (nunca entram em `planos`/são editadas ou recriadas no save).
+  const [parcelasPagas,      setParcelasPagas]       = useState<{ id: string; descricao: string; valor: number; vencimento: string; pago_em: string | null }[]>([]);
   const [modalPlano,         setModalPlano]         = useState<(PlanoItem & { editIdx: number | null }) | null>(null);
   const [parcelasEditaveis,  setParcelasEditaveis]  = useState<ParcelaPreview[]>([]);
   // Ref para saber se a última mudança foi de config (regenera) ou de override (não regenera)
@@ -210,22 +212,30 @@ export default function FormPedido({ inicial, onSalvo, onCancelar }: Props) {
 
     if (isEditing && inicial?.id) {
       const p3 = sb.from("crm_financial_entries")
-        .select("id, descricao, valor, vencimento, status")
+        .select("id, descricao, valor, vencimento, status, pago_em")
         .eq("pedido_id", inicial.id)
         .eq("tipo", "receita")
         .order("vencimento");
-      Promise.all([p2, p3]).then(([r2, r3]) => {
+      const p4 = sb.from("crm_order_items").select("*").eq("pedido_id", inicial.id).order("descricao");
+      Promise.all([p2, p3, p4]).then(([r2, r3, r4]) => {
         setProdutos((r2.data ?? []) as CrmProduct[]);
-        // Parcela já paga não entra no "plano de pagamento" editável — ela não é apagada/recriada
-        // ao salvar (ver delete abaixo), então incluí-la aqui só duplicaria a parcela como pendente.
-        const entries = ((r3.data ?? []) as { id: string; descricao: string; valor: number; vencimento: string; status: string }[])
-          .filter(e => e.status !== "pago");
-        if (entries.length > 0) {
-          setPlanos(entries.map(e => ({
+        const todas = (r3.data ?? []) as { id: string; descricao: string; valor: number; vencimento: string; status: string; pago_em: string | null }[];
+        // Parcela já paga não entra no "plano de pagamento" editável (nunca é apagada/recriada
+        // no save — ver chavesJaPagas abaixo) — mas continua exibida, só em modo leitura, pra não
+        // sumir da tela como se o pedido não tivesse nenhuma cobrança feita.
+        const pendentes = todas.filter(e => e.status !== "pago");
+        setParcelasPagas(todas.filter(e => e.status === "pago").map(e => ({ id: e.id, descricao: e.descricao, valor: e.valor, vencimento: e.vencimento, pago_em: e.pago_em })));
+        if (pendentes.length > 0) {
+          setPlanos(pendentes.map(e => ({
             tmpId: e.id, forma: "", dataPrazo: e.vencimento, numDocumento: "",
             numParcelas: 1, intervalo: "unico" as Intervalo, percentual: "",
             valor: String(e.valor), obs: e.descricao, parcelasOverride: null,
           })));
+        }
+        // Produtos lançados no pedido — antes nunca eram carregados aqui, sumiam da edição.
+        const itensDb = (r4.data ?? []) as { id: string; produto_id: string | null; descricao: string; quantidade: number; preco_unit: number }[];
+        if (itensDb.length > 0) {
+          setItens(itensDb.map(i => ({ tmpId: i.id, produto_id: i.produto_id, descricao: i.descricao, quantidade: i.quantidade, preco_unit: i.preco_unit })));
         }
         setCarregado(true);
       });
@@ -501,6 +511,20 @@ export default function FormPedido({ inicial, onSalvo, onCancelar }: Props) {
     if (isEditing && id) {
       const { error: err } = await sb.from("crm_orders").update(payload).eq("id", id);
       if (err) { setError(err.message); setSaving(false); return false; }
+
+      // Produtos do pedido — antes a edição nunca tocava em crm_order_items (a seção "Produtos"
+      // sempre carregava vazia e qualquer mudança feita aqui era perdida ao salvar). Mesmo padrão
+      // de delete+insert já usado na criação e na feature isolada "Editar produtos" do detalhe.
+      await sb.from("crm_order_items").delete().eq("pedido_id", id);
+      if (itens.length > 0) {
+        await sb.from("crm_order_items").insert(itens.map(i => ({
+          pedido_id:  id,
+          produto_id: i.produto_id,
+          descricao:  i.descricao,
+          quantidade: i.quantidade,
+          preco_unit: i.preco_unit,
+        })));
+      }
 
       // Data mudou → cancela e recria o(s) agendamento(s) na nova data (o modal já confirmou quando
       // havia agendamento; se não havia, apenas cria — corrige o furo de a edição nunca criar).
@@ -924,6 +948,25 @@ export default function FormPedido({ inicial, onSalvo, onCancelar }: Props) {
       <div style={{ marginTop: 24, borderTop: "0.5px solid var(--color-border-tertiary)", paddingTop: 20 }}>
           {sec("Pagamentos")}
 
+          {/* Parcelas já pagas — somente leitura, nunca editadas/recriadas ao salvar */}
+          {parcelasPagas.length > 0 && (
+            <div style={{ border: "0.5px solid rgba(5,150,105,0.3)", borderRadius: 8, overflow: "hidden", marginBottom: 14 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 150px 100px 80px", padding: "8px 14px", background: "rgba(5,150,105,0.06)", borderBottom: "0.5px solid rgba(5,150,105,0.2)" }}>
+                {["Descrição", "Vencimento", "Valor", ""].map(h => (
+                  <div key={h} style={{ fontSize: 10, fontWeight: 700, color: "#065F46", textTransform: "uppercase", letterSpacing: "0.04em" }}>{h}</div>
+                ))}
+              </div>
+              {parcelasPagas.map(p => (
+                <div key={p.id} style={{ display: "grid", gridTemplateColumns: "1fr 150px 100px 80px", padding: "8px 14px", alignItems: "center", borderTop: "0.5px solid rgba(5,150,105,0.15)" }}>
+                  <div style={{ fontSize: 12, color: "var(--color-text-primary)" }}>{p.descricao}</div>
+                  <div style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>{fmtDate(p.vencimento)}</div>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: "#059669" }}>{fmt(p.valor)}</div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: "#059669" }}>✓ Pago</div>
+                </div>
+              ))}
+            </div>
+          )}
+
           {/* Tabela expandida de parcelas */}
           <div style={{ border: "0.5px solid var(--color-border-tertiary)", borderRadius: 8, overflow: "hidden", marginBottom: 10 }}>
             {/* Header */}
@@ -935,7 +978,7 @@ export default function FormPedido({ inicial, onSalvo, onCancelar }: Props) {
 
             {planos.length === 0 ? (
               <div style={{ padding: "16px 14px", fontSize: 13, color: "var(--color-text-secondary)", textAlign: "center" }}>
-                Nenhum pagamento adicionado
+                {parcelasPagas.length > 0 ? "Nenhum pagamento pendente — tudo já foi pago (ver acima)." : "Nenhum pagamento adicionado"}
               </div>
             ) : planos.map((p, planoIdx) => {
               const parcelas = p.parcelasOverride ?? calcParcelas(p);
