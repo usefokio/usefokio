@@ -785,8 +785,7 @@ export default function PedidoDetailPage() {
 
           {/* Modal — adicionar produto ao editor de itens */}
           {modalProd && (
-            <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}
-              onClick={e => e.target === e.currentTarget && setModalProd(null)}>
+            <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
               <div style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 14, padding: "24px 28px", width: 420, maxWidth: "100%", boxShadow: "0 24px 64px rgba(0,0,0,0.22)" }}>
                 <div style={{ fontSize: 15, fontWeight: 800, color: "var(--color-text-primary)", marginBottom: 4 }}>Adicionar produto</div>
                 <div style={{ fontSize: 13, color: "var(--color-text-secondary)", marginBottom: 16 }}>{modalProd.prod.nome}</div>

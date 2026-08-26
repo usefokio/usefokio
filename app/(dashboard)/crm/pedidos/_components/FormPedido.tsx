@@ -1143,7 +1143,7 @@ export default function FormPedido({ inicial, onSalvo, onCancelar }: Props) {
           MODAL — Detalhes do Produto
       ════════════════════════════════════════════════════════════════════════ */}
       {modalProd && (
-        <div style={modalOverlay} onClick={e => e.target === e.currentTarget && setModalProd(null)}>
+        <div style={modalOverlay}>
           <div style={modalBox}>
             <div style={{ fontSize: 15, fontWeight: 700, color: "var(--color-text-primary)", marginBottom: 18 }}>
               Detalhes do produto
