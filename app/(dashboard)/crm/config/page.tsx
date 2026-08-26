@@ -1127,12 +1127,16 @@ export default function CrmConfigPage() {
     if (!fotografo) return;
     setLoadingContas(true);
     const { data } = await sb.from("crm_chart_of_accounts").select("*").or(`fotografo_id.is.null,fotografo_id.eq.${fotografo.id}`).order("codigo");
-    const seen = new Set<string>();
-    const unique = (data ?? []).filter((c: CrmChartOfAccount) => {
-      if (seen.has(c.codigo)) return false;
-      seen.add(c.codigo);
-      return true;
-    });
+    // Duas versões por código (sistema + cópia do fotógrafo) — a cópia do fotógrafo é a
+    // editável e sempre vence quando existir; a de sistema só aparece se não houver cópia.
+    const porCodigo = new Map<string, CrmChartOfAccount>();
+    for (const c of (data ?? []) as CrmChartOfAccount[]) {
+      const atual = porCodigo.get(c.codigo);
+      if (!atual || (atual.fotografo_id === null && c.fotografo_id !== null)) {
+        porCodigo.set(c.codigo, c);
+      }
+    }
+    const unique = Array.from(porCodigo.values());
     const flat = unique.map((c: CrmChartOfAccount) => ({ ...c, sistema: c.fotografo_id === null })) as (CrmChartOfAccount & { sistema: boolean })[];
     setContas(buildTree(flat));
     setLoadingContas(false);
