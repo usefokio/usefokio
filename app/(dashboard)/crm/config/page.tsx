@@ -1105,6 +1105,7 @@ export default function CrmConfigPage() {
   const [novaCat, setNovaCat]           = useState("");
   const [editCatId, setEditCatId]       = useState<string | null>(null);
   const [editCatNome, setEditCatNome]   = useState("");
+  const [editCatRotulo, setEditCatRotulo] = useState("");
   const [savingCat, setSavingCat]       = useState(false);
 
   // ── Plano de Contas ──
@@ -1152,7 +1153,7 @@ export default function CrmConfigPage() {
   async function salvarCategoria(id: string) {
     if (!editCatNome.trim()) return;
     setSavingCat(true);
-    await sb.from("crm_product_categories").update({ nome: editCatNome.trim() }).eq("id", id);
+    await sb.from("crm_product_categories").update({ nome: editCatNome.trim(), rotulo_local: editCatRotulo.trim() || null }).eq("id", id);
     setEditCatId(null); setSavingCat(false);
     carregarCategorias();
   }
@@ -1163,10 +1164,17 @@ export default function CrmConfigPage() {
   }
 
   // Flags da categoria (quais campos o pedido daquela categoria pede) — update otimista
-  async function toggleFlagCategoria(cat: CrmProductCategory, flag: "pede_data" | "pede_local" | "pede_horario") {
+  async function toggleFlagCategoria(cat: CrmProductCategory, flag: "pede_data" | "pede_local" | "pede_horario" | "pede_convidados") {
     const novo = !cat[flag];
     setCategorias(prev => prev.map(c => c.id === cat.id ? { ...c, [flag]: novo } : c));
     await sb.from("crm_product_categories").update({ [flag]: novo }).eq("id", cat.id);
+  }
+
+  // Rótulo customizado do campo "local" — salva ao sair do campo (mesmo padrão otimista das flags).
+  async function salvarRotuloLocal(cat: CrmProductCategory, rotulo: string) {
+    const valor = rotulo.trim() || null;
+    setCategorias(prev => prev.map(c => c.id === cat.id ? { ...c, rotulo_local: valor } : c));
+    await sb.from("crm_product_categories").update({ rotulo_local: valor }).eq("id", cat.id);
   }
 
   async function excluirCategoria(id: string) {
@@ -1306,19 +1314,30 @@ export default function CrmConfigPage() {
                     <button onClick={() => reordenarCat(cat.id, "down")} disabled={idx === categorias.length - 1} style={{ background: "none", border: "none", cursor: idx === categorias.length - 1 ? "default" : "pointer", fontSize: 10, color: "var(--color-text-secondary)", lineHeight: 1, padding: "1px 3px", opacity: idx === categorias.length - 1 ? 0.3 : 1 }}>▼</button>
                   </div>
                   {editCatId === cat.id ? (
-                    <div style={{ display: "flex", gap: 6, flex: 1, alignItems: "center" }}>
-                      <input value={editCatNome} onChange={(e) => setEditCatNome(e.target.value)} style={{ ...inputSt, flex: 1 }} autoFocus
-                        onKeyDown={(e) => { if (e.key === "Enter") salvarCategoria(cat.id); if (e.key === "Escape") setEditCatId(null); }} />
-                      <button onClick={() => salvarCategoria(cat.id)} style={{ ...btnPrimary, padding: "5px 12px", fontSize: 12 }}>✓ Salvar</button>
-                      <button onClick={() => setEditCatId(null)} style={btnGhost}>Cancelar</button>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6, flex: 1 }}>
+                      <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                        <input value={editCatNome} onChange={(e) => setEditCatNome(e.target.value)} style={{ ...inputSt, flex: 1 }} autoFocus
+                          onKeyDown={(e) => { if (e.key === "Enter") salvarCategoria(cat.id); if (e.key === "Escape") setEditCatId(null); }} />
+                        <button onClick={() => salvarCategoria(cat.id)} style={{ ...btnPrimary, padding: "5px 12px", fontSize: 12 }}>✓ Salvar</button>
+                        <button onClick={() => setEditCatId(null)} style={btnGhost}>Cancelar</button>
+                      </div>
+                      {cat.pede_local && (
+                        <input value={editCatRotulo} onChange={(e) => setEditCatRotulo(e.target.value)}
+                          placeholder="Rótulo do campo local (opcional) — Ex: Local do ensaio"
+                          style={{ ...inputSt, fontSize: 12 }}
+                          onKeyDown={(e) => { if (e.key === "Enter") salvarCategoria(cat.id); if (e.key === "Escape") setEditCatId(null); }} />
+                      )}
                     </div>
                   ) : (
                     <>
-                      <span style={{ flex: 1, fontSize: 13, fontWeight: 500, color: "var(--color-text-primary)" }}>{cat.nome}</span>
+                      <span style={{ flex: 1, fontSize: 13, fontWeight: 500, color: "var(--color-text-primary)" }}>
+                        {cat.nome}
+                        {cat.rotulo_local && <span style={{ fontSize: 11, color: "var(--color-text-secondary)", fontWeight: 400 }}> — local: "{cat.rotulo_local}"</span>}
+                      </span>
                       {/* Flags: quais campos o pedido desta categoria pede */}
                       <div style={{ display: "flex", gap: 12, flexShrink: 0 }}>
-                        {([["pede_data", "📅 data"], ["pede_local", "📍 local"], ["pede_horario", "🕐 horário"]] as const).map(([flag, rotulo]) => (
-                          <label key={flag} title={`O pedido desta categoria pede ${rotulo.slice(3)}?`}
+                        {([["pede_data", "📅 data"], ["pede_local", "📍 local"], ["pede_horario", "🕐 horário"], ["pede_convidados", "🧑‍🤝‍🧑 convidados"]] as const).map(([flag, rotulo]) => (
+                          <label key={flag} title={`O pedido desta categoria pede ${rotulo.slice(rotulo.indexOf(" ") + 1)}?`}
                             style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, color: cat[flag] ? "var(--color-text-primary)" : "var(--color-text-secondary)", cursor: "pointer", userSelect: "none", whiteSpace: "nowrap" }}>
                             <input type="checkbox" checked={cat[flag]} onChange={() => toggleFlagCategoria(cat, flag)} style={{ accentColor: "#2563EB", cursor: "pointer" }} />
                             {rotulo}
@@ -1328,7 +1347,7 @@ export default function CrmConfigPage() {
                       <span style={{ fontSize: 11, padding: "2px 7px", borderRadius: 10, background: cat.ativo ? "rgba(34,197,94,0.1)" : "rgba(156,163,175,0.15)", color: cat.ativo ? "#16a34a" : "var(--color-text-secondary)", fontWeight: 600 }}>
                         {cat.ativo ? "Ativa" : "Inativa"}
                       </span>
-                      <button onClick={() => { setEditCatId(cat.id); setEditCatNome(cat.nome); }} style={btnGhost}>Editar</button>
+                      <button onClick={() => { setEditCatId(cat.id); setEditCatNome(cat.nome); setEditCatRotulo(cat.rotulo_local ?? ""); }} style={btnGhost}>Editar</button>
                       <button onClick={() => toggleCategoria(cat)} style={btnGhost}>{cat.ativo ? "Desativar" : "Ativar"}</button>
                       <button onClick={() => excluirCategoria(cat.id)} style={{ ...btnGhost, color: "#ef4444", borderColor: "#fca5a5" }}>✕</button>
                     </>
