@@ -875,30 +875,39 @@ export default function FormPedido({ inicial, onSalvo, onCancelar }: Props) {
         </div>
 
         {itens.length > 0 && (
-          <div style={{ border: "0.5px solid var(--color-border-tertiary)", borderRadius: 8, overflow: "hidden" }}>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 80px 120px 80px 32px", padding: "8px 12px", background: "var(--color-background-secondary)", borderBottom: "0.5px solid var(--color-border-tertiary)" }}>
-              {["Descrição", "Qtd", "Preço unit.", "Total", ""].map(h => (
-                <div key={h} style={{ fontSize: 10, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.04em" }}>{h}</div>
-              ))}
-            </div>
-            {itens.map((item, idx) => (
-              <div key={item.tmpId} style={{ display: "grid", gridTemplateColumns: "1fr 80px 120px 80px 32px", padding: "8px 12px", alignItems: "center", borderBottom: idx < itens.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none" }}>
-                {/* textarea (não input): a descrição pode ter várias linhas, e input de uma linha
-                    descartaria as quebras — que o contrato precisa preservar. */}
-                <textarea value={item.descricao} onChange={e => atualizarItem(item.tmpId, "descricao", e.target.value)} rows={2}
-                  style={{ ...inputStyle, fontSize: 12, padding: "5px 8px", resize: "vertical", fontFamily: "inherit", lineHeight: 1.4 }} />
-                <input type="number" min="1" value={item.quantidade}
-                  onChange={e => atualizarItem(item.tmpId, "quantidade", Math.max(1, parseInt(e.target.value) || 1))}
-                  style={{ ...inputStyle, fontSize: 12, padding: "5px 8px" }} />
-                <input type="text" inputMode="decimal" value={formatNum(item.preco_unit)}
-                  onChange={e => atualizarItem(item.tmpId, "preco_unit", parsearValor(mascaraValor(e.target.value)))}
-                  style={{ ...inputStyle, fontSize: 12, padding: "5px 8px" }} />
-                <div style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)" }}>{fmt(item.quantidade * item.preco_unit)}</div>
-                <button onClick={() => removerItem(item.tmpId)}
-                  style={{ background: "none", border: "none", cursor: "pointer", color: "var(--color-text-secondary)", fontSize: 16, padding: 0 }}>×</button>
-              </div>
-            ))}
-            <div style={{ display: "flex", justifyContent: "flex-end", padding: "10px 12px", borderTop: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-secondary)" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {itens.map((item) => {
+              const nomeProduto = produtos.find(p => p.id === item.produto_id)?.nome ?? "Item personalizado";
+              return (
+                <div key={item.tmpId} style={{ border: "0.5px solid var(--color-border-tertiary)", borderRadius: 8, padding: "10px 12px", background: "var(--color-background-secondary)" }}>
+                  <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 8 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: "var(--color-text-primary)" }}>{nomeProduto}</div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+                      <input type="number" min="1" value={item.quantidade}
+                        onChange={e => atualizarItem(item.tmpId, "quantidade", Math.max(1, parseInt(e.target.value) || 1))}
+                        title="Quantidade"
+                        style={{ ...inputStyle, width: 52, fontSize: 12, padding: "5px 6px", textAlign: "center" }} />
+                      <span style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>×</span>
+                      <span style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>R$</span>
+                      <input type="text" inputMode="decimal" value={formatNum(item.preco_unit)}
+                        onChange={e => atualizarItem(item.tmpId, "preco_unit", parsearValor(mascaraValor(e.target.value)))}
+                        title="Preço unitário"
+                        style={{ ...inputStyle, width: 90, fontSize: 12, padding: "5px 6px" }} />
+                      <span style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>=</span>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: "var(--color-text-primary)", minWidth: 90, textAlign: "right" }}>{fmt(item.quantidade * item.preco_unit)}</div>
+                      <button onClick={() => removerItem(item.tmpId)} title="Remover item"
+                        style={{ background: "none", border: "none", cursor: "pointer", color: "var(--color-text-secondary)", fontSize: 17, padding: "0 2px", lineHeight: 1 }}>×</button>
+                    </div>
+                  </div>
+                  {/* textarea (não input): a descrição pode ter várias linhas, e input de uma linha
+                      descartaria as quebras — que o contrato precisa preservar. */}
+                  <textarea value={item.descricao} onChange={e => atualizarItem(item.tmpId, "descricao", e.target.value)} rows={2}
+                    placeholder="Descrição deste item no contrato/proposta…"
+                    style={{ ...inputStyle, width: "100%", boxSizing: "border-box", fontSize: 12, padding: "6px 8px", resize: "vertical", fontFamily: "inherit", lineHeight: 1.5, background: "var(--color-background-primary)" }} />
+                </div>
+              );
+            })}
+            <div style={{ display: "flex", justifyContent: "flex-end", padding: "8px 4px" }}>
               <div style={{ fontSize: 13, fontWeight: 700, color: "var(--color-text-primary)" }}>Subtotal: {fmt(totalItens)}</div>
             </div>
           </div>
