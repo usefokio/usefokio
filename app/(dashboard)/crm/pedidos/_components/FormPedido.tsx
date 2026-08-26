@@ -274,9 +274,11 @@ export default function FormPedido({ inicial, onSalvo, onCancelar }: Props) {
   // Flags da categoria selecionada (default tudo true = mostra todos os campos)
   const catAtual = pedCats.find((c) => c.nome === form.categoria);
   const flags = {
-    pede_data:    catAtual ? catAtual.pede_data : true,
-    pede_local:   catAtual ? catAtual.pede_local : true,
-    pede_horario: catAtual ? catAtual.pede_horario : true,
+    pede_data:       catAtual ? catAtual.pede_data : true,
+    pede_local:      catAtual ? catAtual.pede_local : true,
+    pede_horario:    catAtual ? catAtual.pede_horario : true,
+    pede_convidados: catAtual ? catAtual.pede_convidados : true,
+    rotuloLocal:     catAtual?.rotulo_local?.trim() || "Local do evento",
   };
   // Opções do combo de status (ativos por ordem). Se o status atual não estiver na lista
   // (legado/inativo), mantém no topo para não sumir da seleção. Fallback à semente.
@@ -483,7 +485,7 @@ export default function FormPedido({ inicial, onSalvo, onCancelar }: Props) {
       local_evento:    flags.pede_local ? (form.local_evento.trim() || null) : null,
       cidade_evento:   flags.pede_local ? (form.cidade_evento.trim() || null) : null,
       estado_evento:   flags.pede_local ? (form.estado_evento || null) : null,
-      convidados:      form.convidados ? parseInt(form.convidados) || null : null,
+      convidados:      flags.pede_convidados && form.convidados ? parseInt(form.convidados) || null : null,
       local_cerimonia: flags.pede_local && form.eh_casamento ? (form.local_cerimonia.trim() || null) : null,
       local_recepcao:  flags.pede_local && form.eh_casamento ? (form.local_recepcao.trim() || null) : null,
       eh_casamento:    flags.pede_local ? form.eh_casamento : false,
@@ -760,8 +762,8 @@ export default function FormPedido({ inicial, onSalvo, onCancelar }: Props) {
             />
           </Field>
         </div>
-        {/* Data / Horário conforme as flags da categoria; Convidados sempre (adapta a largura) */}
-        {(flags.pede_data || flags.pede_horario) && (
+        {/* Data / Horário / Convidados — cada um com a própria flag da categoria */}
+        {(flags.pede_data || flags.pede_horario || flags.pede_convidados) && (
           <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
             {flags.pede_data && (
               <div style={{ flex: "1 1 160px" }}>
@@ -780,11 +782,13 @@ export default function FormPedido({ inicial, onSalvo, onCancelar }: Props) {
                 </Field>
               </div>
             )}
-            <div style={{ flex: "1 1 160px" }}>
-              <Field label="Convidados">
-                <input type="number" min="0" value={form.convidados} onChange={e => upd("convidados", e.target.value)} placeholder="Ex: 150" style={inputStyle} />
-              </Field>
-            </div>
+            {flags.pede_convidados && (
+              <div style={{ flex: "1 1 160px" }}>
+                <Field label="Convidados">
+                  <input type="number" min="0" value={form.convidados} onChange={e => upd("convidados", e.target.value)} placeholder="Ex: 150" style={inputStyle} />
+                </Field>
+              </div>
+            )}
           </div>
         )}
         {flags.pede_local && (
@@ -809,7 +813,7 @@ export default function FormPedido({ inicial, onSalvo, onCancelar }: Props) {
                 </Field>
               </div>
             ) : (
-              <Field label="Local do evento">
+              <Field label={flags.rotuloLocal}>
                 <input value={form.local_evento} onChange={e => upd("local_evento", e.target.value)} placeholder="Ex: Espaço Villa dos Sonhos" style={inputStyle} />
               </Field>
             )}

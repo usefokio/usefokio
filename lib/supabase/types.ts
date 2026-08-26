@@ -817,6 +817,8 @@ export type CrmProductCategory = {
   pede_data: boolean;
   pede_local: boolean;
   pede_horario: boolean;
+  pede_convidados: boolean;
+  rotulo_local: string | null; // rótulo customizado do campo "local" no pedido; vazio = "Local do evento"
   created_at: string;
 };
 
