@@ -720,27 +720,36 @@ export default function PedidoDetailPage() {
                   <ProdutoSearch produtos={produtos} onSelect={abrirModalProduto} placeholder="Buscar e adicionar produto…" />
                 </div>
                 {itensEdit.length > 0 ? (
-                  <>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 60px 100px 100px 32px", padding: "7px 20px", borderBottom: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-secondary)" }}>
-                      {["Descrição", "Qtd", "Preço unit.", "Total", ""].map(h => (
-                        <span key={h || "acao"} style={{ fontSize: 10, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.04em" }}>{h}</span>
-                      ))}
-                    </div>
-                    {itensEdit.map((item) => (
-                      <div key={item.key} style={{ display: "grid", gridTemplateColumns: "1fr 60px 100px 100px 32px", padding: "8px 20px", borderBottom: "0.5px solid var(--color-border-tertiary)", alignItems: "center", gap: 6 }}>
-                        {/* textarea (não input): a descrição pode ter várias linhas, e input de uma
-                            linha descartaria as quebras — que o contrato precisa preservar. */}
-                        <textarea value={item.descricao} onChange={e => atualizarItemEdit(item.key, "descricao", e.target.value)} rows={2}
-                          style={{ fontSize: 12, padding: "5px 8px", borderRadius: 6, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", color: "var(--color-text-primary)", outline: "none", width: "100%", boxSizing: "border-box", resize: "vertical", fontFamily: "inherit", lineHeight: 1.4 }} />
-                        <input type="number" min="1" value={item.quantidade} onChange={e => atualizarItemEdit(item.key, "quantidade", Math.max(1, parseInt(e.target.value) || 1))}
-                          style={{ fontSize: 12, padding: "5px 8px", borderRadius: 6, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", color: "var(--color-text-primary)", outline: "none", width: "100%", boxSizing: "border-box" }} />
-                        <input type="text" inputMode="decimal" value={formatNum(item.preco_unit)} onChange={e => atualizarItemEdit(item.key, "preco_unit", parsearValor(mascaraValor(e.target.value)))}
-                          style={{ fontSize: 12, padding: "5px 8px", borderRadius: 6, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", color: "var(--color-text-primary)", outline: "none", width: "100%", boxSizing: "border-box" }} />
-                        <div style={{ fontSize: 12, fontWeight: 700, color: "var(--color-text-primary)" }}>{fmt(item.quantidade * item.preco_unit)}</div>
-                        <button onClick={() => removerItemEdit(item.key)} title="Remover" style={{ background: "none", border: "none", cursor: "pointer", color: "#EF4444", fontSize: 15, padding: 0 }}>×</button>
-                      </div>
-                    ))}
-                  </>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "10px 20px" }}>
+                    {itensEdit.map((item) => {
+                      const nomeProduto = produtos.find(p => p.id === item.produto_id)?.nome ?? "Item personalizado";
+                      return (
+                        <div key={item.key} style={{ border: "0.5px solid var(--color-border-tertiary)", borderRadius: 8, padding: "9px 12px", background: "var(--color-background-secondary)" }}>
+                          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 7 }}>
+                            <div style={{ fontSize: 13, fontWeight: 700, color: "var(--color-text-primary)" }}>{nomeProduto}</div>
+                            <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+                              <input type="number" min="1" value={item.quantidade} onChange={e => atualizarItemEdit(item.key, "quantidade", Math.max(1, parseInt(e.target.value) || 1))}
+                                title="Quantidade"
+                                style={{ fontSize: 12, padding: "5px 6px", borderRadius: 6, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", color: "var(--color-text-primary)", outline: "none", width: 48, textAlign: "center" }} />
+                              <span style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>×</span>
+                              <span style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>R$</span>
+                              <input type="text" inputMode="decimal" value={formatNum(item.preco_unit)} onChange={e => atualizarItemEdit(item.key, "preco_unit", parsearValor(mascaraValor(e.target.value)))}
+                                title="Preço unitário"
+                                style={{ fontSize: 12, padding: "5px 6px", borderRadius: 6, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", color: "var(--color-text-primary)", outline: "none", width: 84 }} />
+                              <span style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>=</span>
+                              <div style={{ fontSize: 13, fontWeight: 700, color: "var(--color-text-primary)", minWidth: 84, textAlign: "right" }}>{fmt(item.quantidade * item.preco_unit)}</div>
+                              <button onClick={() => removerItemEdit(item.key)} title="Remover" style={{ background: "none", border: "none", cursor: "pointer", color: "#EF4444", fontSize: 16, padding: "0 2px", lineHeight: 1 }}>×</button>
+                            </div>
+                          </div>
+                          {/* textarea (não input): a descrição pode ter várias linhas, e input de uma
+                              linha descartaria as quebras — que o contrato precisa preservar. */}
+                          <textarea value={item.descricao} onChange={e => atualizarItemEdit(item.key, "descricao", e.target.value)} rows={2}
+                            placeholder="Descrição deste item no contrato/proposta…"
+                            style={{ fontSize: 12, padding: "6px 8px", borderRadius: 6, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", color: "var(--color-text-primary)", outline: "none", width: "100%", boxSizing: "border-box", resize: "vertical", fontFamily: "inherit", lineHeight: 1.5 }} />
+                        </div>
+                      );
+                    })}
+                  </div>
                 ) : (
                   <div style={{ padding: "14px 20px", fontSize: 12.5, color: "var(--color-text-secondary)" }}>Nenhum produto. Use a busca acima para adicionar.</div>
                 )}
