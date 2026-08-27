@@ -389,6 +389,15 @@ export default function PedidosPage() {
             );
           })}
           <Paginacao pagina={page} total={ordenados.length} pageSize={pageSize} onPagina={setPage} onPageSize={setPageSize} />
+          {/* Linha totalizadora */}
+          <div style={{ display: "grid", gridTemplateColumns: gridTemplate, padding: "11px 16px", borderTop: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-secondary)", alignItems: "center" }}>
+            <div style={{ gridColumn: verLarge ? "1 / 6" : "1 / 4", fontSize: 12, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+              Total · {filtrados.length} pedido{filtrados.length !== 1 ? "s" : ""}
+            </div>
+            <div style={{ fontSize: 14, fontWeight: 800, color: "var(--color-text-primary)", textAlign: "right" }}>
+              {fmt(totalFiltrado)}
+            </div>
+          </div>
         </div>
       )}
     </div>
