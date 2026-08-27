@@ -22,6 +22,7 @@ const COLS_PED: ColunaDef[] = [
   { id: "cliente",     largura: 160, min: 90 },
   { id: "data_evento", largura: 130, min: 90 },
   { id: "status",      largura: 120, min: 80 },
+  { id: "valor",       largura: 110, min: 80 },
   { id: "acoes",       largura: 100, min: 80 },
 ];
 
@@ -186,14 +187,14 @@ export default function PedidosPage() {
   const gridTemplate = verLarge
     ? cols.template
     : verMedium
-    ? "80px 1fr 120px 100px"
-    : "80px 1fr 120px 80px";
+    ? "80px 1fr 120px 90px 100px"
+    : "80px 1fr 120px 90px 80px";
 
   const cabecalhos = verLarge
-    ? [{ label: "Nº", col: "numero", id: "numero" }, { label: "Pedido", col: "nome", id: "nome" }, { label: "Cliente", col: "cliente", id: "cliente" }, { label: "Evento", col: "data_evento", id: "data_evento" }, { label: "Status", col: "status", id: "status" }, { label: "", col: "", id: "acoes" }]
+    ? [{ label: "Nº", col: "numero", id: "numero" }, { label: "Pedido", col: "nome", id: "nome" }, { label: "Cliente", col: "cliente", id: "cliente" }, { label: "Evento", col: "data_evento", id: "data_evento" }, { label: "Status", col: "status", id: "status" }, { label: "Valor", col: "total", id: "valor" }, { label: "", col: "", id: "acoes" }]
     : verMedium
-    ? [{ label: "Nº", col: "numero", id: "numero" }, { label: "Pedido", col: "nome", id: "nome" }, { label: "Status", col: "status", id: "status" }, { label: "", col: "", id: "acoes" }]
-    : [{ label: "Nº", col: "numero", id: "numero" }, { label: "Pedido", col: "nome", id: "nome" }, { label: "Status", col: "status", id: "status" }, { label: "", col: "", id: "acoes" }];
+    ? [{ label: "Nº", col: "numero", id: "numero" }, { label: "Pedido", col: "nome", id: "nome" }, { label: "Status", col: "status", id: "status" }, { label: "Valor", col: "total", id: "valor" }, { label: "", col: "", id: "acoes" }]
+    : [{ label: "Nº", col: "numero", id: "numero" }, { label: "Pedido", col: "nome", id: "nome" }, { label: "Status", col: "status", id: "status" }, { label: "Valor", col: "total", id: "valor" }, { label: "", col: "", id: "acoes" }];
 
   return (
     <div style={{ padding: isMobile ? "16px" : "28px 32px", maxWidth: 1100, fontFamily: "var(--font-sans)" }}>
@@ -369,6 +370,9 @@ export default function PedidosPage() {
                 <div style={{ cursor: "pointer" }} onClick={() => router.push(`/crm/pedidos/${p.id}`)}>
                   <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 8px", borderRadius: 10, background: st.bg, color: st.color, whiteSpace: "nowrap" }}>{st.label}</span>
                 </div>
+                <div style={{ cursor: "pointer", textAlign: "right" }} onClick={() => router.push(`/crm/pedidos/${p.id}`)}>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: "var(--color-text-primary)" }}>{fmt(p.total ?? 0)}</span>
+                </div>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 5 }}>
                   <button onClick={() => router.push(`/crm/pedidos/${p.id}`)} title="Abrir"
                     style={btnIcon({ color: "#2563EB", border: "0.5px solid var(--color-border-secondary)" })}>
@@ -391,12 +395,13 @@ export default function PedidosPage() {
           <Paginacao pagina={page} total={ordenados.length} pageSize={pageSize} onPagina={setPage} onPageSize={setPageSize} />
           {/* Linha totalizadora */}
           <div style={{ display: "grid", gridTemplateColumns: gridTemplate, padding: "11px 16px", borderTop: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-secondary)", alignItems: "center" }}>
-            <div style={{ gridColumn: verLarge ? "1 / 6" : "1 / 4", fontSize: 12, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+            <div style={{ gridColumn: "1 / -3", fontSize: 12, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
               Total · {filtrados.length} pedido{filtrados.length !== 1 ? "s" : ""}
             </div>
             <div style={{ fontSize: 14, fontWeight: 800, color: "var(--color-text-primary)", textAlign: "right" }}>
               {fmt(totalFiltrado)}
             </div>
+            <div />
           </div>
         </div>
       )}
