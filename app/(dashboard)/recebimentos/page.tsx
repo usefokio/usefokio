@@ -239,8 +239,8 @@ export default function RecebimentosPage() {
     (filtroTipo === "todos" ? true : p.tipo === filtroTipo)
   );
 
-  const totalPago = pagamentos.filter((p) => p.status === "pago").reduce((acc, p) => acc + Number(p.valor), 0);
-  const totalPendente = pagamentos.filter((p) => p.status === "pendente").reduce((acc, p) => acc + Number(p.valor), 0);
+  const totalPago = filtrados.filter((p) => p.status === "pago").reduce((acc, p) => acc + Number(p.valor), 0);
+  const totalPendente = filtrados.filter((p) => p.status === "pendente").reduce((acc, p) => acc + Number(p.valor), 0);
 
   return (
     <div style={{ maxWidth: 900, margin: "0 auto", padding: "32px 20px" }}>
@@ -266,7 +266,7 @@ export default function RecebimentosPage() {
         </div>
         <div style={{ flex: 1, minWidth: 180, background: "var(--color-background-primary)", border: "1px solid var(--color-border-secondary)", borderRadius: 12, padding: "16px 20px" }}>
           <div style={{ fontSize: 11, fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>Total de cobranças</div>
-          <div style={{ fontSize: 24, fontWeight: 800, color: "var(--color-text-primary)", letterSpacing: "-0.02em" }}>{pagamentos.length}</div>
+          <div style={{ fontSize: 24, fontWeight: 800, color: "var(--color-text-primary)", letterSpacing: "-0.02em" }}>{filtrados.length}</div>
         </div>
       </div>
 
