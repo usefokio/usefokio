@@ -137,8 +137,12 @@ export default function PedidosPage() {
   // recorte de busca/categoria/data que a lista está usando, só variando o próprio status).
   const semStatus = pedidos.filter(p => {
     if (catFiltro && p.categoria !== catFiltro) return false;
-    if (dataInicio && p.created_at < dataInicio) return false;
-    if (dataFim && p.created_at > dataFim + "T23:59:59") return false;
+    // Data de referência do pedido pro filtro de período: data_lancamento (= add_date do legado,
+    // data real do pedido) com fallback pra data_evento; NUNCA created_at — em pedidos importados
+    // created_at é só o timestamp da rotina de importação, não a data histórica.
+    const dataRef = p.data_lancamento ?? p.data_evento ?? null;
+    if (dataInicio && (!dataRef || dataRef < dataInicio)) return false;
+    if (dataFim && (!dataRef || dataRef > dataFim)) return false;
     if (busca !== "" &&
       !(p.nome ?? "").toLowerCase().includes(busca.toLowerCase()) &&
       !(p.clientes?.nome ?? "").toLowerCase().includes(busca.toLowerCase()) &&
