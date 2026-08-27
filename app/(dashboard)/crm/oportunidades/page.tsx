@@ -190,7 +190,8 @@ export default function OportunidadesPage() {
     if (busca !== "" &&
       !o.titulo.toLowerCase().includes(busca.toLowerCase()) &&
       !(o.clientes?.nome ?? "").toLowerCase().includes(busca.toLowerCase()) &&
-      !(o.cidade_evento ?? "").toLowerCase().includes(busca.toLowerCase())
+      !(o.cidade_evento ?? "").toLowerCase().includes(busca.toLowerCase()) &&
+      !(o.observacoes ?? "").toLowerCase().includes(busca.toLowerCase())
     ) return false;
     return true;
   });

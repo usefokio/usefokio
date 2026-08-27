@@ -62,7 +62,7 @@ export default function ProdutosPage() {
   useEffect(() => { setPage(1); }, [busca, categFiltro, somenteAtivos, sortCol, sortDir]);
 
   const filtrados = produtos.filter((p: CrmProduct) => {
-    const ok = busca === "" || p.nome.toLowerCase().includes(busca.toLowerCase()) || (p.codigo ?? "").toLowerCase().includes(busca.toLowerCase());
+    const ok = busca === "" || p.nome.toLowerCase().includes(busca.toLowerCase()) || (p.codigo ?? "").toLowerCase().includes(busca.toLowerCase()) || (p.descricao ?? "").toLowerCase().includes(busca.toLowerCase());
     const okCat = categFiltro === "" || p.categoria === categFiltro;
     return ok && okCat;
   });

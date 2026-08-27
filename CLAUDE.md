@@ -220,6 +220,9 @@ sessão após sessão — tratar como checklist obrigatório, não como preferê
   novo editor rico segue o mesmo padrão.
 - **Listagens**: título da coluna é **clicável** e alterna a ordenação; filtros e busca **persistentes**;
   paginação universal.
+- **Busca**: sempre inclui qualquer campo de texto livre (descrição/observações) do registro, além dos
+  campos "óbvios" (nome, cliente, código) — nunca deixar de fora um campo de descrição só porque não é o
+  principal. Bug já reapareceu em ~3 telas (Financeiro, Oportunidades, Produtos) por buscar só nome/cliente.
 - **Selects/dropdowns**: opções em **ordem alfabética** (ou por `ordem` explícita quando houver).
 - **Formulários longos**: botão **Salvar** no **topo e no rodapé**.
 - **Data**: campos de data começam com **hoje** por padrão.
