@@ -222,7 +222,8 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
     const clienteNome = e.crm_orders?.clientes?.nome ?? e.clientes?.nome ?? "";
     const matchBusca = busca === "" ||
       clienteNome.toLowerCase().includes(q) ||
-      (e.crm_orders?.nome ?? "").toLowerCase().includes(q);
+      (e.crm_orders?.nome ?? "").toLowerCase().includes(q) ||
+      (e.descricao ?? "").toLowerCase().includes(q);
 
     const dataRef = (aba === "recebidas" || aba === "pagas") && e.pago_em ? e.pago_em : e.vencimento;
 
