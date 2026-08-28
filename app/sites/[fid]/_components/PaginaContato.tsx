@@ -1,7 +1,7 @@
 // Página de CONTATO — 3 modelos fixos (padrão da Aparência da home): o mesmo componente
 // renderiza o site público e a prévia ao vivo do editor. O H1 e os canais são a moldura
 // fixa da página (SEO); o modelo define a disposição de foto/texto/formulário.
-import { OBJECT_POSITION, ASPECT } from "@/lib/site/design";
+import { objectPositionDe, ASPECT } from "@/lib/site/design";
 import type { CfgContato } from "@/lib/site/paginaCfg";
 import { ContatoForm } from "./ContatoForm";
 import { LinkConversao } from "./LinkConversao";
@@ -31,7 +31,7 @@ export function PaginaContato({ cfg, titulo, canais, fid, categorias }: {
   cfg: CfgContato; titulo: string; canais: CanalContato[]; fid: string;
   categorias: { valor: string; label: string }[];
 }) {
-  const objPos = OBJECT_POSITION[cfg.ancora]; // alinhamento do recorte das imagens
+  const objPos = objectPositionDe(cfg); // alinhamento do recorte das imagens (ponto focal tem prioridade sobre a âncora)
   const form = <ContatoForm fid={fid} config={cfg.formulario} categorias={categorias} />;
   const textoEl = cfg.html
     ? <div className="site-conteudo" style={{ fontSize: 15, color: "var(--site-suave)", lineHeight: 1.8, margin: "0 0 20px" }} dangerouslySetInnerHTML={{ __html: cfg.html }} />
