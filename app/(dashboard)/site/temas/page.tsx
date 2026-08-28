@@ -715,7 +715,14 @@ export default function AparenciaPage() {
                       <BotaoEscolherDoSite pasta="paginas/contato" onEscolher={(u) => aplicarImagemPagina("contato", "banner", u)} />
                       {cfgContato.banner && <button onClick={() => setCfgContato((c) => c ? { ...c, banner: null } : c)} style={{ border: "none", background: "transparent", fontSize: 11, color: "#DC2626", cursor: "pointer" }}>Remover</button>}
                     </div>
-                    {cfgContato.banner && <div style={{ marginTop: 12 }}>{campo("Alinhamento do recorte", <Seg value={cfgContato.ancora} options={ANC_OPTS} onChange={(v) => setCfgContato((c) => c ? { ...c, ancora: v } : c)} />)}</div>}
+                    {cfgContato.banner && (
+                      <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 12 }}>
+                        {campo("Alinhamento do recorte", <Seg value={cfgContato.ancora} options={ANC_OPTS} onChange={(v) => setCfgContato((c) => c ? { ...c, ancora: v, foco_x: null, foco_y: null } : c)} />)}
+                        {campo("Ponto focal (ajuste fino)", <SeletorFoco url={cfgContato.banner} x={cfgContato.foco_x} y={cfgContato.foco_y} aspecto="16 / 9"
+                          onChange={(x, y) => setCfgContato((c) => c ? { ...c, foco_x: x, foco_y: y } : c)}
+                          onLimpar={() => setCfgContato((c) => c ? { ...c, foco_x: null, foco_y: null } : c)} />)}
+                      </div>
+                    )}
                   </Card>
                 )}
                 {cfgContato.layout === "duas_colunas" && (
@@ -728,9 +735,12 @@ export default function AparenciaPage() {
                       <BotaoEscolherDoSite pasta="paginas/contato" onEscolher={(u) => aplicarImagemPagina("contato", "foto", u)} />
                       {cfgContato.foto && <button onClick={() => setCfgContato((c) => c ? { ...c, foto: null } : c)} style={{ border: "none", background: "transparent", fontSize: 11, color: "#DC2626", cursor: "pointer" }}>Remover</button>}
                     </div>
-                    {cfgContato.foto && <div style={{ marginTop: 12 }}>
+                    {cfgContato.foto && <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 12 }}>
                       {campo("Proporção da foto", <Seg value={cfgContato.proporcao} options={PROP_OPTS} onChange={(v) => setCfgContato((c) => c ? { ...c, proporcao: v } : c)} />)}
-                      {campo("Alinhamento do recorte", <Seg value={cfgContato.ancora} options={ANC_OPTS} onChange={(v) => setCfgContato((c) => c ? { ...c, ancora: v } : c)} />)}
+                      {campo("Alinhamento do recorte", <Seg value={cfgContato.ancora} options={ANC_OPTS} onChange={(v) => setCfgContato((c) => c ? { ...c, ancora: v, foco_x: null, foco_y: null } : c)} />)}
+                      {campo("Ponto focal (ajuste fino)", <SeletorFoco url={cfgContato.foto} x={cfgContato.foco_x} y={cfgContato.foco_y} aspecto={ASPECT[cfgContato.proporcao]}
+                        onChange={(x, y) => setCfgContato((c) => c ? { ...c, foco_x: x, foco_y: y } : c)}
+                        onLimpar={() => setCfgContato((c) => c ? { ...c, foco_x: null, foco_y: null } : c)} />)}
                     </div>}
                   </Card>
                 )}

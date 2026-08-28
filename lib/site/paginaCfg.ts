@@ -13,6 +13,8 @@ export type CfgContato = {
   foto: string | null;        // conteudo.imagens[0]
   banner: string | null;      // conteudo.banner_url — topo (duas_colunas) ou fundo (banner_fundo)
   ancora: AncoraFoto;         // alinhamento do recorte das imagens da página (vertical/horizontal)
+  foco_x: number | null;      // ponto focal (%) — ajuste fino por cima da âncora, mesmo padrão da home
+  foco_y: number | null;
   proporcao: ProporcaoCapa;   // proporção da foto (duas_colunas) — permite horizontal/vertical/quadrado
   whatsapp_ativo: boolean;    // botão dedicado "Chamar no WhatsApp" na página (usa o WhatsApp do cadastro)
   whatsapp_texto: string;     // texto do botão de WhatsApp
@@ -62,7 +64,7 @@ export function cfgContatoDe(conteudo: unknown): CfgContato {
   const layout = LAYOUTS_CONTATO.some((o) => o.v === c.layout)
     ? (c.layout as LayoutContato)
     : (foto ? "duas_colunas" : "minimalista");
-  return { layout, html: str(c.html), foto, banner: str(c.banner_url), ancora: ancoraDe(c.ancora), proporcao: proporcaoDe(c.proporcao), whatsapp_ativo: c.whatsapp_ativo === true, whatsapp_texto: str(c.whatsapp_texto) ?? "Chamar no WhatsApp", formulario: c.formulario as ConfigFormulario | undefined };
+  return { layout, html: str(c.html), foto, banner: str(c.banner_url), ancora: ancoraDe(c.ancora), foco_x: numOuNull(c.foco_x), foco_y: numOuNull(c.foco_y), proporcao: proporcaoDe(c.proporcao), whatsapp_ativo: c.whatsapp_ativo === true, whatsapp_texto: str(c.whatsapp_texto) ?? "Chamar no WhatsApp", formulario: c.formulario as ConfigFormulario | undefined };
 }
 
 export function cfgSobreDe(conteudo: unknown): CfgSobre {
