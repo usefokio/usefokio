@@ -563,12 +563,12 @@ export default function FormPedido({ inicial, onSalvo, onCancelar }: Props) {
           if (ps.length > 0) {
             for (const p of ps) {
               if (chavesJaPagas.has(chave(p.vencimento, p.valor))) continue;
-              entries.push({ fotografo_id: fotografo.id, pedido_id: id, tipo: "receita", descricao: p.label, valor: p.valor, vencimento: p.vencimento, status: "pendente", parcela: plano.numParcelas > 1 ? p.label.match(/Parcela (\d+)/)?.[1] ?? null : null, internal_account_type: "pedido", conta_id: contaVendasId });
+              entries.push({ fotografo_id: fotografo.id, pedido_id: id, tipo: "receita", descricao: p.label, valor: p.valor, vencimento: p.vencimento, status: "pendente", parcela: plano.numParcelas > 1 ? p.label.match(/Parcela (\d+)/)?.[1] ?? null : null, internal_account_type: "pedido", conta_id: contaVendasId, forma_pagamento: plano.forma || null });
             }
           } else {
             const valorPlano = parseFloat(plano.valor) || 0;
             if (chavesJaPagas.has(chave(plano.dataPrazo, valorPlano))) continue;
-            entries.push({ fotografo_id: fotografo.id, pedido_id: id, tipo: "receita", descricao: plano.obs || "Pagamento", valor: valorPlano, vencimento: plano.dataPrazo, status: "pendente", parcela: null, internal_account_type: "pedido", conta_id: contaVendasId });
+            entries.push({ fotografo_id: fotografo.id, pedido_id: id, tipo: "receita", descricao: plano.obs || "Pagamento", valor: valorPlano, vencimento: plano.dataPrazo, status: "pendente", parcela: null, internal_account_type: "pedido", conta_id: contaVendasId, forma_pagamento: plano.forma || null });
           }
         }
         if (entries.length > 0) await sb.from("crm_financial_entries").insert(entries);
@@ -667,6 +667,7 @@ export default function FormPedido({ inicial, onSalvo, onCancelar }: Props) {
               parcela:               plano.numParcelas > 1 ? p.label.match(/Parcela (\d+)/)?.[1] ?? null : null,
               internal_account_type: "pedido",
               conta_id:              contaVendasId,
+              forma_pagamento:       plano.forma || null,
             });
           }
         }
