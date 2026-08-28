@@ -256,7 +256,10 @@ export default function PedidoDetailPage() {
     // A descrição do item é TEXTO PURO (vem de textarea): escapa e converte \n em <br>, senão o HTML
     // colapsa as quebras numa linha só — e escapar fecha a injeção de HTML por dado do usuário.
     const itensHtml = itens.length > 0
-      ? "<ul>" + itens.map(i => `<li>${escapeHtml(i.descricao ?? "").replace(/\n/g, "<br>")} — ${i.quantidade}× ${formatBRL(i.preco_unit)} = <strong>${formatBRL(i.total)}</strong></li>`).join("") + "</ul>"
+      ? "<ul>" + itens.map(i => {
+          const nomeProduto = produtos.find(p => p.id === i.produto_id)?.nome ?? "Item personalizado";
+          return `<li><strong>${escapeHtml(nomeProduto)}</strong>${i.descricao ? `<br>${escapeHtml(i.descricao).replace(/\n/g, "<br>")}` : ""}</li>`;
+        }).join("") + "</ul>"
       : "";
     const cronogramaHtml = receitas.length > 0
       ? "<ul>" + receitas.map(fi => `<li>Parcela ${fi.parcela ?? ""} — Vencimento: ${new Date(fi.vencimento + "T12:00:00").toLocaleDateString("pt-BR")}${fi.forma_pagamento ? ` — ${escapeHtml(fi.forma_pagamento)}` : ""} — <strong>${formatBRL(fi.valor)}</strong></li>`).join("") + "</ul>"
