@@ -25,6 +25,8 @@ export type CfgSobre = {
   foto: string | null;
   foto_largura: number;       // largura da foto em px (foto+bio) / largura máx. (minimalista)
   ancora: AncoraFoto;         // alinhamento do recorte das imagens da página (vertical/horizontal)
+  foco_x: number | null;      // ponto focal (%) — ajuste fino por cima da âncora, mesmo padrão da home
+  foco_y: number | null;
   fundo: string | null;       // conteudo.banner_url (imagem de fundo do modelo foto_fundo)
   cta_ativo: boolean;         // botão de contato no fim da página (ligado por padrão)
   cta_botao: string;          // texto do botão
@@ -49,6 +51,7 @@ const numPx = (v: unknown, def: number): number => {
   return Number.isFinite(n) ? Math.min(720, Math.max(160, n)) : def;
 };
 const ancoraDe = (v: unknown): AncoraFoto => (ANCORAS.includes(v as AncoraFoto) ? (v as AncoraFoto) : "centro");
+const numOuNull = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) ? v : null);
 // Default vertical_2x3 preserva o visual retrato de antes (a foto era 3/4 fixo).
 const proporcaoDe = (v: unknown): ProporcaoCapa => (PROPORCOES.includes(v as ProporcaoCapa) ? (v as ProporcaoCapa) : "vertical_2x3");
 
@@ -70,7 +73,7 @@ export function cfgSobreDe(conteudo: unknown): CfgSobre {
     : (foto ? "foto_bio" : "minimalista");
   return {
     layout, html: str(c.html), foto, foto_largura: numPx(c.foto_largura, 320),
-    ancora: ancoraDe(c.ancora), fundo: str(c.banner_url),
+    ancora: ancoraDe(c.ancora), foco_x: numOuNull(c.foco_x), foco_y: numOuNull(c.foco_y), fundo: str(c.banner_url),
     // Botão de contato: ligado por padrão (só some se o fotógrafo desligar explicitamente)
     cta_ativo: c.cta_ativo !== false,
     cta_botao: str(c.cta_botao) ?? "Entre em contato",
@@ -87,6 +90,7 @@ export function conteudoComCfg(conteudoOriginal: unknown, cfg: CfgContato | CfgS
     imagens: cfg.foto ? [cfg.foto] : [],
     banner_url: "banner" in cfg ? cfg.banner : cfg.fundo,
     ancora: cfg.ancora,
+    ...("foco_x" in cfg ? { foco_x: cfg.foco_x, foco_y: cfg.foco_y } : {}),
     ...("proporcao" in cfg ? { proporcao: (cfg as CfgContato).proporcao } : {}),
     ...("whatsapp_ativo" in cfg ? { whatsapp_ativo: (cfg as CfgContato).whatsapp_ativo, whatsapp_texto: (cfg as CfgContato).whatsapp_texto } : {}),
     ...("foto_largura" in cfg ? { foto_largura: cfg.foto_largura } : {}),

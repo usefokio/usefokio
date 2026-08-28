@@ -644,7 +644,10 @@ export default function AparenciaPage() {
                     {cfgSobre.foto && cfgSobre.layout === "foto_bio" && (
                       <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 12 }}>
                         <Range label="Tamanho da foto" value={cfgSobre.foto_largura} min={160} max={720} unidade="px" onChange={(v) => setCfgSobre((c) => c ? { ...c, foto_largura: v } : c)} />
-                        {campo("Alinhamento do recorte", <Seg value={cfgSobre.ancora} options={ANC_OPTS} onChange={(v) => setCfgSobre((c) => c ? { ...c, ancora: v } : c)} />)}
+                        {campo("Alinhamento do recorte", <Seg value={cfgSobre.ancora} options={ANC_OPTS} onChange={(v) => setCfgSobre((c) => c ? { ...c, ancora: v, foco_x: null, foco_y: null } : c)} />)}
+                        {campo("Ponto focal (ajuste fino)", <SeletorFoco url={cfgSobre.foto} x={cfgSobre.foco_x} y={cfgSobre.foco_y} aspecto="3 / 4"
+                          onChange={(x, y) => setCfgSobre((c) => c ? { ...c, foco_x: x, foco_y: y } : c)}
+                          onLimpar={() => setCfgSobre((c) => c ? { ...c, foco_x: null, foco_y: null } : c)} />)}
                       </div>
                     )}
                     {cfgSobre.foto && cfgSobre.layout === "minimalista" && (
@@ -664,7 +667,14 @@ export default function AparenciaPage() {
                       <BotaoEscolherDoSite pasta="paginas/sobre" onEscolher={(u) => aplicarImagemPagina("sobre", "fundo", u)} />
                       {cfgSobre.fundo && <button onClick={() => setCfgSobre((c) => c ? { ...c, fundo: null } : c)} style={{ border: "none", background: "transparent", fontSize: 11, color: "#DC2626", cursor: "pointer" }}>Remover</button>}
                     </div>
-                    {cfgSobre.fundo && <div style={{ marginTop: 12 }}>{campo("Alinhamento do recorte", <Seg value={cfgSobre.ancora} options={ANC_OPTS} onChange={(v) => setCfgSobre((c) => c ? { ...c, ancora: v } : c)} />)}</div>}
+                    {cfgSobre.fundo && (
+                      <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 12 }}>
+                        {campo("Alinhamento do recorte", <Seg value={cfgSobre.ancora} options={ANC_OPTS} onChange={(v) => setCfgSobre((c) => c ? { ...c, ancora: v, foco_x: null, foco_y: null } : c)} />)}
+                        {campo("Ponto focal (ajuste fino)", <SeletorFoco url={cfgSobre.fundo} x={cfgSobre.foco_x} y={cfgSobre.foco_y} aspecto="16 / 9"
+                          onChange={(x, y) => setCfgSobre((c) => c ? { ...c, foco_x: x, foco_y: y } : c)}
+                          onLimpar={() => setCfgSobre((c) => c ? { ...c, foco_x: null, foco_y: null } : c)} />)}
+                      </div>
+                    )}
                   </Card>
                 )}
                 <Card titulo="Texto de apresentação" aberto onToggle={() => {}}>

@@ -1,7 +1,7 @@
 // Página SOBRE — 3 modelos fixos (padrão da Aparência da home): o mesmo componente
 // renderiza o site público e a prévia ao vivo do editor. O H1 é fixo (SEO).
 import Link from "next/link";
-import { OBJECT_POSITION } from "@/lib/site/design";
+import { objectPositionDe } from "@/lib/site/design";
 import type { CfgSobre } from "@/lib/site/paginaCfg";
 
 const h1Central: React.CSSProperties = { fontSize: 28, fontWeight: 700, textAlign: "center", margin: "0 0 32px" };
@@ -20,7 +20,7 @@ function CtaContato({ cfg, base }: { cfg: CfgSobre; base: string }) {
 
 export function PaginaSobre({ cfg, titulo, base }: { cfg: CfgSobre; titulo: string; base: string }) {
   const html = cfg.html ?? "<p>Em breve.</p>";
-  const objPos = OBJECT_POSITION[cfg.ancora]; // alinhamento do recorte da foto
+  const objPos = objectPositionDe(cfg); // alinhamento do recorte da foto (ponto focal tem prioridade sobre a âncora)
 
   // ── Foto de fundo: título + texto sobrepostos à imagem ──
   if (cfg.layout === "foto_fundo") {
