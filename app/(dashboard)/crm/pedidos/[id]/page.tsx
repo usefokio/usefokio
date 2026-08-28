@@ -262,7 +262,10 @@ export default function PedidoDetailPage() {
         }).join("") + "</ul>"
       : "";
     const cronogramaHtml = receitas.length > 0
-      ? "<ul>" + receitas.map(fi => `<li>Parcela ${fi.parcela ?? ""} — Vencimento: ${new Date(fi.vencimento + "T12:00:00").toLocaleDateString("pt-BR")}${fi.forma_pagamento ? ` — ${escapeHtml(fi.forma_pagamento)}` : ""} — <strong>${formatBRL(fi.valor)}</strong></li>`).join("") + "</ul>"
+      ? "<ul>" + receitas.map(fi => {
+          const label = fi.parcela ? `Parcela ${fi.parcela}` : escapeHtml(fi.descricao || "Pagamento");
+          return `<li>${label} — Vencimento: ${new Date(fi.vencimento + "T12:00:00").toLocaleDateString("pt-BR")}${fi.forma_pagamento ? ` — ${escapeHtml(fi.forma_pagamento)}` : ""} — <strong>${formatBRL(fi.valor)}</strong></li>`;
+        }).join("") + "</ul>"
       : "";
 
     const enderecoCliente = [c?.logradouro, c?.numero].filter(Boolean).join(", ");
