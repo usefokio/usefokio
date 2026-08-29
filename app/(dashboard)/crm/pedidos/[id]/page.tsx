@@ -14,7 +14,7 @@ import { escapeHtml } from "@/lib/email/comunicacao";
 import { usePersistState } from "@/lib/hooks/usePersistState";
 import { ClienteLink } from "@/components/ui/ClienteLink";
 import type { CrmOrder, CrmFinancialEntry, CrmContractTemplate, CrmContract, CrmProduct, CrmOrderNote } from "@/lib/supabase/types";
-import { criarAgendamentoDoPedido } from "@/lib/crm/agendamentos";
+import { ModalEvento } from "@/app/(dashboard)/crm/_components/ModalEvento";
 import { RichTextEditor } from "@/app/(dashboard)/crm/_components/RichTextEditor";
 import { ProdutoSearch } from "@/components/ui/ProdutoSearch";
 
@@ -42,7 +42,7 @@ export default function PedidoDetailPage() {
   const [financeiro, setFinanceiro] = useState<CrmFinancialEntry[]>([]);
   const [itens,      setItens]      = useState<OrderItem[]>([]);
   const [notas,      setNotas]      = useState<CrmOrderNote[]>([]);
-  const [gerandoAgenda, setGerandoAgenda] = useState(false);
+  const [modalAgenda, setModalAgenda] = useState(false);
   const [novaNota,   setNovaNota]   = useState("");
   const [salvandoNota, setSalvandoNota] = useState(false);
   const [loading,    setLoading]    = useState(true);
@@ -122,22 +122,6 @@ export default function PedidoDetailPage() {
       setLoading(false);
     });
   };
-
-  async function gerarAgendamento() {
-    if (!pedido || !pedido.data_evento) return;
-    setGerandoAgenda(true);
-    await criarAgendamentoDoPedido(createClient(), {
-      fotografo_id: pedido.fotografo_id,
-      pedido_id:    pedido.id,
-      cliente_id:   pedido.cliente_id,
-      titulo:       pedido.nome ?? pedido.numero ?? "Evento",
-      categoria:    pedido.categoria,
-      data_evento:  pedido.data_evento,
-      hora_evento:  pedido.hora_evento,
-    });
-    setGerandoAgenda(false);
-    setAgendaMsg("Agendamento criado na agenda.");
-  }
 
   async function adicionarNota() {
     const texto = novaNota.trim();
@@ -624,11 +608,10 @@ export default function PedidoDetailPage() {
         {!editing && (
           <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
             <button
-              onClick={gerarAgendamento} disabled={gerandoAgenda || !pedido.data_evento}
-              title={!pedido.data_evento ? "Defina a data do evento no pedido antes de marcar na agenda" : undefined}
-              style={{ padding: "8px 14px", borderRadius: 8, background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-secondary)", fontSize: 12, fontWeight: 500, cursor: (gerandoAgenda || !pedido.data_evento) ? "default" : "pointer", color: "var(--color-text-primary)", opacity: (gerandoAgenda || !pedido.data_evento) ? 0.5 : 1 }}
+              onClick={() => setModalAgenda(true)}
+              style={{ padding: "8px 14px", borderRadius: 8, background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-secondary)", fontSize: 12, fontWeight: 500, cursor: "pointer", color: "var(--color-text-primary)" }}
             >
-              📅 {gerandoAgenda ? "Marcando…" : "Marcar na agenda"}
+              📅 Marcar na agenda
             </button>
             <button
               onClick={() => setEditing(true)}
@@ -1307,6 +1290,19 @@ export default function PedidoDetailPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Modal — marcar agendamento vinculado ao pedido (mesmo popup da Agenda) */}
+      {modalAgenda && (
+        <ModalEvento
+          modo="novo"
+          diaInicial={new Date().toISOString().slice(0, 10)}
+          fotografoId={pedido.fotografo_id}
+          pedidoId={pedido.id}
+          clienteIdInicial={pedido.cliente_id ?? undefined}
+          onFechar={() => setModalAgenda(false)}
+          onSalvo={() => { setModalAgenda(false); setAgendaMsg("Agendamento criado na agenda."); }}
+        />
       )}
 
       {/* Modal — adicionar produto (informativo) */}
