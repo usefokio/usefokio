@@ -13,7 +13,7 @@ import { formatBRL, formatData, formatNum, mascaraValor, parsearValor, mascaraHo
 import { escapeHtml } from "@/lib/email/comunicacao";
 import { usePersistState } from "@/lib/hooks/usePersistState";
 import { ClienteLink } from "@/components/ui/ClienteLink";
-import type { CrmOrder, CrmFinancialEntry, CrmContractTemplate, CrmContract, CrmProduct, CrmOrderNote, CrmSchedule } from "@/lib/supabase/types";
+import type { CrmOrder, CrmFinancialEntry, CrmContractTemplate, CrmContract, CrmProduct, CrmOrderNote } from "@/lib/supabase/types";
 import { criarAgendamentoDoPedido } from "@/lib/crm/agendamentos";
 import { RichTextEditor } from "@/app/(dashboard)/crm/_components/RichTextEditor";
 import { ProdutoSearch } from "@/components/ui/ProdutoSearch";
@@ -42,7 +42,6 @@ export default function PedidoDetailPage() {
   const [financeiro, setFinanceiro] = useState<CrmFinancialEntry[]>([]);
   const [itens,      setItens]      = useState<OrderItem[]>([]);
   const [notas,      setNotas]      = useState<CrmOrderNote[]>([]);
-  const [agendamentos, setAgendamentos] = useState<CrmSchedule[]>([]);
   const [gerandoAgenda, setGerandoAgenda] = useState(false);
   const [novaNota,   setNovaNota]   = useState("");
   const [salvandoNota, setSalvandoNota] = useState(false);
@@ -114,14 +113,12 @@ export default function PedidoDetailPage() {
       sb.from("crm_order_items").select("*, crm_products(nome)").eq("pedido_id", id).order("descricao"),
       sb.from("crm_contracts").select("*").eq("pedido_id", id).order("created_at"),
       sb.from("crm_order_notes").select("*").eq("pedido_id", id).order("created_at", { ascending: false }),
-      sb.from("crm_schedules").select("*").eq("pedido_id", id).order("inicio"),
-    ]).then(([{ data: p }, { data: f }, { data: oi }, { data: ct }, { data: nt }, { data: ag }]) => {
+    ]).then(([{ data: p }, { data: f }, { data: oi }, { data: ct }, { data: nt }]) => {
       setPedido(p as OrderWithCliente | null);
       setFinanceiro((f ?? []) as CrmFinancialEntry[]);
       setItens((oi ?? []) as OrderItem[]);
       setContratos((ct ?? []) as CrmContract[]);
       setNotas((nt ?? []) as CrmOrderNote[]);
-      setAgendamentos((ag ?? []) as CrmSchedule[]);
       setLoading(false);
     });
   };
@@ -139,7 +136,7 @@ export default function PedidoDetailPage() {
       hora_evento:  pedido.hora_evento,
     });
     setGerandoAgenda(false);
-    carregar();
+    setAgendaMsg("Agendamento criado na agenda.");
   }
 
   async function adicionarNota() {
@@ -627,6 +624,13 @@ export default function PedidoDetailPage() {
         {!editing && (
           <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
             <button
+              onClick={gerarAgendamento} disabled={gerandoAgenda || !pedido.data_evento}
+              title={!pedido.data_evento ? "Defina a data do evento no pedido antes de marcar na agenda" : undefined}
+              style={{ padding: "8px 14px", borderRadius: 8, background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-secondary)", fontSize: 12, fontWeight: 500, cursor: (gerandoAgenda || !pedido.data_evento) ? "default" : "pointer", color: "var(--color-text-primary)", opacity: (gerandoAgenda || !pedido.data_evento) ? 0.5 : 1 }}
+            >
+              📅 {gerandoAgenda ? "Marcando…" : "Marcar na agenda"}
+            </button>
+            <button
               onClick={() => setEditing(true)}
               style={{ padding: "8px 14px", borderRadius: 8, background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-secondary)", fontSize: 12, fontWeight: 500, cursor: "pointer", color: "var(--color-text-primary)" }}
             >
@@ -935,36 +939,6 @@ export default function PedidoDetailPage() {
               </div>
             </div>
           )}
-
-          {/* Agenda */}
-          <div style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 12, overflow: "hidden" }}>
-            <div style={{ padding: "9px 20px", borderBottom: agendamentos.length > 0 ? "0.5px solid var(--color-border-tertiary)" : "none", background: "var(--color-background-secondary)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.06em" }}>Agenda</span>
-              <button onClick={gerarAgendamento} disabled={gerandoAgenda || !pedido.data_evento}
-                title={!pedido.data_evento ? "Defina a data do evento no pedido antes de marcar na agenda" : undefined}
-                style={{ padding: "5px 12px", borderRadius: 7, background: "#111", color: "#fff", border: "none", fontSize: 12, fontWeight: 600, cursor: (gerandoAgenda || !pedido.data_evento) ? "default" : "pointer", opacity: (gerandoAgenda || !pedido.data_evento) ? 0.5 : 1 }}>
-                {gerandoAgenda ? "Marcando…" : "+ Marcar na agenda"}
-              </button>
-            </div>
-            {agendamentos.length === 0 ? (
-              <div style={{ padding: "18px 20px", fontSize: 12.5, color: "var(--color-text-secondary)" }}>
-                {pedido.data_evento
-                  ? "Nenhum agendamento vinculado a este pedido ainda."
-                  : "Defina a data do evento no pedido pra poder marcar na agenda."}
-              </div>
-            ) : (
-              agendamentos.map((ag, i) => (
-                <div key={ag.id} style={{ padding: "12px 20px", borderBottom: i < agendamentos.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)" }}>{ag.titulo}</div>
-                    <div style={{ fontSize: 11.5, color: "var(--color-text-secondary)" }}>
-                      📅 {fmtData(ag.inicio.slice(0, 10))} · {ag.dia_todo ? "dia todo" : ag.inicio.slice(11, 16)}
-                    </div>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
 
           {/* Contratos */}
           <div style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 12, overflow: "hidden" }}>
