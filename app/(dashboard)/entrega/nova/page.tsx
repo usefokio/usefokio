@@ -83,6 +83,7 @@ export default function NovaEntregaPage() {
   const galeriaCriadaIdRef = useRef<string | null>(null);
   const capaEnviadaRef     = useRef(false);
   const [erroPublicar, setErroPublicar] = useState<string | null>(null);
+  const [avisoCapa, setAvisoCapa] = useState<string | null>(null);
 
   const [capaFile,    setCapaFile]    = useState<File | null>(null);
   const [capaPreview, setCapaPreview] = useState<string | null>(null);
@@ -290,16 +291,27 @@ export default function NovaEntregaPage() {
 
       if (!galeriaId) { setSaving(false); return; }
 
-      // Capa: só envia se ainda não subiu com sucesso (com retry).
+      // Capa: só envia se ainda não subiu com sucesso (com retry). Isolada em try/catch
+      // próprio — uma falha aqui NUNCA pode impedir o envio das fotos da fila (enviarFila
+      // abaixo); a galeria fica sem capa por enquanto, mas com as fotos, que é o que importa.
+      // Clicar em "Publicar" de novo tenta a capa outra vez (capaEnviadaRef segue false).
+      setAvisoCapa(null);
+      let capaFalhou = false;
       if (capaFile && !capaEnviadaRef.current) {
-        const processed = await processarImagemEntrega(capaFile, 1920);
-        const capaPath = `entrega/${fotografo.id}/${galeriaId}/capa.jpg`;
-        const { url_publica: capaUrlPublica, storage_path: capaStoragePath } = await comRetry(() =>
-          uploadFileClient(capaPath, processed.blob, "image/jpeg"));
-        await supabase.from("galerias_entrega")
-          .update({ foto_capa_url: capaUrlPublica, foto_capa_storage_path: capaStoragePath })
-          .eq("id", galeriaId);
-        capaEnviadaRef.current = true;
+        try {
+          const processed = await processarImagemEntrega(capaFile, 1920);
+          const capaPath = `entrega/${fotografo.id}/${galeriaId}/capa.jpg`;
+          const { url_publica: capaUrlPublica, storage_path: capaStoragePath } = await comRetry(() =>
+            uploadFileClient(capaPath, processed.blob, "image/jpeg"));
+          await supabase.from("galerias_entrega")
+            .update({ foto_capa_url: capaUrlPublica, foto_capa_storage_path: capaStoragePath })
+            .eq("id", galeriaId);
+          capaEnviadaRef.current = true;
+        } catch (e) {
+          console.error("Erro ao enviar capa:", e);
+          capaFalhou = true;
+          setAvisoCapa('A foto de capa não pôde ser enviada agora, mas a galeria e as fotos serão salvas normalmente. Clique em "Publicar" de novo depois para tentar a capa outra vez.');
+        }
       }
 
       const falhas = await enviarFila(galeriaId);
@@ -309,6 +321,7 @@ export default function NovaEntregaPage() {
         return;
       }
 
+      if (capaFalhou) { setSaving(false); return; }
       router.push(`/entrega/${galeriaId}`);
     } catch (e) {
       console.error("Erro ao publicar galeria:", e);
@@ -323,7 +336,8 @@ export default function NovaEntregaPage() {
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, marginBottom: 10 }}>
           <button
             onClick={() => router.push("/entrega")}
-            style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, color: "var(--color-text-secondary)", padding: 0 }}
+            disabled={saving}
+            style={{ background: "none", border: "none", cursor: saving ? "default" : "pointer", fontSize: 13, color: "var(--color-text-secondary)", padding: 0, opacity: saving ? 0.5 : 1 }}
           >
             ← Voltar
           </button>
@@ -353,6 +367,15 @@ export default function NovaEntregaPage() {
       {erroPublicar && (
         <div style={{ marginBottom: 16, padding: "12px 16px", borderRadius: 10, background: "rgba(239,68,68,0.08)", border: "0.5px solid rgba(239,68,68,0.25)", fontSize: 13, color: "#DC2626", lineHeight: 1.5 }}>
           ⚠️ {erroPublicar}
+        </div>
+      )}
+
+      {avisoCapa && (
+        <div style={{ marginBottom: 16, padding: "12px 16px", borderRadius: 10, background: "rgba(217,119,6,0.08)", border: "0.5px solid rgba(217,119,6,0.25)", fontSize: 13, color: "#B45309", lineHeight: 1.5 }}>
+          ⚠️ {avisoCapa}
+          {galeriaCriadaIdRef.current && (
+            <>{" "}<a href={`/entrega/${galeriaCriadaIdRef.current}`} style={{ color: "#B45309", fontWeight: 700, textDecoration: "underline" }}>Ver galeria</a></>
+          )}
         </div>
       )}
 
@@ -724,11 +747,13 @@ export default function NovaEntregaPage() {
           </button>
           <button
             onClick={() => router.push("/entrega")}
+            disabled={saving}
             style={{
               padding: "10px 18px", borderRadius: 9,
               border: "0.5px solid var(--color-border-secondary)",
               background: "transparent", fontSize: 13,
-              color: "var(--color-text-secondary)", cursor: "pointer",
+              color: "var(--color-text-secondary)", cursor: saving ? "default" : "pointer",
+              opacity: saving ? 0.5 : 1,
             }}
           >
             Cancelar
