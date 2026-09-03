@@ -54,14 +54,13 @@ function GaleriaSelecaoConteudo() {
 
   const [galeria, setGaleria]       = useState<GaleriaSelecao | null>(null);
   const [cliente, setCliente]       = useState<Cliente | null>(null);
-  const [categorias, setCategorias] = useState<Categoria[]>([]);
+  const [categoria, setCategoria] = useState<Categoria | null>(null);
   const [fotos, setFotos]           = useState<FotoComStatus[]>([]);
   const [escolhas, setEscolhas]     = useState<EscolhaItem[]>([]);
   const [eventos, setEventos]       = useState<Evento[]>([]);
   const [loading, setLoading]       = useState(true);
   const tabParam = searchParams.get("tab") as Tab | null;
   const [tab, setTab]               = useState<Tab>(tabParam ?? "fotos");
-  const [catFiltro, setCatFiltro]   = useState<string>("todas");
   const [ordemCampo, setOrdemCampo] = useState<"nome" | "data" | "rating">("data");
   const [ordemDir, setOrdemDir]     = useState<"asc" | "desc">("asc");
   const [enviando, setEnviando]     = useState(0);
@@ -108,13 +107,11 @@ function GaleriaSelecaoConteudo() {
         const [
           { data: gal,  error: eGal },
           fts,
-          { data: cats },
           esc,
           { data: evs },
         ] = await Promise.all([
-          supabase.from("galerias_selecao").select("*").eq("id", id).eq("fotografo_id", fid).single(),
+          supabase.from("galerias_selecao").select("*, categorias(*)").eq("id", id).eq("fotografo_id", fid).single(),
           fetchAllRows<GaleriaSelecaoFoto>((sb, from, to) => sb.from("galerias_selecao_fotos").select("*").eq("galeria_id", id).order("ordem").order("created_at").range(from, to), supabase),
-          supabase.from("galeria_selecao_categorias").select("categorias(*)").eq("galeria_id", id),
           fetchAllRows((sb, from, to) => sb.from("galerias_selecao_escolhas")
             .select("id, foto_id, comentario, created_at, fotos:galerias_selecao_fotos(nome_arquivo, url_publica, thumbnail_path)")
             .eq("galeria_id", id).order("created_at").range(from, to), supabase),
@@ -127,7 +124,7 @@ function GaleriaSelecaoConteudo() {
 
         setGaleria(gal);
         setFotos((fts ?? []) as unknown as FotoComStatus[]);
-        setCategorias(((cats ?? []) as any[]).map((r) => r.categorias).filter(Boolean) as Categoria[]);
+        setCategoria((gal as unknown as { categorias: Categoria | null }).categorias ?? null);
         setEscolhas((esc ?? []) as unknown as EscolhaItem[]);
         setEventos((evs ?? []) as Evento[]);
         if (gal.status === "aguardando_revisao") setTab("selecoes");
@@ -289,7 +286,7 @@ function GaleriaSelecaoConteudo() {
     });
   }, []);
 
-  const fotosFiltradas = [...(catFiltro === "todas" ? fotos : fotos.filter((f) => f.categoria_id === catFiltro))]
+  const fotosFiltradas = [...fotos]
     .sort((a, b) => {
       let cmp = 0;
       if (ordemCampo === "nome")   cmp = (a.nome_arquivo ?? "").localeCompare(b.nome_arquivo ?? "", "pt-BR", { numeric: true });
@@ -301,7 +298,7 @@ function GaleriaSelecaoConteudo() {
   const selecionarTodas = useCallback(() => {
     setSelecionados(new Set(fotosFiltradas.map((f) => f.id)));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fotos, catFiltro]);
+  }, [fotos]);
 
   const handleDeleteLote = useCallback(async () => {
     if (selecionados.size === 0) return;
@@ -561,31 +558,6 @@ function GaleriaSelecaoConteudo() {
             </div>
           )}
 
-          {/* Filtro de categorias */}
-          {categorias.length > 0 && (
-            <div style={{ display: "flex", gap: 6, marginBottom: 14, flexWrap: "wrap" }}>
-              {[{ id: "todas", nome: `Todas (${fotos.length})` }, ...categorias.map((c) => ({
-                id: c.id,
-                nome: `${c.nome} (${fotos.filter((f) => f.categoria_id === c.id).length})`,
-              }))].map((cat) => (
-                <button
-                  key={cat.id}
-                  onClick={() => setCatFiltro(cat.id)}
-                  style={{
-                    padding: "4px 12px", borderRadius: 20, fontSize: 12, cursor: "pointer",
-                    border: "0.5px solid",
-                    borderColor: catFiltro === cat.id ? "var(--color-text-primary)" : "var(--color-border-tertiary)",
-                    background: catFiltro === cat.id ? "var(--color-text-primary)" : "transparent",
-                    color: catFiltro === cat.id ? "var(--color-background-primary)" : "var(--color-text-secondary)",
-                    fontWeight: catFiltro === cat.id ? 600 : 400,
-                  }}
-                >
-                  {cat.nome}
-                </button>
-              ))}
-            </div>
-          )}
-
           {/* Ordenação + botão de seleção múltipla */}
           {fotos.length > 1 && (
             <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 14, flexWrap: "wrap", justifyContent: "space-between" }}>
@@ -667,9 +639,7 @@ function GaleriaSelecaoConteudo() {
           {/* Grid de fotos */}
           {fotosFiltradas.length === 0 ? (
             <div style={{ border: "0.5px dashed var(--color-border-secondary)", borderRadius: 10, padding: "52px 24px", textAlign: "center", fontSize: 13, color: "var(--color-text-secondary)" }}>
-              {fotos.length === 0
-                ? "Nenhuma foto ainda. Arraste ou clique acima para começar o upload."
-                : "Nenhuma foto nesta categoria."}
+              Nenhuma foto ainda. Arraste ou clique acima para começar o upload.
             </div>
           ) : (
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 8 }}>
@@ -753,7 +723,7 @@ function GaleriaSelecaoConteudo() {
         <ConfiguracaoGaleria
           galeria={galeria}
           cliente={cliente}
-          categorias={categorias}
+          categoria={categoria}
           onUpdate={(patch, novoCliente) => {
             setGaleria((g) => g ? { ...g, ...patch } : g);
             setCliente(novoCliente);

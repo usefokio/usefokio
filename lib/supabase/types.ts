@@ -328,6 +328,7 @@ export type GaleriaSelecao = {
   id: string;
   fotografo_id: string;
   cliente_id: string | null;
+  categoria_id: string | null;
   titulo: string;
   descricao: string | null;
   resolucao_exibicao: ResolucaoExibicao;
