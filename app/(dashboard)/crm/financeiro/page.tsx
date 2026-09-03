@@ -50,8 +50,10 @@ type ModalReceber = {
   dataPagamento: string;
   contaId: string;
   contaPlanoId: string;
-  liquido: string;        // valor recebido (líquido) — só usado no recebimento
-  contaDespesaId: string; // conta de despesa onde a taxa (bruto−líquido) é lançada
+  liquido: string;          // valor recebido (líquido) — só usado no recebimento
+  contaDespesaId: string;   // conta de despesa onde a taxa (bruto−líquido) é lançada
+  pagamentoParcial: boolean;  // true = a diferença vira nova parcela pendente, não despesa
+  vencimentoRestante: string; // vencimento da parcela do valor restante, quando parcial
 };
 
 type ModalEditar = {
@@ -303,6 +305,8 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
       contaPlanoId: e.conta_id ?? "",
       liquido: e.valor.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
       contaDespesaId: "",
+      pagamentoParcial: false,
+      vencimentoRestante: hoje,
     });
     setErroPagamento("");
   };
@@ -320,25 +324,31 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
       setErroPagamento("Data de pagamento inválida.");
       return;
     }
-    const { entry, dataPagamento, contaId, contaPlanoId, liquido, contaDespesaId } = modalReceber;
-    // Taxa no recebimento: a diferença entre o valor bruto e o líquido recebido vira uma despesa vinculada.
+    const { entry, dataPagamento, contaId, contaPlanoId, liquido, contaDespesaId, pagamentoParcial, vencimentoRestante } = modalReceber;
+    // Diferença entre o valor bruto e o líquido recebido: vira despesa (taxa/tarifa) OU, se marcado
+    // "pagamento parcial", vira uma nova parcela pendente com o valor restante.
     const ehReceber = aba === "receber";
     const bruto = entry.valor;
     const liq = ehReceber ? parsearValor(liquido) : bruto;
-    const taxa = Math.round((bruto - liq) * 100) / 100;
+    const diferenca = Math.round((bruto - liq) * 100) / 100;
+    const ehParcial = ehReceber && pagamentoParcial && diferenca > 0;
+    const taxa = ehParcial ? 0 : diferenca;
     if (ehReceber) {
       if (liq <= 0) { setErroPagamento("Informe o valor líquido recebido."); return; }
-      if (taxa < 0) { setErroPagamento("O valor líquido não pode ser maior que o valor da conta."); return; }
+      if (diferenca < 0) { setErroPagamento("O valor líquido não pode ser maior que o valor da conta."); return; }
+      if (ehParcial && !isValidDate(vencimentoRestante)) { setErroPagamento("Informe o vencimento do valor restante."); return; }
       if (taxa > 0 && !contaDespesaId) { setErroPagamento("Selecione a conta de despesa para lançar a taxa."); return; }
     }
     setSalvandoPag(true);
     setErroPagamento("");
     const grupo = taxa > 0 ? (entry.recibo_grupo_id ?? crypto.randomUUID()) : null;
-    const updates: Record<string, string | null> = {
+    const updates: Record<string, string | number | null> = {
       status: "pago",
       pago_em: dataPagamento,
       conta_bancaria_id: contaId || null,
     };
+    // Pagamento parcial: a própria parcela é reduzida ao valor efetivamente recebido.
+    if (ehParcial) updates.valor = liq;
     if (contaPlanoId && contaPlanoId !== entry.conta_id) updates.conta_id = contaPlanoId;
     if (grupo) updates.recibo_grupo_id = grupo;
     const sb = createClient();
@@ -367,12 +377,28 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
       });
       if (errTaxa) { setSalvandoPag(false); setErroPagamento(`Recebimento salvo, mas o lançamento da taxa falhou: ${errTaxa.message}`); return; }
     }
+    // Pagamento parcial: o restante vira uma nova parcela "a receber", vinculada ao mesmo pedido/cliente.
+    if (ehParcial) {
+      const { error: errResto } = await sb.from("crm_financial_entries").insert({
+        fotografo_id: fotografo!.id,
+        tipo: "receita",
+        descricao: `${entry.descricao} (restante)`,
+        valor: diferenca,
+        vencimento: vencimentoRestante,
+        status: "pendente",
+        conta_id: contaPlanoId || entry.conta_id || null,
+        cliente_id: entry.cliente_id ?? null,
+        pedido_id: entry.pedido_id ?? null,
+        forma_pagamento: entry.forma_pagamento ?? null,
+      });
+      if (errResto) { setSalvandoPag(false); setErroPagamento(`Recebimento salvo, mas a parcela do valor restante falhou: ${errResto.message}`); return; }
+    }
     // Pedido "Em aberto" com 1ª receita paga → vira "Concluído" automaticamente.
     if (entry.tipo === "receita") await promoverPedidosPagos(sb, [entry.pedido_id]);
     setSalvandoPag(false);
     const contaNome = contas.find(c => c.id === contaId)?.nome ?? "Conta";
     setModalReceber(null);
-    setModalConfirmacao({ entry, contaNome, dataPagamento });
+    setModalConfirmacao({ entry: ehParcial ? { ...entry, valor: liq } : entry, contaNome, dataPagamento });
     carregar();
   };
 
@@ -912,14 +938,15 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
               </div>
             )}
 
-            {/* Taxa/tarifa no recebimento: a diferença bruto−líquido vira uma despesa */}
+            {/* Valor recebido: se menor que o bruto, a diferença vira despesa (taxa) OU, se marcado
+                "pagamento parcial", vira uma nova parcela pendente com o valor restante. */}
             {aba === "receber" && (() => {
               const bruto = modalReceber.entry.valor;
-              const taxa = Math.round((bruto - parsearValor(modalReceber.liquido)) * 100) / 100;
+              const diferenca = Math.round((bruto - parsearValor(modalReceber.liquido)) * 100) / 100;
               return (
                 <div style={{ marginBottom: 18 }}>
                   <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>
-                    Valor recebido (líquido)
+                    Valor recebido
                   </div>
                   <input
                     value={modalReceber.liquido}
@@ -928,19 +955,47 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
                     style={{ padding: "9px 12px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", fontSize: 13, color: "var(--color-text-primary)", outline: "none", width: "100%", boxSizing: "border-box" }}
                   />
                   <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 6 }}>
-                    Bruto {fmt(bruto)}. Deixe igual ao bruto se não houve taxa; abaixo dele, a diferença vira despesa (ex.: tarifa de cartão).
+                    Valor da parcela: {fmt(bruto)}. Deixe igual se recebeu tudo.
                   </div>
-                  {taxa > 0 && (
+                  {diferenca > 0 && (
                     <div style={{ marginTop: 12 }}>
-                      <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>
-                        Lançar a taxa de {fmt(taxa)} em (despesa) *
-                      </div>
-                      <ComboSelect
-                        options={chartAccounts.filter(c => c.codigo.startsWith("4") || c.codigo.startsWith("5")).map(c => ({ id: c.id, label: `${c.codigo} — ${c.nome}` }))}
-                        value={modalReceber.contaDespesaId}
-                        onChange={v => setModalReceber(m => m ? { ...m, contaDespesaId: v } : m)}
-                        placeholder="Selecione a conta de despesa…"
-                      />
+                      <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", marginBottom: 10 }}>
+                        <input
+                          type="checkbox"
+                          checked={modalReceber.pagamentoParcial}
+                          onChange={e => setModalReceber(m => m ? { ...m, pagamentoParcial: e.target.checked } : m)}
+                          style={{ width: 16, height: 16, accentColor: "#2563EB" }}
+                        />
+                        <span style={{ fontSize: 12, fontWeight: 600, color: "var(--color-text-primary)" }}>
+                          Pagamento parcial — os {fmt(diferenca)} restantes ficam pendentes
+                        </span>
+                      </label>
+
+                      {modalReceber.pagamentoParcial ? (
+                        <div>
+                          <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>
+                            Vencimento do restante ({fmt(diferenca)}) *
+                          </div>
+                          <input
+                            type="date"
+                            value={modalReceber.vencimentoRestante}
+                            onChange={e => setModalReceber(m => m ? { ...m, vencimentoRestante: e.target.value } : m)}
+                            style={{ padding: "9px 12px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", fontSize: 13, color: "var(--color-text-primary)", outline: "none", width: "100%", boxSizing: "border-box" }}
+                          />
+                        </div>
+                      ) : (
+                        <div>
+                          <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>
+                            Lançar a diferença de {fmt(diferenca)} em (despesa) *
+                          </div>
+                          <ComboSelect
+                            options={chartAccounts.filter(c => c.codigo.startsWith("4") || c.codigo.startsWith("5")).map(c => ({ id: c.id, label: `${c.codigo} — ${c.nome}` }))}
+                            value={modalReceber.contaDespesaId}
+                            onChange={v => setModalReceber(m => m ? { ...m, contaDespesaId: v } : m)}
+                            placeholder="Selecione a conta de despesa…"
+                          />
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
