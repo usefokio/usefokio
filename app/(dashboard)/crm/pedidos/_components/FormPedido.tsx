@@ -320,7 +320,8 @@ export default function FormPedido({ inicial, onSalvo, onCancelar }: Props) {
   const extras     = parseMoney(form.other_expenses);
   const liquido    = totalNum - desconto + extras;
   const totalPlanos = planos.reduce((s, p) => s + (parseFloat(p.valor) || 0), 0);
-  const valorRestante = liquido - totalPlanos;
+  const totalPago = parcelasPagas.reduce((s, p) => s + p.valor, 0);
+  const valorRestante = liquido - totalPago - totalPlanos;
 
   // ── Itens (produtos) ────────────────────────────────────────────────────────
   const abrirModalProduto = (prod: CrmProduct) => {
@@ -1083,6 +1084,12 @@ export default function FormPedido({ inicial, onSalvo, onCancelar }: Props) {
                 <div style={{ fontSize: 11, color: "var(--color-text-secondary)" }}>Total</div>
                 <div style={{ fontSize: 14, fontWeight: 700, color: "var(--color-text-primary)" }}>{fmt(totalPlanos)}</div>
               </div>
+              {parcelasPagas.length > 0 && (
+                <div style={{ textAlign: "right" }}>
+                  <div style={{ fontSize: 11, color: "var(--color-text-secondary)" }}>Já Pago</div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: "#059669" }}>{fmt(totalPago)}</div>
+                </div>
+              )}
               <div style={{ textAlign: "right" }}>
                 <div style={{ fontSize: 11, color: "var(--color-text-secondary)" }}>Valor Restante</div>
                 <div style={{ fontSize: 14, fontWeight: 700, color: valorRestante > 0.01 ? "#D97706" : "#059669" }}>{fmt(Math.max(0, valorRestante))}</div>
