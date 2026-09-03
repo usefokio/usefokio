@@ -4,7 +4,7 @@
 
 SaaS para fotógrafos. Este repositório é o projeto Next.js principal (`usefokio`), branch **master** (produção ativa em usefokio.com.br). **Produção com dados reais — não editar nem deployar direto em produção.** Hoje só o Fernando usa o sistema (contas `fernandoagrela` + `estudio136`, ambas dele); ainda não há outros fotógrafos ativos.
 
-**Fluxo de trabalho (atual):** desenvolver **localmente** contra o banco de DEV, na branch `desenvolvimento` → testar em **localhost:3001** → **commitar e PARAR**. Deploy = **merge/push na `master`**, e o **Railway** faz o deploy automático do push. **A Vercel foi REMOVIDA (15/07/2026)** — não há mais Preview URL; os crons rodam no **GitHub Actions**. **Produção só quando o Fernando pedir** (deploys em lote, não a cada commit). Migração de schema: aplicar no dev e, na prod, só no dia do deploy com o OK dele.
+**Fluxo de trabalho (atual — regra vigente desde 2026-08-07):** desenvolver **localmente** contra o banco de DEV, na branch `desenvolvimento` → `npx tsc --noEmit` limpo → commitar → **merge `--no-ff` + push direto na `master`** sem pedir OK a cada vez — o **Railway** faz o deploy automático do push, e depois sincronizar `desenvolvimento` de volta. **A Vercel foi REMOVIDA (15/07/2026)** — não há mais Preview URL; os crons rodam no **GitHub Actions**. Migração de schema: aplicar no dev, testar, e aplicar direto na prod também sem pedir OK a cada vez (ver seção de migrações abaixo). **Exceção**: algo que o Fernando marcar explicitamente como congelado/pausado fica isolado em `desenvolvimento`, fora do merge, até ele liberar.
 
 ## Como rodar localmente
 
@@ -101,8 +101,8 @@ Dados copiados da produção (fotógrafo `contato@fernandoagrelafotografia.com.b
 - Sem comentários desnecessários no código
 - Sem login/auth em dev — qualquer chamada ao Supabase Auth deve ser protegida por `if (process.env.NODE_ENV === "development") return`
 - Commits em português no estilo `feat(crm): descrição`
-- Desenvolver em **branch**, testar local (dev DB), e deployar **em lote** via merge em `master` — não push direto a cada mudança
-- **Schema do banco:** mudanças via arquivo SQL em `supabase/migrations/`, aplicadas **primeiro no DEV**, testadas, e só então na PROD (fim de migration direto em produção)
+- Desenvolver em `desenvolvimento` contra o banco de DEV, `tsc` limpo, e mergear/pushar **direto na `master`** a cada correção pronta — não acumular lote (regra vigente desde 2026-08-07)
+- **Schema do banco:** mudanças via arquivo SQL em `supabase/migrations/`, aplicadas **primeiro no DEV**, testadas, e em seguida direto na PROD também
 
 ---
 
