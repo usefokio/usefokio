@@ -57,16 +57,7 @@ export async function processarImagem(
         altura  = Math.round(oh * ratio);
       }
 
-      // Canvas principal
-      const canvas = document.createElement("canvas");
-      canvas.width  = largura;
-      canvas.height = altura;
-      const ctx = canvas.getContext("2d")!;
-      ctx.imageSmoothingEnabled  = true;
-      ctx.imageSmoothingQuality  = "high";
-      ctx.drawImage(img, 0, 0, largura, altura);
-
-      // Canvas thumbnail (400px no lado longo)
+      // Canvas thumbnail (400px no lado longo) — sempre gerado, independe do principal
       const thumbMax   = 400;
       const thumbRatio = Math.min(thumbMax / largura, thumbMax / altura, 1);
       const thumbW     = Math.round(largura * thumbRatio);
@@ -78,12 +69,34 @@ export async function processarImagem(
       tCtx.imageSmoothingEnabled = true;
       tCtx.imageSmoothingQuality = "high";
       tCtx.drawImage(img, 0, 0, thumbW, thumbH);
+      const thumbnail = await canvasToBlob(thumbCanvas, "image/jpeg", 0.75);
 
-      // Converte canvas → blob
-      const [blobSemExif, thumbnail] = await Promise.all([
-        canvasToBlob(canvas, "image/jpeg", qualidade),
-        canvasToBlob(thumbCanvas, "image/jpeg", 0.75),
-      ]);
+      // Já cabe no limite e já é JPEG → usa o arquivo original sem recomprimir. Evita um
+      // recodifica-e-reinjeta-EXIF desnecessário (que perde tags que o piexif não preserva,
+      // como o rating nativo 0x4746) numa foto que não precisa mudar de tamanho nem de formato.
+      const ehJpeg = file.type === "image/jpeg" || file.type === "image/jpg";
+      if (ladoLongo <= maxPx && ehJpeg) {
+        resolve({
+          blob: file,
+          thumbnail,
+          largura,
+          altura,
+          tamanho_bytes: file.size,
+          resolucao,
+          nome_arquivo: file.name,
+        });
+        return;
+      }
+
+      // Canvas principal
+      const canvas = document.createElement("canvas");
+      canvas.width  = largura;
+      canvas.height = altura;
+      const ctx = canvas.getContext("2d")!;
+      ctx.imageSmoothingEnabled  = true;
+      ctx.imageSmoothingQuality  = "high";
+      ctx.drawImage(img, 0, 0, largura, altura);
+      const blobSemExif = await canvasToBlob(canvas, "image/jpeg", qualidade);
 
       // Reinjeta EXIF original no blob principal (preserva copyright, autor, câmera…)
       const originalDataUrl = await fileToDataUrl(file);
