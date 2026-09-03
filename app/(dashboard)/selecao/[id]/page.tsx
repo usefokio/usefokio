@@ -196,7 +196,10 @@ function GaleriaSelecaoConteudo() {
         setP(5);
         let rating = 0;
         try {
-          const exif = await exifr.parse(file, { xmp: true, tiff: false, exif: false, gps: false, interop: false });
+          // Rating pode estar em dois lugares diferentes: tag EXIF/TIFF nativa 0x4746 (a que o
+          // Explorador do Windows e várias câmeras/apps usam) ou em XMP:Rating (Lightroom/Bridge).
+          // tiff:true é necessário para pegar a primeira -- xmp:true sozinho não enxerga essa tag.
+          const exif = await exifr.parse(file, { xmp: true, tiff: true, exif: false, gps: false, interop: false });
           const raw = exif?.Rating ?? exif?.rating ?? 0;
           rating = Math.min(5, Math.max(0, Number(raw) || 0));
         } catch { /* sem EXIF */ }
