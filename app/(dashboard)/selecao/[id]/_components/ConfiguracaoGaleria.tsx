@@ -6,12 +6,12 @@ import { ClienteSelect } from "@/components/ui/ClienteSelect";
 import type { GaleriaSelecao, Cliente, Categoria } from "@/lib/supabase/types";
 
 export function ConfiguracaoGaleria({
-  galeria, cliente, categorias, onUpdate,
+  galeria, cliente, categoria, onUpdate,
 }: {
-  galeria:    GaleriaSelecao;
-  cliente:    Cliente | null;
-  categorias: Categoria[];
-  onUpdate:   (patch: Partial<GaleriaSelecao>, novoCliente: Cliente | null) => void;
+  galeria:  GaleriaSelecao;
+  cliente:  Cliente | null;
+  categoria: Categoria | null;
+  onUpdate: (patch: Partial<GaleriaSelecao>, novoCliente: Cliente | null) => void;
 }) {
   const [titulo,        setTitulo]        = useState(galeria.titulo);
   const [descricao,     setDescricao]     = useState(galeria.descricao ?? "");
@@ -178,7 +178,7 @@ export function ConfiguracaoGaleria({
       {/* Info somente leitura */}
       <div style={{ background: "var(--color-background-secondary)", borderRadius: 8, padding: "10px 14px", fontSize: 12, color: "var(--color-text-secondary)", marginBottom: 20 }}>
         Resolução: <strong>{galeria.resolucao_exibicao === "fullhd" ? "Full HD" : galeria.resolucao_exibicao.toUpperCase()}</strong>
-        {categorias.length > 0 && <> · Categorias: <strong>{categorias.map((c) => c.nome).join(", ")}</strong></>}
+        {categoria && <> · Categoria: <strong>{categoria.nome}</strong></>}
         {" · "}Criada em <strong>{new Date(galeria.created_at).toLocaleDateString("pt-BR")}</strong>
       </div>
 

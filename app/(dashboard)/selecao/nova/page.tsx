@@ -23,80 +23,6 @@ type ArquivoFila = {
   erro?:      string;
 };
 
-// ─── Seletor de categorias ────────────────────────────────────────────────────
-function CategoriaSelector({ fotografoId, selecionadas, onChange }: { fotografoId: string; selecionadas: string[]; onChange: (ids: string[]) => void }) {
-  const [lista, setLista]       = useState<Categoria[]>([]);
-  const [novoNome, setNovoNome] = useState("");
-  const [criando, setCriando]   = useState(false);
-  const [open, setOpen]         = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    async function load() {
-      const supabase = createClient();
-      const { data } = await supabase.from("categorias").select("*").eq("fotografo_id", fotografoId).order("ordem").order("created_at");
-      setLista(data ?? []);
-    }
-    load();
-  }, [fotografoId]);
-
-  useEffect(() => {
-    function handleClick(e: MouseEvent) { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); }
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, []);
-
-  async function criarCategoria() {
-    const nome = novoNome.trim();
-    if (!nome) return;
-    setCriando(true);
-    const supabase = createClient();
-    const { data } = await supabase.from("categorias").insert({ fotografo_id: fotografoId, nome, ordem: lista.length }).select().single();
-    if (data) { setLista((l) => [...l, data]); onChange([...selecionadas, data.id]); }
-    setNovoNome(""); setCriando(false);
-  }
-
-  const toggle = (id: string) => onChange(selecionadas.includes(id) ? selecionadas.filter((s) => s !== id) : [...selecionadas, id]);
-  const nomesSel = lista.filter((c) => selecionadas.includes(c.id)).map((c) => c.nome);
-
-  return (
-    <div ref={ref} style={{ position: "relative" }}>
-      <div onClick={() => setOpen((o) => !o)} style={{ ...inputStyle, cursor: "pointer", display: "flex", alignItems: "center", flexWrap: "wrap", gap: 5, minHeight: 40, userSelect: "none" }}>
-        {nomesSel.length === 0 ? <span style={{ color: "var(--color-text-secondary)", fontSize: 13 }}>Selecione ou crie categorias…</span>
-          : nomesSel.map((nome) => <span key={nome} style={{ background: "rgba(37,99,235,0.1)", color: "#2563EB", borderRadius: 5, padding: "2px 8px", fontSize: 12, fontWeight: 500 }}>{nome}</span>)}
-        <span style={{ marginLeft: "auto", fontSize: 11, opacity: 0.4, flexShrink: 0 }}>▾</span>
-      </div>
-      {open && (
-        <div style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, zIndex: 50, background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-secondary)", borderRadius: 9, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", overflow: "hidden" }}>
-          <div style={{ maxHeight: 200, overflowY: "auto" }}>
-            {lista.length === 0
-              ? <div style={{ padding: "12px 14px", fontSize: 12, color: "var(--color-text-secondary)" }}>Nenhuma categoria criada ainda — crie abaixo!</div>
-              : lista.map((cat) => {
-                const sel = selecionadas.includes(cat.id);
-                return (
-                  <div key={cat.id} onClick={() => toggle(cat.id)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 14px", cursor: "pointer", background: sel ? "rgba(37,99,235,0.05)" : "transparent", fontSize: 13, color: "var(--color-text-primary)" }}
-                    onMouseEnter={(e) => { if (!sel) e.currentTarget.style.background = "var(--color-background-secondary)"; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.background = sel ? "rgba(37,99,235,0.05)" : "transparent"; }}>
-                    <div style={{ width: 16, height: 16, borderRadius: 4, flexShrink: 0, border: sel ? "none" : "1.5px solid var(--color-border-secondary)", background: sel ? "#2563EB" : "transparent", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      {sel && <span style={{ color: "#fff", fontSize: 10, fontWeight: 700 }}>✓</span>}
-                    </div>
-                    {cat.nome}
-                  </div>
-                );
-              })}
-          </div>
-          <div style={{ borderTop: "0.5px solid var(--color-border-tertiary)", padding: "10px 14px", display: "flex", gap: 8 }}>
-            <input value={novoNome} onChange={(e) => setNovoNome(e.target.value)} onKeyDown={(e) => { e.stopPropagation(); if (e.key === "Enter") criarCategoria(); }} placeholder="Nova categoria…" style={{ ...inputStyle, flex: 1, padding: "6px 10px", fontSize: 12 }} />
-            <button onClick={criarCategoria} disabled={criando || !novoNome.trim()} style={{ padding: "6px 14px", borderRadius: 7, background: !novoNome.trim() ? "var(--color-background-secondary)" : "#2563EB", color: !novoNome.trim() ? "var(--color-text-secondary)" : "#fff", border: "none", fontSize: 12, fontWeight: 600, cursor: !novoNome.trim() ? "default" : "pointer", whiteSpace: "nowrap" }}>
-              {criando ? "…" : "+ Criar"}
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function addMonths(n: number): string {
   const d = new Date(); d.setMonth(d.getMonth() + n); return d.toISOString().split("T")[0];
@@ -124,7 +50,8 @@ function NovaSelecaoConteudo() {
 
   // Campos do formulário
   const [titulo, setTitulo]         = useState("");
-  const [categorias, setCategorias] = useState<string[]>([]);
+  const [categoriaId, setCategoriaId] = useState("");
+  const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [clienteId, setClienteId]   = useState(params.get("cliente") ?? "");
   const [dataEvento, setDataEvento] = useState(new Date().toISOString().split("T")[0]);
   const [prazo, setPrazo]           = useState("");
@@ -156,9 +83,11 @@ function NovaSelecaoConteudo() {
     async function load() {
       if (!fotografo) return;
       const supabase = createClient();
-      const [{ data: cfg }] = await Promise.all([
+      const [{ data: cfg }, { data: cats }] = await Promise.all([
         supabase.from("config_venda_fotos").select("*").eq("fotografo_id", fotografo.id).maybeSingle(),
+        supabase.from("categorias").select("*").eq("fotografo_id", fotografo.id).order("ordem").order("created_at"),
       ]);
+      setCategorias(cats ?? []);
 
       // Pré-preencher configurações padrão de venda
       if (cfg) {
@@ -171,7 +100,7 @@ function NovaSelecaoConteudo() {
   }, [fotografo]);
 
   // Há dados que seriam perdidos ao sair? (formulário preenchido ou fotos na fila, antes de criar)
-  const temAlteracoes = !galeriaId && (titulo.trim() !== "" || fila.length > 0 || categorias.length > 0);
+  const temAlteracoes = !galeriaId && (titulo.trim() !== "" || fila.length > 0 || categoriaId !== "");
 
   // Guarda de navegação: intercepta links internos e fechar aba
   const { modalAberto: modalSair, setModalAberto: setModalSair, pedirSaida, irParaDestino } = useUnsavedGuard(temAlteracoes);
@@ -222,15 +151,11 @@ function NovaSelecaoConteudo() {
       data_evento: dataEvento || null,
       expira_em: prazo ? new Date(prazo + "T23:59:59").toISOString() : null,
       marca_dagua: marcaDagua,
+      categoria_id: categoriaId || null,
       status,
     }).select().single();
 
     if (err) { setError(err.message); setSaving(false); return; }
-
-    // Categorias
-    if (categorias.length > 0) {
-      await supabase.from("galeria_selecao_categorias").insert(categorias.map((cat_id) => ({ galeria_id: data.id, categoria_id: cat_id })));
-    }
 
     // Se não tem fotos em fila → vai direto
     if (fila.length === 0) { router.push(`/selecao/${data.id}`); return; }
@@ -427,13 +352,14 @@ function NovaSelecaoConteudo() {
               <input value={titulo} onChange={(e) => setTitulo(e.target.value)} placeholder="Ex: Casamento Ana & Pedro" style={inputStyle} autoFocus />
             </Field>
 
-            <Field label="Categorias de fotos" tooltip="Organizam as fotos em grupos para o cliente navegar com mais facilidade. Ex: Cerimônia, Festa, Detalhes.">
-              {fotografo && <CategoriaSelector fotografoId={fotografo.id} selecionadas={categorias} onChange={setCategorias} />}
-              <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: "5px 0 0" }}>
-                Organizam as fotos para o cliente. Crie novas diretamente aqui ou em{" "}
-                <a href="/config" target="_blank" style={{ color: "#2563EB" }}>Configurações</a>.
-              </p>
-            </Field>
+            {categorias.length > 0 && (
+              <Field label="Categoria" tooltip="Categoria do trabalho — mesma usada em Pedidos e Entrega.">
+                <select value={categoriaId} onChange={(e) => setCategoriaId(e.target.value)} style={inputStyle}>
+                  <option value="">— Sem categoria —</option>
+                  {categorias.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
+                </select>
+              </Field>
+            )}
 
             <Field label="Cliente" tooltip="Vincule esta galeria a um cliente cadastrado para facilitar o controle. O cliente receberá o link por e-mail se configurado.">
               <ClienteSelect value={clienteId} onChange={(id) => setClienteId(id)} />
