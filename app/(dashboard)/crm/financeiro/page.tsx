@@ -114,6 +114,10 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
   const [copiado,          setCopiado]          = useState(false);
   const [drillEntry,       setDrillEntry]       = useState<EntryWithPedido | null>(null);
   const [chartAccounts,    setChartAccounts]    = useState<ChartAccount[]>([]);
+  // Todas as versões do plano de contas por id (sistema + cópia do fotógrafo, mesmo código) —
+  // usado só pra resolver/exibir o conta_id de uma entry, já que `chartAccounts` acima é
+  // deduplicado por código (só 1 versão vira opção no ComboSelect).
+  const [contasPorId,      setContasPorId]      = useState<Record<string, ChartAccount>>({});
 
   // Modal novo lançamento
   const [showNovo,        setShowNovo]        = useState(false);
@@ -199,15 +203,28 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
       .eq("ativo", true)
       .order("codigo")
       .then(({ data }) => {
+        const todas = (data ?? []) as ChartAccount[];
+        const porId: Record<string, ChartAccount> = {};
+        for (const c of todas) porId[c.id] = c;
+        setContasPorId(porId);
         const seen = new Set<string>();
-        const unique = (data ?? []).filter(c => {
+        const unique = todas.filter(c => {
           if (seen.has(c.codigo)) return false;
           seen.add(c.codigo);
           return true;
         });
-        setChartAccounts(unique as ChartAccount[]);
+        setChartAccounts(unique);
       });
   }, [fotografo]);
+
+  // Uma entry pode ter conta_id apontando pra qualquer uma das 2 versões (sistema/fotógrafo) do
+  // mesmo código — resolve pra id que o ComboSelect (lista deduplicada) realmente reconhece.
+  const contaCanonica = useCallback((id: string | null | undefined): string => {
+    if (!id) return "";
+    const codigo = contasPorId[id]?.codigo;
+    if (!codigo) return id;
+    return chartAccounts.find(c => c.codigo === codigo)?.id ?? id;
+  }, [contasPorId, chartAccounts]);
 
   const meses = [...new Set(entries.map(e => e.vencimento.slice(0, 7)))].sort();
 
@@ -293,7 +310,7 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
   };
 
   const abrirEditar = async (e: EntryWithPedido) => {
-    setModalEditar({ entry: e, descricao: e.descricao, valor: e.valor.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }), vencimento: e.vencimento, contaPlanoId: e.conta_id ?? "", clienteId: e.cliente_id ?? "" });
+    setModalEditar({ entry: e, descricao: e.descricao, valor: e.valor.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }), vencimento: e.vencimento, contaPlanoId: contaCanonica(e.conta_id), clienteId: e.cliente_id ?? "" });
   };
 
   // Abrir modal de receber/pagar
@@ -302,7 +319,7 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
       entry: e,
       dataPagamento: hoje,
       contaId: contas.find(c => c.principal)?.id ?? (contas.length === 1 ? contas[0].id : ""),
-      contaPlanoId: e.conta_id ?? "",
+      contaPlanoId: contaCanonica(e.conta_id),
       liquido: e.valor.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
       contaDespesaId: "",
       pagamentoParcial: false,
@@ -1409,8 +1426,8 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
         const corDrill = (aba === "receber" || aba === "recebidas") ? "#059669" : "#EF4444";
         const clienteNome = e.crm_orders?.clientes?.nome ?? e.clientes?.nome ?? null;
         const contaBancNome = contas.find(c => c.id === e.conta_bancaria_id)?.nome ?? null;
-        const contaPlanoNome = chartAccounts.find(c => c.id === e.conta_id)?.nome ?? null;
-        const contaPlanoCode = chartAccounts.find(c => c.id === e.conta_id)?.codigo ?? null;
+        const contaPlanoNome = (e.conta_id && contasPorId[e.conta_id]?.nome) ?? null;
+        const contaPlanoCode = (e.conta_id && contasPorId[e.conta_id]?.codigo) ?? null;
         const statusInfo = STATUS_MAP[e.status] ?? STATUS_MAP["pendente"];
         const parcelasIrmas = e.pedido_id
           ? entries.filter(x => x.pedido_id === e.pedido_id && x.id !== e.id).sort((a, b) => a.vencimento.localeCompare(b.vencimento))
