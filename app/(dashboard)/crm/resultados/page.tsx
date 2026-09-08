@@ -7,7 +7,7 @@ import { useFotografo } from "@/lib/context/FotografoContext";
 import { GraficoPanorama } from "./_components/GraficoPanorama";
 import { GraficoMensal } from "./_components/GraficoMensal";
 import { useWindowWidth, TABLET } from "@/lib/hooks/useWindowWidth";
-import { carregarDreAnual, panoramaPorAno, indexarContasDRE, classificarPedidoNativo, completarContasOrfas, CONTA_NAO_CLASSIFICADA, type ItemPedidoDRE } from "@/lib/crm/dreAnual";
+import { carregarDreAnual, panoramaPorAno, indexarContasDRE, classificarPedidoNativo, completarContasOrfas, CONTA_NAO_CLASSIFICADA, CORTE_DRE_COMPETENCIA, type ItemPedidoDRE } from "@/lib/crm/dreAnual";
 
 type Conta = { id: string; codigo: string; nome: string };
 type Regime = "competencia" | "caixa";
@@ -76,8 +76,27 @@ export default function ResultadosPage() {
       .order("codigo")
       .order("fotografo_id", { nullsFirst: false });
 
-    type DespRow = { conta_id: string; valor: number; pago_em?: string; vencimento?: string };
+    type DespRow = { conta_id: string; valor: number; status?: string; pago_em?: string; vencimento?: string };
     type RecRow  = { conta_id: string; valor: number; pago_em?: string; vencimento?: string };
+
+    // Competência com DRE, a partir do corte (ver CORTE_DRE_COMPETENCIA em dreAnual.ts):
+    // soma TODO lançamento por vencimento, sem filtrar por DRE — antes do corte nada muda.
+    // Só dispara quando faz falta (competência + temDRE) — nos outros casos nem chama o banco.
+    const precisaPosCorte = regime === "competencia" && temDRELocal;
+    const pDespesasPosCorte = precisaPosCorte
+      ? fetchAllRows<DespRow>((sbc, f, t) => sbc.from("crm_financial_entries")
+          .select("conta_id, valor, status, vencimento")
+          .eq("fotografo_id", fid).eq("tipo", "despesa")
+          .neq("internal_account_type", "transferencia")
+          .gte("vencimento", CORTE_DRE_COMPETENCIA).lte("vencimento", `${ano}-12-31`).range(f, t), sb)
+      : Promise.resolve([] as DespRow[]);
+    const pReceitasPosCorte = precisaPosCorte
+      ? fetchAllRows<RecRow>((sbc, f, t) => sbc.from("crm_financial_entries")
+          .select("conta_id, valor, vencimento")
+          .eq("fotografo_id", fid).eq("tipo", "receita")
+          .neq("internal_account_type", "transferencia")
+          .gte("vencimento", CORTE_DRE_COMPETENCIA).lte("vencimento", `${ano}-12-31`).range(f, t), sb)
+      : Promise.resolve([] as RecRow[]);
 
     const pDespesas = regime === "caixa"
       ? fetchAllRows<DespRow>((sbc, f, t) => sbc.from("crm_financial_entries")
@@ -87,10 +106,13 @@ export default function ResultadosPage() {
           .neq("internal_account_type", "transferencia")
           .gte("pago_em", `${ano}-01-01`).lte("pago_em", `${ano}-12-31`).range(f, t), sb)
       : temDRELocal
-        ? fetchAllRows<DespRow>((sbc, f, t) => sbc.from("crm_financial_entries")
-            .select("conta_id, valor, vencimento, pago_em")
-            .eq("fotografo_id", fid).eq("tipo", "despesa").eq("num_documento", "DRE")
-            .gte("vencimento", `${ano}-01-01`).lte("vencimento", `${ano}-12-31`).range(f, t), sb)
+        ? Promise.all([
+            fetchAllRows<DespRow>((sbc, f, t) => sbc.from("crm_financial_entries")
+              .select("conta_id, valor, vencimento, pago_em")
+              .eq("fotografo_id", fid).eq("tipo", "despesa").eq("num_documento", "DRE")
+              .gte("vencimento", `${ano}-01-01`).lt("vencimento", CORTE_DRE_COMPETENCIA).range(f, t), sb),
+            pDespesasPosCorte,
+          ]).then(([dre, posCorte]) => [...dre, ...posCorte.filter(e => e.status === "pago")])
         : fetchAllRows<DespRow>((sbc, f, t) => sbc.from("crm_financial_entries")
             .select("conta_id, valor, vencimento, pago_em")
             .eq("fotografo_id", fid).eq("tipo", "despesa").eq("status", "pago")
@@ -106,10 +128,13 @@ export default function ResultadosPage() {
           .neq("internal_account_type", "transferencia")
           .gte("pago_em", `${ano}-01-01`).lte("pago_em", `${ano}-12-31`).range(f, t), sb)
       : temDRELocal
-        ? fetchAllRows<RecRow>((sbc, f, t) => sbc.from("crm_financial_entries")
-            .select("conta_id, valor, vencimento")
-            .eq("fotografo_id", fid).eq("tipo", "receita").eq("num_documento", "DRE")
-            .gte("vencimento", `${ano}-01-01`).lte("vencimento", `${ano}-12-31`).range(f, t), sb)
+        ? Promise.all([
+            fetchAllRows<RecRow>((sbc, f, t) => sbc.from("crm_financial_entries")
+              .select("conta_id, valor, vencimento")
+              .eq("fotografo_id", fid).eq("tipo", "receita").eq("num_documento", "DRE")
+              .gte("vencimento", `${ano}-01-01`).lt("vencimento", CORTE_DRE_COMPETENCIA).range(f, t), sb),
+            pReceitasPosCorte,
+          ]).then(([dre, posCorte]) => [...dre, ...posCorte])
         : fetchAllRows<RecRow>((sbc, f, t) => sbc.from("crm_financial_entries")
             .select("conta_id, valor, vencimento")
             .eq("fotografo_id", fid).eq("tipo", "receita")
@@ -120,16 +145,16 @@ export default function ResultadosPage() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let qOrders: any;
     if (regime === "competencia") {
-      // Com DRE: pedidos crm_nativo entram POR PEDIDO (classificarPedidoNativo).
-      // Sem DRE: não entram — as receitas deles já chegam pelos lançamentos
-      // não-DRE das parcelas (contar o pedido seria duplicar).
+      // Com DRE, só até o corte: pedidos crm_nativo entram POR PEDIDO (classificarPedidoNativo).
+      // A partir do corte (e sempre no ramo Sem DRE): não entram — as receitas deles já chegam
+      // pelos lançamentos das parcelas (pDespesas/pReceitas), contar o pedido de novo duplicaria.
       const q = sb.from("crm_orders")
         .select("categoria, total, data_lancamento, crm_order_items(total, crm_products(conta_vendas_id))")
         .eq("fotografo_id", fid)
         .gte("data_lancamento", `${ano}-01-01`).lte("data_lancamento", `${ano}-12-31`)
         .not("data_lancamento", "is", null);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      qOrders = temDRELocal ? (q as any).eq("crm_nativo", true) : sb.from("crm_orders").select("categoria").eq("fotografo_id", fid).limit(0);
+      qOrders = temDRELocal ? (q as any).eq("crm_nativo", true).lt("data_lancamento", CORTE_DRE_COMPETENCIA) : sb.from("crm_orders").select("categoria").eq("fotografo_id", fid).limit(0);
     } else {
       qOrders = sb.from("crm_orders").select("categoria").eq("fotografo_id", fid).limit(0);
     }
