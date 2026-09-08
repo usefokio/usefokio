@@ -110,7 +110,7 @@ export default function ResultadosPage() {
             fetchAllRows<DespRow>((sbc, f, t) => sbc.from("crm_financial_entries")
               .select("conta_id, valor, vencimento, pago_em")
               .eq("fotografo_id", fid).eq("tipo", "despesa").eq("num_documento", "DRE")
-              .gte("vencimento", `${ano}-01-01`).lt("vencimento", CORTE_DRE_COMPETENCIA).range(f, t), sb),
+              .gte("vencimento", `${ano}-01-01`).lte("vencimento", `${ano}-12-31`).lt("vencimento", CORTE_DRE_COMPETENCIA).range(f, t), sb),
             pDespesasPosCorte,
           ]).then(([dre, posCorte]) => [...dre, ...posCorte.filter(e => e.status === "pago")])
         : fetchAllRows<DespRow>((sbc, f, t) => sbc.from("crm_financial_entries")
@@ -132,7 +132,7 @@ export default function ResultadosPage() {
             fetchAllRows<RecRow>((sbc, f, t) => sbc.from("crm_financial_entries")
               .select("conta_id, valor, vencimento")
               .eq("fotografo_id", fid).eq("tipo", "receita").eq("num_documento", "DRE")
-              .gte("vencimento", `${ano}-01-01`).lt("vencimento", CORTE_DRE_COMPETENCIA).range(f, t), sb),
+              .gte("vencimento", `${ano}-01-01`).lte("vencimento", `${ano}-12-31`).lt("vencimento", CORTE_DRE_COMPETENCIA).range(f, t), sb),
             pReceitasPosCorte,
           ]).then(([dre, posCorte]) => [...dre, ...posCorte])
         : fetchAllRows<RecRow>((sbc, f, t) => sbc.from("crm_financial_entries")
