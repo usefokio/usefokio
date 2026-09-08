@@ -240,9 +240,10 @@ function FinanceiroSubItems({ pathname }: { pathname: string }) {
   const tipoAtual    = searchParams.get("tipo");
   const isFinanceiro = pathname.startsWith("/crm/financeiro");
   const isResultados = pathname === "/crm/resultados";
+  const isResultadosTeste = pathname === "/crm/resultados-teste";
   const isFluxo      = pathname === "/crm/fluxo";
   const isContas     = pathname.startsWith("/crm/contas");
-  if (!isFinanceiro && !isResultados && !isFluxo && !isContas) return null;
+  if (!isFinanceiro && !isResultados && !isResultadosTeste && !isFluxo && !isContas) return null;
 
   const linkStyle = (tipo: string): React.CSSProperties => {
     const isActive = isFinanceiro && (tipoAtual === tipo || (!tipoAtual && tipo === "receber"));
@@ -285,6 +286,11 @@ function FinanceiroSubItems({ pathname }: { pathname: string }) {
         onMouseEnter={e => { if (!isResultados) e.currentTarget.style.background = "var(--color-background-secondary)"; }}
         onMouseLeave={e => { if (!isResultados) e.currentTarget.style.background = "transparent"; }}>
         <span style={{ whiteSpace: "nowrap" }}>Resultados</span>
+      </Link>
+      <Link href="/crm/resultados-teste" style={linkStylePath("/crm/resultados-teste")}
+        onMouseEnter={e => { if (!isResultadosTeste) e.currentTarget.style.background = "var(--color-background-secondary)"; }}
+        onMouseLeave={e => { if (!isResultadosTeste) e.currentTarget.style.background = "transparent"; }}>
+        <span style={{ whiteSpace: "nowrap" }}>Resultados (teste)</span>
       </Link>
       <Link href="/crm/fluxo" style={linkStylePath("/crm/fluxo")}
         onMouseEnter={e => { if (!isFluxo) e.currentTarget.style.background = "var(--color-background-secondary)"; }}
