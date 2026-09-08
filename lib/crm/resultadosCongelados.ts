@@ -1,102 +1,50 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
-import { fetchAllRows } from "@/lib/supabase/fetchAll";
+import {
+  CONTAS_HISTORICAS, VALORES_HISTORICOS, ULTIMO_ANO_HISTORICO, PRIMEIRO_ANO_HISTORICO,
+  type ContaHistorica, type RegimeHistorico, type SecaoHistorica,
+} from "./resultadosHistoricos";
 
-export type RegimeResultado = "competencia" | "caixa";
-export type SecaoResultado = "receita" | "custo" | "despesa";
-
-export type ContaResultado = { codigo: string; nome: string; secao: SecaoResultado };
+export type RegimeResultado = RegimeHistorico;
+export type SecaoResultado = SecaoHistorica;
+export type ContaResultado = ContaHistorica;
 
 export type ResultadosAno = {
   contas: ContaResultado[];
-  /** codigo da conta -> mes (1-12) -> valor. Positivo = entrou/custou; negativo = estorno. */
-  mapa: Record<string, Record<number, number>>;
-  origem: "congelado" | "ao-vivo";
+  /** codigo da conta -> [jan..dez]. Positivo = entrou/custou; negativo = estorno. */
+  valores: Record<string, number[]>;
+  origem: "historico" | "ao-vivo";
 };
 
+export { ULTIMO_ANO_HISTORICO, PRIMEIRO_ANO_HISTORICO };
+
+const VAZIO_AO_VIVO: ResultadosAno = { contas: [], valores: {}, origem: "ao-vivo" };
+
 /**
- * Ate este ano (inclusive) os Resultados vem CONGELADOS da tabela
- * crm_resultados_congelados — os relatorios oficiais exportados do sistema antigo,
- * conferidos no centavo. Nenhum lancamento, pedido ou plano de contas do sistema
- * participa desse periodo.
+ * Resultados de um ano, por conta e mes.
  *
- * A partir do ano seguinte, os numeros sao calculados dos lancamentos ao vivo. Sao
- * caminhos de codigo e fontes de dados SEPARADOS de proposito: mexer na logica de
- * 2026+ nao tem como alterar o historico ja fechado.
+ * Ate ULTIMO_ANO_HISTORICO os numeros vem do arquivo `resultadosHistoricos.ts` — os
+ * relatorios oficiais do sistema antigo, ja fechados e conferidos no centavo. Nao passam
+ * por lancamento, pedido nem plano de contas do sistema.
+ *
+ * A partir do ano seguinte serao calculados dos lancamentos ao vivo (ainda a definir).
+ * Sao caminhos separados de proposito: mexer na logica nova nao tem como alterar o historico.
  */
-export const ULTIMO_ANO_CONGELADO = 2025;
+export function carregarResultadosAno(ano: number, regime: RegimeResultado): ResultadosAno {
+  if (ano > ULTIMO_ANO_HISTORICO) return VAZIO_AO_VIVO;
 
-type LinhaCongelada = {
-  codigo: string;
-  nome: string;
-  secao: SecaoResultado;
-  ano: number;
-  mes: number;
-  valor: number;
-};
-
-const ORDEM_SECAO: Record<SecaoResultado, number> = { receita: 0, custo: 1, despesa: 2 };
-
-/** Ordena por secao e depois por codigo numerico (3.1.2 antes de 3.1.10). */
-function ordenarContas(contas: ContaResultado[]): ContaResultado[] {
-  return contas.sort((a, b) =>
-    ORDEM_SECAO[a.secao] - ORDEM_SECAO[b.secao] ||
-    a.codigo.localeCompare(b.codigo, undefined, { numeric: true })
-  );
+  const doAno = VALORES_HISTORICOS[regime]?.[ano] ?? {};
+  const contas = CONTAS_HISTORICAS.filter(c => doAno[c.codigo]?.some(v => v !== 0));
+  return { contas, valores: doAno, origem: "historico" };
 }
 
-async function carregarCongelado(
-  sb: SupabaseClient,
-  fid: string,
-  ano: number,
-  regime: RegimeResultado,
-): Promise<ResultadosAno> {
-  const linhas = await fetchAllRows<LinhaCongelada>((sbc, from, to) =>
-    sbc.from("crm_resultados_congelados")
-      .select("codigo, nome, secao, ano, mes, valor")
-      .eq("fotografo_id", fid)
-      .eq("regime", regime)
-      .eq("ano", ano)
-      .range(from, to), sb);
-
-  const mapa: Record<string, Record<number, number>> = {};
-  const porCodigo: Record<string, ContaResultado> = {};
-
-  for (const l of linhas) {
-    porCodigo[l.codigo] ??= { codigo: l.codigo, nome: l.nome, secao: l.secao };
-    mapa[l.codigo] ??= {};
-    mapa[l.codigo][l.mes] = (mapa[l.codigo][l.mes] ?? 0) + Number(l.valor);
-  }
-
-  return { contas: ordenarContas(Object.values(porCodigo)), mapa, origem: "congelado" };
-}
-
-/**
- * Resultados de um ano, por conta e mes. Para <= ULTIMO_ANO_CONGELADO le da tabela
- * congelada; a partir dai o calculo dos lancamentos ao vivo ainda vai ser definido
- * (retorna vazio por enquanto — a tela avisa que o periodo ainda nao esta pronto).
- */
-export async function carregarResultadosAno(
-  sb: SupabaseClient,
-  fid: string,
-  ano: number,
-  regime: RegimeResultado,
-): Promise<ResultadosAno> {
-  if (ano <= ULTIMO_ANO_CONGELADO) return carregarCongelado(sb, fid, ano, regime);
-  return { contas: [], mapa: {}, origem: "ao-vivo" };
-}
-
-/** Soma de uma secao inteira: um mes especifico ou o ano todo. */
-export function totalSecao(
-  dados: ResultadosAno,
-  secao: SecaoResultado,
-  mes?: number,
-): number {
+/** Soma de uma secao: um mes especifico (1-12) ou o ano todo. */
+export function totalSecao(dados: ResultadosAno, secao: SecaoResultado, mes?: number): number {
   let total = 0;
   for (const c of dados.contas) {
     if (c.secao !== secao) continue;
-    const meses = dados.mapa[c.codigo] ?? {};
-    if (mes !== undefined) total += meses[mes] ?? 0;
-    else for (const v of Object.values(meses)) total += v;
+    const meses = dados.valores[c.codigo];
+    if (!meses) continue;
+    if (mes !== undefined) total += meses[mes - 1] ?? 0;
+    else for (const v of meses) total += v;
   }
   return total;
 }

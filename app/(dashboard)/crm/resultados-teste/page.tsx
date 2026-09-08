@@ -1,17 +1,13 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import { createClient } from "@/lib/supabase/client";
-import { useFotografo } from "@/lib/context/FotografoContext";
+import { useMemo, useState } from "react";
 import { useWindowWidth, TABLET } from "@/lib/hooks/useWindowWidth";
 import {
-  carregarResultadosAno, totalSecao, ULTIMO_ANO_CONGELADO,
-  type ResultadosAno, type RegimeResultado, type SecaoResultado, type ContaResultado,
+  carregarResultadosAno, totalSecao, ULTIMO_ANO_HISTORICO, PRIMEIRO_ANO_HISTORICO,
+  type RegimeResultado, type SecaoResultado, type ContaResultado,
 } from "@/lib/crm/resultadosCongelados";
 
 const MESES = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
-
-const VAZIO: ResultadosAno = { contas: [], mapa: {}, origem: "congelado" };
 
 function fmtBRL(v: number) {
   if (v === 0) return "";
@@ -22,24 +18,14 @@ function fmtSaldo(v: number) {
 }
 
 export default function ResultadosTestePage() {
-  const { fotografo } = useFotografo();
   const isMobile = useWindowWidth() < TABLET;
   const anoAtual = new Date().getFullYear();
 
-  const [ano,    setAno]    = useState(ULTIMO_ANO_CONGELADO);
+  const [ano,    setAno]    = useState(ULTIMO_ANO_HISTORICO);
   const [regime, setRegime] = useState<RegimeResultado>("competencia");
-  const [dados,  setDados]  = useState<ResultadosAno>(VAZIO);
-  const [loading, setLoading] = useState(true);
 
-  const carregar = useCallback(async () => {
-    if (!fotografo) return;
-    setLoading(true);
-    const r = await carregarResultadosAno(createClient(), fotografo.id, ano, regime);
-    setDados(r);
-    setLoading(false);
-  }, [fotografo, ano, regime]);
-
-  useEffect(() => { carregar(); }, [carregar]);
+  // Dados históricos são um arquivo do próprio código — nada de banco, nada de carregamento.
+  const dados = useMemo(() => carregarResultadosAno(ano, regime), [ano, regime]);
 
   const contasDe = (secao: SecaoResultado) => dados.contas.filter(c => c.secao === secao);
   const receitas = contasDe("receita");
@@ -81,7 +67,7 @@ export default function ResultadosTestePage() {
   );
 
   const ContaRow = ({ c, negativo }: { c: ContaResultado; negativo?: boolean }) => {
-    const vals = Array.from({ length: 12 }, (_, i) => dados.mapa[c.codigo]?.[i + 1] ?? 0);
+    const vals = dados.valores[c.codigo] ?? Array(12).fill(0);
     const total = vals.reduce((a, b) => a + b, 0);
     const cor = negativo ? "#EF4444" : "#059669";
     const exibe = (v: number) => v === 0 ? "" : (negativo ? `-${fmtBRL(Math.abs(v))}` : fmtBRL(v));
@@ -118,7 +104,7 @@ export default function ResultadosTestePage() {
   );
 
   const saldoTotal = saldoDoMes();
-  const congelado = ano <= ULTIMO_ANO_CONGELADO;
+  const congelado = ano <= ULTIMO_ANO_HISTORICO;
 
   return (
     <div style={{ padding: isMobile ? "16px" : "28px 32px", fontFamily: "var(--font-sans)", minWidth: 0 }}>
@@ -135,11 +121,12 @@ export default function ResultadosTestePage() {
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
           <div style={{ display: "flex", alignItems: "center", borderRadius: 8, border: "0.5px solid var(--color-border-tertiary)", overflow: "hidden" }}>
-            <button onClick={() => setAno(a => a - 1)} disabled={ano <= 2014}
-              style={{ padding: "7px 10px", fontSize: 13, border: "none", borderRight: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-primary)", color: ano <= 2014 ? "var(--color-text-tertiary)" : "var(--color-text-primary)", cursor: ano <= 2014 ? "default" : "pointer" }}>‹</button>
+            <button onClick={() => setAno(a => a - 1)} disabled={ano <= PRIMEIRO_ANO_HISTORICO}
+              style={{ padding: "7px 10px", fontSize: 13, border: "none", borderRight: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-primary)", color: ano <= PRIMEIRO_ANO_HISTORICO ? "var(--color-text-tertiary)" : "var(--color-text-primary)", cursor: ano <= PRIMEIRO_ANO_HISTORICO ? "default" : "pointer" }}>‹</button>
             <select value={ano} onChange={e => setAno(Number(e.target.value))}
               style={{ padding: "7px 8px", fontSize: 13, border: "none", background: "var(--color-background-primary)", color: "var(--color-text-primary)", outline: "none", cursor: "pointer" }}>
-              {Array.from({ length: anoAtual - 2013 }, (_, i) => 2014 + i).map(a => <option key={a} value={a}>{a}</option>)}
+              {Array.from({ length: anoAtual - PRIMEIRO_ANO_HISTORICO + 1 }, (_, i) => PRIMEIRO_ANO_HISTORICO + i)
+                .map(a => <option key={a} value={a}>{a}</option>)}
             </select>
             <button onClick={() => setAno(a => a + 1)} disabled={ano >= anoAtual}
               style={{ padding: "7px 10px", fontSize: 13, border: "none", borderLeft: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-primary)", color: ano >= anoAtual ? "var(--color-text-tertiary)" : "var(--color-text-primary)", cursor: ano >= anoAtual ? "default" : "pointer" }}>›</button>
@@ -163,14 +150,12 @@ export default function ResultadosTestePage() {
 
       {!congelado && (
         <div style={{ background: "rgba(37,99,235,0.06)", border: "0.5px solid rgba(37,99,235,0.25)", borderRadius: 10, padding: "12px 16px", marginBottom: 16, fontSize: 13, color: "var(--color-text-primary)" }}>
-          A partir de {ULTIMO_ANO_CONGELADO + 1} os números vêm dos lançamentos do sistema — essa parte
-          ainda não foi montada. Os anos até {ULTIMO_ANO_CONGELADO} já estão prontos e não mudam.
+          A partir de {ULTIMO_ANO_HISTORICO + 1} os números vêm dos lançamentos do sistema — essa parte
+          ainda não foi montada. Os anos até {ULTIMO_ANO_HISTORICO} já estão prontos e não mudam.
         </div>
       )}
 
-      {loading ? (
-        <div style={{ padding: "60px 0", textAlign: "center", fontSize: 13, color: "var(--color-text-secondary)" }}>Carregando…</div>
-      ) : dados.contas.length === 0 ? (
+      {dados.contas.length === 0 ? (
         <div style={{ padding: "60px 0", textAlign: "center", fontSize: 13, color: "var(--color-text-secondary)" }}>
           Nenhum dado para {ano}.
         </div>
