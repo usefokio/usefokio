@@ -32,12 +32,6 @@ export const CATEGORIA_CODIGO: Record<string, string> = {
 // os drill-downs tratam 5.0 como o complemento (conta_id null ou fora do plano ativo).
 export const CONTA_NAO_CLASSIFICADA: ContaDRE = { id: "__naoclass__", codigo: "5.0", nome: "Não classificado" };
 
-// Corte da migração pro CRM ao vivo (Fernando, 01/06/2026): antes disso, a Competência
-// continua usando SÓ os lançamentos `DRE` (dado já validado/fechado, não mexer). A partir
-// daqui, soma TODO lançamento por vencimento, sem distinguir DRE — é o que faz um
-// lançamento novo (não-DRE) passar a contar, já que ele nunca vai ganhar essa marcação.
-export const CORTE_DRE_COMPETENCIA = "2026-06-01";
-
 /**
  * Indexa o plano de contas para a DRE. O plano tem 2 versões por código
  * (conta do sistema fotografo_id IS NULL + cópia do fotógrafo); os lançamentos
@@ -181,38 +175,23 @@ export async function carregarDreAnual(
 
     for (const e of entries) acumularLancamento(e.conta_id, e.tipo, e.pago_em, e.valor);
   } else if (temDRE) {
-    // Competência com DRE: entradas DRE legadas (só até o corte — dado já fechado/validado,
-    // não mexer) + lançamentos normais a partir do corte (SEM distinguir DRE — depois do
-    // corte, DRE deixou de existir/importa, então filtrar por ele só escondia lançamento
-    // novo) + pedidos crm_nativo (em paralelo).
-    type EntRow = { conta_id: string | null; tipo: string; status: string | null; valor: number; vencimento: string };
+    // Competência com DRE: entradas DRE legadas + pedidos crm_nativo (em paralelo)
+    type EntRow = { conta_id: string | null; tipo: string; valor: number; vencimento: string };
     type OrdRow = PedidoNativoDRE & { data_lancamento: string };
-    const [dreEntries, posCorte, orders] = await Promise.all([
+    const [dreEntries, orders] = await Promise.all([
       fetchAllRows<EntRow>((sbc, f, t) =>
         sbc.from("crm_financial_entries")
-          .select("conta_id, tipo, status, valor, vencimento")
+          .select("conta_id, tipo, valor, vencimento")
           .eq("fotografo_id", fid).eq("num_documento", "DRE")
-          .not("vencimento", "is", null).lt("vencimento", CORTE_DRE_COMPETENCIA).range(f, t), sb),
-      fetchAllRows<EntRow>((sbc, f, t) =>
-        sbc.from("crm_financial_entries")
-          .select("conta_id, tipo, status, valor, vencimento")
-          .eq("fotografo_id", fid)
-          .neq("internal_account_type", "transferencia")
-          .not("vencimento", "is", null).gte("vencimento", CORTE_DRE_COMPETENCIA).range(f, t), sb),
-      // Só até o corte — a partir dele, a receita do pedido já chega pelas parcelas em
-      // `posCorte` (mesma regra do ramo "sem DRE" logo abaixo: contar o pedido de novo duplicaria).
+          .not("vencimento", "is", null).range(f, t), sb),
       fetchAllRows<OrdRow>((sbc, f, t) =>
         sbc.from("crm_orders")
           .select("categoria, total, data_lancamento, crm_order_items(total, crm_products(conta_vendas_id))")
           .eq("fotografo_id", fid).eq("crm_nativo", true)
-          .not("data_lancamento", "is", null).lt("data_lancamento", CORTE_DRE_COMPETENCIA).range(f, t), sb),
+          .not("data_lancamento", "is", null).range(f, t), sb),
     ]);
 
     for (const e of dreEntries) acumularLancamento(e.conta_id, e.tipo, e.vencimento, e.valor);
-    for (const e of posCorte) {
-      if (e.tipo === "despesa" && e.status !== "pago") continue;
-      acumularLancamento(e.conta_id, e.tipo, e.vencimento, e.valor);
-    }
 
     for (const o of orders) {
       if (!o.data_lancamento) continue;
