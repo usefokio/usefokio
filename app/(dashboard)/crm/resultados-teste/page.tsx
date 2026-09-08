@@ -145,6 +145,10 @@ export default function ResultadosTestePage() {
             style={{ padding: "7px 14px", borderRadius: 8, border: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-primary)", fontSize: 12, cursor: "pointer", color: "var(--color-text-primary)" }}>
             🖨 Imprimir
           </button>
+          <a href="/crm/resultados-teste/panorama"
+            style={{ padding: "7px 14px", borderRadius: 8, border: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-primary)", fontSize: 12, cursor: "pointer", color: "var(--color-text-primary)", textDecoration: "none", display: "inline-block" }}>
+            📊 Panorama
+          </a>
         </div>
       </div>
 
