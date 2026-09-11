@@ -211,12 +211,21 @@ export default function PedidosPage() {
             {loading ? "Carregando…" : `${filtrados.length} pedido${filtrados.length !== 1 ? "s" : ""}`}
           </p>
         </div>
-        <button
-          onClick={() => router.push("/crm/pedidos/novo")}
-          style={{ padding: "9px 18px", borderRadius: 8, background: "#111", color: "#fff", border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer" }}
-        >
-          + Novo pedido
-        </button>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+          <button
+            onClick={() => router.push("/crm/pedidos/vincular-galerias")}
+            title="Vincular as galerias que já existem aos pedidos respectivos"
+            style={{ padding: "9px 16px", borderRadius: 8, background: "var(--color-background-primary)", color: "var(--color-text-primary)", border: "0.5px solid var(--color-border-secondary)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}
+          >
+            🔗 Vincular galerias antigas
+          </button>
+          <button
+            onClick={() => router.push("/crm/pedidos/novo")}
+            style={{ padding: "9px 18px", borderRadius: 8, background: "#111", color: "#fff", border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer" }}
+          >
+            + Novo pedido
+          </button>
+        </div>
       </div>
 
       {/* Status pills */}
