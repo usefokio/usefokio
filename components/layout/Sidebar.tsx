@@ -8,7 +8,7 @@ import { Avatar } from "@/components/ui/Avatar";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { PLANOS, corBarra, formatarBytes, type PlanoId } from "@/lib/planos";
 import { useUsoPlano } from "@/lib/hooks/useUsoPlano";
-import { temProdutoFotografia, temProdutoCRM, temProdutoSite } from "@/lib/recursos";
+import { temProdutoFotografia, temProdutoCRM, temProdutoSite, ehRotaUniversal } from "@/lib/recursos";
 
 const USEFOKIO_ITEMS = [
   {
@@ -20,17 +20,6 @@ const USEFOKIO_ITEMS = [
         <rect x="9" y="1" width="6" height="6" rx="1.5" fill="currentColor" opacity=".5" />
         <rect x="1" y="9" width="6" height="6" rx="1.5" fill="currentColor" opacity=".5" />
         <rect x="9" y="9" width="6" height="6" rx="1.5" fill="currentColor" opacity=".8" />
-      </svg>
-    ),
-  },
-  {
-    href: "/crm/clientes",
-    label: "Clientes",
-    icon: (
-      <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
-        <circle cx="6" cy="5" r="2.5" fill="currentColor" opacity=".8" />
-        <path d="M1 13c0-2.761 2.239-5 5-5s5 2.239 5 5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" fill="none" opacity=".8" />
-        <circle cx="12" cy="5" r="1.8" fill="currentColor" opacity=".4" />
       </svg>
     ),
   },
@@ -123,21 +112,8 @@ const USEFOKIO_ITEMS = [
   },
 ];
 
+// Agenda e Clientes são universais: ficam na barra do topo (components/layout/Header.tsx).
 const CRM_ITEMS = [
-  {
-    href: "/crm/agenda",
-    label: "Agenda",
-    icon: (
-      <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
-        <rect x="1" y="2" width="14" height="12" rx="2" stroke="currentColor" strokeWidth="1.3" fill="none" opacity=".8" />
-        <path d="M1 6h14" stroke="currentColor" strokeWidth="1.3" opacity=".5" />
-        <path d="M5 1v2M11 1v2" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" opacity=".7" />
-        <rect x="4" y="9" width="2" height="2" rx=".4" fill="currentColor" opacity=".7" />
-        <rect x="7" y="9" width="2" height="2" rx=".4" fill="currentColor" opacity=".5" />
-        <rect x="10" y="9" width="2" height="2" rx=".4" fill="currentColor" opacity=".4" />
-      </svg>
-    ),
-  },
   {
     href: "/crm/oportunidades",
     label: "Oportunidades",
@@ -145,17 +121,6 @@ const CRM_ITEMS = [
       <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
         <path d="M1 13L4 9l3 2 3-4 4-4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" opacity=".8" />
         <circle cx="13" cy="3" r="1.5" fill="currentColor" opacity=".7" />
-      </svg>
-    ),
-  },
-  {
-    href: "/crm/clientes",
-    label: "Contatos",
-    icon: (
-      <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
-        <circle cx="6" cy="5" r="2.5" fill="currentColor" opacity=".8" />
-        <path d="M1 13c0-2.761 2.239-5 5-5s5 2.239 5 5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" fill="none" opacity=".8" />
-        <circle cx="12" cy="5" r="1.8" fill="currentColor" opacity=".4" />
       </svg>
     ),
   },
@@ -518,7 +483,9 @@ export function Sidebar({ isMobile = false, mobileAberta = false, onFechar }: Si
             "/recebimentos": "pagamentos",
           };
 
-          const inCRM  = pathname.startsWith("/crm");
+          // Agenda e Clientes (rotas universais, no topo) não acendem nenhum módulo do menu.
+          const inUniversal = ehRotaUniversal(pathname);
+          const inCRM  = pathname.startsWith("/crm") && !inUniversal;
           const inSite = pathname.startsWith("/site");
 
           // ── Renderiza sub-item ────────────────────────────────────────────────
@@ -674,11 +641,11 @@ export function Sidebar({ isMobile = false, mobileAberta = false, onFechar }: Si
           return (
             <>
               {fotoHabilitado &&
-                renderModule("/dashboard", "UseFokio", icoUseFokio, usefokioChildren, !inCRM && !inSite, usefokioOpen, () => alternarModulo("usefokio"))}
+                renderModule("/dashboard", "UseFokio", icoUseFokio, usefokioChildren, !inCRM && !inSite && !inUniversal, usefokioOpen, () => alternarModulo("usefokio"))}
               {crmHabilitado && (
                 <>
                   {fotoHabilitado && <div style={{ margin: "4px 0", borderTop: "0.5px solid var(--color-border-tertiary)" }} />}
-                  {renderModule("/crm/agenda", "CRM", icoCRM, crmChildren, inCRM, crmOpen, () => alternarModulo("crm"))}
+                  {renderModule("/crm", "CRM", icoCRM, crmChildren, inCRM, crmOpen, () => alternarModulo("crm"))}
                 </>
               )}
               {siteHabilitado && (

@@ -22,6 +22,14 @@ export function temProdutoSite(rec: Rec): boolean {
   return rec?.site === true;
 }
 
+// Rotas universais do sistema (nem UseFokio nem CRM): ficam na barra do topo e valem para
+// quem tem fotografia OU CRM. Fonte única para o Header, o Sidebar e o gate de rota.
+export const ROTAS_UNIVERSAIS = ["/crm/agenda", "/crm/clientes"] as const;
+
+export function ehRotaUniversal(pathname: string): boolean {
+  return ROTAS_UNIVERSAIS.some((base) => pathname === base || pathname.startsWith(base + "/"));
+}
+
 // Gate por rota — mesmo critério do menu (zero divergência menu ↔ acesso).
 // Rotas fora dos produtos (/conta, /configurar, …) passam sempre.
 export function rotaPermitida(rec: Rec, pathname: string): boolean {
@@ -35,8 +43,8 @@ export function rotaPermitida(rec: Rec, pathname: string): boolean {
   if (sob("/contatos")) return rec?.contatos !== false;
   if (sob("/recebimentos")) return rec?.pagamentos !== false;
 
-  // Clientes é a base única, compartilhada — acessível por fotografia OU CRM.
-  if (sob("/crm/clientes")) return temProdutoFotografia(rec) || temProdutoCRM(rec);
+  // Agenda e Clientes são universais — acessíveis por fotografia OU CRM.
+  if (ehRotaUniversal(pathname)) return temProdutoFotografia(rec) || temProdutoCRM(rec);
   if (sob("/crm")) return temProdutoCRM(rec);
   if (sob("/site")) return temProdutoSite(rec);
   if (sob("/dashboard") || sob("/tutoriais") || sob("/config")) return temProdutoFotografia(rec);
