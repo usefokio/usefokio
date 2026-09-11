@@ -63,6 +63,8 @@ type ModalEditar = {
   vencimento: string;
   contaPlanoId: string;
   clienteId: string;
+  dataCompetencia: string;        // data de lançamento (competência)
+  dataCompetenciaManual: boolean; // true = o usuário mexeu na data; aí editar o valor não a sobrescreve
 };
 
 type ModalConfirmacao = {
@@ -122,6 +124,7 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
   // Modal novo lançamento
   const [showNovo,        setShowNovo]        = useState(false);
   const [novoVencimento,  setNovoVencimento]  = useState("");
+  const [novoDataComp,    setNovoDataComp]    = useState("");
   const [novoCategoriaId, setNovoCategoriaId] = useState("");
   const [novoValor,       setNovoValor]       = useState("");
   const [novoFormaPag,    setNovoFormaPag]    = useState("");
@@ -300,6 +303,7 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
         descricao: modalEditar.descricao.trim(),
         valor: parsearValor(modalEditar.valor),
         vencimento: modalEditar.vencimento,
+        data_competencia: modalEditar.dataCompetencia || null,
         conta_id: modalEditar.contaPlanoId || null,
         cliente_id: modalEditar.clienteId || null,
       })
@@ -310,7 +314,7 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
   };
 
   const abrirEditar = async (e: EntryWithPedido) => {
-    setModalEditar({ entry: e, descricao: e.descricao, valor: e.valor.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }), vencimento: e.vencimento, contaPlanoId: contaCanonica(e.conta_id), clienteId: e.cliente_id ?? "" });
+    setModalEditar({ entry: e, descricao: e.descricao, valor: e.valor.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }), vencimento: e.vencimento, contaPlanoId: contaCanonica(e.conta_id), clienteId: e.cliente_id ?? "", dataCompetencia: e.data_competencia ?? e.vencimento, dataCompetenciaManual: false });
   };
 
   // Abrir modal de receber/pagar
@@ -382,6 +386,7 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
         descricao: `Taxa de recebimento — ${entry.descricao}`,
         valor: taxa,
         vencimento: dataPagamento,
+        data_competencia: dataPagamento,
         pago_em: dataPagamento,
         status: "pago",
         conta_id: contaDespesaId,
@@ -402,6 +407,8 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
         descricao: `${entry.descricao} (restante)`,
         valor: diferenca,
         vencimento: vencimentoRestante,
+        // O saldo continua na competência do lançamento original (dividir não muda quando foi lançado).
+        data_competencia: entry.data_competencia ?? entry.vencimento,
         status: "pendente",
         conta_id: contaPlanoId || entry.conta_id || null,
         cliente_id: entry.cliente_id ?? null,
@@ -461,6 +468,7 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
     if (!fotografo) return;
     const venc = new Date(); venc.setDate(venc.getDate() + 30);
     setNovoVencimento(venc.toISOString().slice(0, 10));
+    setNovoDataComp(hoje);
     setNovoCategoriaId(""); setNovoValor(""); setNovoFormaPag("");
     setNovoNumDoc(""); setNovoDescricao(""); setNovoRecorrente(false);
     setNovoQtdParc("2"); setNovoPeriodo("mensal"); setErroNovo("");
@@ -474,6 +482,7 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
     const v = parsearValor(novoValor);
     if (!novoDescricao.trim())         { setErroNovo("Informe a descrição."); return; }
     if (!isValidDate(novoVencimento))  { setErroNovo("Vencimento inválido."); return; }
+    if (!isValidDate(novoDataComp))    { setErroNovo("Data de lançamento inválida."); return; }
     if (!v || v <= 0)                  { setErroNovo("Informe um valor válido."); return; }
     setSalvandoNovo(true); setErroNovo("");
     const tipo = ABA_CONFIG[aba].tipo;
@@ -490,6 +499,8 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
       descricao:             novoDescricao.trim(),
       valor:                 v,
       vencimento:            i === 0 ? novoVencimento : addMeses(novoVencimento, i * mesesInter),
+      // Parcelado: cada parcela entra na competência do seu mês (12x em janeiro = jan…dez).
+      data_competencia:      i === 0 ? novoDataComp : addMeses(novoDataComp, i * mesesInter),
       status:                "pendente" as const,
       pago_em:               null,
       conta_id:              novoCategoriaId || null,
@@ -1220,7 +1231,14 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
                 <div>
                   <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>Valor (R$)</div>
                   <input type="text" inputMode="decimal" value={modalEditar.valor}
-                    onChange={e => setModalEditar(m => m ? { ...m, valor: mascaraValor(e.target.value) } : m)}
+                    onChange={e => setModalEditar(m => {
+                      if (!m) return m;
+                      const valor = mascaraValor(e.target.value);
+                      if (m.dataCompetenciaManual) return { ...m, valor };
+                      // Editou o valor → vale a data da edição (como no sistema antigo); voltou ao original → data original.
+                      const mudou = Math.abs(parsearValor(valor) - Number(m.entry.valor)) > 0.004;
+                      return { ...m, valor, dataCompetencia: mudou ? hoje : (m.entry.data_competencia ?? m.entry.vencimento) };
+                    })}
                     style={{ width: "100%", boxSizing: "border-box", padding: "9px 12px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", fontSize: 13, color: "var(--color-text-primary)", outline: "none" }} />
                 </div>
                 <div>
@@ -1228,6 +1246,15 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
                   <input type="date" value={modalEditar.vencimento}
                     onChange={e => setModalEditar(m => m ? { ...m, vencimento: e.target.value } : m)}
                     style={{ width: "100%", boxSizing: "border-box", padding: "9px 12px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", fontSize: 13, color: "var(--color-text-primary)", outline: "none" }} />
+                </div>
+              </div>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>Data de lançamento (competência)</div>
+                <input type="date" value={modalEditar.dataCompetencia}
+                  onChange={e => setModalEditar(m => m ? { ...m, dataCompetencia: e.target.value, dataCompetenciaManual: true } : m)}
+                  style={{ width: "100%", boxSizing: "border-box", padding: "9px 12px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", fontSize: 13, color: "var(--color-text-primary)", outline: "none" }} />
+                <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 4 }}>
+                  Passa para hoje quando você altera o valor — é o mês em que o valor entra na competência.
                 </div>
               </div>
               <div>
@@ -1308,6 +1335,18 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
                     placeholder="0,00"
                     style={{ width: "100%", boxSizing: "border-box", padding: "9px 12px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", fontSize: 13, color: "var(--color-text-primary)", outline: "none" }} />
                 </div>
+              </div>
+
+              {/* Data de lançamento (competência) */}
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>Data de lançamento (competência) *</div>
+                <input type="date" value={novoDataComp} onChange={e => setNovoDataComp(e.target.value)}
+                  style={{ width: "100%", boxSizing: "border-box", padding: "9px 12px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", fontSize: 13, color: "var(--color-text-primary)", outline: "none" }} />
+                {novoRecorrente && (
+                  <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 4 }}>
+                    Cada parcela entra na competência do seu mês, a partir desta data.
+                  </div>
+                )}
               </div>
 
               {/* Categoria */}

@@ -68,7 +68,7 @@ export default function PedidoDetailPage() {
   const [lancSortDir, setLancSortDir] = usePersistState<"asc" | "desc">("pedidoLanc:sortDir", "asc");
 
   // Editar lançamento em aberto (nunca pago)
-  const [editLanc,     setEditLanc]     = useState<{ entry: CrmFinancialEntry; descricao: string; valor: string; vencimento: string } | null>(null);
+  const [editLanc,     setEditLanc]     = useState<{ entry: CrmFinancialEntry; descricao: string; valor: string; vencimento: string; dataCompetencia: string; dataCompetenciaManual: boolean } | null>(null);
   const [salvandoLanc, setSalvandoLanc] = useState(false);
 
   // Contratos
@@ -203,7 +203,7 @@ export default function PedidoDetailPage() {
     if (!editLanc.descricao.trim() || valor <= 0 || !editLanc.vencimento) return;
     setSalvandoLanc(true);
     await createClient().from("crm_financial_entries")
-      .update({ descricao: editLanc.descricao.trim(), valor, vencimento: editLanc.vencimento })
+      .update({ descricao: editLanc.descricao.trim(), valor, vencimento: editLanc.vencimento, data_competencia: editLanc.dataCompetencia || null })
       .eq("id", editLanc.entry.id)
       .in("status", ["pendente", "vencido"]); // guarda extra no banco: nunca edita pago/cancelado
     setSalvandoLanc(false);
@@ -509,7 +509,7 @@ export default function PedidoDetailPage() {
               <div><span style={{ fontSize: 11, fontWeight: 600, color: stFin.color }}>{stFin.label}</span></div>
               <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
                 {(f.status === "pendente" || f.status === "vencido") && (
-                  <button onClick={() => setEditLanc({ entry: f, descricao: f.descricao ?? "", valor: formatNum(f.valor), vencimento: f.vencimento })} title="Editar lançamento em aberto"
+                  <button onClick={() => setEditLanc({ entry: f, descricao: f.descricao ?? "", valor: formatNum(f.valor), vencimento: f.vencimento, dataCompetencia: f.data_competencia ?? f.vencimento, dataCompetenciaManual: false })} title="Editar lançamento em aberto"
                     style={{ padding: "4px 8px", borderRadius: 6, border: "0.5px solid var(--color-border-secondary)", background: "transparent", cursor: "pointer", fontSize: 12 }}>
                     ✏️
                   </button>
@@ -1323,13 +1323,28 @@ export default function PedidoDetailPage() {
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                 <div>
                   <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>Valor (R$)</div>
-                  <input type="text" inputMode="decimal" value={editLanc.valor} onChange={e => setEditLanc(m => m ? { ...m, valor: mascaraValor(e.target.value) } : m)}
+                  <input type="text" inputMode="decimal" value={editLanc.valor} onChange={e => setEditLanc(m => {
+                      if (!m) return m;
+                      const valor = mascaraValor(e.target.value);
+                      if (m.dataCompetenciaManual) return { ...m, valor };
+                      // Editou o valor → vale a data da edição (como no sistema antigo); voltou ao original → data original.
+                      const mudou = Math.abs(parsearValor(valor) - Number(m.entry.valor)) > 0.004;
+                      return { ...m, valor, dataCompetencia: mudou ? new Date().toISOString().slice(0, 10) : (m.entry.data_competencia ?? m.entry.vencimento) };
+                    })}
                     style={{ width: "100%", boxSizing: "border-box", padding: "9px 12px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", fontSize: 13, color: "var(--color-text-primary)", outline: "none" }} />
                 </div>
                 <div>
                   <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>Vencimento</div>
                   <input type="date" value={editLanc.vencimento} onChange={e => setEditLanc(m => m ? { ...m, vencimento: e.target.value } : m)}
                     style={{ width: "100%", boxSizing: "border-box", padding: "9px 12px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", fontSize: 13, color: "var(--color-text-primary)", outline: "none" }} />
+                </div>
+              </div>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>Data de lançamento (competência)</div>
+                <input type="date" value={editLanc.dataCompetencia} onChange={e => setEditLanc(m => m ? { ...m, dataCompetencia: e.target.value, dataCompetenciaManual: true } : m)}
+                  style={{ width: "100%", boxSizing: "border-box", padding: "9px 12px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", fontSize: 13, color: "var(--color-text-primary)", outline: "none" }} />
+                <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 4 }}>
+                  Passa para hoje quando você altera o valor — é o mês em que o valor entra na competência.
                 </div>
               </div>
             </div>

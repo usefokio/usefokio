@@ -1056,6 +1056,8 @@ export type CrmFinancialEntry = {
   descricao: string;
   valor: number;
   vencimento: string;
+  /** Data de lançamento (competência): nasce na criação e muda quando o valor é editado. */
+  data_competencia: string | null;
   pago_em: string | null;
   conta_id: string | null;
   status: "pendente" | "vencido" | "pago" | "cancelado";

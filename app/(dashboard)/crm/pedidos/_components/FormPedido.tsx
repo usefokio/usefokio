@@ -555,6 +555,9 @@ export default function FormPedido({ inicial, onSalvo, onCancelar }: Props) {
       const chave = (venc: string, valor: number) => `${venc}|${valor.toFixed(2)}`;
       const chavesJaPagas = new Set((atuais ?? []).filter(e => e.status === "pago").map(e => chave(e.vencimento, e.valor)));
       const contaAnteriorId = (atuais ?? []).find(e => e.conta_id)?.conta_id ?? null;
+      // Parcelas do pedido entram na competência da data do pedido (data_lancamento), não do vencimento.
+      const { data: pedAtual } = await sb.from("crm_orders").select("data_lancamento").eq("id", id).single();
+      const dataLancPedido = (pedAtual as { data_lancamento: string | null } | null)?.data_lancamento ?? new Date().toISOString().slice(0, 10);
       await sb.from("crm_financial_entries").delete().eq("pedido_id", id).eq("tipo", "receita").neq("status", "pago");
       if (planos.length > 0) {
         const contaVendasId = itens.map(i => produtos.find(p => p.id === i.produto_id)?.conta_vendas_id).find(Boolean) ?? contaAnteriorId;
@@ -564,12 +567,12 @@ export default function FormPedido({ inicial, onSalvo, onCancelar }: Props) {
           if (ps.length > 0) {
             for (const p of ps) {
               if (chavesJaPagas.has(chave(p.vencimento, p.valor))) continue;
-              entries.push({ fotografo_id: fotografo.id, pedido_id: id, tipo: "receita", descricao: p.label, valor: p.valor, vencimento: p.vencimento, status: "pendente", parcela: plano.numParcelas > 1 ? p.label.match(/Parcela (\d+)/)?.[1] ?? null : null, internal_account_type: "pedido", conta_id: contaVendasId, forma_pagamento: plano.forma || null });
+              entries.push({ fotografo_id: fotografo.id, pedido_id: id, tipo: "receita", descricao: p.label, valor: p.valor, vencimento: p.vencimento, data_competencia: dataLancPedido, status: "pendente", parcela: plano.numParcelas > 1 ? p.label.match(/Parcela (\d+)/)?.[1] ?? null : null, internal_account_type: "pedido", conta_id: contaVendasId, forma_pagamento: plano.forma || null });
             }
           } else {
             const valorPlano = parseFloat(plano.valor) || 0;
             if (chavesJaPagas.has(chave(plano.dataPrazo, valorPlano))) continue;
-            entries.push({ fotografo_id: fotografo.id, pedido_id: id, tipo: "receita", descricao: plano.obs || "Pagamento", valor: valorPlano, vencimento: plano.dataPrazo, status: "pendente", parcela: null, internal_account_type: "pedido", conta_id: contaVendasId, forma_pagamento: plano.forma || null });
+            entries.push({ fotografo_id: fotografo.id, pedido_id: id, tipo: "receita", descricao: plano.obs || "Pagamento", valor: valorPlano, vencimento: plano.dataPrazo, data_competencia: dataLancPedido, status: "pendente", parcela: null, internal_account_type: "pedido", conta_id: contaVendasId, forma_pagamento: plano.forma || null });
           }
         }
         if (entries.length > 0) await sb.from("crm_financial_entries").insert(entries);
@@ -640,6 +643,7 @@ export default function FormPedido({ inicial, onSalvo, onCancelar }: Props) {
                 descricao:             custo.descricao || item.descricao,
                 valor:                 +valorCusto.toFixed(2),
                 vencimento,
+                data_competencia:      hoje, // pedido novo: custo entra na competência da venda (data do pedido)
                 status:                "pendente",
                 conta_id:              custo.conta_id,
                 internal_account_type: "pedido",
@@ -664,6 +668,7 @@ export default function FormPedido({ inicial, onSalvo, onCancelar }: Props) {
               descricao:             p.label,
               valor:                 p.valor,
               vencimento:            p.vencimento,
+              data_competencia:      new Date().toISOString().slice(0, 10), // pedido novo: data do pedido = hoje
               status:                "pendente",
               parcela:               plano.numParcelas > 1 ? p.label.match(/Parcela (\d+)/)?.[1] ?? null : null,
               internal_account_type: "pedido",
