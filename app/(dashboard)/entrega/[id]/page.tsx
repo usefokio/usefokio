@@ -527,6 +527,10 @@ export default function EntregaDetailPage() {
           <Link href={`/entrega/${id}/editar`} style={{ padding: "7px 16px", borderRadius: 8, background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-secondary)", fontSize: 12, fontWeight: 600, color: "var(--color-text-primary)", textDecoration: "none" }}>
             ✏️ Editar
           </Link>
+          <Link href={`/selecao/nova?entrega=${id}`} title="Cria uma galeria de seleção com as mesmas fotos — cópia interna, sem novo upload"
+            style={{ padding: "7px 16px", borderRadius: 8, background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-secondary)", fontSize: 12, fontWeight: 600, color: "var(--color-text-primary)", textDecoration: "none" }}>
+            🗂 Criar seleção
+          </Link>
           <a href={linkPublico} target="_blank" rel="noopener noreferrer" style={{ padding: "7px 16px", borderRadius: 8, background: "rgba(37,99,235,0.06)", border: "0.5px solid rgba(37,99,235,0.2)", fontSize: 12, fontWeight: 600, color: "#2563EB", textDecoration: "none" }}>
             🔗 Ver galeria
           </a>
