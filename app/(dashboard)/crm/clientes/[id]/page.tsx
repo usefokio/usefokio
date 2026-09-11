@@ -10,21 +10,13 @@ import { ModalContatoCliente } from "./_components/ModalContatoCliente";
 import { carregarPedidoStatus, montarStatusMap, statusInfo } from "@/lib/crm/pedidoStatus";
 import { BarraProgressoEtapa } from "@/app/(dashboard)/crm/_components/BarraProgressoEtapa";
 import type { Cliente, CrmOrder, CrmPedidoStatus, GaleriaEntrega, GaleriaSelecao } from "@/lib/supabase/types";
+import { useTiposContato } from "@/lib/crm/tiposContato";
 
 // Oportunidade do cliente (subconjunto dos campos + nome da etapa via join)
 type OppRel = {
   id: string; titulo: string; categoria: string | null; valor_estimado: number | null;
   data_evento: string | null; status: string; funil_id: string | null; etapa_id: string | null;
   etapa?: { nome: string } | null;
-};
-
-const TIPO_MAP: Record<string, { label: string; color: string; bg: string }> = {
-  cliente:      { label: "Cliente",      color: "#2563EB", bg: "rgba(37,99,235,0.08)"  },
-  oportunidade: { label: "Oportunidade", color: "#D97706", bg: "rgba(217,119,6,0.08)"  },
-  fornecedor:   { label: "Fornecedor",   color: "#7C3AED", bg: "rgba(124,58,237,0.08)" },
-  parceiro:     { label: "Parceiro",     color: "#059669", bg: "rgba(16,185,129,0.08)" },
-  fotografo:    { label: "Fotógrafo",   color: "#0891B2", bg: "rgba(8,145,178,0.08)"  },
-  videografo:   { label: "Videógrafo",  color: "#7C3AED", bg: "rgba(124,58,237,0.08)" },
 };
 
 const field = (label: string, value: string | null | undefined) => (
@@ -50,6 +42,7 @@ export default function ClienteDetailPage() {
   const { id }        = useParams<{ id: string }>();
   const router        = useRouter();
   const { fotografo } = useFotografo();
+  const { opcoes: opcoesTipo, estilo: estiloTipo } = useTiposContato(fotografo?.id);
 
   const [cliente,   setCliente]   = useState<Cliente | null>(null);
   const [loading,   setLoading]   = useState(true);
@@ -248,7 +241,7 @@ export default function ClienteDetailPage() {
     </div>
   );
 
-  const tipo = TIPO_MAP[cliente.tipo_contato] ?? TIPO_MAP.cliente;
+  const tipo = estiloTipo(cliente.tipo_contato);
 
   const btnBase: React.CSSProperties = {
     padding: "8px 16px", borderRadius: 8, fontSize: 13, fontWeight: 600,
@@ -321,7 +314,7 @@ export default function ClienteDetailPage() {
               {label("Tipo de contato")}
               <select value={tipoContato} onChange={e => setTipoContato(e.target.value as Cliente["tipo_contato"])}
                 style={{ ...inputStyle, cursor: "pointer" }}>
-                {Object.entries(TIPO_MAP).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+                {opcoesTipo(tipoContato).map(t => <option key={t.chave} value={t.chave}>{t.label}</option>)}
               </select>
             </div>
             <div style={{ marginBottom: 18 }}>

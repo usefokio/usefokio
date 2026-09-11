@@ -4,12 +4,13 @@ import { useState, useEffect, useCallback, useRef, forwardRef, useImperativeHand
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { useUnsavedGuard } from "@/lib/hooks/useUnsavedGuard";
+import { TIPOS_CONTATO_PADRAO, TIPOS_CONTATO_FIXOS } from "@/lib/crm/tiposContato";
 import { SeloEstado, ModalNaoSalvo } from "@/app/(dashboard)/_components/EditorEstado";
 import type { CrmProductCategory, CrmChartOfAccount, CrmOportunidadeStatus, CrmFunnel, CrmFunnelStage, CrmAgendamentoCategoria } from "@/lib/supabase/types";
 import { AbaContratos } from "./_components/AbaContratos";
 import { PEDIDO_STATUS_SEED } from "@/lib/crm/pedidoStatus";
 
-type Tab = "produtos" | "plano" | "canais" | "opp_cats" | "status" | "pedido_status" | "funis" | "agenda_cats" | "email" | "contratos" | "notificacoes";
+type Tab = "produtos" | "plano" | "canais" | "opp_cats" | "status" | "pedido_status" | "contato_tipos" | "funis" | "agenda_cats" | "email" | "contratos" | "notificacoes";
 
 // Handle exposto pelas abas Email/Notificações para o guard de troca de aba da página-mãe.
 type AbaHandle = { temAlteracoes: boolean; salvar: () => Promise<void> };
@@ -178,11 +179,15 @@ const STATUS_SEED = [
   { chave: "suspensa",       label: "Suspensa",        ordem: 4 },
 ];
 
-function AbaStatus({ fotografoId, tabela, seed, descricao }: {
+function AbaStatus({ fotografoId, tabela, seed, descricao, chavesFixas = [], rotuloNovo = "+ Novo status personalizado", placeholderNovo = "Nome do novo status…" }: {
   fotografoId: string;
-  tabela: "crm_oportunidade_status" | "crm_pedido_status";
+  tabela: "crm_oportunidade_status" | "crm_pedido_status" | "crm_contato_tipos";
   seed: { chave: string; label: string; ordem: number; cor?: string }[];
   descricao: string;
+  /** Chaves usadas por regras automáticas: não podem ser desativadas. */
+  chavesFixas?: string[];
+  rotuloNovo?: string;
+  placeholderNovo?: string;
 }) {
   const [itens, setItens]       = useState<CrmOportunidadeStatus[]>([]);
   const [loading, setLoading]   = useState(true);
@@ -303,7 +308,9 @@ function AbaStatus({ fotografoId, tabela, seed, descricao }: {
                       {item.ativo ? "Ativo" : "Inativo"}
                     </span>
                     <button onClick={() => { setEditId(item.id); setEditLabel(item.label); setEditCor(item.cor ?? "#6B7280"); }} style={btnGhost}>Editar</button>
-                    <button onClick={() => toggle(item)} style={btnGhost}>{item.ativo ? "Desativar" : "Ativar"}</button>
+                    {chavesFixas.includes(item.chave)
+                      ? <span title="Usado pela regra automática — não pode ser desativado" style={{ fontSize: 11, color: "var(--color-text-secondary)", padding: "0 6px" }}>🔒 fixo</span>
+                      : <button onClick={() => toggle(item)} style={btnGhost}>{item.ativo ? "Desativar" : "Ativar"}</button>}
                   </>
                 )}
               </div>
@@ -311,13 +318,13 @@ function AbaStatus({ fotografoId, tabela, seed, descricao }: {
           </div>
 
           <div style={{ borderTop: "0.5px solid var(--color-border-tertiary)", paddingTop: 20 }}>
-            <div style={{ fontSize: 12, fontWeight: 600, color: "var(--color-text-secondary)", marginBottom: 10 }}>+ Novo status personalizado</div>
+            <div style={{ fontSize: 12, fontWeight: 600, color: "var(--color-text-secondary)", marginBottom: 10 }}>{rotuloNovo}</div>
             <div style={{ display: "flex", gap: 8 }}>
               <input
                 value={novoLabel}
                 onChange={(e) => setNovoLabel(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") adicionarStatus(); }}
-                placeholder="Nome do novo status…"
+                placeholder={placeholderNovo}
                 style={{ ...inputSt, flex: 1 }}
               />
               <button onClick={adicionarStatus} disabled={saving || !novoLabel.trim()} style={{ ...btnPrimary, opacity: !novoLabel.trim() ? 0.5 : 1 }}>
@@ -1238,6 +1245,7 @@ export default function CrmConfigPage() {
         <button style={TAB_ST(tab === "canais")} onClick={() => trocarTab("canais")}>📍 Canais de Origem</button>
         <button style={TAB_ST(tab === "status")} onClick={() => trocarTab("status")}>📋 Status Oport.</button>
         <button style={TAB_ST(tab === "pedido_status")} onClick={() => trocarTab("pedido_status")}>🧾 Status Pedido</button>
+        <button style={TAB_ST(tab === "contato_tipos")} onClick={() => trocarTab("contato_tipos")}>👥 Tipos de Contato</button>
         <button style={TAB_ST(tab === "produtos")} onClick={() => trocarTab("produtos")}>🏷 Cat. Produtos</button>
         <button style={TAB_ST(tab === "agenda_cats")} onClick={() => trocarTab("agenda_cats")}>📅 Cat. Agendamento</button>
         <button style={TAB_ST(tab === "plano")} onClick={() => trocarTab("plano")}>📊 Plano de Contas</button>
@@ -1288,6 +1296,19 @@ export default function CrmConfigPage() {
           tabela="crm_pedido_status"
           seed={PEDIDO_STATUS_SEED}
           descricao="Status comercial/financeiro do pedido (não é gestão de projeto). Começa com Em aberto (contratação fechada, sem 1º pagamento) e Concluído (1º pagamento feito) — o sistema alterna entre eles automaticamente quando você marca/estorna a 1ª receita. Você pode renomear, mudar a cor, reordenar e adicionar outros."
+        />
+      )}
+
+      {/* ── Tipos de Contato ── */}
+      {tab === "contato_tipos" && fotografo && (
+        <AbaStatus
+          fotografoId={fotografo.id}
+          tabela="crm_contato_tipos"
+          seed={TIPOS_CONTATO_PADRAO.map(({ chave, label, ordem, cor }) => ({ chave, label, ordem, cor }))}
+          chavesFixas={TIPOS_CONTATO_FIXOS}
+          rotuloNovo="+ Novo tipo de contato"
+          placeholderNovo="Nome do novo tipo (ex.: Cerimonialista)…"
+          descricao="Tipos usados em Contatos (filtros, cadastro e ficha do contato). Cliente e Oportunidade são fixos: o sistema muda sozinho de Oportunidade para Cliente quando o contato ganha um pedido ou uma conta recebida. Os demais você pode renomear, mudar a cor, reordenar, desativar e adicionar novos."
         />
       )}
 

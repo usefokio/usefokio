@@ -8,15 +8,7 @@ import { isValidDate, mascaraTelefone } from "@/lib/utils/format";
 import { gerarSenhaAcesso } from "@/lib/utils";
 import { mesmoWhatsapp } from "@/lib/utils/telefone";
 import { useEditorEstado, SeloEstado, ModalNaoSalvo } from "@/app/(dashboard)/_components/EditorEstado";
-
-const TIPO_MAP: Record<string, string> = {
-  cliente:      "Cliente",
-  oportunidade: "Oportunidade",
-  fornecedor:   "Fornecedor",
-  parceiro:     "Parceiro",
-  fotografo:    "Fotógrafo",
-  videografo:   "Videógrafo",
-};
+import { useTiposContato } from "@/lib/crm/tiposContato";
 
 const inputStyle: React.CSSProperties = {
   width: "100%", padding: "9px 12px", borderRadius: 8,
@@ -33,6 +25,7 @@ const lbl = (text: string) => (
 export default function NovoClientePage() {
   const router        = useRouter();
   const { fotografo } = useFotografo();
+  const { opcoes: opcoesTipo } = useTiposContato(fotografo?.id);
 
   const [nome,        setNome]        = useState("");
   const [email,       setEmail]       = useState("");
@@ -153,7 +146,7 @@ export default function NovoClientePage() {
             {lbl("Tipo de contato")}
             <select value={tipoContato} onChange={e => setTipoContato(e.target.value)}
               style={{ ...inputStyle, cursor: "pointer" }}>
-              {Object.entries(TIPO_MAP).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+              {opcoesTipo(tipoContato).map(t => <option key={t.chave} value={t.chave}>{t.label}</option>)}
             </select>
           </div>
           <div style={{ marginBottom: 18 }}>

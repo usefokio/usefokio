@@ -120,7 +120,7 @@ export type Cliente = {
   cidade: string | null;
   estado: string | null;
   // CRM
-  tipo_contato: "oportunidade" | "cliente" | "parceiro" | "fornecedor" | "fotografo" | "videografo";
+  tipo_contato: string; // chave de crm_contato_tipos (configurável); "cliente" e "oportunidade" são fixos
   empresa: string | null;
   cargo: string | null;
   crm_ativo: boolean;
