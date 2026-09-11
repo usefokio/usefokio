@@ -27,7 +27,7 @@ const LINKS_TOPO = [
   },
   {
     href: "/crm/clientes",
-    label: "Clientes",
+    label: "Contatos",
     icon: (
       <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
         <circle cx="6" cy="5" r="2.5" fill="currentColor" opacity=".8" />
