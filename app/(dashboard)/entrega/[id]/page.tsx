@@ -6,6 +6,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { fetchAllRows } from "@/lib/supabase/fetchAll";
 import { deleteFilesClient } from "@/lib/storage/deleteClient";
+import { PedidoVinculadoChip } from "@/components/ui/PedidoVinculadoChip";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { ClienteLink } from "@/components/ui/ClienteLink";
 import type { GaleriaEntrega, GaleriaEntregaFoto, ContatoCategoria, Pagamento, RevelacaoPedido, RevelacaoPedidoItem } from "@/lib/supabase/types";
@@ -514,6 +515,7 @@ export default function EntregaDetailPage() {
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4, flexWrap: "wrap" }}>
             <h1 style={{ fontSize: 18, fontWeight: 700, color: "var(--color-text-primary)", margin: 0, letterSpacing: "-0.01em" }}>{g.titulo}</h1>
             <StatusBadge galeria={g} />
+            <PedidoVinculadoChip pedidoId={g.pedido_id} />
           </div>
           {g.clientes && <div style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>Cliente: <ClienteLink id={g.clientes.id} nome={g.clientes.nome} style={{ color: "var(--color-text-primary)", fontWeight: 600 }} /></div>}
           {g.data_evento && <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginTop: 2 }}>Evento: {formatarData(g.data_evento)}</div>}
@@ -524,6 +526,10 @@ export default function EntregaDetailPage() {
           </button>
           <Link href={`/entrega/${id}/editar`} style={{ padding: "7px 16px", borderRadius: 8, background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-secondary)", fontSize: 12, fontWeight: 600, color: "var(--color-text-primary)", textDecoration: "none" }}>
             ✏️ Editar
+          </Link>
+          <Link href={`/selecao/nova?entrega=${id}`} title="Cria uma galeria de seleção com as mesmas fotos — cópia interna, sem novo upload"
+            style={{ padding: "7px 16px", borderRadius: 8, background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-secondary)", fontSize: 12, fontWeight: 600, color: "var(--color-text-primary)", textDecoration: "none" }}>
+            🗂 Criar seleção
           </Link>
           <a href={linkPublico} target="_blank" rel="noopener noreferrer" style={{ padding: "7px 16px", borderRadius: 8, background: "rgba(37,99,235,0.06)", border: "0.5px solid rgba(37,99,235,0.2)", fontSize: 12, fontWeight: 600, color: "#2563EB", textDecoration: "none" }}>
             🔗 Ver galeria

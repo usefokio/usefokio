@@ -1,11 +1,42 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { useRouter, usePathname } from "next/navigation";
 import { Avatar } from "@/components/ui/Avatar";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { SinoNotificacoes } from "@/components/layout/SinoNotificacoes";
+import { temProdutoFotografia, temProdutoCRM } from "@/lib/recursos";
+
+// Itens universais do sistema (valem para UseFokio e CRM) — mesmas rotas de ROTAS_UNIVERSAIS (lib/recursos.ts).
+const LINKS_TOPO = [
+  {
+    href: "/crm/agenda",
+    label: "Agenda",
+    icon: (
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+        <rect x="1" y="2" width="14" height="12" rx="2" stroke="currentColor" strokeWidth="1.3" fill="none" opacity=".8" />
+        <path d="M1 6h14" stroke="currentColor" strokeWidth="1.3" opacity=".5" />
+        <path d="M5 1v2M11 1v2" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" opacity=".7" />
+        <rect x="4" y="9" width="2" height="2" rx=".4" fill="currentColor" opacity=".7" />
+        <rect x="7" y="9" width="2" height="2" rx=".4" fill="currentColor" opacity=".5" />
+        <rect x="10" y="9" width="2" height="2" rx=".4" fill="currentColor" opacity=".4" />
+      </svg>
+    ),
+  },
+  {
+    href: "/crm/clientes",
+    label: "Contatos",
+    icon: (
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+        <circle cx="6" cy="5" r="2.5" fill="currentColor" opacity=".8" />
+        <path d="M1 13c0-2.761 2.239-5 5-5s5 2.239 5 5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" fill="none" opacity=".8" />
+        <circle cx="12" cy="5" r="1.8" fill="currentColor" opacity=".4" />
+      </svg>
+    ),
+  },
+];
 
 interface HeaderProps {
   isMobile?: boolean;
@@ -14,7 +45,9 @@ interface HeaderProps {
 
 export function Header({ isMobile = false, onAbrirSidebar }: HeaderProps) {
   const router  = useRouter();
+  const pathname = usePathname();
   const { fotografo } = useFotografo();
+  const mostraLinksTopo = temProdutoFotografia(fotografo?.recursos) || temProdutoCRM(fotografo?.recursos);
   const [menuOpen, setMenuOpen]   = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -67,6 +100,35 @@ export function Header({ isMobile = false, onAbrirSidebar }: HeaderProps) {
           </svg>
         </button>
       )}
+
+      {/* Itens universais: Agenda e Clientes */}
+      {mostraLinksTopo && (
+        <nav style={{ display: "flex", alignItems: "center", gap: 4 }}>
+          {LINKS_TOPO.map((item) => {
+            const ativo = pathname === item.href || pathname.startsWith(item.href + "/");
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                title={item.label}
+                style={{
+                  display: "flex", alignItems: "center", gap: 7,
+                  padding: isMobile ? "6px 8px" : "6px 11px", borderRadius: 7,
+                  background: ativo ? "var(--color-background-secondary)" : "transparent",
+                  color: ativo ? "var(--color-text-primary)" : "var(--color-text-secondary)",
+                  fontSize: 12, fontWeight: ativo ? 600 : 500, textDecoration: "none", whiteSpace: "nowrap",
+                }}
+                onMouseEnter={(e) => { if (!ativo) e.currentTarget.style.background = "var(--color-background-secondary)"; }}
+                onMouseLeave={(e) => { if (!ativo) e.currentTarget.style.background = "transparent"; }}
+              >
+                <span style={{ opacity: ativo ? 1 : 0.6, display: "flex" }}>{item.icon}</span>
+                {!isMobile && item.label}
+              </Link>
+            );
+          })}
+        </nav>
+      )}
+
       {/* Right side */}
       <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10 }}>
         {/* Notificações */}

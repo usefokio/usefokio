@@ -53,29 +53,33 @@ export default function CrmClientesPage() {
     load();
   };
 
+  // Carrega todos os contatos (o filtro por tipo é local) para mostrar a contagem de cada tipo.
   const load = useCallback(async () => {
     if (!fotografo) return;
     setLoading(true);
     const supabase = createClient();
     const fid = fotografo.id;
-    const tf = tipoFiltro;
     const data = await fetchAllRows<Cliente>(
-      (sb, from, to) => {
-        const q = sb.from("clientes").select("*")
-          .eq("fotografo_id", fid).neq("crm_ativo", false).order("nome");
-        if (tf) q.eq("tipo_contato", tf);
-        return q.range(from, to);
-      },
+      (sb, from, to) => sb.from("clientes").select("*")
+        .eq("fotografo_id", fid).neq("crm_ativo", false).order("nome").range(from, to),
       supabase
     );
     setClientes(data);
     setLoading(false);
-  }, [fotografo, tipoFiltro]);
+  }, [fotografo]);
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => { setPage(1); }, [busca, tipoFiltro, sortCol, sortDir]);
 
+  const contagemPorTipo = clientes.reduce<Record<string, number>>((acc, c) => {
+    acc[c.tipo_contato] = (acc[c.tipo_contato] ?? 0) + 1;
+    return acc;
+  }, {});
+  // Todos os tipos sempre visíveis (os zerados aparecem apagados), na ordem do TIPO_MAP.
+  const tiposVisiveis = Object.keys(TIPO_MAP);
+
   const filtrados = clientes.filter((c: Cliente) => {
+    if (tipoFiltro && c.tipo_contato !== tipoFiltro) return false;
     if (!busca) return true;
     const b = busca.toLowerCase();
     return (
@@ -125,7 +129,7 @@ export default function CrmClientesPage() {
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 20 }}>
         <div>
           <h1 style={{ fontSize: 20, fontWeight: 800, letterSpacing: "-0.03em", color: "var(--color-text-primary)", margin: "0 0 4px" }}>
-            Clientes
+            Contatos
           </h1>
           <p style={{ fontSize: 13, color: "var(--color-text-secondary)", margin: 0 }}>
             {filtrados.length} contato{filtrados.length !== 1 ? "s" : ""}
@@ -139,7 +143,30 @@ export default function CrmClientesPage() {
         </button>
       </div>
 
-      {/* Filtros */}
+      {/* Filtro por tipo de contato */}
+      <div style={{ display: "flex", gap: 6, marginBottom: 12, flexWrap: "wrap" }}>
+        {[{ k: "", label: "Todos", n: clientes.length, color: "var(--color-text-primary)", bg: "var(--color-background-secondary)" },
+          ...tiposVisiveis.map(k => ({ k, label: TIPO_MAP[k].label, n: contagemPorTipo[k] ?? 0, color: TIPO_MAP[k].color, bg: TIPO_MAP[k].bg }))
+        ].map(({ k, label, n, color, bg }) => {
+          const ativo = tipoFiltro === k;
+          return (
+            <button key={k || "todos"} onClick={() => setTipoFiltro(k)}
+              style={{
+                display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: 999, cursor: "pointer",
+                fontSize: 12, fontWeight: ativo ? 700 : 500, whiteSpace: "nowrap",
+                border: ativo ? `1px solid ${color}` : "0.5px solid var(--color-border-tertiary)",
+                background: ativo ? bg : "var(--color-background-primary)",
+                color: ativo ? color : "var(--color-text-secondary)",
+                opacity: !ativo && !loading && n === 0 ? 0.5 : 1,
+              }}>
+              {label}
+              <span style={{ fontSize: 11, opacity: 0.75 }}>{loading ? "…" : n.toLocaleString("pt-BR")}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Busca */}
       <div style={{ display: "flex", gap: 10, marginBottom: 18 }}>
         <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 8, background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 9, padding: "8px 12px" }}>
           <svg width="13" height="13" viewBox="0 0 14 14" fill="none" style={{ opacity: 0.4, flexShrink: 0 }}>
@@ -150,13 +177,6 @@ export default function CrmClientesPage() {
             style={{ flex: 1, border: "none", background: "transparent", fontSize: 13, color: "var(--color-text-primary)", outline: "none" }} />
           {busca && <button onClick={() => setBusca("")} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--color-text-secondary)", fontSize: 18, lineHeight: 1, padding: 0 }}>×</button>}
         </div>
-        <select value={tipoFiltro} onChange={(e) => setTipoFiltro(e.target.value)}
-          style={{ padding: "8px 12px", borderRadius: 9, border: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-primary)", fontSize: 13, color: "var(--color-text-primary)", cursor: "pointer", outline: "none" }}>
-          <option value="">Todos os tipos</option>
-          {Object.entries(TIPO_MAP).map(([k, v]) => (
-            <option key={k} value={k}>{v.label}</option>
-          ))}
-        </select>
       </div>
 
       {/* Tabela */}
@@ -190,7 +210,7 @@ export default function CrmClientesPage() {
             </thead>
             <tbody>
               {paginados.map((c) => {
-                const tipo = TIPO_MAP[c.tipo_contato] ?? TIPO_MAP.outro;
+                const tipo = TIPO_MAP[c.tipo_contato] ?? { label: c.tipo_contato ?? "—", color: "var(--color-text-secondary)", bg: "var(--color-background-secondary)" };
                 return (
                   <tr
                     key={c.id}

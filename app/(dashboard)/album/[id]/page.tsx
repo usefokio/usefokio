@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { garantirSenhaCliente } from "@/lib/clientes/garantirSenha";
 import { ClienteLink } from "@/components/ui/ClienteLink";
+import { PedidoVinculadoChip } from "@/components/ui/PedidoVinculadoChip";
 import type { AlbumSelecao, AlbumLamina, AlbumComentario } from "@/lib/supabase/types";
 
 type StatusAlbum = "rascunho" | "ativa" | "aguardando_revisao" | "aprovado" | "encerrada";
@@ -144,6 +145,7 @@ export default function VisualizarAlbumPage() {
             <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
               <h1 style={{ fontSize: 20, fontWeight: 800, letterSpacing: "-0.02em", color: "var(--color-text-primary)", margin: 0 }}>{selecao.titulo}</h1>
               <span style={{ padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 600, background: st.bg, color: st.color }}>{st.label}</span>
+              <PedidoVinculadoChip pedidoId={selecao.pedido_id} />
               {(selecao.versao ?? 1) > 1 && (
                 <span title="Versão atual do álbum" style={{ padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 700, background: "rgba(37,99,235,0.12)", color: "#2563EB" }}>v{selecao.versao}</span>
               )}

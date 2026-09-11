@@ -68,6 +68,8 @@ export default function NovaEntregaPage() {
   const [driveApenasIdentif, setDriveApenasIdentif] = useState(false);
   const [categoriaId,        setCategoriaId]        = useState<string>("");
   const [categorias,         setCategorias]         = useState<Categoria[]>([]);
+  // Criada a partir de um pedido do CRM (/entrega/nova?pedido=<id>): já nasce vinculada a ele.
+  const [pedidoOrigem,       setPedidoOrigem]       = useState<{ id: string; nome: string } | null>(null);
   const [saving,             setSaving]             = useState(false);
   const [initialized,        setInitialized]        = useState(false);
   const [erroLimite,         setErroLimite]         = useState<string | null>(null);
@@ -113,6 +115,24 @@ export default function NovaEntregaPage() {
       .then(({ data }) => setCategorias(data ?? []));
     setInitialized(true);
   }, [fotografo]);
+
+  // Veio do pedido: preenche contato, título e data do evento com os dados do pedido.
+  useEffect(() => {
+    if (!fotografo?.id) return;
+    const pedidoId = new URLSearchParams(window.location.search).get("pedido");
+    if (!pedidoId) return;
+    createClient().from("crm_orders")
+      .select("id, nome, numero, cliente_id, data_evento, clientes(*)")
+      .eq("id", pedidoId).eq("fotografo_id", fotografo.id).maybeSingle()
+      .then(({ data }) => {
+        if (!data) return;
+        const p = data as unknown as { id: string; nome: string | null; numero: string | null; cliente_id: string | null; data_evento: string | null; clientes: Cliente | null };
+        setPedidoOrigem({ id: p.id, nome: p.nome || `Pedido #${p.numero ?? ""}` });
+        if (p.nome) setTitulo(t => t || p.nome!);
+        if (p.cliente_id) { setClienteId(p.cliente_id); setCliente(p.clientes); }
+        if (p.data_evento) setDataEvento(p.data_evento);
+      });
+  }, [fotografo?.id]);
 
   function adicionarArquivos(files: FileList | File[]) {
     const arr = Array.from(files).filter((f) => f.type.startsWith("image/"));
@@ -262,6 +282,7 @@ export default function NovaEntregaPage() {
           .insert({
             fotografo_id: fotografo.id,
             cliente_id:   clienteId || null,
+            ...(pedidoOrigem ? { pedido_id: pedidoOrigem.id } : {}),
             categoria_id: categoriaId || null,
             titulo:       titulo.trim(),
             data_evento:  dataEvento || null,
@@ -376,6 +397,12 @@ export default function NovaEntregaPage() {
           {galeriaCriadaIdRef.current && (
             <>{" "}<a href={`/entrega/${galeriaCriadaIdRef.current}`} style={{ color: "#B45309", fontWeight: 700, textDecoration: "underline" }}>Ver galeria</a></>
           )}
+        </div>
+      )}
+
+      {pedidoOrigem && (
+        <div style={{ background: "rgba(37,99,235,0.06)", border: "0.5px solid rgba(37,99,235,0.25)", borderRadius: 10, padding: "10px 14px", marginBottom: 16, fontSize: 13, color: "var(--color-text-primary)" }}>
+          📋 Esta galeria será vinculada ao pedido <strong>{pedidoOrigem.nome}</strong>. Contato, título e data do evento vieram do pedido — ajuste se precisar.
         </div>
       )}
 

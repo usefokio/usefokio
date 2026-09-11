@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { fetchAllRows } from "@/lib/supabase/fetchAll";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { useUnsavedGuard } from "@/lib/hooks/useUnsavedGuard";
 import type { Categoria, ConfigVendaFotos, ResolucaoExibicao } from "@/lib/supabase/types";
@@ -65,6 +66,12 @@ function NovaSelecaoConteudo() {
   const [marcaDagua, setMarcaDagua] = useState(true);
   const [draftInitialized, setDraftInitialized] = useState(false);
 
+  // Criada a partir de uma galeria de entrega (/selecao/nova?entrega=<id>): as fotos são copiadas
+  // no servidor (sem novo upload, sem marca d'água) e a seleção herda contato, data e pedido.
+  const [origemEntrega, setOrigemEntrega] = useState<{ id: string; titulo: string; pedidoId: string | null; fotoIds: string[] } | null>(null);
+  const [copiando, setCopiando]       = useState(false);
+  const [falhasCopia, setFalhasCopia] = useState(0);
+
   // Fila de upload
   const [fila, setFila]           = useState<ArquivoFila[]>([]);
   const inputRef                  = useRef<HTMLInputElement>(null);
@@ -93,6 +100,26 @@ function NovaSelecaoConteudo() {
       if (cfg) {
         setCfgVenda(cfg);
         if (cfg.ativa) { setVendaAtiva(true); setVendaPreco(cfg.preco_por_foto?.toString() ?? ""); setVendaPacoteMin(cfg.pacote_minimo?.toString() ?? ""); }
+      }
+
+      const entregaId = params.get("entrega");
+      if (entregaId) {
+        const { data: geData } = await supabase.from("galerias_entrega")
+          .select("id, titulo, cliente_id, data_evento, pedido_id, categoria_id")
+          .eq("id", entregaId).eq("fotografo_id", fotografo.id).maybeSingle();
+        const ge = geData as { id: string; titulo: string; cliente_id: string | null; data_evento: string | null; pedido_id: string | null; categoria_id: string | null } | null;
+        if (ge) {
+          const fotos = await fetchAllRows<{ id: string }>(
+            (sb, f, t) => sb.from("galerias_entrega_fotos").select("id").eq("galeria_id", ge.id).order("ordem").order("id").range(f, t),
+            supabase,
+          );
+          setOrigemEntrega({ id: ge.id, titulo: ge.titulo, pedidoId: ge.pedido_id ?? null, fotoIds: fotos.map(f => f.id) });
+          setTitulo(t => t || `Seleção — ${ge.titulo}`);
+          if (ge.cliente_id) setClienteId(ge.cliente_id);
+          if (ge.data_evento) setDataEvento(ge.data_evento);
+          if (ge.categoria_id) setCategoriaId(ge.categoria_id);
+          setMarcaDagua(false);
+        }
       }
       setDraftInitialized(true);
     }
@@ -153,9 +180,23 @@ function NovaSelecaoConteudo() {
       marca_dagua: marcaDagua,
       categoria_id: categoriaId || null,
       status,
+      ...(origemEntrega ? { marca_dagua: false, ...(origemEntrega.pedidoId ? { pedido_id: origemEntrega.pedidoId } : {}) } : {}),
     }).select().single();
 
     if (err) { setError(err.message); setSaving(false); return; }
+
+    // Veio da entrega: copia as fotos no servidor (em lotes, com progresso) em vez de upload.
+    if (origemEntrega) {
+      setGaleriaId(data.id);
+      await copiarDaEntrega(data.id, origemEntrega);
+      if (status === "ativa" && clienteId) {
+        fetch("/api/email/galeria-criada", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ galeriaId: data.id }),
+        }).catch(() => {});
+      }
+      return;
+    }
 
     // Se não tem fotos em fila → vai direto
     if (fila.length === 0) { router.push(`/selecao/${data.id}`); return; }
@@ -258,9 +299,88 @@ function NovaSelecaoConteudo() {
     });
   }
 
+  // Cópia das fotos da entrega em lotes. Idempotente no servidor: repetir não duplica.
+  async function copiarDaEntrega(selecaoId: string, origem: { id: string; fotoIds: string[] }) {
+    const LOTE = 20;
+    setCopiando(true);
+    setFalhasCopia(0);
+    setSuccessMsg(undefined);
+    setUploadTotal(origem.fotoIds.length);
+    setUploadAtual(0);
+    let feitas = 0, falhas = 0;
+    for (let i = 0; i < origem.fotoIds.length; i += LOTE) {
+      const lote = origem.fotoIds.slice(i, i + LOTE);
+      try {
+        const r = await fetch("/api/selecao/copiar-da-entrega", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ selecao_id: selecaoId, entrega_id: origem.id, foto_ids: lote }),
+        });
+        const j = await r.json().catch(() => ({})) as { erros?: unknown[]; error?: string };
+        if (!r.ok) {
+          falhas += lote.length;
+          if (j.error) setError(j.error);
+          if (r.status === 403) { falhas += origem.fotoIds.length - i - lote.length; break; }
+        } else {
+          falhas += j.erros?.length ?? 0;
+        }
+      } catch {
+        falhas += lote.length;
+      }
+      feitas += lote.length;
+      setUploadAtual(feitas);
+    }
+    setFalhasCopia(falhas);
+    setCopiando(false);
+    if (falhas === 0) {
+      const n = origem.fotoIds.length;
+      setSuccessMsg(`✅ ${n} foto${n !== 1 ? "s" : ""} copiada${n !== 1 ? "s" : ""} da galeria de entrega!`);
+    }
+  }
+
   // Fase de upload em andamento
   const emUpload = galeriaId !== null;
   const uploadPct = uploadTotal > 0 ? Math.round((uploadAtual / uploadTotal) * 100) : 0;
+
+  // ─── Tela de progresso da cópia da entrega ──
+  if (emUpload && origemEntrega) {
+    return (
+      <div style={{ padding: "40px 30px", maxWidth: 600, margin: "0 auto", textAlign: "center" }}>
+        <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 8, color: successMsg ? "#059669" : falhasCopia > 0 && !copiando ? "#DC2626" : "var(--color-text-primary)" }}>
+          {successMsg
+            ?? (copiando
+              ? `Copiando fotos da galeria de entrega… ${uploadAtual}/${uploadTotal}`
+              : `${falhasCopia} foto${falhasCopia !== 1 ? "s" : ""} não ${falhasCopia !== 1 ? "foram copiadas" : "foi copiada"}.`)}
+        </div>
+        {copiando && (
+          <>
+            <div style={{ height: 6, background: "var(--color-background-secondary)", borderRadius: 3, marginBottom: 4 }}>
+              <div style={{ height: "100%", background: "#2563EB", borderRadius: 3, width: `${uploadPct}%`, transition: "width 0.3s" }} />
+            </div>
+            <div style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>{uploadPct}% concluído · não feche esta página</div>
+          </>
+        )}
+        {!copiando && falhasCopia > 0 && (
+          <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginBottom: 12 }}>
+            {error || "Verifique a conexão."} Tentar de novo continua de onde parou — nada é duplicado.
+          </div>
+        )}
+        {!copiando && (
+          <div style={{ display: "flex", gap: 10, justifyContent: "center", marginTop: 12 }}>
+            {falhasCopia > 0 && (
+              <button onClick={() => { setError(""); copiarDaEntrega(galeriaId!, origemEntrega); }}
+                style={{ padding: "10px 22px", borderRadius: 8, border: "none", background: "#2563EB", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+                Tentar de novo
+              </button>
+            )}
+            <button onClick={() => router.push(`/selecao/${galeriaId}`)}
+              style={{ padding: "10px 28px", borderRadius: 8, border: "none", background: falhasCopia > 0 ? "var(--color-background-secondary)" : "#059669", color: falhasCopia > 0 ? "var(--color-text-primary)" : "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+              Ver galeria →
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   // ─── Tela de progresso de upload ──
   if (emUpload) {
@@ -332,13 +452,19 @@ function NovaSelecaoConteudo() {
           disabled={saving || !titulo.trim()}
           style={{ padding: "8px 18px", borderRadius: 8, border: "none", background: saving || !titulo.trim() ? "var(--color-background-secondary)" : "#2563EB", color: saving || !titulo.trim() ? "var(--color-text-secondary)" : "#fff", fontSize: 13, fontWeight: 600, cursor: saving || !titulo.trim() ? "default" : "pointer", flexShrink: 0 }}
         >
-          {saving ? "Criando…" : fila.length > 0 ? `Criar e enviar ${fila.length} foto${fila.length !== 1 ? "s" : ""}` : "Criar e ativar"}
+          {saving ? "Criando…" : origemEntrega ? `Criar e copiar ${origemEntrega.fotoIds.length} fotos` : fila.length > 0 ? `Criar e enviar ${fila.length} foto${fila.length !== 1 ? "s" : ""}` : "Criar e ativar"}
         </button>
       </div>
 
       {error && (
         <div style={{ background: "rgba(239,68,68,0.08)", border: "0.5px solid rgba(239,68,68,0.3)", borderRadius: 8, padding: "10px 16px", marginBottom: 16, fontSize: 13, color: "#EF4444" }}>
           {error}
+        </div>
+      )}
+
+      {origemEntrega && (
+        <div style={{ background: "rgba(37,99,235,0.06)", border: "0.5px solid rgba(37,99,235,0.25)", borderRadius: 10, padding: "10px 14px", marginBottom: 16, fontSize: 13, color: "var(--color-text-primary)" }}>
+          📋 Criando a partir da galeria de entrega <strong>{origemEntrega.titulo}</strong>. Contato, data do evento e pedido vieram dela — ajuste se precisar.
         </div>
       )}
 
@@ -381,6 +507,8 @@ function NovaSelecaoConteudo() {
               </Field>
             </div>
 
+            {/* Na cópia da entrega as fotos entram como foram entregues — não há redimensionamento. */}
+            {!origemEntrega && (
             <Field label="Resolução de exibição das fotos" tooltip="Define o tamanho máximo das fotos exibidas ao cliente. Não afeta os arquivos originais — serve apenas para visualização na galeria.">
               <div style={{ display: "flex", gap: 8 }}>
                 {(["hd", "fullhd", "4k"] as ResolucaoExibicao[]).map((r) => {
@@ -426,6 +554,7 @@ function NovaSelecaoConteudo() {
                 <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: "5px 0 0" }}>As fotos são redimensionadas no navegador antes do upload. O sistema nunca aumenta o original.</p>
               )}
             </Field>
+            )}
           </div>
         </Section>
 
@@ -488,8 +617,8 @@ function NovaSelecaoConteudo() {
           </div>
         </Section>}
 
-        {/* ── 4. Opções visuais ── */}
-        <Section title="Opções visuais">
+        {/* ── 4. Opções visuais (fora na cópia da entrega: sem upload, sem marca d'água) ── */}
+        {!origemEntrega && <Section title="Opções visuais">
           <div onClick={() => setMarcaDagua((v) => !v)} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 14px", borderRadius: 9, cursor: "pointer", border: `0.5px solid ${marcaDagua ? "rgba(37,99,235,0.3)" : "var(--color-border-tertiary)"}`, background: marcaDagua ? "rgba(37,99,235,0.05)" : "var(--color-background-secondary)", transition: "all 0.2s" }}>
             <div>
               <div style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)" }}>Aplicar marca d'água nas fotos</div>
@@ -499,9 +628,23 @@ function NovaSelecaoConteudo() {
               <div style={{ position: "absolute", top: 3, width: 16, height: 16, borderRadius: "50%", background: "#fff", transition: "left 0.2s", left: marcaDagua ? 21 : 3, boxShadow: "0 1px 3px rgba(0,0,0,0.2)" }} />
             </div>
           </div>
-        </Section>
+        </Section>}
 
-        {/* ── 5. Fotos (upload opcional) ── */}
+        {/* ── 5. Fotos (upload opcional; na cópia da entrega, vêm da galeria de entrega) ── */}
+        {origemEntrega ? (
+          <Section title="Fotos">
+            {origemEntrega.fotoIds.length === 0 ? (
+              <div style={{ fontSize: 13, color: "#B45309" }}>A galeria de entrega não tem fotos para copiar.</div>
+            ) : (
+              <div style={{ fontSize: 13, color: "var(--color-text-primary)", lineHeight: 1.6 }}>
+                📋 <strong>{origemEntrega.fotoIds.length} fotos</strong> da galeria de entrega <strong>{origemEntrega.titulo}</strong> serão copiadas para esta seleção — sem novo upload.
+                <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 6 }}>
+                  As fotos entram como foram entregues (sem marca d&apos;água). A galeria de entrega não muda. Depois de criada, a seleção funciona como qualquer outra (dá para adicionar ou remover fotos).
+                </div>
+              </div>
+            )}
+          </Section>
+        ) : (
         <Section title={`Fotos${fila.length > 0 ? ` (${fila.length} na fila)` : ""}`}>
           <div>
             {/* Zona de drop */}
@@ -549,13 +692,14 @@ function NovaSelecaoConteudo() {
             )}
           </div>
         </Section>
+        )}
 
       </div>
 
       {/* Ações */}
       <div style={{ display: "flex", gap: 10, marginTop: 20, flexWrap: "wrap" }}>
         <button onClick={() => handleSave("ativa")} disabled={saving} style={{ padding: "10px 24px", borderRadius: 8, background: saving ? "#93C5FD" : "#2563EB", color: "#fff", border: "none", fontSize: 13, fontWeight: 700, cursor: saving ? "not-allowed" : "pointer" }}>
-          {saving ? "Criando…" : fila.length > 0 ? `✓ Criar e enviar ${fila.length} foto${fila.length !== 1 ? "s" : ""}` : "✓ Criar e ativar"}
+          {saving ? "Criando…" : origemEntrega ? `✓ Criar e copiar ${origemEntrega.fotoIds.length} fotos` : fila.length > 0 ? `✓ Criar e enviar ${fila.length} foto${fila.length !== 1 ? "s" : ""}` : "✓ Criar e ativar"}
         </button>
         <button onClick={() => handleSave("rascunho")} disabled={saving} style={{ padding: "10px 20px", borderRadius: 8, background: "transparent", color: "var(--color-text-secondary)", border: "0.5px solid var(--color-border-secondary)", fontSize: 13, cursor: saving ? "not-allowed" : "pointer" }}>
           Salvar rascunho

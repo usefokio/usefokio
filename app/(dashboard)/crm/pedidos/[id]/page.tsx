@@ -17,6 +17,7 @@ import type { CrmOrder, CrmFinancialEntry, CrmContractTemplate, CrmContract, Crm
 import { ModalEvento } from "@/app/(dashboard)/crm/_components/ModalEvento";
 import { RichTextEditor } from "@/app/(dashboard)/crm/_components/RichTextEditor";
 import { ProdutoSearch } from "@/components/ui/ProdutoSearch";
+import { GaleriasPedido } from "./_components/GaleriasPedido";
 
 type OrderWithCliente = CrmOrder & { crm_nativo?: boolean | null; clientes?: { id: string; nome: string; email?: string | null; telefone?: string | null; whatsapp?: string | null } | null };
 
@@ -796,6 +797,9 @@ export default function PedidoDetailPage() {
               ℹ️ Informativo — não altera o valor do pedido nem gera pagamentos.
             </div>
           </div>
+
+          {/* Galerias vinculadas ao pedido (entrega, seleção, álbum) */}
+          <GaleriasPedido pedidoId={pedido.id} fotografoId={pedido.fotografo_id} clienteId={pedido.cliente_id ?? null} />
 
           {/* Modal — adicionar produto ao editor de itens */}
           {modalProd && (

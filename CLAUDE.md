@@ -4,7 +4,7 @@
 
 SaaS para fotógrafos. Este repositório é o projeto Next.js principal (`usefokio`), branch **master** (produção ativa em usefokio.com.br). **Produção com dados reais — não editar nem deployar direto em produção.** Hoje só o Fernando usa o sistema (contas `fernandoagrela` + `estudio136`, ambas dele); ainda não há outros fotógrafos ativos.
 
-**Fluxo de trabalho (atual — regra vigente desde 2026-08-07):** desenvolver **localmente** contra o banco de DEV, na branch `desenvolvimento` → `npx tsc --noEmit` limpo → commitar → **merge `--no-ff` + push direto na `master`** sem pedir OK a cada vez — o **Railway** faz o deploy automático do push, e depois sincronizar `desenvolvimento` de volta. **A Vercel foi REMOVIDA (15/07/2026)** — não há mais Preview URL; os crons rodam no **GitHub Actions**. Migração de schema: aplicar no dev, testar, e aplicar direto na prod também sem pedir OK a cada vez (ver seção de migrações abaixo). **Exceção**: algo que o Fernando marcar explicitamente como congelado/pausado fica isolado em `desenvolvimento`, fora do merge, até ele liberar.
+**Fluxo de trabalho (atual — regra vigente desde 2026-09-11):** desenvolver **localmente** contra o banco de DEV, na branch `desenvolvimento` → `npx tsc --noEmit` limpo → commitar e **PARAR**. O Fernando testa em `localhost:3001`. **Produção só quando ele pedir explicitamente** ("pode subir"): aí migrações na prod antes do push → **merge `--no-ff` + push na `master`** (o **Railway** faz o deploy automático) → sincronizar `desenvolvimento` de volta. Nada de merge/push na master, migração ou escrita no banco de produção por iniciativa própria (leitura/SELECT para investigar é ok). **A Vercel foi REMOVIDA (15/07/2026)** — não há mais Preview URL; os crons rodam no **GitHub Actions**. Migração de schema: aplicar só no dev; na prod apenas no deploy pedido (ver seção de migrações abaixo).
 
 ## Como rodar localmente
 
@@ -101,8 +101,8 @@ Dados copiados da produção (fotógrafo `contato@fernandoagrelafotografia.com.b
 - Sem comentários desnecessários no código
 - Sem login/auth em dev — qualquer chamada ao Supabase Auth deve ser protegida por `if (process.env.NODE_ENV === "development") return`
 - Commits em português no estilo `feat(crm): descrição`
-- Desenvolver em `desenvolvimento` contra o banco de DEV, `tsc` limpo, e mergear/pushar **direto na `master`** a cada correção pronta — não acumular lote (regra vigente desde 2026-08-07)
-- **Schema do banco:** mudanças via arquivo SQL em `supabase/migrations/`, aplicadas **primeiro no DEV**, testadas, e em seguida direto na PROD também
+- Desenvolver em `desenvolvimento` contra o banco de DEV, `tsc` limpo, commitar e parar — **master/produção só quando o Fernando pedir** (regra vigente desde 2026-09-11)
+- **Schema do banco:** mudanças via arquivo SQL em `supabase/migrations/`, aplicadas **só no DEV**; na PROD apenas no deploy pedido
 
 ---
 
