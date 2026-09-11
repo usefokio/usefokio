@@ -56,6 +56,7 @@ export default function NovoLancamentoPage() {
 
   const [tipo,          setTipo]          = useState<"receita" | "despesa">("receita");
   const [vencimento,    setVencimento]    = useState(vencimentoPadrao);
+  const [dataComp,      setDataComp]      = useState(hoje); // data de lançamento (competência)
   const [categoriaId,   setCategoriaId]   = useState("");
   const [categorias,    setCategorias]    = useState<ChartOfAccounts[]>([]);
   const [valor,         setValor]         = useState("");
@@ -69,7 +70,7 @@ export default function NovoLancamentoPage() {
   const [error,         setError]         = useState("");
 
   // Estado de salvamento claro (regra de sistema) — baseline = form vazio (defaults); dirty ao editar.
-  const snapshotAtual = JSON.stringify([tipo, vencimento, categoriaId, valor, formaPag, numDoc, recorrente, numParcelas, periodicidade, descricao]);
+  const snapshotAtual = JSON.stringify([tipo, vencimento, dataComp, categoriaId, valor, formaPag, numDoc, recorrente, numParcelas, periodicidade, descricao]);
   const guarda = useEditorEstado(snapshotAtual, "/crm/financeiro");
   useEffect(() => { guarda.inicializar(snapshotAtual); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
 
@@ -86,6 +87,7 @@ export default function NovoLancamentoPage() {
     const v = parsearValor(valor);
     if (!v || v <= 0) { setError("Informe um valor válido."); return; }
     if (!isValidDate(vencimento)) { setError("Data de vencimento inválida."); return; }
+    if (!isValidDate(dataComp)) { setError("Data de lançamento inválida."); return; }
     if (!fotografo) return;
     setSaving(true);
     setError("");
@@ -100,6 +102,8 @@ export default function NovoLancamentoPage() {
       descricao:             descricao.trim(),
       valor:                 v,
       vencimento:            i === 0 ? vencimento : addDays(vencimento, i * dias),
+      // Parcelado: cada parcela entra na competência do seu mês.
+      data_competencia:      i === 0 ? dataComp : addDays(dataComp, i * dias),
       status:                "pendente" as const,
       pago_em:               null,
       conta_id:              categoriaId || null,
@@ -165,11 +169,11 @@ export default function NovoLancamentoPage() {
             Identificação
           </div>
 
-          {/* Emissão + Vencimento */}
+          {/* Data de lançamento (competência) + Vencimento */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
             <div>
-              <Label>Emissão</Label>
-              <input type="date" value={hoje} disabled style={{ ...inputStyle, opacity: 0.6 }} />
+              <Label>Data de lançamento (competência) *</Label>
+              <input type="date" value={dataComp} onChange={e => setDataComp(e.target.value)} style={inputStyle} />
             </div>
             <div>
               <Label>Vencimento *</Label>

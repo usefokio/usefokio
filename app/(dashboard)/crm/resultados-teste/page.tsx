@@ -1,13 +1,21 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useWindowWidth, TABLET } from "@/lib/hooks/useWindowWidth";
+import { createClient } from "@/lib/supabase/client";
+import { useFotografo } from "@/lib/context/FotografoContext";
 import {
-  carregarResultadosAno, totalSecao, ULTIMO_ANO_HISTORICO, PRIMEIRO_ANO_HISTORICO, CORTE_HISTORICO,
+  carregarResultadosAno, totalSecao, mesAoVivo, ULTIMO_ANO_HISTORICO, PRIMEIRO_ANO_HISTORICO, CORTE_HISTORICO,
   type RegimeResultado, type SecaoResultado, type ContaResultado,
 } from "@/lib/crm/resultadosCongelados";
+import { carregarAoVivo, chaveItens, type ResultadosAoVivo } from "@/lib/crm/resultadosAoVivo";
 
 const MESES = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+const MESES_EXTENSO = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
+
+function fmtData(d: string) {
+  return d.slice(0, 10).split("-").reverse().join("/");
+}
 
 function fmtBRL(v: number) {
   if (v === 0) return "";
@@ -21,11 +29,33 @@ export default function ResultadosTestePage() {
   const isMobile = useWindowWidth() < TABLET;
   const anoAtual = new Date().getFullYear();
 
-  const [ano,    setAno]    = useState(ULTIMO_ANO_HISTORICO);
-  const [regime, setRegime] = useState<RegimeResultado>("competencia");
+  const { fotografo } = useFotografo();
 
-  // Dados históricos são um arquivo do próprio código — nada de banco, nada de carregamento.
-  const dados = useMemo(() => carregarResultadosAno(ano, regime), [ano, regime]);
+  const [ano,    setAno]    = useState(Math.max(anoAtual, CORTE_HISTORICO.ano));
+  const [regime, setRegime] = useState<RegimeResultado>("competencia");
+  const [aoVivo, setAoVivo] = useState<Partial<Record<RegimeResultado, ResultadosAoVivo>>>({});
+  const [erro,   setErro]   = useState<string | null>(null);
+  const [detalhe, setDetalhe] = useState<{ conta: ContaResultado; mes: number } | null>(null);
+
+  // Meses depois do corte vêm dos lançamentos (uma leitura por regime, reaproveitada em todos os anos).
+  useEffect(() => {
+    if (!fotografo?.id || aoVivo[regime]) return;
+    let cancelado = false;
+    setErro(null);
+    carregarAoVivo(createClient(), fotografo.id, regime)
+      .then(r => { if (!cancelado) setAoVivo(m => ({ ...m, [regime]: r })); })
+      .catch(e => { if (!cancelado) setErro(e?.message ?? "Erro ao carregar os lançamentos"); });
+    return () => { cancelado = true; };
+  }, [fotografo?.id, regime, aoVivo]);
+
+  const vivoDoRegime = aoVivo[regime] ?? null;
+  const precisaVivo = ano >= CORTE_HISTORICO.ano;
+  const carregando = precisaVivo && !vivoDoRegime && !erro;
+
+  const anoMax = Math.max(anoAtual, ...Object.keys(vivoDoRegime?.valores ?? {}).map(Number));
+
+  // Até o corte: arquivo congelado do próprio código. Depois: lançamentos ao vivo.
+  const dados = useMemo(() => carregarResultadosAno(ano, regime, vivoDoRegime), [ano, regime, vivoDoRegime]);
 
   const contasDe = (secao: SecaoResultado) => dados.contas.filter(c => c.secao === secao);
   const receitas = contasDe("receita");
@@ -75,11 +105,19 @@ export default function ResultadosTestePage() {
       <tr style={{ background: "var(--color-background-primary)" }}>
         <td style={tdCod}>{c.codigo}</td>
         <td style={tdNome}>{c.nome}</td>
-        {vals.map((v, i) => (
-          <td key={i} style={{ ...tdStyle, color: v !== 0 ? cor : "var(--color-text-secondary)" }}>
-            {exibe(v)}
-          </td>
-        ))}
+        {vals.map((v, i) => {
+          const clicavel = v !== 0 && mesAoVivo(ano, i + 1);
+          return (
+            <td key={i}
+              onClick={clicavel ? () => setDetalhe({ conta: c, mes: i + 1 }) : undefined}
+              title={clicavel ? "Ver os lançamentos" : undefined}
+              style={{ ...tdStyle, color: v !== 0 ? cor : "var(--color-text-secondary)",
+                cursor: clicavel ? "pointer" : "default",
+                textDecoration: clicavel ? "underline dotted" : "none", textUnderlineOffset: 3 }}>
+              {exibe(v)}
+            </td>
+          );
+        })}
         <td style={{ ...tdStyle, fontWeight: 600, color: total !== 0 ? cor : "var(--color-text-secondary)", borderLeft: "0.5px solid var(--color-border-tertiary)" }}>
           {exibe(total)}
         </td>
@@ -117,7 +155,8 @@ export default function ResultadosTestePage() {
           <p style={{ fontSize: 13, color: "var(--color-text-secondary)", margin: 0 }}>
             {regime === "competencia" ? "Regime de Competência" : "Regime de Caixa"}
             {congelado && " · dados importados do relatório oficial"}
-            {!congelado && ano === CORTE_HISTORICO.ano && ` · jan–${MESES[CORTE_HISTORICO.mes - 1].toLowerCase()} do relatório oficial`}
+            {!congelado && ano === CORTE_HISTORICO.ano && ` · jan–${MESES[CORTE_HISTORICO.mes - 1].toLowerCase()} do relatório oficial, depois dos lançamentos`}
+            {ano > CORTE_HISTORICO.ano && " · dos lançamentos do sistema"}
           </p>
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
@@ -126,11 +165,11 @@ export default function ResultadosTestePage() {
               style={{ padding: "7px 10px", fontSize: 13, border: "none", borderRight: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-primary)", color: ano <= PRIMEIRO_ANO_HISTORICO ? "var(--color-text-tertiary)" : "var(--color-text-primary)", cursor: ano <= PRIMEIRO_ANO_HISTORICO ? "default" : "pointer" }}>‹</button>
             <select value={ano} onChange={e => setAno(Number(e.target.value))}
               style={{ padding: "7px 8px", fontSize: 13, border: "none", background: "var(--color-background-primary)", color: "var(--color-text-primary)", outline: "none", cursor: "pointer" }}>
-              {Array.from({ length: anoAtual - PRIMEIRO_ANO_HISTORICO + 1 }, (_, i) => PRIMEIRO_ANO_HISTORICO + i)
+              {Array.from({ length: anoMax - PRIMEIRO_ANO_HISTORICO + 1 }, (_, i) => PRIMEIRO_ANO_HISTORICO + i)
                 .map(a => <option key={a} value={a}>{a}</option>)}
             </select>
-            <button onClick={() => setAno(a => a + 1)} disabled={ano >= anoAtual}
-              style={{ padding: "7px 10px", fontSize: 13, border: "none", borderLeft: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-primary)", color: ano >= anoAtual ? "var(--color-text-tertiary)" : "var(--color-text-primary)", cursor: ano >= anoAtual ? "default" : "pointer" }}>›</button>
+            <button onClick={() => setAno(a => a + 1)} disabled={ano >= anoMax}
+              style={{ padding: "7px 10px", fontSize: 13, border: "none", borderLeft: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-primary)", color: ano >= anoMax ? "var(--color-text-tertiary)" : "var(--color-text-primary)", cursor: ano >= anoMax ? "default" : "pointer" }}>›</button>
           </div>
           <div style={{ display: "flex", borderRadius: 8, border: "0.5px solid var(--color-border-tertiary)", overflow: "hidden" }}>
             {(["competencia", "caixa"] as RegimeResultado[]).map(r => (
@@ -155,18 +194,29 @@ export default function ResultadosTestePage() {
 
       {!congelado && (
         <div style={{ background: "rgba(37,99,235,0.06)", border: "0.5px solid rgba(37,99,235,0.25)", borderRadius: 10, padding: "12px 16px", marginBottom: 16, fontSize: 13, color: "var(--color-text-primary)" }}>
-          {ano === CORTE_HISTORICO.ano ? (
-            <>Jan a {MESES[CORTE_HISTORICO.mes - 1].toLowerCase()}/{CORTE_HISTORICO.ano} já estão fechados: relatório oficial do sistema
-            antigo mais o que só existe no CRM. De {MESES[CORTE_HISTORICO.mes % 12].toLowerCase()} em diante os números vêm dos
-            lançamentos — essa parte ainda não foi montada, por isso esses meses aparecem zerados.</>
-          ) : (
-            <>A partir de {CORTE_HISTORICO.ano + 1} os números vêm dos lançamentos do sistema — essa parte ainda não foi
-            montada. O período até {MESES[CORTE_HISTORICO.mes - 1].toLowerCase()}/{CORTE_HISTORICO.ano} já está pronto e não muda.</>
+          {ano === CORTE_HISTORICO.ano && (
+            <>Jan a {MESES[CORTE_HISTORICO.mes - 1].toLowerCase()}/{CORTE_HISTORICO.ano} estão fechados (relatório oficial do sistema
+            antigo mais o que só existe no CRM) e não mudam. De {MESES[CORTE_HISTORICO.mes % 12].toLowerCase()} em diante os números
+            vêm dos lançamentos do sistema. </>
           )}
+          {regime === "competencia"
+            ? <>Competência: pedido entra pelo total na data da venda; contas e demais lançamentos pela data de lançamento, pagos ou não.</>
+            : <>Caixa: só o que foi pago ou recebido, pela data do pagamento.</>}
+          {" "}Clique em um valor sublinhado para ver os lançamentos que o formam.
         </div>
       )}
 
-      {dados.contas.length === 0 ? (
+      {erro && (
+        <div style={{ background: "rgba(239,68,68,0.06)", border: "0.5px solid rgba(239,68,68,0.3)", borderRadius: 10, padding: "12px 16px", marginBottom: 16, fontSize: 13, color: "#B91C1C" }}>
+          Não foi possível carregar os lançamentos: {erro}
+        </div>
+      )}
+
+      {carregando ? (
+        <div style={{ padding: "60px 0", textAlign: "center", fontSize: 13, color: "var(--color-text-secondary)" }}>
+          Carregando lançamentos…
+        </div>
+      ) : dados.contas.length === 0 ? (
         <div style={{ padding: "60px 0", textAlign: "center", fontSize: 13, color: "var(--color-text-secondary)" }}>
           Nenhum dado para {ano}.
         </div>
@@ -213,6 +263,55 @@ export default function ResultadosTestePage() {
           </table>
         </div>
       )}
+
+      {detalhe && (() => {
+        const lista = vivoDoRegime?.itens[chaveItens(ano, detalhe.mes, detalhe.conta.codigo)] ?? [];
+        const soma = Math.round(lista.reduce((s, it) => s + it.valor, 0) * 100) / 100;
+        const valorCelula = dados.valores[detalhe.conta.codigo]?.[detalhe.mes - 1] ?? 0;
+        return (
+          <div onClick={() => setDetalhe(null)}
+            style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+            <div onClick={e => e.stopPropagation()}
+              style={{ background: "var(--color-background-primary)", borderRadius: 12, width: "100%", maxWidth: 640, maxHeight: "85vh", display: "flex", flexDirection: "column", boxShadow: "0 10px 40px rgba(0,0,0,0.2)" }}>
+              <div style={{ padding: "16px 20px", borderBottom: "0.5px solid var(--color-border-tertiary)", display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
+                <div>
+                  <div style={{ fontSize: 15, fontWeight: 800, color: "var(--color-text-primary)" }}>
+                    {detalhe.conta.codigo} {detalhe.conta.nome}
+                  </div>
+                  <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginTop: 2 }}>
+                    {MESES_EXTENSO[detalhe.mes - 1]}/{ano} · {regime === "competencia" ? "Competência" : "Caixa"}
+                  </div>
+                </div>
+                <button onClick={() => setDetalhe(null)}
+                  style={{ border: "none", background: "transparent", fontSize: 18, cursor: "pointer", color: "var(--color-text-secondary)" }}>✕</button>
+              </div>
+              <div style={{ overflowY: "auto", flex: 1 }}>
+                {lista.map((it, i) => (
+                  <div key={i} style={{ display: "grid", gridTemplateColumns: "84px 1fr auto", gap: 10, padding: "10px 20px", borderBottom: "0.5px solid var(--color-border-tertiary)", alignItems: "baseline" }}>
+                    <span style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>{fmtData(it.data)}</span>
+                    <span style={{ fontSize: 13, color: "var(--color-text-primary)", minWidth: 0 }}>
+                      {it.pedidoId
+                        ? <a href={`/crm/pedidos/${it.pedidoId}`} style={{ color: "#2563EB", textDecoration: "none" }}>{it.descricao}</a>
+                        : it.descricao}
+                      {it.pendente && (
+                        <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, padding: "1px 6px", borderRadius: 999, background: "rgba(217,119,6,0.12)", color: "#B45309" }}>pendente</span>
+                      )}
+                      {it.obs && <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 2 }}>{it.obs}</div>}
+                    </span>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: it.valor < 0 ? "#EF4444" : "var(--color-text-primary)", whiteSpace: "nowrap" }}>
+                      {fmtSaldo(it.valor)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <div style={{ padding: "12px 20px", borderTop: "0.5px solid var(--color-border-secondary)", display: "flex", justifyContent: "space-between", fontSize: 13, fontWeight: 800, color: "var(--color-text-primary)" }}>
+                <span>Total ({lista.length} {lista.length === 1 ? "item" : "itens"})</span>
+                <span style={{ color: Math.abs(soma - valorCelula) > 0.004 ? "#EF4444" : "var(--color-text-primary)" }}>{fmtSaldo(soma)}</span>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

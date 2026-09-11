@@ -1,12 +1,17 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { GraficoPanorama } from "../../resultados/_components/GraficoPanorama";
+import { createClient } from "@/lib/supabase/client";
+import { useFotografo } from "@/lib/context/FotografoContext";
 import {
-  carregarPanoramaHistorico, ULTIMO_ANO_HISTORICO, PRIMEIRO_ANO_HISTORICO,
+  carregarPanorama, PRIMEIRO_ANO_HISTORICO, CORTE_HISTORICO,
   type RegimeResultado, type ContaResultado, type SecaoResultado,
 } from "@/lib/crm/resultadosCongelados";
+import { carregarAoVivo, type ResultadosAoVivo } from "@/lib/crm/resultadosAoVivo";
+
+const MESES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
 
 type Periodo = { label: string; anos: number[] };
 
@@ -31,10 +36,28 @@ export default function PanoramaTestePage() {
   const router = useRouter();
   const [regime, setRegime] = useState<RegimeResultado>("competencia");
   const [agrupamento, setAgrupamento] = useState<1 | 3 | 5>(3);
+  const { fotografo } = useFotografo();
+  const [aoVivo, setAoVivo] = useState<Partial<Record<RegimeResultado, ResultadosAoVivo>>>({});
+  const [erro, setErro] = useState<string | null>(null);
 
-  // Mesmo arquivo da tabela mensal — as duas telas não têm como divergir.
+  useEffect(() => {
+    if (!fotografo?.id || aoVivo[regime]) return;
+    let cancelado = false;
+    setErro(null);
+    carregarAoVivo(createClient(), fotografo.id, regime)
+      .then(r => { if (!cancelado) setAoVivo(m => ({ ...m, [regime]: r })); })
+      .catch(e => { if (!cancelado) setErro(e?.message ?? "Erro ao carregar os lançamentos"); });
+    return () => { cancelado = true; };
+  }, [fotografo?.id, regime, aoVivo]);
+
+  const vivoDoRegime = aoVivo[regime] ?? null;
+  const carregando = !vivoDoRegime && !erro;
+
+  // Mesma fonte da tabela mensal (ano a ano) — as duas telas não têm como divergir.
   const { anos, contas, mapaAnual, porAno } = useMemo(
-    () => carregarPanoramaHistorico(regime), [regime]);
+    () => carregarPanorama(regime, vivoDoRegime), [regime, vivoDoRegime]);
+  const ultimoAno = anos[anos.length - 1] ?? CORTE_HISTORICO.ano;
+  const fonte = `até ${MESES[CORTE_HISTORICO.mes - 1]}/${CORTE_HISTORICO.ano} do relatório oficial; depois, dos lançamentos`;
 
   const periodos = useMemo((): Periodo[] => {
     if (anos.length === 0) return [];
@@ -164,7 +187,7 @@ export default function PanoramaTestePage() {
               Panorama (teste)
             </h1>
             <p style={{ fontSize: 13, color: "var(--color-text-secondary)", margin: 0 }}>
-              {PRIMEIRO_ANO_HISTORICO} a {ULTIMO_ANO_HISTORICO} · dados importados do relatório oficial
+              {PRIMEIRO_ANO_HISTORICO} a {ultimoAno} · {fonte}
             </p>
           </div>
         </div>
@@ -183,9 +206,20 @@ export default function PanoramaTestePage() {
         </div>
       </div>
 
+      {erro && (
+        <div style={{ background: "rgba(239,68,68,0.06)", border: "0.5px solid rgba(239,68,68,0.3)", borderRadius: 10, padding: "12px 16px", marginBottom: 16, fontSize: 13, color: "#B91C1C" }}>
+          Não foi possível carregar os lançamentos: {erro}
+        </div>
+      )}
+
+      {carregando ? (
+        <div style={{ padding: "60px 0", textAlign: "center", fontSize: 13, color: "var(--color-text-secondary)" }}>
+          Carregando lançamentos…
+        </div>
+      ) : (<>
       <div style={{ display: "flex", gap: 16, marginBottom: 24, flexWrap: "wrap" }}>
-        <Card label={`Total Receitas (${PRIMEIRO_ANO_HISTORICO}–${ULTIMO_ANO_HISTORICO})`} valor={totalReceitas} cor="#059669" />
-        <Card label={`Total Despesas (${PRIMEIRO_ANO_HISTORICO}–${ULTIMO_ANO_HISTORICO})`} valor={totalDespesas} cor="#EF4444" />
+        <Card label={`Total Receitas (${PRIMEIRO_ANO_HISTORICO}–${ultimoAno})`} valor={totalReceitas} cor="#059669" />
+        <Card label={`Total Despesas (${PRIMEIRO_ANO_HISTORICO}–${ultimoAno})`} valor={totalDespesas} cor="#EF4444" />
         <Card label="Lucro Acumulado" valor={totalLucro} cor={totalLucro >= 0 ? "#2563EB" : "#EF4444"} />
         {melhorAno && (
           <div style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 12, padding: "20px 24px", flex: 1, minWidth: 160 }}>
@@ -231,10 +265,10 @@ export default function PanoramaTestePage() {
       <div style={{ marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
         <div>
           <h2 style={{ fontSize: 16, fontWeight: 800, letterSpacing: "-0.02em", color: "var(--color-text-primary)", margin: "0 0 2px" }}>
-            DRE por Plano de Contas — {PRIMEIRO_ANO_HISTORICO} a {ULTIMO_ANO_HISTORICO}
+            DRE por Plano de Contas — {PRIMEIRO_ANO_HISTORICO} a {ultimoAno}
           </h2>
           <p style={{ fontSize: 12, color: "var(--color-text-secondary)", margin: 0 }}>
-            Totais do relatório oficial — sem lançamento individual por trás
+            {fonte[0].toUpperCase() + fonte.slice(1)}
           </p>
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -291,6 +325,7 @@ export default function PanoramaTestePage() {
           </tbody>
         </table>
       </div>
+      </>)}
     </div>
   );
 }
