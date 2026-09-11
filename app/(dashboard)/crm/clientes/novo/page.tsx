@@ -45,7 +45,8 @@ export default function NovoClientePage() {
   const [rg,          setRg]          = useState("");
   const [dataNasc,    setDataNasc]    = useState("");
   const [observacoes, setObservacoes] = useState("");
-  const [tipoContato, setTipoContato] = useState("cliente");
+  // Contato novo nasce Oportunidade; vira Cliente sozinho ao ganhar pedido/conta recebida (trigger no banco).
+  const [tipoContato, setTipoContato] = useState("oportunidade");
   const [cep,         setCep]         = useState("");
   const [logradouro,  setLogradouro]  = useState("");
   const [numero,      setNumero]      = useState("");
