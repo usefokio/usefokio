@@ -66,7 +66,7 @@ const USEFOKIO_ITEMS = [
   },
   {
     href: "/contatos",
-    label: "Contatos",
+    label: "Listas de e-mail",
     icon: (
       <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
         <rect x="2" y="2" width="12" height="12" rx="2" stroke="currentColor" strokeWidth="1.3" fill="none" opacity=".8" />

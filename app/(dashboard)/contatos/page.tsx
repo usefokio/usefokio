@@ -66,7 +66,7 @@ export default function ContatosPage() {
   return (
     <div style={{ padding: "26px 30px", maxWidth: 780 }}>
       <div style={{ marginBottom: 24 }}>
-        <h1 style={{ fontSize: 19, fontWeight: 600, color: "var(--color-text-primary)", margin: "0 0 3px", letterSpacing: "-0.02em" }}>Contatos</h1>
+        <h1 style={{ fontSize: 19, fontWeight: 600, color: "var(--color-text-primary)", margin: "0 0 3px", letterSpacing: "-0.02em" }}>Listas de e-mail</h1>
         <p style={{ fontSize: 13, color: "var(--color-text-secondary)", margin: 0 }}>
           Listas de email capturadas nas galerias de entrega, organizadas por categoria
         </p>
