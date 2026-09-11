@@ -206,7 +206,7 @@ export default function ClienteDetailPage() {
       if (dup) { setErroSalvar(`WhatsApp já cadastrado para "${(dup as { nome: string }).nome}"`); return false; }
     }
     setSalvando(true);
-    await sb.from("clientes").update({
+    const { error: erroUpdate } = await sb.from("clientes").update({
       nome: nome.trim(), email: email || null, telefone: telefone || null,
       whatsapp: whatsapp || null, empresa: empresa || null, cargo: cargo || null,
       instagram: instagram || null, cpf: cpf || null, rg: rg || null,
@@ -216,6 +216,8 @@ export default function ClienteDetailPage() {
       complemento: complemento || null, bairro: bairro || null,
       cidade: cidade || null, estado: estado || null,
     }).eq("id", id);
+    // Nunca fingir que salvou: se o banco recusar (ex.: tipo não aceito), mostra o erro e fica em edição.
+    if (erroUpdate) { setErroSalvar(`Não foi possível salvar: ${erroUpdate.message}`); setSalvando(false); return false; }
     await carregar();
     setEditing(false);
     guarda.marcarSalvo("salvo");
