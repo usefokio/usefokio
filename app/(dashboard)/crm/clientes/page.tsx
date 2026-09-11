@@ -10,6 +10,7 @@ import { useWindowWidth, TABLET } from "@/lib/hooks/useWindowWidth";
 import { Paginacao } from "@/app/(dashboard)/crm/_components/Paginacao";
 import { usePersistState } from "@/lib/hooks/usePersistState";
 import type { Cliente } from "@/lib/supabase/types";
+import { useTiposContato } from "@/lib/crm/tiposContato";
 
 const btnIcon = (extra?: React.CSSProperties): React.CSSProperties => ({
   display: "flex", alignItems: "center", justifyContent: "center",
@@ -20,17 +21,9 @@ const btnIcon = (extra?: React.CSSProperties): React.CSSProperties => ({
   ...extra,
 });
 
-const TIPO_MAP: Record<string, { label: string; color: string; bg: string }> = {
-  cliente:     { label: "Cliente",      color: "#2563EB", bg: "rgba(37,99,235,0.08)"  },
-  oportunidade:{ label: "Oportunidade", color: "#D97706", bg: "rgba(217,119,6,0.08)"  },
-  fornecedor:  { label: "Fornecedor",   color: "#7C3AED", bg: "rgba(124,58,237,0.08)" },
-  parceiro:    { label: "Parceiro",     color: "#059669", bg: "rgba(16,185,129,0.08)" },
-  fotografo:   { label: "Fotógrafo",   color: "#0891B2", bg: "rgba(8,145,178,0.08)"  },
-  videografo:  { label: "Videógrafo",  color: "#7C3AED", bg: "rgba(124,58,237,0.08)" },
-};
-
 export default function CrmClientesPage() {
   const { fotografo } = useFotografo();
+  const { tipos, mapa: TIPO_MAP, estilo } = useTiposContato(fotografo?.id);
   const router = useRouter();
   const isMobile = useWindowWidth() < TABLET;
   const [clientes, setClientes] = useState<Cliente[]>([]);
@@ -75,8 +68,8 @@ export default function CrmClientesPage() {
     acc[c.tipo_contato] = (acc[c.tipo_contato] ?? 0) + 1;
     return acc;
   }, {});
-  // Todos os tipos sempre visíveis (os zerados aparecem apagados), na ordem do TIPO_MAP.
-  const tiposVisiveis = Object.keys(TIPO_MAP);
+  // Tipos ativos da config sempre visíveis (zerados apagados) + desativados que ainda têm contato.
+  const tiposVisiveis = tipos.filter(t => t.ativo || (contagemPorTipo[t.chave] ?? 0) > 0 || t.chave === tipoFiltro).map(t => t.chave);
 
   const filtrados = clientes.filter((c: Cliente) => {
     if (tipoFiltro && c.tipo_contato !== tipoFiltro) return false;
@@ -210,7 +203,7 @@ export default function CrmClientesPage() {
             </thead>
             <tbody>
               {paginados.map((c) => {
-                const tipo = TIPO_MAP[c.tipo_contato] ?? { label: c.tipo_contato ?? "—", color: "var(--color-text-secondary)", bg: "var(--color-background-secondary)" };
+                const tipo = estilo(c.tipo_contato);
                 return (
                   <tr
                     key={c.id}
