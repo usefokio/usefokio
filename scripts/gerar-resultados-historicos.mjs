@@ -60,6 +60,20 @@ const AJUSTES = [
   { regime: "caixa", ano: 2026, mes: 6, codigo: "5.5.1",  valor: 86.05,  motivo: "pago pelo CRM em jun/2026" },
   // Competencia — despesas lancadas no CRM com vencimento em jun/2026 (Anthropic Claude + Mensalidade Imagen)
   { regime: "competencia", ano: 2026, mes: 6, codigo: "5.2.17", valor: 142.40, motivo: "lancado no CRM em jun/2026" },
+
+  // Competencia — itens que o sistema antigo ja tinha lancado (add_date) no periodo congelado e que foram
+  // EDITADOS no CRM depois da troca. A competencia do sistema antigo e pela data de lancamento; quando o
+  // valor e editado, vale a edicao. Conferido item a item: `tds contas a pagar.csv` (24/06) x banco, pelo
+  // legacy_id (#). Valor negativo = retira o que o relatorio antigo tinha.
+  { regime: "competencia", ano: 2026, mes: 6, codigo: "5.4",    valor: 330.48,  motivo: "#28838 Facebook 0,00 -> 330,48" },
+  { regime: "competencia", ano: 2026, mes: 6, codigo: "5.4",    valor: 351.54,  motivo: "#28865 Adwords 0,00 -> 351,54" },
+  { regime: "competencia", ano: 2026, mes: 6, codigo: "4.1",    valor: 21.00,   motivo: "#29064 adobe 139,00 -> 160,00" },
+  { regime: "competencia", ano: 2026, mes: 6, codigo: "5.4.3",  valor: -125.00, motivo: "#28319 Alboom: Site -> Software" },
+  { regime: "competencia", ano: 2026, mes: 6, codigo: "5.2.17", valor: 125.00,  motivo: "#28319 Alboom: Site -> Software" },
+  { regime: "competencia", ano: 2026, mes: 6, codigo: "4.1",    valor: -86.05,  motivo: "#29316 simples MEI: Custos Diretos -> Simples" },
+  { regime: "competencia", ano: 2026, mes: 6, codigo: "5.5.1",  valor: 86.05,   motivo: "#29316 simples MEI: Custos Diretos -> Simples" },
+  { regime: "competencia", ano: 2026, mes: 6, codigo: "5.2.17", valor: -30.97,  motivo: "#29050 Image IA apagada (substituida pela Mensalidade Imagen)" },
+  { regime: "competencia", ano: 2026, mes: 1, codigo: "5.2.14", valor: -400.00, motivo: "#28706 Pre-wedding #602: 400,00 -> 0,01 na baixa de 20/07" },
 ];
 
 // ── parsing ─────────────────────────────────────────────────────────────────
