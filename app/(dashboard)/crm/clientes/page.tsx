@@ -75,8 +75,8 @@ export default function CrmClientesPage() {
     acc[c.tipo_contato] = (acc[c.tipo_contato] ?? 0) + 1;
     return acc;
   }, {});
-  // Tipos com contato cadastrado (+ o selecionado, mesmo zerado), na ordem do TIPO_MAP.
-  const tiposVisiveis = Object.keys(TIPO_MAP).filter(k => (contagemPorTipo[k] ?? 0) > 0 || k === tipoFiltro);
+  // Todos os tipos sempre visíveis (os zerados aparecem apagados), na ordem do TIPO_MAP.
+  const tiposVisiveis = Object.keys(TIPO_MAP);
 
   const filtrados = clientes.filter((c: Cliente) => {
     if (tipoFiltro && c.tipo_contato !== tipoFiltro) return false;
@@ -157,6 +157,7 @@ export default function CrmClientesPage() {
                 border: ativo ? `1px solid ${color}` : "0.5px solid var(--color-border-tertiary)",
                 background: ativo ? bg : "var(--color-background-primary)",
                 color: ativo ? color : "var(--color-text-secondary)",
+                opacity: !ativo && !loading && n === 0 ? 0.5 : 1,
               }}>
               {label}
               <span style={{ fontSize: 11, opacity: 0.75 }}>{loading ? "…" : n.toLocaleString("pt-BR")}</span>
