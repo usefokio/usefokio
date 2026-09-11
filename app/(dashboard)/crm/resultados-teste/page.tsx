@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useWindowWidth, TABLET } from "@/lib/hooks/useWindowWidth";
 import {
-  carregarResultadosAno, totalSecao, ULTIMO_ANO_HISTORICO, PRIMEIRO_ANO_HISTORICO,
+  carregarResultadosAno, totalSecao, ULTIMO_ANO_HISTORICO, PRIMEIRO_ANO_HISTORICO, CORTE_HISTORICO,
   type RegimeResultado, type SecaoResultado, type ContaResultado,
 } from "@/lib/crm/resultadosCongelados";
 
@@ -117,6 +117,7 @@ export default function ResultadosTestePage() {
           <p style={{ fontSize: 13, color: "var(--color-text-secondary)", margin: 0 }}>
             {regime === "competencia" ? "Regime de Competência" : "Regime de Caixa"}
             {congelado && " · dados importados do relatório oficial"}
+            {!congelado && ano === CORTE_HISTORICO.ano && ` · jan–${MESES[CORTE_HISTORICO.mes - 1].toLowerCase()} do relatório oficial`}
           </p>
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
@@ -154,8 +155,14 @@ export default function ResultadosTestePage() {
 
       {!congelado && (
         <div style={{ background: "rgba(37,99,235,0.06)", border: "0.5px solid rgba(37,99,235,0.25)", borderRadius: 10, padding: "12px 16px", marginBottom: 16, fontSize: 13, color: "var(--color-text-primary)" }}>
-          A partir de {ULTIMO_ANO_HISTORICO + 1} os números vêm dos lançamentos do sistema — essa parte
-          ainda não foi montada. Os anos até {ULTIMO_ANO_HISTORICO} já estão prontos e não mudam.
+          {ano === CORTE_HISTORICO.ano ? (
+            <>Jan a {MESES[CORTE_HISTORICO.mes - 1].toLowerCase()}/{CORTE_HISTORICO.ano} já estão fechados: relatório oficial do sistema
+            antigo mais o que só existe no CRM. De {MESES[CORTE_HISTORICO.mes % 12].toLowerCase()} em diante os números vêm dos
+            lançamentos — essa parte ainda não foi montada, por isso esses meses aparecem zerados.</>
+          ) : (
+            <>A partir de {CORTE_HISTORICO.ano + 1} os números vêm dos lançamentos do sistema — essa parte ainda não foi
+            montada. O período até {MESES[CORTE_HISTORICO.mes - 1].toLowerCase()}/{CORTE_HISTORICO.ano} já está pronto e não muda.</>
+          )}
         </div>
       )}
 

@@ -1,5 +1,5 @@
 import {
-  CONTAS_HISTORICAS, VALORES_HISTORICOS, ULTIMO_ANO_HISTORICO, PRIMEIRO_ANO_HISTORICO,
+  CONTAS_HISTORICAS, VALORES_HISTORICOS, ULTIMO_ANO_HISTORICO, PRIMEIRO_ANO_HISTORICO, CORTE_HISTORICO,
   type ContaHistorica, type RegimeHistorico, type SecaoHistorica,
 } from "./resultadosHistoricos";
 
@@ -11,29 +11,33 @@ export type ResultadosAno = {
   contas: ContaResultado[];
   /** codigo da conta -> [jan..dez]. Positivo = entrou/custou; negativo = estorno. */
   valores: Record<string, number[]>;
-  origem: "historico" | "ao-vivo";
+  /** historico = ano inteiro congelado; misto = ano do corte (congelado so ate o mes do corte). */
+  origem: "historico" | "misto" | "ao-vivo";
 };
 
-export { ULTIMO_ANO_HISTORICO, PRIMEIRO_ANO_HISTORICO };
+export { ULTIMO_ANO_HISTORICO, PRIMEIRO_ANO_HISTORICO, CORTE_HISTORICO };
 
 const VAZIO_AO_VIVO: ResultadosAno = { contas: [], valores: {}, origem: "ao-vivo" };
 
 /**
  * Resultados de um ano, por conta e mes.
  *
- * Ate ULTIMO_ANO_HISTORICO os numeros vem do arquivo `resultadosHistoricos.ts` — os
- * relatorios oficiais do sistema antigo, ja fechados e conferidos no centavo. Nao passam
- * por lancamento, pedido nem plano de contas do sistema.
+ * Ate CORTE_HISTORICO (inclusive) os numeros vem do arquivo `resultadosHistoricos.ts` — os
+ * relatorios oficiais do sistema antigo, fechados e conferidos no centavo, mais os poucos itens
+ * que so existem no CRM dentro desse periodo. Nao passam por lancamento, pedido nem plano de
+ * contas do sistema.
  *
- * A partir do ano seguinte serao calculados dos lancamentos ao vivo (ainda a definir).
- * Sao caminhos separados de proposito: mexer na logica nova nao tem como alterar o historico.
+ * Depois do corte os numeros serao calculados dos lancamentos ao vivo (ainda a montar); por
+ * enquanto esses meses aparecem zerados. Sao caminhos separados de proposito: mexer na logica
+ * nova nao tem como alterar o periodo congelado.
  */
 export function carregarResultadosAno(ano: number, regime: RegimeResultado): ResultadosAno {
-  if (ano > ULTIMO_ANO_HISTORICO) return VAZIO_AO_VIVO;
+  if (ano > CORTE_HISTORICO.ano) return VAZIO_AO_VIVO;
 
   const doAno = VALORES_HISTORICOS[regime]?.[ano] ?? {};
   const contas = CONTAS_HISTORICAS.filter(c => doAno[c.codigo]?.some(v => v !== 0));
-  return { contas, valores: doAno, origem: "historico" };
+  const misto = ano === CORTE_HISTORICO.ano && CORTE_HISTORICO.mes < 12;
+  return { contas, valores: doAno, origem: misto ? "misto" : "historico" };
 }
 
 export type PanoramaAno = { ano: number; receitas: number; despesas: number; lucro: number };
@@ -48,13 +52,16 @@ export type PanoramaHistorico = {
 };
 
 /**
- * Visao de todos os anos historicos de um regime, agregada por conta e por ano.
- * Mesma fonte da tabela mensal (`carregarResultadosAno`) — as duas nao tem como divergir,
- * porque leem o mesmo arquivo e este arquivo nao muda.
+ * Visao de todos os anos INTEIROS congelados de um regime, agregada por conta e por ano.
+ * O ano do corte (so parcialmente congelado) fica de fora ate a parte ao vivo existir — senao o
+ * Panorama mostraria meio ano como se fosse o ano todo.
+ * Mesma fonte da tabela mensal (`carregarResultadosAno`): as duas nao tem como divergir.
  */
 export function carregarPanoramaHistorico(regime: RegimeResultado): PanoramaHistorico {
   const porRegime = VALORES_HISTORICOS[regime] ?? {};
-  const anos = Object.keys(porRegime).map(Number).sort((a, b) => a - b);
+  const anos = Object.keys(porRegime).map(Number)
+    .filter(a => a <= ULTIMO_ANO_HISTORICO)
+    .sort((a, b) => a - b);
 
   const mapaAnual: Record<string, Record<number, number>> = {};
   const usados = new Set<string>();

@@ -1,22 +1,28 @@
 // GERADO AUTOMATICAMENTE por scripts/gerar-resultados-historicos.mjs — nao editar a mao.
 //
-// Resultados historicos (2014–2025) exportados dos relatorios oficiais do
-// sistema antigo do Fernando, conferidos no centavo contra os relatorios dele:
+// Resultados historicos de 2014 a 06/2026, exportados dos relatorios oficiais do
+// sistema antigo do Fernando e conferidos no centavo contra os relatorios dele:
 //   2025 competencia -> receitas 114.016,00 | custos 21.693,97 | despesas 92.774,66 | saldo -452,63
 //   2025 caixa       -> receitas 116.558,16 | custos 22.113,79 | despesas 92.693,19 | saldo 1.751,18
 //
+// Jan–06/2026: relatorio oficial + 12 ajustes de itens que so existem no CRM
+// (lancados/pagos depois da troca de sistema). A lista esta em scripts/gerar-resultados-historicos.mjs.
+//
 // Este periodo esta FECHADO. Fica em arquivo de codigo (nao em tabela) de proposito: nenhuma
-// mudanca futura na logica de 2026+ tem como alterar estes numeros.
+// mudanca futura na logica ao vivo tem como alterar estes numeros.
 //
 // Valores normalizados: positivo = entrou/custou; negativo = estorno. Cada conta tem 12
-// posicoes (janeiro a dezembro).
+// posicoes (janeiro a dezembro); meses depois do corte ficam zerados.
 
 export type SecaoHistorica = "receita" | "custo" | "despesa";
 export type RegimeHistorico = "competencia" | "caixa";
 export type ContaHistorica = { codigo: string; nome: string; secao: SecaoHistorica };
 
-export const ULTIMO_ANO_HISTORICO = 2025;
 export const PRIMEIRO_ANO_HISTORICO = 2014;
+/** Ultimo ano INTEIRO congelado. */
+export const ULTIMO_ANO_HISTORICO = 2025;
+/** Ultimo MES congelado (inclusive). Depois dele os numeros vem dos lancamentos ao vivo. */
+export const CORTE_HISTORICO = { ano: 2026, mes: 6 };
 
 export const CONTAS_HISTORICAS: ContaHistorica[] = [
   { codigo: "3.1", nome: "Vendas", secao: "receita" },
@@ -494,6 +500,28 @@ export const VALORES_HISTORICOS: Record<RegimeHistorico, Record<number, Record<s
       "5.5.1": [254.04, 80.9, 272.84, 565.58, 80.9, 278.07, 80.9, 80.9, 80.9, 81.43, 283.99, 289.43],
       "5.6.1": [0, 0, -6.15, 0, 0, 0, -2.4, 0, 0, 0, 0, -134.4],
       "5.6.4": [30.3, 16.52, 34.88, 63.37, 57.6, 39.8, 62.67, 39.09, 61.93, 122.19, 1018.89, 0]
+    },
+    2026: {
+      "3.1": [0, 0, 0, 450, 0, 0, 0, 0, 0, 0, 0, 0],
+      "3.1.1": [19675, 0, 1500, 6000, 8400, 8500, 0, 0, 0, 0, 0, 0],
+      "3.1.2": [0, 1000, 4800, 4999.98, 2560, 0, 0, 0, 0, 0, 0, 0],
+      "3.1.3": [0, 0, 0, 60, 1200, 0, 0, 0, 0, 0, 0, 0],
+      "3.1.6": [0, 1400, 0, 0, 1400, 0, 0, 0, 0, 0, 0, 0],
+      "3.1.11": [0, 0, 0, 0, 0, 3000, 0, 0, 0, 0, 0, 0],
+      "3.3": [0, 0, 0, 0.02, 0, 0, 0, 0, 0, 0, 0, 0],
+      "4.1": [0, 238.9, 160, 251.05, 398.95, 725.05, 0, 0, 0, 0, 0, 0],
+      "4.1.4": [510.29, 176.95, 176.95, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      "4.1.5": [1200, 0, 0, 0, 0, 400, 0, 0, 0, 0, 0, 0],
+      "4.1.11": [507.15, 196.1, 196.1, 446.1, 254.6, 135.59, 0, 0, 0, 0, 0, 0],
+      "4.1.12": [553.32, 553.32, 553.32, 516.5, 516.5, 469.03, 0, 0, 0, 0, 0, 0],
+      "5.2.14": [10200, 3500, 4700, 5900, 7100, 2300, 0, 0, 0, 0, 0, 0],
+      "5.2.17": [79, 379.97, 79.97, 79.97, 239.97, 222.37, 0, 0, 0, 0, 0, 0],
+      "5.2.20": [399.8, 49.9, 49.9, 849.9, 49.9, 49.9, 0, 0, 0, 0, 0, 0],
+      "5.2.22": [1294.33, 325.85, 325.85, 325.85, 325.85, 325.85, 0, 0, 0, 0, 0, 0],
+      "5.4": [923.75, 850.85, 691.04, 585.81, 584.7, 53.9, 0, 0, 0, 0, 0, 0],
+      "5.4.3": [201, 125, 125, 125, 125, 284.54, 0, 0, 0, 0, 0, 0],
+      "5.5.1": [169.02, 0, 0, 0, 110.92, 111.04, 0, 0, 0, 0, 0, 0],
+      "5.6.4": [312.42, 0, 0, 76.45, 294.79, 32.83, 0, 0, 0, 0, 0, 0]
     }
   },
   caixa: {
@@ -805,6 +833,27 @@ export const VALORES_HISTORICOS: Record<RegimeHistorico, Record<number, Record<s
       "5.4.3": [79.8, 79.8, 79.8, 79.8, 0, 159.6, 79.8, 79.8, 79.8, 79.8, 204.8, 204.8],
       "5.5.1": [173.14, 0, 359.89, 565.58, 80.9, 278.07, 83.3, 80.9, 80.9, 80.9, 284.52, 289.43],
       "5.6.4": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1000, 0]
+    },
+    2026: {
+      "3.1": [0, 0, 0, 61.64, 55.48, 55.48, 0, 0, 0, 0, 0, 0],
+      "3.1.1": [10137.58, 3140, 7840, 1388.36, 3953.69, 6224.19, 0, 0, 0, 0, 0, 0],
+      "3.1.2": [0, 1000, 2050, 2073.55, 5435.19, 1030, 0, 0, 0, 0, 0, 0],
+      "3.1.3": [0, 0, 0, 60, 1200, 0, 0, 0, 0, 0, 0, 0],
+      "3.1.6": [0, 1400, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      "3.1.11": [0, 0, 0, 0, 229.17, 729.17, 0, 0, 0, 0, 0, 0],
+      "3.3": [0, 0, 0, 0, 0.02, 0, 0, 0, 0, 0, 0, 0],
+      "4.1": [0, 238.9, 259.9, 251.05, 299.05, 660, 0, 0, 0, 0, 0, 0],
+      "4.1.4": [500.04, 176.95, 187.2, 10.25, 0, 0, 0, 0, 0, 0, 0, 0],
+      "4.1.5": [0, 0, 0, 400, 0, 650, 0, 0, 0, 0, 0, 0],
+      "4.1.11": [119.01, 196.1, 313.06, 446.1, 254.6, 135.59, 0, 0, 0, 0, 0, 0],
+      "4.1.12": [407.92, 553.32, 698.72, 553.32, 516.5, 487.2, 0, 0, 0, 0, 0, 0],
+      "5.2.14": [4700, 3500, 3500, 5300, 7100, 3800, 0, 0, 0, 0, 0, 0],
+      "5.2.17": [349, 79.97, 79.97, 79.97, 239.97, 616.4, 0, 0, 0, 0, 0, 0],
+      "5.2.20": [349.9, 49.9, 49.9, 849.9, 49.9, 49.9, 0, 0, 0, 0, 0, 0],
+      "5.2.22": [1294.33, 325.85, 325.85, 325.85, 325.85, 325.85, 0, 0, 0, 0, 0, 0],
+      "5.4": [870.75, 850.85, 637.14, 639.71, 584.7, 735.92, 0, 0, 0, 0, 0, 0],
+      "5.4.3": [201, 125, 125, 125, 284.54, 0, 0, 0, 0, 0, 0, 0],
+      "5.5.1": [249.92, 0, 0, 0, 110.92, 197.09, 0, 0, 0, 0, 0, 0]
     }
   },
 };
