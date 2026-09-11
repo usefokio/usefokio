@@ -8,6 +8,7 @@ import { useFotografo } from "@/lib/context/FotografoContext";
 import { processarImagem } from "@/lib/imageResize";
 import { uploadFileClient } from "@/lib/storage/uploadClient";
 import { deleteFilesClient } from "@/lib/storage/deleteClient";
+import { PedidoVinculadoChip } from "@/components/ui/PedidoVinculadoChip";
 import { fetchAllRows } from "@/lib/supabase/fetchAll";
 import exifr from "exifr";
 import { PLANOS, BETA_RESOLUCAO_MAXIMA, type PlanoId } from "@/lib/planos";
@@ -431,6 +432,7 @@ function GaleriaSelecaoConteudo() {
             <span style={{ padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 600, background: STATUS_COLOR[galeria.status], color: STATUS_TEXT[galeria.status] }}>
               {STATUS_LABEL[galeria.status]}
             </span>
+            <PedidoVinculadoChip pedidoId={galeria.pedido_id} />
             {galeria.selecao_enviada && (
               <span style={{ padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 600, background: "rgba(37,99,235,0.1)", color: "#2563EB" }}>
                 ✓ Seleção recebida

@@ -164,6 +164,7 @@ export type GaleriaEntrega = {
   id: string;
   fotografo_id: string;
   cliente_id: string | null;
+  pedido_id?: string | null; // pedido do CRM ao qual a galeria pertence (vários por pedido)
   titulo: string;
   data_evento: string | null;
   drive_link: string | null;
@@ -328,6 +329,7 @@ export type GaleriaSelecao = {
   id: string;
   fotografo_id: string;
   cliente_id: string | null;
+  pedido_id?: string | null; // pedido do CRM ao qual a galeria pertence (vários por pedido)
   categoria_id: string | null;
   titulo: string;
   descricao: string | null;
@@ -390,6 +392,7 @@ export type AlbumSelecao = {
   id: string;
   fotografo_id: string;
   cliente_id: string | null;
+  pedido_id?: string | null; // pedido do CRM ao qual o álbum pertence (vários por pedido)
   modelo_id: string | null;
   titulo: string;
   descricao: string | null;
