@@ -13,6 +13,9 @@ create table if not exists public.crm_contato_tipos (
 create unique index if not exists crm_contato_tipos_fotografo_chave_key
   on public.crm_contato_tipos (fotografo_id, chave);
 grant all on public.crm_contato_tipos to anon, authenticated, service_role;
+-- O Supabase liga RLS sozinho em tabela nova criada pelo SQL Editor; no dev (sem login) isso esconde
+-- tudo. Em produção o arquivo _0004 (_rls_prod) liga de novo, com a política por fotógrafo.
+alter table public.crm_contato_tipos disable row level security;
 
 -- Semeia os 6 tipos atuais para todos os fotógrafos (idempotente).
 insert into public.crm_contato_tipos (fotografo_id, chave, label, ordem, cor)
