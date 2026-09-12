@@ -21,7 +21,21 @@ export const CATEGORIAS_CONFIG: CategoriaConfig[] = [
         ativo: (p) => p.startsWith("/configuracoes/usuario/seguranca") },
     ],
   },
-  // De início, tudo que não é do usuário entra aqui, como abas (Fernando, 12/09). Não criar bloco novo sem ele pedir.
+  // Empresa = o estúdio de fotografia (dados PÚBLICOS), diferente do Usuário (a pessoa que acessa).
+  // Alimenta site, galerias, propostas, contratos e e-mails — configurou aqui, vale em tudo.
+  {
+    id: "empresa", label: "Empresa", icon: "🏢",
+    descricao: "Dados públicos do estúdio: nome, contato, endereço, redes sociais e logo. Usados no site, galerias, propostas e e-mails.",
+    itens: [
+      { href: "/configuracoes/empresa", label: "Dados da empresa", icon: "🏢",
+        ativo: (p) => p === "/configuracoes/empresa" },
+      { href: "/configuracoes/empresa/redes", label: "Redes sociais", icon: "📱",
+        ativo: (p) => p.startsWith("/configuracoes/empresa/redes") },
+      { href: "/configuracoes/empresa/identidade", label: "Identidade visual", icon: "🎨",
+        ativo: (p) => p.startsWith("/configuracoes/empresa/identidade") },
+    ],
+  },
+  // Tudo que não é do usuário nem da empresa entra aqui, como abas (Fernando, 12/09). Bloco novo só quando ele pedir.
   {
     id: "sistema", label: "Configurações do sistema", icon: "🛠️",
     descricao: "Configurações gerais do sistema, como os tipos de contato.",

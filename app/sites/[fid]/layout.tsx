@@ -5,6 +5,7 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { carregarSite, baseLinks, hostDaRequisicao, normalizarHost, rotuloSubdominio } from "@/lib/site/publico";
+import { redesDaEmpresa } from "@/lib/empresa/redes";
 import { getTema, temaCssVars } from "@/lib/site/temas";
 import { normalizarDesign, getPar, type BarraConfig } from "@/lib/site/design";
 import { classesFontes, FONTE_VAR } from "./_fontes";
@@ -106,7 +107,8 @@ export default async function SitePublicoLayout({ children, params }: { children
   const { fid } = await params;
   const { fotografo, config, menu } = await carregarSite(fid);
   const b = await baseLinks(fid);
-  const redes = (config?.redes ?? {}) as Record<string, string>;
+  // Redes sociais: fonte única = Configurações › Empresa › Redes sociais (cadastro do fotógrafo).
+  const redes = redesDaEmpresa(fotografo);
   const tema = getTema(config?.tema);
 
   // Personalização de design (Aparência): par de fontes, logo, cor/opacidade/altura de header e rodapé.
@@ -141,7 +143,7 @@ export default async function SitePublicoLayout({ children, params }: { children
       addressCountry: "BR",
     } : undefined,
     areaServed: fotografo?.cidade ?? undefined,
-    sameAs: [redes.instagram, redes.facebook, redes.youtube].filter(Boolean),
+    sameAs: [redes.instagram, redes.facebook, redes.youtube, redes.tiktok].filter(Boolean),
   };
 
   // O menu vem do painel (Site → Páginas e Menu). Conta nova nasce com o esqueleto seedado,
@@ -207,6 +209,7 @@ export default async function SitePublicoLayout({ children, params }: { children
               {redes.instagram && <a href={redes.instagram} target="_blank" rel="noopener noreferrer" style={{ fontSize: 13, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--site-titulo)", textDecoration: "none" }}>Instagram</a>}
               {redes.facebook && <a href={redes.facebook} target="_blank" rel="noopener noreferrer" style={{ fontSize: 13, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--site-titulo)", textDecoration: "none" }}>Facebook</a>}
               {redes.youtube && <a href={redes.youtube} target="_blank" rel="noopener noreferrer" style={{ fontSize: 13, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--site-titulo)", textDecoration: "none" }}>YouTube</a>}
+              {redes.tiktok && <a href={redes.tiktok} target="_blank" rel="noopener noreferrer" style={{ fontSize: 13, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--site-titulo)", textDecoration: "none" }}>TikTok</a>}
             </div>
           </div>
           <div style={{ textAlign: "center", padding: "0 24px 28px", fontSize: 12, color: "var(--site-suave)" }}>
