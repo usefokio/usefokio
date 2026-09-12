@@ -459,7 +459,6 @@ export type SiteConfig = {
   google_total: number | null;
   google_reviews: GoogleReview[] | null;
   google_sync_at: string | null;
-  redes: Record<string, string> | null;
   // Personalização de design (par de fontes, cores/altura de header/rodapé, logo) — ver lib/site/design.ts
   design: Record<string, unknown> | null;
   // Ciclo de vida do domínio próprio (Cloudflare for SaaS) — ver /site/dominio.
@@ -1028,7 +1027,6 @@ export type CrmOrder = {
   data_entrega: string | null;
   observacoes: string | null;
   plano_parcelas: Record<string, unknown> | null;
-  galeria_entrega_id: string | null;
   legacy_id: number | null;
   data_lancamento: string | null;
   created_at: string;
