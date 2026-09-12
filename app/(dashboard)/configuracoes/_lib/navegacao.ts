@@ -21,6 +21,14 @@ export const CATEGORIAS_CONFIG: CategoriaConfig[] = [
         ativo: (p) => p.startsWith("/configuracoes/usuario/seguranca") },
     ],
   },
+  {
+    id: "contatos", label: "Contatos", icon: "👥",
+    descricao: "Tipos de contato (cliente, oportunidade, fornecedor…) usados nos filtros e cadastros.",
+    itens: [
+      { href: "/configuracoes/contatos", label: "Tipos de contato", icon: "🏷️",
+        ativo: (p) => p === "/configuracoes/contatos" },
+    ],
+  },
 ];
 
 /** Área da central a que um caminho pertence (null na tela inicial). */
