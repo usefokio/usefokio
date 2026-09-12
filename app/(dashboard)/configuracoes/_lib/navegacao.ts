@@ -33,6 +33,8 @@ export const CATEGORIAS_CONFIG: CategoriaConfig[] = [
         ativo: (p) => p.startsWith("/configuracoes/empresa/redes") },
       { href: "/configuracoes/empresa/identidade", label: "Identidade visual", icon: "🎨",
         ativo: (p) => p.startsWith("/configuracoes/empresa/identidade") },
+      { href: "/configuracoes/empresa/email", label: "Servidor de e-mail", icon: "📧",
+        ativo: (p) => p.startsWith("/configuracoes/empresa/email") },
     ],
   },
   // Tudo que não é do usuário nem da empresa entra aqui, como abas (Fernando, 12/09). Bloco novo só quando ele pedir.
