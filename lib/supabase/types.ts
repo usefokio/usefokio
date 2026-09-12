@@ -61,16 +61,11 @@ export type Fotografo = {
   limite_fotos_custom: number | null;
   // Override por-fotógrafo do limite de armazenamento em GB (null = usa o do plano; vale o maior).
   limite_armazenamento_gb_custom: number | null;
+  // Identidade do remetente (Empresa › Servidor de e-mail). O SMTP é único: smtp_* acima (senha criptografada).
   crm_email_config: {
-    nome_remetente: string;
-    email_from: string | null;
-    email_resposta: string;
-    assinatura: string | null;
-    smtp_host: string | null;
-    smtp_port: number | null;
-    smtp_user: string | null;
-    smtp_pass: string | null;
-    smtp_secure: boolean;
+    nome_remetente?: string | null;
+    email_resposta?: string | null;
+    assinatura?: string | null;
   } | null;
   recursos: RecursosFotografo;
   logo_url: string | null;

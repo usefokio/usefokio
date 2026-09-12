@@ -10,7 +10,7 @@ import { AbaContratos } from "./_components/AbaContratos";
 import { AbaStatus } from "./_components/AbaStatus";
 import { PEDIDO_STATUS_SEED } from "@/lib/crm/pedidoStatus";
 
-type Tab = "produtos" | "plano" | "canais" | "opp_cats" | "status" | "pedido_status" | "funis" | "agenda_cats" | "email" | "contratos" | "notificacoes";
+type Tab = "produtos" | "plano" | "canais" | "opp_cats" | "status" | "pedido_status" | "funis" | "agenda_cats" | "contratos" | "notificacoes";
 
 // Handle exposto pelas abas Email/Notificações para o guard de troca de aba da página-mãe.
 type AbaHandle = { temAlteracoes: boolean; salvar: () => Promise<void> };
@@ -769,166 +769,6 @@ const AbaNotificacoes = forwardRef<AbaHandle, { fotografoId: string }>(function 
   );
 });
 
-// ── Aba Email ────────────────────────────────────────────────────────────────
-
-const AbaEmail = forwardRef<AbaHandle, { fotografoId: string }>(function AbaEmail({ fotografoId }, ref) {
-  const sb = createClient();
-  const [nomeRemetente, setNomeRemetente] = useState("");
-  const [emailFrom,     setEmailFrom]     = useState("");
-  const [emailResposta, setEmailResposta] = useState("");
-  const [assinatura,    setAssinatura]    = useState("");
-  const [smtpHost,      setSmtpHost]      = useState("");
-  const [smtpPort,      setSmtpPort]      = useState("587");
-  const [smtpUser,      setSmtpUser]      = useState("");
-  const [smtpPass,      setSmtpPass]      = useState("");
-  const [smtpSecure,    setSmtpSecure]    = useState(false);
-  const [loading,       setLoading]       = useState(true);
-  const [saving,        setSaving]        = useState(false);
-  const [baseline,      setBaseline]      = useState<string | null>(null);
-
-  const snapshot = JSON.stringify([nomeRemetente, emailFrom, emailResposta, assinatura, smtpHost, smtpPort, smtpUser, smtpPass, smtpSecure]);
-  const temAlteracoes = baseline !== null && snapshot !== baseline;
-  const guard = useUnsavedGuard(temAlteracoes);
-
-  useEffect(() => {
-    sb.from("fotografos")
-      .select("crm_email_config, email, nome_empresa")
-      .eq("id", fotografoId)
-      .single()
-      .then(({ data }) => {
-        const cfg = data?.crm_email_config as {
-          nome_remetente?: string; email_from?: string; email_resposta?: string; assinatura?: string;
-          smtp_host?: string; smtp_port?: number; smtp_user?: string; smtp_pass?: string; smtp_secure?: boolean;
-        } | null;
-        const v = [
-          cfg?.nome_remetente ?? data?.nome_empresa ?? "",
-          cfg?.email_from ?? "",
-          cfg?.email_resposta ?? data?.email ?? "",
-          cfg?.assinatura ?? "",
-          cfg?.smtp_host ?? "",
-          String(cfg?.smtp_port ?? 587),
-          cfg?.smtp_user ?? "",
-          cfg?.smtp_pass ?? "",
-          cfg?.smtp_secure ?? false,
-        ] as const;
-        setNomeRemetente(v[0]); setEmailFrom(v[1]); setEmailResposta(v[2]); setAssinatura(v[3]);
-        setSmtpHost(v[4]); setSmtpPort(v[5]); setSmtpUser(v[6]); setSmtpPass(v[7]); setSmtpSecure(v[8]);
-        setBaseline(JSON.stringify(v));
-        setLoading(false);
-      });
-  }, [fotografoId]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const salvar = async () => {
-    setSaving(true);
-    await sb.from("fotografos").update({
-      crm_email_config: {
-        nome_remetente: nomeRemetente.trim(),
-        email_from: emailFrom.trim() || null,
-        email_resposta: emailResposta.trim(),
-        assinatura: assinatura.trim() || null,
-        smtp_host: smtpHost.trim() || null,
-        smtp_port: smtpHost.trim() ? (parseInt(smtpPort) || 587) : null,
-        smtp_user: smtpUser.trim() || null,
-        smtp_pass: smtpPass.trim() || null,
-        smtp_secure: smtpSecure,
-      },
-    }).eq("id", fotografoId);
-    setBaseline(JSON.stringify([nomeRemetente, emailFrom, emailResposta, assinatura, smtpHost, smtpPort, smtpUser, smtpPass, smtpSecure]));
-    setSaving(false);
-  };
-
-  useImperativeHandle(ref, () => ({ temAlteracoes, salvar }),
-    [temAlteracoes, nomeRemetente, emailFrom, emailResposta, assinatura, smtpHost, smtpPort, smtpUser, smtpPass, smtpSecure]);
-
-  const labelSt: React.CSSProperties = { fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", letterSpacing: "0.04em", display: "block", marginBottom: 5 };
-  const temSMTP = smtpHost.trim() && smtpUser.trim() && smtpPass.trim();
-
-  if (loading) return <div style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>Carregando…</div>;
-
-  const previewFrom = emailFrom
-    ? `${nomeRemetente || "Seu Estúdio"} <${emailFrom}>`
-    : `${nomeRemetente || "Seu Estúdio"} via UseFokio <noreply@usefokio.com.br>`;
-
-  return (
-    <div style={{ maxWidth: 560 }}>
-      <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-
-        {/* Seção: Identidade */}
-        <div>
-          <div style={{ fontSize: 13, fontWeight: 700, color: "var(--color-text-primary)", marginBottom: 14 }}>Identidade do remetente</div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            <div>
-              <label style={labelSt}>NOME DO REMETENTE</label>
-              <input value={nomeRemetente} onChange={(e) => setNomeRemetente(e.target.value)} placeholder="Ex: Fernando Agrela Fotografia" style={{ ...inputSt, width: "100%", boxSizing: "border-box" }} />
-            </div>
-            <div>
-              <label style={labelSt}>E-MAIL DO REMETENTE</label>
-              <input value={emailFrom} onChange={(e) => setEmailFrom(e.target.value)} placeholder="contato@seudominio.com.br" type="email" style={{ ...inputSt, width: "100%", boxSizing: "border-box" }} />
-              <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 4 }}>Deixe vazio para usar noreply@usefokio.com.br (via Resend).</div>
-            </div>
-            <div>
-              <label style={labelSt}>E-MAIL PARA RESPOSTAS</label>
-              <input value={emailResposta} onChange={(e) => setEmailResposta(e.target.value)} placeholder="seu@email.com.br" type="email" style={{ ...inputSt, width: "100%", boxSizing: "border-box" }} />
-            </div>
-            <div style={{ padding: "10px 14px", borderRadius: 8, background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-tertiary)", fontSize: 12, color: "var(--color-text-secondary)" }}>
-              Prévia: <strong style={{ color: "var(--color-text-primary)" }}>{previewFrom}</strong>
-            </div>
-            <div>
-              <label style={labelSt}>ASSINATURA (opcional)</label>
-              <textarea value={assinatura} onChange={(e) => setAssinatura(e.target.value)} rows={3} placeholder={"Atenciosamente,\nSeu Nome\n(11) 99999-9999"} style={{ ...inputSt, width: "100%", boxSizing: "border-box", resize: "vertical" }} />
-            </div>
-          </div>
-        </div>
-
-        {/* Seção: SMTP */}
-        <div style={{ borderTop: "0.5px solid var(--color-border-tertiary)", paddingTop: 20 }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: "var(--color-text-primary)", marginBottom: 4 }}>Servidor SMTP próprio</div>
-          <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginBottom: 14, lineHeight: 1.6 }}>
-            Configure para enviar diretamente pelo seu provedor de e-mail (Gmail, Locaweb, Kinghost etc.), sem intermediários.
-            {temSMTP && <span style={{ marginLeft: 8, color: "#059669", fontWeight: 600 }}>● Ativo</span>}
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 120px", gap: 10 }}>
-              <div>
-                <label style={labelSt}>HOST SMTP</label>
-                <input value={smtpHost} onChange={(e) => setSmtpHost(e.target.value)} placeholder="smtp.seudominio.com.br" style={{ ...inputSt, width: "100%", boxSizing: "border-box" }} />
-              </div>
-              <div>
-                <label style={labelSt}>PORTA</label>
-                <input value={smtpPort} onChange={(e) => setSmtpPort(e.target.value)} placeholder="587" style={{ ...inputSt, width: "100%", boxSizing: "border-box" }} />
-              </div>
-            </div>
-            <div>
-              <label style={labelSt}>USUÁRIO</label>
-              <input value={smtpUser} onChange={(e) => setSmtpUser(e.target.value)} placeholder="contato@seudominio.com.br" style={{ ...inputSt, width: "100%", boxSizing: "border-box" }} />
-            </div>
-            <div>
-              <label style={labelSt}>SENHA</label>
-              <input value={smtpPass} onChange={(e) => setSmtpPass(e.target.value)} type="password" placeholder="••••••••" style={{ ...inputSt, width: "100%", boxSizing: "border-box" }} />
-            </div>
-            <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 13, color: "var(--color-text-primary)" }}>
-              <input type="checkbox" checked={smtpSecure} onChange={(e) => setSmtpSecure(e.target.checked)} style={{ accentColor: "#2563EB", width: 15, height: 15 }} />
-              SSL/TLS (porta 465)
-            </label>
-          </div>
-        </div>
-
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <button onClick={salvar} disabled={saving || !temAlteracoes} style={{ ...btnPrimary, opacity: (saving || !temAlteracoes) ? 0.6 : 1, cursor: (saving || !temAlteracoes) ? "default" : "pointer" }}>
-            {saving ? "Salvando…" : "Salvar configurações"}
-          </button>
-          <SeloEstado temAlteracoes={temAlteracoes} />
-        </div>
-      </div>
-
-      <ModalNaoSalvo aberto={guard.modalAberto} salvando={saving}
-        onSalvarESair={async () => { await salvar(); guard.irParaDestino("/crm"); }}
-        onSairSemSalvar={() => guard.irParaDestino("/crm")}
-        onContinuar={() => guard.setModalAberto(false)} />
-    </div>
-  );
-});
-
 // ── Página principal ──────────────────────────────────────────────────────────
 
 export default function CrmConfigPage() {
@@ -936,11 +776,10 @@ export default function CrmConfigPage() {
   const [tab, setTab] = useState<Tab>("produtos");
 
   // Guard de troca de aba com alterações não salvas (só Email e Notificações têm estado editável direto)
-  const emailRef = useRef<AbaHandle>(null);
   const notifRef = useRef<AbaHandle>(null);
   const [tabPendente, setTabPendente] = useState<Tab | null>(null);
   const [salvandoAba, setSalvandoAba] = useState(false);
-  const abaRefAtiva = () => (tab === "email" ? emailRef.current : tab === "notificacoes" ? notifRef.current : null);
+  const abaRefAtiva = () => (tab === "notificacoes" ? notifRef.current : null);
   const trocarTab = (nova: Tab) => {
     if (nova === tab) return;
     if (abaRefAtiva()?.temAlteracoes) setTabPendente(nova);
@@ -1089,7 +928,6 @@ export default function CrmConfigPage() {
         <button style={TAB_ST(tab === "produtos")} onClick={() => trocarTab("produtos")}>🏷 Cat. Produtos</button>
         <button style={TAB_ST(tab === "agenda_cats")} onClick={() => trocarTab("agenda_cats")}>📅 Cat. Agendamento</button>
         <button style={TAB_ST(tab === "plano")} onClick={() => trocarTab("plano")}>📊 Plano de Contas</button>
-        <button style={TAB_ST(tab === "email")} onClick={() => trocarTab("email")}>✉️ E-mail</button>
         <button style={TAB_ST(tab === "notificacoes")} onClick={() => trocarTab("notificacoes")}>🔔 Notificações</button>
         <button style={TAB_ST(tab === "contratos")} onClick={() => trocarTab("contratos")}>📄 Contratos</button>
       </div>
@@ -1240,9 +1078,6 @@ export default function CrmConfigPage() {
       )}
 
       {/* ── E-mail ── */}
-      {tab === "email" && fotografo && (
-        <AbaEmail ref={emailRef} fotografoId={fotografo.id} />
-      )}
 
       {/* ── Notificações ── */}
       {tab === "notificacoes" && fotografo && (

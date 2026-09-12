@@ -524,6 +524,10 @@ export default function AparenciaPage() {
                 </div>
                 <input ref={inputLogo} type="file" accept="image/*" style={{ display: "none" }} onChange={(e) => enviarLogo(e.target.files)} />
               </div>
+              <div style={{ fontSize: 11.5, color: "var(--color-text-secondary)", marginTop: 10, lineHeight: 1.6 }}>
+                Por padrão o site usa o logo da empresa (<a href="/configuracoes/empresa/identidade" style={{ color: "var(--color-text-primary)", fontWeight: 600 }}>Configurações › Empresa › Identidade visual</a>).
+                Envie aqui só se quiser uma versão diferente no site — por exemplo, um logo claro para cabeçalho escuro.
+              </div>
               <div style={{ marginTop: 14 }}>
                 <Range label="Tamanho da logo" value={design.logo_altura} min={24} max={120} unidade="px" onChange={(v) => setDesign((d) => ({ ...d, logo_altura: v }))} />
               </div>

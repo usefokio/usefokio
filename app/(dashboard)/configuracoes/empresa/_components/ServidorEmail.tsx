@@ -23,6 +23,9 @@ export function ConfigEmail() {
   const [pass,      setPass]      = useState("");
   const [fromNome,  setFromNome]  = useState(parsed.nome);
   const [fromEmail, setFromEmail] = useState(parsed.email);
+  // Identidade do remetente (antes na aba ✉️ E-mail da Config. CRM) — vale para todos os e-mails aos clientes.
+  const [emailResposta, setEmailResposta] = useState(fotografo?.crm_email_config?.email_resposta ?? "");
+  const [assinatura,    setAssinatura]    = useState(fotografo?.crm_email_config?.assinatura ?? "");
   const [salvando,   setSalvando]   = useState(false);
   const [testando,   setTestando]   = useState(false);
   const [msg,        setMsg]        = useState<{ tipo: "ok" | "erro"; texto: string } | null>(null);
@@ -41,9 +44,20 @@ export function ConfigEmail() {
       body: JSON.stringify({ host, port: Number(port), user, pass: pass || undefined, from: fromComposto, ativo: true }),
     });
     const json = await res.json();
+    if (!json.ok) { setSalvando(false); setMsg({ tipo: "erro", texto: json.erro ?? "Erro ao salvar." }); return; }
+    // Identidade do remetente: só essas chaves (o SMTP fica nos campos smtp_*, com senha criptografada).
+    const { error } = fotografo
+      ? await createClient().from("fotografos").update({
+          crm_email_config: {
+            nome_remetente: fromNome.trim() || null,
+            email_resposta: emailResposta.trim() || null,
+            assinatura: assinatura.trim() || null,
+          },
+        }).eq("id", fotografo.id)
+      : { error: null };
     setSalvando(false);
-    if (json.ok) { setMsg({ tipo: "ok", texto: "Configurações salvas." }); setPass(""); reload(); }
-    else setMsg({ tipo: "erro", texto: json.erro ?? "Erro ao salvar." });
+    if (error) { setMsg({ tipo: "erro", texto: "Servidor salvo, mas não a identidade do remetente: " + error.message }); return; }
+    setMsg({ tipo: "ok", texto: "Configurações salvas." }); setPass(""); reload();
   }
 
   async function testar() {
@@ -121,6 +135,21 @@ export function ConfigEmail() {
               Prévia: <span style={{ color: "var(--color-text-primary)", fontWeight: 500 }}>{fromComposto}</span>
             </div>
           )}
+        </div>
+
+        <div style={{ borderTop: "0.5px solid var(--color-border-tertiary)", paddingTop: 14, marginTop: 2 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "var(--color-text-primary)", marginBottom: 10 }}>Identidade do remetente</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <div>
+              <label style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.04em", display: "block", marginBottom: 5 }}>E-mail para respostas</label>
+              <input type="email" value={emailResposta} onChange={(e) => setEmailResposta(e.target.value)} placeholder="contato@seudominio.com.br" style={inputStyle} />
+              <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 4 }}>Quando o cliente responde um e-mail, a resposta vai para cá. Em branco = e-mail de contato da empresa.</div>
+            </div>
+            <div>
+              <label style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.04em", display: "block", marginBottom: 5 }}>Assinatura (opcional)</label>
+              <textarea value={assinatura} onChange={(e) => setAssinatura(e.target.value)} rows={3} placeholder={"Atenciosamente,\nSeu Nome\n(11) 99999-9999"} style={{ ...inputStyle, resize: "vertical", fontFamily: "inherit" }} />
+            </div>
+          </div>
         </div>
 
         <div style={{ padding: "10px 14px", borderRadius: 9, background: "rgba(37,99,235,0.05)", border: "0.5px solid rgba(37,99,235,0.2)", fontSize: 12, color: "var(--color-text-secondary)" }}>
