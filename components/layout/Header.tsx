@@ -26,17 +26,6 @@ const LINKS_TOPO = [
     ),
   },
   {
-    href: "/configuracoes",
-    label: "Configurações",
-    sempre: true, // central de configurações vale para qualquer produto
-    icon: (
-      <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
-        <circle cx="8" cy="8" r="2" stroke="currentColor" strokeWidth="1.3" fill="none" />
-        <path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.41 1.41M11.54 11.54l1.41 1.41M3.05 12.95l1.41-1.41M11.54 4.46l1.41-1.41" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
-      </svg>
-    ),
-  },
-  {
     href: "/crm/clientes",
     label: "Contatos",
     icon: (
@@ -44,6 +33,18 @@ const LINKS_TOPO = [
         <circle cx="6" cy="5" r="2.5" fill="currentColor" opacity=".8" />
         <path d="M1 13c0-2.761 2.239-5 5-5s5 2.239 5 5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" fill="none" opacity=".8" />
         <circle cx="12" cy="5" r="1.8" fill="currentColor" opacity=".4" />
+      </svg>
+    ),
+  },
+  // Configurações é SEMPRE o último item do topo.
+  {
+    href: "/configuracoes",
+    label: "Configurações",
+    sempre: true, // central de configurações vale para qualquer produto
+    icon: (
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+        <circle cx="8" cy="8" r="2" stroke="currentColor" strokeWidth="1.3" fill="none" />
+        <path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.41 1.41M11.54 11.54l1.41 1.41M3.05 12.95l1.41-1.41M11.54 4.46l1.41-1.41" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
       </svg>
     ),
   },
@@ -112,7 +113,7 @@ export function Header({ isMobile = false, onAbrirSidebar }: HeaderProps) {
         </button>
       )}
 
-      {/* Itens universais: Agenda, Configurações e Contatos */}
+      {/* Itens universais: Agenda, Contatos e, por último, Configurações */}
       {(
         <nav style={{ display: "flex", alignItems: "center", gap: 4 }}>
           {LINKS_TOPO.filter((item) => item.sempre || mostraLinksTopo).map((item) => {
