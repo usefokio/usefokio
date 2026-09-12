@@ -157,7 +157,7 @@ export function DashboardGuard({ children }: { children: React.ReactNode }) {
             ? "Seu plano expirou — uploads bloqueados."
             : `Seu plano vence em ${diasParaExpirar} dia${diasParaExpirar !== 1 ? "s" : ""}.`
           }
-          <a href="/conta/plano" style={{ color: "#fff", textDecoration: "underline", fontWeight: 700 }}>
+          <a href="/configuracoes/usuario/plano" style={{ color: "#fff", textDecoration: "underline", fontWeight: 700 }}>
             {planoExpirado ? "Renovar agora" : "Renovar"}
           </a>
         </div>

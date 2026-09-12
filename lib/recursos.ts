@@ -58,5 +58,5 @@ export function rotaInicialPermitida(rec: Rec): string {
   if (temProdutoFotografia(rec)) return "/dashboard";
   if (temProdutoCRM(rec)) return "/crm/agenda";
   if (temProdutoSite(rec)) return "/site";
-  return "/conta";
+  return "/configuracoes/usuario";
 }

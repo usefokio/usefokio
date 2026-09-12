@@ -1,17 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
-
-type EmailConfig = {
-  nome_remetente?: string;
-  email_from?: string | null;
-  email_resposta?: string;
-  smtp_host?: string | null;
-  smtp_port?: number | null;
-  smtp_user?: string | null;
-  smtp_pass?: string | null;
-  smtp_secure?: boolean;
-};
+import { carregarEmailEmpresa, enviarPorResend, enviarPorSmtp } from "@/lib/email/configEmpresa";
 
 export async function POST(request: Request) {
   try {
@@ -39,18 +29,17 @@ export async function POST(request: Request) {
       }
     );
 
-    const [{ data: fot }, { data: contrato }] = await Promise.all([
-      supabase.from("fotografos").select("crm_email_config, nome_empresa, nome_completo, email").eq("id", fotografo_id).single(),
+    // Servidor e remetente = configuração única da Empresa (Configurações › Empresa › Servidor de e-mail).
+    const [cfg, { data: contrato }] = await Promise.all([
+      carregarEmailEmpresa(supabase, fotografo_id),
       supabase.from("crm_contracts").select("corpo_gerado, nome_template").eq("id", contrato_id).single(),
     ]);
 
     if (!contrato) return NextResponse.json({ error: "Contrato não encontrado" }, { status: 404 });
 
-    const config      = (fot?.crm_email_config ?? {}) as EmailConfig;
-    const nomeDisplay = config.nome_remetente ?? fot?.nome_empresa ?? fot?.nome_completo ?? "UseFokio";
-    const emailFrom   = config.email_from ?? null;
-    const replyTo     = config.email_resposta ?? fot?.email ?? undefined;
-    const from        = emailFrom ? `${nomeDisplay} <${emailFrom}>` : `${nomeDisplay} via UseFokio <noreply@usefokio.com.br>`;
+    const nomeDisplay = cfg.nomeRemetente;
+    const replyTo     = cfg.replyTo;
+    const from        = cfg.from;
 
     const mensagemHtml = mensagem
       ? `<p style="font-family:system-ui,sans-serif;font-size:14px;color:#374151;line-height:1.6;margin-bottom:24px">${mensagem.replace(/\n/g, "<br>")}</p>`
@@ -73,25 +62,10 @@ export async function POST(request: Request) {
       </div>
     </body></html>`;
 
-    const temSMTP = config.smtp_host && config.smtp_user && config.smtp_pass;
-    if (temSMTP) {
-      const nodemailer = await import("nodemailer");
-      const transporter = nodemailer.default.createTransport({
-        host:   config.smtp_host!,
-        port:   config.smtp_port ?? 587,
-        secure: config.smtp_secure ?? false,
-        auth: { user: config.smtp_user!, pass: config.smtp_pass! },
-      });
-      await transporter.sendMail({ from, to: para, subject: assunto, html, replyTo });
+    if (cfg.smtp) {
+      await enviarPorSmtp(cfg.smtp, { from, to: para, subject: assunto, html, replyTo });
     } else {
-      const { resend, FROM_DEFAULT } = await import("@/lib/email/resend");
-      await resend.emails.send({
-        from: from || FROM_DEFAULT,
-        to: [para],
-        subject: assunto,
-        html,
-        ...(replyTo ? { replyTo } : {}),
-      });
+      await enviarPorResend({ from, to: para, subject: assunto, html, replyTo });
     }
 
     return NextResponse.json({ ok: true });

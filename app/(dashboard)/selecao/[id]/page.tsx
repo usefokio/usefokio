@@ -541,7 +541,7 @@ function GaleriaSelecaoConteudo() {
                   <strong>Limite do plano {plano.nome} atingido</strong> ({usoPlano?.limite_fotos?.toLocaleString("pt-BR")} fotos).
                   O upload continua durante o período beta, mas considere fazer upgrade.
                 </div>
-                <a href="/conta/plano" style={{ fontSize: 12, fontWeight: 700, color: "#B45309", whiteSpace: "nowrap", padding: "5px 12px", borderRadius: 8, border: "0.5px solid rgba(245,158,11,0.5)", background: "rgba(245,158,11,0.1)", textDecoration: "none" }}>
+                <a href="/configuracoes/usuario/plano" style={{ fontSize: 12, fontWeight: 700, color: "#B45309", whiteSpace: "nowrap", padding: "5px 12px", borderRadius: 8, border: "0.5px solid rgba(245,158,11,0.5)", background: "rgba(245,158,11,0.1)", textDecoration: "none" }}>
                   Ver planos →
                 </a>
               </div>

@@ -1,6 +1,7 @@
 "use client";
 
-// Configurações do site: redes sociais (rodapé).
+// Configurações do site: proteção das imagens (marca d'água).
+// Redes sociais agora ficam em Configurações › Empresa › Redes sociais (fonte única, o site lê de lá).
 // Endereço (subdomínio/domínio próprio) e publicação ficam em Site → Domínio.
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -8,39 +9,22 @@ import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { useEditorEstado, SeloEstado, BotaoSalvarEstado, ModalNaoSalvo } from "@/app/(dashboard)/_components/EditorEstado";
 
-const inputStyle: React.CSSProperties = {
-  width: "100%", padding: "10px 12px", borderRadius: 8, boxSizing: "border-box",
-  border: "1px solid var(--color-border-secondary)", fontSize: 13,
-  background: "var(--color-background-primary)", color: "var(--color-text-primary)",
-};
-const labelStyle: React.CSSProperties = {
-  fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)",
-  textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: 5,
-};
-
 export default function SiteConfigPage() {
   const { fotografo } = useFotografo();
-  const [instagram, setInstagram] = useState("");
-  const [facebook, setFacebook] = useState("");
-  const [youtube, setYoutube] = useState("");
   const [marcaDagua, setMarcaDagua] = useState(false);
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
   // Estado de salvamento claro (regra de sistema)
-  const snapshotAtual = JSON.stringify([instagram, facebook, youtube, marcaDagua]);
+  const snapshotAtual = JSON.stringify([marcaDagua]);
   const estado = useEditorEstado(snapshotAtual, "/site");
 
   useEffect(() => {
     if (!fotografo) return;
-    createClient().from("site_config").select("redes, marca_dagua").eq("fotografo_id", fotografo.id).maybeSingle().then(({ data }) => {
-      const redes = (data?.redes ?? {}) as Record<string, string>;
-      setInstagram(redes.instagram ?? "");
-      setFacebook(redes.facebook ?? "");
-      setYoutube(redes.youtube ?? "");
+    createClient().from("site_config").select("marca_dagua").eq("fotografo_id", fotografo.id).maybeSingle().then(({ data }) => {
       setMarcaDagua(!!data?.marca_dagua);
-      estado.inicializar(JSON.stringify([redes.instagram ?? "", redes.facebook ?? "", redes.youtube ?? "", !!data?.marca_dagua]));
+      estado.inicializar(JSON.stringify([!!data?.marca_dagua]));
       setCarregando(false);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -49,13 +33,8 @@ export default function SiteConfigPage() {
   async function salvar(): Promise<boolean> {
     if (!fotografo) return false;
     setSalvando(true); setMsg(null);
-    const redes: Record<string, string> = {};
-    if (instagram.trim()) redes.instagram = instagram.trim();
-    if (facebook.trim()) redes.facebook = facebook.trim();
-    if (youtube.trim()) redes.youtube = youtube.trim();
     const { error } = await createClient().from("site_config").upsert({
       fotografo_id: fotografo.id,
-      redes: Object.keys(redes).length > 0 ? redes : null,
       marca_dagua: marcaDagua,
       updated_at: new Date().toISOString(),
     }, { onConflict: "fotografo_id" });
@@ -68,6 +47,8 @@ export default function SiteConfigPage() {
 
   if (carregando) return <div style={{ padding: 60, textAlign: "center", fontSize: 13, color: "var(--color-text-secondary)" }}>Carregando…</div>;
 
+  const linkIdentidade = <Link href="/configuracoes/empresa/identidade" style={{ color: "var(--color-text-primary)", fontWeight: 600 }}>Configurações › Empresa › Identidade visual</Link>;
+
   return (
     <div style={{ maxWidth: 720, margin: "0 auto", padding: "40px 24px" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 24, flexWrap: "wrap" }}>
@@ -76,15 +57,6 @@ export default function SiteConfigPage() {
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-        <div style={{ padding: "14px 16px", borderRadius: 12, border: "1px solid var(--color-border-tertiary)", background: "var(--color-background-secondary)" }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: "var(--color-text-primary)", marginBottom: 10 }}>Redes sociais (rodapé do site)</div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            <div><label style={labelStyle}>Instagram</label><input value={instagram} onChange={(e) => setInstagram(e.target.value)} style={inputStyle} placeholder="https://instagram.com/…" /></div>
-            <div><label style={labelStyle}>Facebook</label><input value={facebook} onChange={(e) => setFacebook(e.target.value)} style={inputStyle} placeholder="https://facebook.com/…" /></div>
-            <div><label style={labelStyle}>YouTube</label><input value={youtube} onChange={(e) => setYoutube(e.target.value)} style={inputStyle} placeholder="https://youtube.com/…" /></div>
-          </div>
-        </div>
-
         <div style={{ padding: "14px 16px", borderRadius: 12, border: "1px solid var(--color-border-tertiary)", background: "var(--color-background-secondary)" }}>
           <div style={{ fontSize: 12, fontWeight: 700, color: "var(--color-text-primary)", marginBottom: 4 }}>Proteção das imagens</div>
           <p style={{ fontSize: 12, color: "var(--color-text-secondary)", margin: "0 0 10px", lineHeight: 1.6 }}>
@@ -99,13 +71,15 @@ export default function SiteConfigPage() {
           <div style={{ fontSize: 11.5, color: "var(--color-text-secondary)", marginTop: 6, lineHeight: 1.6 }}>
             Vale para fotos <strong>enviadas a partir de agora</strong> — as já publicadas não mudam.
             {fotografo?.watermark_url
-              ? <> Usa a marca cadastrada em <Link href="/config" style={{ color: "var(--color-text-primary)", fontWeight: 600 }}>Configurações</Link> (escala e opacidade também vêm de lá).</>
-              : <> <strong style={{ color: "#B45309" }}>Você ainda não cadastrou uma marca d&apos;água</strong> — envie o PNG em <Link href="/config" style={{ color: "var(--color-text-primary)", fontWeight: 600 }}>Configurações</Link> para esta opção ter efeito.</>}
+              ? <> Usa a marca cadastrada em {linkIdentidade} (escala e opacidade também vêm de lá).</>
+              : <> <strong style={{ color: "#B45309" }}>Você ainda não cadastrou uma marca d&apos;água</strong> — envie o PNG em {linkIdentidade} para esta opção ter efeito.</>}
           </div>
         </div>
 
         <div style={{ fontSize: 12, color: "var(--color-text-secondary)", lineHeight: 1.6 }}>
-          O endereço do site (subdomínio e domínio próprio) e a publicação agora ficam em{" "}
+          As <strong>redes sociais</strong> do rodapé e da página de contato vêm de{" "}
+          <Link href="/configuracoes/empresa/redes" style={{ color: "var(--color-text-primary)", fontWeight: 600 }}>Configurações › Empresa › Redes sociais</Link>.
+          O endereço do site (subdomínio e domínio próprio) e a publicação ficam em{" "}
           <Link href="/site/dominio" style={{ color: "var(--color-text-primary)", fontWeight: 600 }}>Site → Domínio</Link>.
         </div>
 

@@ -673,7 +673,7 @@ export function Sidebar({ isMobile = false, mobileAberta = false, onFechar }: Si
           if (pct === null || limite === null) return null;
           const bc = corBarra(pct);
           return (
-            <Link href="/conta/plano" style={{ display: "block", padding: "10px 13px 0", textDecoration: "none" }}>
+            <Link href="/configuracoes/usuario/plano" style={{ display: "block", padding: "10px 13px 0", textDecoration: "none" }}>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
                 <span style={{ fontSize: 10, color: "var(--color-text-secondary)", fontWeight: 500 }}>
                   {plano.nome}
@@ -700,7 +700,7 @@ export function Sidebar({ isMobile = false, mobileAberta = false, onFechar }: Si
           const pctS = Math.min(100, Math.round((usoPlano.bytes_usados / limiteBytes) * 100));
           const bcS = corBarra(pctS);
           return (
-            <Link href="/conta/plano" style={{ display: "block", padding: "8px 13px 0", textDecoration: "none" }}>
+            <Link href="/configuracoes/usuario/plano" style={{ display: "block", padding: "8px 13px 0", textDecoration: "none" }}>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
                 <span style={{ fontSize: 10, color: "var(--color-text-secondary)", fontWeight: 500 }}>Espaço</span>
                 <span style={{ fontSize: 10, color: pctS >= 80 ? bcS : "var(--color-text-secondary)", fontWeight: 600 }}>
@@ -728,7 +728,7 @@ export function Sidebar({ isMobile = false, mobileAberta = false, onFechar }: Si
           gap: 9,
         }}>
           <button
-            onClick={() => router.push("/conta")}
+            onClick={() => router.push("/configuracoes/usuario")}
             title={collapsed ? (fotografo?.nome_empresa ?? "Conta") : undefined}
             style={{ background: "none", border: "none", cursor: "pointer", padding: 0, flexShrink: 0 }}
           >

@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { carregarEmailEmpresa, enviarPorResend, enviarPorSmtp } from "@/lib/email/configEmpresa";
 
 type Schedule = {
   id: string;
@@ -21,16 +22,6 @@ type Fotografo = {
   nome_empresa: string | null;
   lembrete_agenda_dia?: boolean;
   lembrete_agenda_1d?: boolean;
-  crm_email_config?: {
-    smtp_host?: string | null;
-    smtp_port?: number | null;
-    smtp_user?: string | null;
-    smtp_pass?: string | null;
-    smtp_secure?: boolean;
-    nome_remetente?: string;
-    email_from?: string | null;
-    email_resposta?: string;
-  } | null;
 };
 
 function fmtData(iso: string) {
@@ -75,39 +66,19 @@ function buildEmailHtml(nome: string, eventos: Schedule[], tipo: "hoje" | "amanh
 }
 
 async function enviarEmail(fot: Fotografo, assunto: string, html: string) {
-  const config = fot.crm_email_config ?? {};
-  const nomeDisplay = config.nome_remetente ?? fot.nome_empresa ?? fot.nome_completo ?? "UseFokio";
-  const emailFrom = config.email_from ?? null;
-  const replyTo = config.email_resposta ?? fot.email ?? undefined;
-  const from = emailFrom
-    ? `${nomeDisplay} <${emailFrom}>`
-    : `${nomeDisplay} via UseFokio <noreply@usefokio.com.br>`;
+  // Servidor e remetente = configuração única da Empresa (Configurações › Empresa › Servidor de e-mail).
+  const cfg = await carregarEmailEmpresa(createAdminClient(), fot.id);
+  const sendOpts = { from: cfg.from, to: fot.email, subject: assunto, html, replyTo: cfg.replyTo };
 
-  const sendOpts = { from, to: fot.email, subject: assunto, html, replyTo };
-
-  const temSMTP = config.smtp_host && config.smtp_user && config.smtp_pass;
   let enviado = false;
   try {
-    const { resend, FROM_DEFAULT } = await import("@/lib/email/resend");
-    await resend.emails.send({
-      from: sendOpts.from || FROM_DEFAULT,
-      to: [sendOpts.to],
-      subject: sendOpts.subject,
-      html: sendOpts.html,
-      ...(sendOpts.replyTo ? { replyTo: sendOpts.replyTo } : {}),
-    });
+    await enviarPorResend(sendOpts);
     enviado = true;
   } catch (e) {
     console.error("[lembretes] Resend falhou:", e instanceof Error ? e.message : e);
   }
-  if (!enviado && temSMTP) {
-    const nodemailer = await import("nodemailer");
-    const t = nodemailer.default.createTransport({
-      host: config.smtp_host!, port: config.smtp_port ?? 587,
-      secure: config.smtp_secure ?? false,
-      auth: { user: config.smtp_user!, pass: config.smtp_pass! },
-    });
-    await t.sendMail(sendOpts);
+  if (!enviado && cfg.smtp) {
+    await enviarPorSmtp(cfg.smtp, sendOpts);
   }
 }
 

@@ -381,7 +381,7 @@ export default function NovaEntregaPage() {
       {erroLimite && (
         <div style={{ marginBottom: 16, padding: "12px 16px", borderRadius: 10, background: "rgba(239,68,68,0.08)", border: "0.5px solid rgba(239,68,68,0.25)", fontSize: 13, color: "#DC2626" }}>
           {erroLimite}{" "}
-          <a href="/conta/plano" style={{ color: "#DC2626", fontWeight: 700, textDecoration: "underline" }}>Ver planos</a>
+          <a href="/configuracoes/usuario/plano" style={{ color: "#DC2626", fontWeight: 700, textDecoration: "underline" }}>Ver planos</a>
         </div>
       )}
 

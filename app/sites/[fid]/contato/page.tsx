@@ -5,6 +5,7 @@
 import type { Metadata } from "next";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { carregarSite, infoCategorias, categoriasParaNav, nomeCategoria } from "@/lib/site/publico";
+import { redesDaEmpresa } from "@/lib/empresa/redes";
 import { cfgContatoDe } from "@/lib/site/paginaCfg";
 import { resolverMetaPagina, ogPagina, type CfgSeoOg } from "@/lib/site/seo";
 import { PaginaContato, type CanalContato } from "../_components/PaginaContato";
@@ -52,14 +53,15 @@ export default async function ContatoPage({ params }: { params: Promise<{ fid: s
   const categorias = cats.map((c) => ({ valor: c, label: nomeCategoria(c, info.map) }));
 
   const fot = site.fotografo as { email: string | null; telefone: string | null; whatsapp: string | null } | null;
-  const redes = ((site.config as { redes?: { instagram?: string; facebook?: string; youtube?: string } } | null)?.redes) ?? {};
+  // Redes sociais: fonte única = Configurações › Empresa › Redes sociais.
+  const redes = redesDaEmpresa(site.fotografo as { instagram?: string | null } | null);
   const whats = fot?.whatsapp ? fot.whatsapp.replace(/\D/g, "") : "";
 
   const canais = [
     whats && { icon: "💬", label: "WhatsApp", href: `https://wa.me/${whats}`, texto: fot?.whatsapp ?? "" },
     fot?.telefone && !whats && { icon: "📞", label: "Telefone", href: `tel:${fot.telefone}`, texto: fot.telefone },
     fot?.email && { icon: "✉️", label: "E-mail", href: `mailto:${fot.email}`, texto: fot.email },
-    redes.instagram && { icon: "📷", label: "Instagram", href: redes.instagram.startsWith("http") ? redes.instagram : `https://instagram.com/${redes.instagram.replace(/^@/, "")}`, texto: redes.instagram },
+    redes.instagram && { icon: "📷", label: "Instagram", href: redes.instagram, texto: redes.instagram.replace(/^https?:\/\/(www\.)?/, "") },
   ].filter(Boolean) as CanalContato[];
 
   return <PaginaContato cfg={cfg} titulo={titulo} canais={canais} fid={fid} categorias={categorias} />;

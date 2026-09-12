@@ -36,6 +36,18 @@ const LINKS_TOPO = [
       </svg>
     ),
   },
+  // Configurações é SEMPRE o último item do topo.
+  {
+    href: "/configuracoes",
+    label: "Configurações",
+    sempre: true, // central de configurações vale para qualquer produto
+    icon: (
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+        <circle cx="8" cy="8" r="2" stroke="currentColor" strokeWidth="1.3" fill="none" />
+        <path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.41 1.41M11.54 11.54l1.41 1.41M3.05 12.95l1.41-1.41M11.54 4.46l1.41-1.41" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+      </svg>
+    ),
+  },
 ];
 
 interface HeaderProps {
@@ -101,10 +113,10 @@ export function Header({ isMobile = false, onAbrirSidebar }: HeaderProps) {
         </button>
       )}
 
-      {/* Itens universais: Agenda e Clientes */}
-      {mostraLinksTopo && (
+      {/* Itens universais: Agenda, Contatos e, por último, Configurações */}
+      {(
         <nav style={{ display: "flex", alignItems: "center", gap: 4 }}>
-          {LINKS_TOPO.map((item) => {
+          {LINKS_TOPO.filter((item) => item.sempre || mostraLinksTopo).map((item) => {
             const ativo = pathname === item.href || pathname.startsWith(item.href + "/");
             return (
               <Link
@@ -178,10 +190,7 @@ export function Header({ isMobile = false, onAbrirSidebar }: HeaderProps) {
               {/* Menu items */}
               <div style={{ padding: "4px 0" }}>
                 {[
-                  { icon: "👤", label: "Minha conta",         action: () => { router.push("/conta"); setMenuOpen(false); } },
-                  { icon: "✏️", label: "Editar dados",         action: () => { router.push("/conta/editar"); setMenuOpen(false); } },
-                  { icon: "💳", label: "Plano e cobrança",     action: () => { router.push("/conta/plano"); setMenuOpen(false); } },
-                  { icon: "⚙️", label: "Configurações",        action: () => { router.push("/config"); setMenuOpen(false); } },
+                  { icon: "⚙️", label: "Configurações",        action: () => { router.push("/configuracoes"); setMenuOpen(false); } },
                 ].map((item) => (
                   <button
                     key={item.label}

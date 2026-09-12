@@ -128,12 +128,21 @@ export default function CrmClientesPage() {
             {filtrados.length} contato{filtrados.length !== 1 ? "s" : ""}
           </p>
         </div>
-        <button
-          onClick={() => router.push("/crm/clientes/novo")}
-          style={{ padding: "9px 18px", background: "#111", color: "#fff", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}
-        >
-          + Novo contato
-        </button>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+          <button
+            onClick={() => router.push("/configuracoes/sistema/tipos-contato")}
+            title="Configurações dos contatos (tipos de contato)"
+            style={{ padding: "9px 16px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", border: "0.5px solid var(--color-border-secondary)", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}
+          >
+            ⚙️ Configurações
+          </button>
+          <button
+            onClick={() => router.push("/crm/clientes/novo")}
+            style={{ padding: "9px 18px", background: "#111", color: "#fff", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}
+          >
+            + Novo contato
+          </button>
+        </div>
       </div>
 
       {/* Filtro por tipo de contato */}
