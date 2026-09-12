@@ -130,7 +130,7 @@ export default function CrmClientesPage() {
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
           <button
-            onClick={() => router.push("/configuracoes/contatos")}
+            onClick={() => router.push("/configuracoes/sistema/tipos-contato")}
             title="Configurações dos contatos (tipos de contato)"
             style={{ padding: "9px 16px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", border: "0.5px solid var(--color-border-secondary)", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}
           >

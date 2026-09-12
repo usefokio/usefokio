@@ -21,12 +21,13 @@ export const CATEGORIAS_CONFIG: CategoriaConfig[] = [
         ativo: (p) => p.startsWith("/configuracoes/usuario/seguranca") },
     ],
   },
+  // De início, tudo que não é do usuário entra aqui, como abas (Fernando, 12/09). Não criar bloco novo sem ele pedir.
   {
-    id: "contatos", label: "Contatos", icon: "👥",
-    descricao: "Tipos de contato (cliente, oportunidade, fornecedor…) usados nos filtros e cadastros.",
+    id: "sistema", label: "Configurações do sistema", icon: "🛠️",
+    descricao: "Configurações gerais do sistema, como os tipos de contato.",
     itens: [
-      { href: "/configuracoes/contatos", label: "Tipos de contato", icon: "🏷️",
-        ativo: (p) => p === "/configuracoes/contatos" },
+      { href: "/configuracoes/sistema/tipos-contato", label: "Tipos de contato", icon: "🏷️",
+        ativo: (p) => p.startsWith("/configuracoes/sistema/tipos-contato") },
     ],
   },
 ];
