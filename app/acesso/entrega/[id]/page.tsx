@@ -5,6 +5,8 @@ import { useParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import type { GaleriaEntrega, GaleriaEntregaFoto } from "@/lib/supabase/types";
 import { useWindowWidth, MOBILE } from "@/lib/hooks/useWindowWidth";
+import { youtubeEmbedUrl } from "@/lib/utils/youtube";
+import { normalizarVideos } from "@/lib/entrega/videos";
 
 const SESSION_KEY = "usefokio_entrega_identificado";
 type Identificacao = { nome: string; email: string };
@@ -147,6 +149,8 @@ export default function AcessoEntregaPage() {
 
   // Modal de identificação antes do download via Drive
   const [modalDrive, setModalDrive] = useState(false);
+  // Link a abrir depois da identificação (Drive das fotos ou download de um vídeo). null = Drive das fotos.
+  const [linkPendente, setLinkPendente] = useState<{ url: string; tipo: "drive" | "video" } | null>(null);
   // Modal de orientação Drive (quando há fotos na galeria + drive_link)
   const [modalOrientacaoDrive, setModalOrientacaoDrive] = useState(false);
 
@@ -239,9 +243,11 @@ export default function AcessoEntregaPage() {
     setSalvando(false);
     setModalDrive(false);
     setFormErro("");
-    if (galeria?.drive_link) {
-      fetch(`/api/entrega/${id}/download?tipo=drive`, { method: "POST" }).catch(() => {});
-      window.open(galeria.drive_link, "_blank", "noopener,noreferrer");
+    const alvo = linkPendente ?? (galeria?.drive_link ? { url: galeria.drive_link, tipo: "drive" as const } : null);
+    setLinkPendente(null);
+    if (alvo) {
+      fetch(`/api/entrega/${id}/download?tipo=${alvo.tipo}`, { method: "POST" }).catch(() => {});
+      window.open(alvo.url, "_blank", "noopener,noreferrer");
     }
   }
 
@@ -571,6 +577,19 @@ export default function AcessoEntregaPage() {
   const logoUrl    = galeria?.fotografos?.logo_url ?? null;
   const nomeEmpresa = galeria?.fotografos?.nome_empresa ?? "";
   const temCliente = !!galeria?.clientes?.nome;
+  const videos = normalizarVideos(galeria?.videos);
+
+  // Download de vídeo: mesma regra do Drive das fotos (livre, ou identificação antes).
+  const baixarVideo = (url: string) => {
+    if (!galeria?.drive_apenas_identificado || identificacao || temCliente) {
+      fetch(`/api/entrega/${id}/download?tipo=video`, { method: "POST" }).catch(() => {});
+      window.open(url, "_blank", "noopener,noreferrer");
+      return;
+    }
+    setLinkPendente({ url, tipo: "video" });
+    setFormErro("");
+    setModalDrive(true);
+  };
   const nomeCliente = temCliente ? galeria.clientes.nome : identificacao?.nome ?? null;
   const dias        = diasRestantes(galeria?.expires_at ?? null);
 
@@ -736,7 +755,7 @@ export default function AcessoEntregaPage() {
           onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.03)"; e.currentTarget.style.boxShadow = "0 12px 40px rgba(0,0,0,0.4)"; }}
           onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; e.currentTarget.style.boxShadow = "0 8px 32px rgba(0,0,0,0.3)"; }}
         >
-          Ver fotos
+          {videos.length > 0 && fotos.length > 0 ? "Ver fotos e vídeos" : videos.length > 0 ? "Ver vídeos" : "Ver fotos"}
         </button>
 
         {dias !== null && dias >= 0 && dias <= 14 && (
@@ -776,6 +795,9 @@ export default function AcessoEntregaPage() {
             {nomeCliente && <span style={{ fontSize: 11, color: "#888" }}>Para {nomeCliente}</span>}
             {fotos.length > 0 && (
               <span style={{ fontSize: 11, color: "#888" }}>{fotos.length} foto{fotos.length !== 1 ? "s" : ""}</span>
+            )}
+            {videos.length > 0 && (
+              <span style={{ fontSize: 11, color: "#888" }}>{videos.length} vídeo{videos.length !== 1 ? "s" : ""}</span>
             )}
             {dias !== null && (
               <span style={{
@@ -886,6 +908,40 @@ export default function AcessoEntregaPage() {
 
       {/* Grid de fotos */}
       <div style={{ paddingTop: 68, paddingBottom: 40 }}>
+        {/* Vídeos (até 3) — no topo, antes das fotos */}
+        {videos.length > 0 && (
+          <div style={{ maxWidth: 1100, margin: "0 auto", padding: isMobile ? "12px 10px 20px" : "18px 20px 28px", display: "flex", flexDirection: "column", gap: 24 }}>
+            {videos.map((v, i) => {
+              const embed = v.youtube_url ? youtubeEmbedUrl(v.youtube_url) : null;
+              return (
+                <div key={i}>
+                  {(v.titulo || videos.length > 1) && (
+                    <div style={{ fontSize: 15, fontWeight: 700, color: "#111", marginBottom: 10 }}>{v.titulo || `Vídeo ${i + 1}`}</div>
+                  )}
+                  {embed && (
+                    <div style={{ position: "relative", width: "100%", aspectRatio: "16 / 9", background: "#000", borderRadius: 12, overflow: "hidden" }}>
+                      <iframe
+                        src={embed}
+                        title={v.titulo || `Vídeo ${i + 1}`}
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                        style={{ position: "absolute", inset: 0, width: "100%", height: "100%", border: 0 }}
+                      />
+                    </div>
+                  )}
+                  {v.download_url && (
+                    <button onClick={() => baixarVideo(v.download_url)}
+                      style={{ marginTop: 10, display: "inline-flex", alignItems: "center", gap: 7, padding: "9px 18px", borderRadius: 30, background: "#111", color: "#fff", border: "none", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                      Baixar vídeo
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+            {fotos.length > 0 && <div style={{ borderTop: "1px solid #eee" }} />}
+          </div>
+        )}
         {galeria?.mensagem && (
           <div style={{ padding: "14px 16px 4px", maxWidth: 1400, margin: "0 auto", fontSize: 12, color: "#bbb" }}>
             Clique para ampliar
@@ -950,7 +1006,7 @@ export default function AcessoEntregaPage() {
                 </div>
               </div>
             </div>
-          ) : (
+          ) : videos.length > 0 ? null : (
           <div style={{ textAlign: "center", padding: "80px 20px", color: "#aaa" }}>
             <div style={{ fontSize: 32, marginBottom: 12 }}>📷</div>
             <div style={{ fontSize: 14 }}>As fotos ainda não foram enviadas. Tente novamente em breve.</div>
@@ -1073,11 +1129,11 @@ export default function AcessoEntregaPage() {
 
       {/* Modal: identificação antes do download via Drive */}
       {modalDrive && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 200, padding: 20 }} onClick={() => setModalDrive(false)}>
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 200, padding: 20 }} onClick={() => { setModalDrive(false); setLinkPendente(null); }}>
           <div onClick={(e) => e.stopPropagation()} style={{ background: "#fff", borderRadius: 16, padding: "28px 28px", width: 380, maxWidth: "100%", boxShadow: "0 12px 48px rgba(0,0,0,0.3)" }}>
             <h3 style={{ margin: "0 0 6px", fontSize: 16, fontWeight: 800, color: "#111", letterSpacing: "-0.01em" }}>Quase lá!</h3>
             <p style={{ margin: "0 0 20px", fontSize: 13, color: "#666", lineHeight: 1.6 }}>
-              Para baixar todas as fotos, informe seu nome e e-mail.
+              {linkPendente?.tipo === "video" ? "Para baixar o vídeo, informe seu nome e e-mail." : "Para baixar todas as fotos, informe seu nome e e-mail."}
             </p>
             <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 14 }}>
               <input
@@ -1098,11 +1154,11 @@ export default function AcessoEntregaPage() {
             </div>
             {formErro && <div style={{ fontSize: 12, color: "#EF4444", marginBottom: 12 }}>{formErro}</div>}
             <div style={{ display: "flex", gap: 8 }}>
-              <button onClick={() => setModalDrive(false)} style={{ flex: 1, padding: "11px", borderRadius: 9, border: "1px solid #ddd", background: "transparent", fontSize: 13, color: "#666", cursor: "pointer" }}>
+              <button onClick={() => { setModalDrive(false); setLinkPendente(null); }} style={{ flex: 1, padding: "11px", borderRadius: 9, border: "1px solid #ddd", background: "transparent", fontSize: 13, color: "#666", cursor: "pointer" }}>
                 Cancelar
               </button>
               <button onClick={handleIdentificarEBaixar} disabled={salvando} style={{ flex: 1.4, padding: "11px", borderRadius: 9, border: "none", background: "#111", color: "#fff", fontSize: 13, fontWeight: 700, cursor: salvando ? "default" : "pointer" }}>
-                {salvando ? "Aguarde…" : "Baixar fotos ↓"}
+                {salvando ? "Aguarde…" : linkPendente?.tipo === "video" ? "Baixar vídeo ↓" : "Baixar fotos ↓"}
               </button>
             </div>
           </div>

@@ -11,6 +11,8 @@ import { processarImagemEntrega, formatBytes } from "@/lib/imageResize";
 import { uploadFileClient } from "@/lib/storage/uploadClient";
 import type { Cliente, Categoria } from "@/lib/supabase/types";
 import { mascaraMoeda, parseMoeda, formatarMoeda } from "@/lib/moeda";
+import { VideosEntrega } from "../_components/VideosEntrega";
+import { slotsDeVideos, videosParaSalvar, type VideoEntrega } from "@/lib/entrega/videos";
 
 const PRAZOS_FIXOS = [15, 30, 60, 120];
 
@@ -56,6 +58,7 @@ export default function NovaEntregaPage() {
   const [cliente,     setCliente]     = useState<Cliente | null>(null);
   const [dataEvento,  setDataEvento]  = useState(hoje);
   const [driveLink,   setDriveLink]   = useState("");
+  const [videos,      setVideos]      = useState<VideoEntrega[]>(slotsDeVideos([]));
   const [prazoFixo,   setPrazoFixo]   = useState<number | "custom">(0);
   const [prazoCustom, setPrazoCustom] = useState("");
   const [renovacao,          setRenovacao]          = useState("");
@@ -287,6 +290,7 @@ export default function NovaEntregaPage() {
             titulo:       titulo.trim(),
             data_evento:  dataEvento || null,
             drive_link:   driveLink.trim() || null,
+            videos:       videosParaSalvar(videos),
             expires_at,
             renewal_fee:  parseMoeda(renovacao),
             renovacao_anual_valor: parseMoeda(renovacaoAnual) || null,
@@ -521,6 +525,8 @@ export default function NovaEntregaPage() {
             </div>
           )}
         </Field>
+
+        <VideosEntrega value={videos} onChange={setVideos} />
 
         <div>
           <div style={{ fontSize: 12, fontWeight: 600, color: "var(--color-text-secondary)", marginBottom: 7, textTransform: "uppercase", letterSpacing: "0.04em" }}>

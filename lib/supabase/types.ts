@@ -168,6 +168,9 @@ export type GaleriaEntrega = {
   mensagem: string | null;
   downloads: number;
   downloads_drive: number;
+  // Vídeos da entrega (até 3) e contagem de downloads deles — ver lib/entrega/videos.ts
+  videos?: { titulo: string; youtube_url: string; download_url: string }[] | null;
+  downloads_video?: number;
   total_acessos: number;
   cover_color: string | null;
   apenas_zip: boolean;
@@ -459,7 +462,6 @@ export type SiteConfig = {
   google_total: number | null;
   google_reviews: GoogleReview[] | null;
   google_sync_at: string | null;
-  redes: Record<string, string> | null;
   // Personalização de design (par de fontes, cores/altura de header/rodapé, logo) — ver lib/site/design.ts
   design: Record<string, unknown> | null;
   // Ciclo de vida do domínio próprio (Cloudflare for SaaS) — ver /site/dominio.
@@ -1028,7 +1030,6 @@ export type CrmOrder = {
   data_entrega: string | null;
   observacoes: string | null;
   plano_parcelas: Record<string, unknown> | null;
-  galeria_entrega_id: string | null;
   legacy_id: number | null;
   data_lancamento: string | null;
   created_at: string;
