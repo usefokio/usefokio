@@ -14,6 +14,8 @@ import { ClienteSelect } from "../../_components/ClienteSelect";
 import { FotosEntregaUpload, type FotosEntregaUploadHandle } from "../../_components/FotosEntregaUpload";
 import type { Cliente, Categoria, GaleriaEntrega } from "@/lib/supabase/types";
 import { mascaraMoeda, parseMoeda, formatarMoeda } from "@/lib/moeda";
+import { VideosEntrega } from "../../_components/VideosEntrega";
+import { normalizarVideos, slotsDeVideos, videosParaSalvar, type VideoEntrega } from "@/lib/entrega/videos";
 
 const PRAZOS_FIXOS = [15, 30, 60, 120];
 
@@ -60,6 +62,7 @@ export default function EditarEntregaPage() {
   const [cliente,     setCliente]    = useState<Cliente | null>(null);
   const [dataEvento,  setDataEvento] = useState(hoje);
   const [driveLink,   setDriveLink]  = useState("");
+  const [videos,      setVideos]     = useState<VideoEntrega[]>(slotsDeVideos([]));
   const [renovacao,   setRenovacao]  = useState("");
   const [renovacaoAnual, setRenovacaoAnual] = useState("");
   const [renovacaoDias, setRenovacaoDias] = useState("30");
@@ -123,6 +126,7 @@ export default function EditarEntregaPage() {
         setClienteId(g.cliente_id ?? "");
         setDataEvento(g.data_evento ?? hoje);
         setDriveLink(g.drive_link ?? "");
+        setVideos(slotsDeVideos(normalizarVideos(g.videos)));
         setRenovacao(g.renewal_fee != null ? formatarMoeda(g.renewal_fee) : "");
         setRenovacaoAnual(g.renovacao_anual_valor != null ? formatarMoeda(g.renovacao_anual_valor) : "");
         setMensagem(g.mensagem ?? fotografo.mensagem_padrao_entrega ?? "");
@@ -157,6 +161,7 @@ export default function EditarEntregaPage() {
     clienteId !== (original.cliente_id ?? "") ||
     dataEvento !== (original.data_evento ?? hoje) ||
     driveLink !== (original.drive_link ?? "") ||
+    JSON.stringify(videosParaSalvar(videos)) !== JSON.stringify(normalizarVideos(original.videos)) ||
     renovacao !== (original.renewal_fee != null ? formatarMoeda(original.renewal_fee) : "") ||
     renovacaoAnual !== (original.renovacao_anual_valor != null ? formatarMoeda(original.renovacao_anual_valor) : "") ||
     renovacaoDias !== String(original.renovacao_dias ?? 30) ||
@@ -216,6 +221,7 @@ export default function EditarEntregaPage() {
         cliente_id:  clienteId || null,
         data_evento: dataEvento || null,
         drive_link:  driveLink.trim() || null,
+        videos:      videosParaSalvar(videos),
         expires_at:  expiresAt ? expiresAt.toISOString() : null,
         renewal_fee: parseMoeda(renovacao),
         renovacao_anual_valor: parseMoeda(renovacaoAnual) || null,
@@ -393,6 +399,8 @@ export default function EditarEntregaPage() {
             </div>
           )}
         </Field>
+
+        <VideosEntrega value={videos} onChange={setVideos} />
 
         <Field label="Taxa de renovação">
           <div style={{ position: "relative", width: 200 }}>

@@ -851,6 +851,8 @@ export default function EntregaDetailPage() {
               { label: "Acessos",    value: `${acessos.length} acesso${acessos.length !== 1 ? "s" : ""} (${new Set(acessos.map((a: any) => a.email).filter(Boolean)).size} pessoa${new Set(acessos.map((a: any) => a.email).filter(Boolean)).size !== 1 ? "s" : ""} única${new Set(acessos.map((a: any) => a.email).filter(Boolean)).size !== 1 ? "s" : ""})` },
               { label: "Fotos baixadas", value: `${g.downloads}` },
               { label: "Drive acessado", value: g.drive_link ? `${g.downloads_drive} vez${g.downloads_drive !== 1 ? "es" : ""}` : null },
+              { label: "Vídeos",         value: (g.videos?.length ?? 0) > 0 ? `${g.videos!.length} vídeo${g.videos!.length !== 1 ? "s" : ""}` : null },
+              { label: "Vídeo baixado",  value: g.videos?.some((v) => v.download_url) ? `${g.downloads_video ?? 0} vez${(g.downloads_video ?? 0) !== 1 ? "es" : ""}` : null },
               { label: "Prazo",      value: g.expires_at ? `${formatarData(g.expires_at)}${dias !== null && dias >= 0 ? ` (${dias} dia${dias !== 1 ? "s" : ""} restantes)` : dias !== null && dias < 0 ? " (expirado)" : ""}` : "Sem prazo" },
               { label: "Renovação",  value: g.renewal_fee && g.renewal_fee > 0 ? `R$ ${g.renewal_fee.toFixed(2).replace(".", ",")}` : null },
               { label: "Drive",      value: g.drive_link ? "Configurado" : null },

@@ -12,6 +12,8 @@ export async function POST(
   try {
     if (tipo === "drive") {
       await supabase.rpc("increment_drive_download_count", { galeria_id: id });
+    } else if (tipo === "video") {
+      await supabase.rpc("increment_video_download_count", { galeria_id: id });
     } else {
       await supabase.rpc("increment_download_count", { galeria_id: id });
     }

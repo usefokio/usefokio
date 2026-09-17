@@ -168,6 +168,9 @@ export type GaleriaEntrega = {
   mensagem: string | null;
   downloads: number;
   downloads_drive: number;
+  // Vídeos da entrega (até 3) e contagem de downloads deles — ver lib/entrega/videos.ts
+  videos?: { titulo: string; youtube_url: string; download_url: string }[] | null;
+  downloads_video?: number;
   total_acessos: number;
   cover_color: string | null;
   apenas_zip: boolean;
