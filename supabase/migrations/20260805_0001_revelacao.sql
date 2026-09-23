@@ -37,3 +37,8 @@ create table public.revelacao_pedido_itens (
 );
 
 alter table public.pagamentos add column if not exists revelacao_pedido_id uuid references public.revelacao_pedidos(id);
+
+-- Acesso pela API de Dados (desde 30/10/2026 o Supabase não concede mais automaticamente)
+grant all on public.crm_revelacao_tamanhos  to anon, authenticated, service_role;
+grant all on public.revelacao_pedidos       to anon, authenticated, service_role;
+grant all on public.revelacao_pedido_itens  to anon, authenticated, service_role;

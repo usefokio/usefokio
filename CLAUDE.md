@@ -247,6 +247,13 @@ Toda mudança de schema vira um **arquivo SQL numerado** em `supabase/migrations
 Nunca alterar schema direto em produção sem passar pelo dev. (O guard de SQL destrutivo em prod é mecânico —
 ver memória [[project_setup_hooks]].)
 
+**Tabela nova = `grant` na MESMA migração** (mudança do Supabase em 30/10/2026 — tabelas novas no schema
+público não recebem mais acesso automático à API de Dados; sem o grant, o supabase-js/PostgREST devolve
+"permission denied"). Padrão do projeto:
+`grant all on public.<tabela> to anon, authenticated, service_role;`
+Vale para dev, prod, branches e reset local. Quem protege os dados é o RLS (arquivo `*_rls_prod.sql`), não a
+ausência de grant. Tabelas criadas antes de 30/10/2026 já têm o acesso e não mudam.
+
 ### Dados importados (histórico photomanager)
 
 | Período | Qtd pedidos | Fonte |
