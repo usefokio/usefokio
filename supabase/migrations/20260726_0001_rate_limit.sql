@@ -28,3 +28,6 @@ BEGIN
   RETURN v_count <= p_max;
 END;
 $function$;
+
+-- Acesso pela API de Dados (desde 30/10/2026 o Supabase não concede mais automaticamente)
+grant all on public.rate_limits to anon, authenticated, service_role;

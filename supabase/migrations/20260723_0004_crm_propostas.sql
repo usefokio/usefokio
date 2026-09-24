@@ -50,3 +50,8 @@ create table if not exists public.crm_proposta_opcoes (
 
 create index if not exists idx_crm_propostas_fotografo on public.crm_propostas (fotografo_id, categoria_id);
 create index if not exists idx_crm_proposta_opcoes_proposta on public.crm_proposta_opcoes (proposta_id, ordem);
+
+-- Acesso pela API de Dados (desde 30/10/2026 o Supabase não concede mais automaticamente)
+grant all on public.crm_proposta_categorias to anon, authenticated, service_role;
+grant all on public.crm_propostas          to anon, authenticated, service_role;
+grant all on public.crm_proposta_opcoes    to anon, authenticated, service_role;

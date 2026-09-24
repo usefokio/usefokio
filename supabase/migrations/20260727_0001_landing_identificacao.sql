@@ -15,3 +15,6 @@ create table if not exists public.site_landing_acessos (
 
 create index if not exists idx_landing_acessos_landing
   on public.site_landing_acessos (landing_id, acessado_em desc);
+
+-- Acesso pela API de Dados (desde 30/10/2026 o Supabase não concede mais automaticamente)
+grant all on public.site_landing_acessos to anon, authenticated, service_role;

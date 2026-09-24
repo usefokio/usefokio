@@ -14,3 +14,6 @@ create table if not exists public.site_bloco_modelos (
 
 create index if not exists idx_bloco_modelos_fotografo
   on public.site_bloco_modelos (fotografo_id, created_at desc);
+
+-- Acesso pela API de Dados (desde 30/10/2026 o Supabase não concede mais automaticamente)
+grant all on public.site_bloco_modelos to anon, authenticated, service_role;

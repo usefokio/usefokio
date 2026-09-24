@@ -14,3 +14,6 @@ create table if not exists public.site_redirects (
 
 create index if not exists idx_site_redirects_fid_ativo
   on public.site_redirects (fotografo_id) where ativo;
+
+-- Acesso pela API de Dados (desde 30/10/2026 o Supabase não concede mais automaticamente)
+grant all on public.site_redirects to anon, authenticated, service_role;

@@ -635,6 +635,7 @@ export default function PedidoDetailPage() {
         <FormPedido
           inicial={{
             id:             pedido.id,
+            oportunidade_id: pedido.oportunidade_id ?? undefined,
             nome:           pedido.nome ?? "",
             cliente_id:     pedido.cliente_id ?? "",
             categoria:      pedido.categoria ?? "",

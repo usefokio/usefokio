@@ -482,7 +482,6 @@ export default function FormPedido({ inicial, onSalvo, onCancelar }: Props) {
       fotografo_id:    fotografo.id,
       nome:            form.nome.trim(),
       cliente_id:      form.cliente_id || null,
-      oportunidade_id: inicial?.oportunidade_id ?? null,
       ...(proximoNumero !== null ? { legacy_id: proximoNumero, numero: String(proximoNumero) } : {}),
       categoria:       form.categoria || null,
       canal_origem:    form.canal_origem || null,
@@ -503,7 +502,13 @@ export default function FormPedido({ inicial, onSalvo, onCancelar }: Props) {
       data_entrega:    null,
       observacoes:     form.observacoes.trim() || null,
       updated_at:      new Date().toISOString(),
-      ...(!isEditing ? { data_lancamento: new Date().toISOString().slice(0, 10), crm_nativo: true } : {}),
+      // O vínculo com a oportunidade só é gravado na CRIAÇÃO. A edição nunca toca nele: antes o
+      // payload mandava `inicial?.oportunidade_id ?? null` e, como o detalhe do pedido não carrega
+      // esse campo no form, a primeira edição apagava o vínculo (relatório de Leads passava a
+      // contar o pedido como venda direta e duplicava o fechamento).
+      ...(!isEditing
+        ? { oportunidade_id: inicial?.oportunidade_id ?? null, data_lancamento: new Date().toISOString().slice(0, 10), crm_nativo: true }
+        : {}),
     };
 
     let agendaAtualizado = false;

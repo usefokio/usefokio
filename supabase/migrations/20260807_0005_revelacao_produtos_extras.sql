@@ -16,3 +16,6 @@ create table if not exists public.revelacao_produtos_extras (
 
 create index if not exists revelacao_produtos_extras_fotografo_id_idx
   on public.revelacao_produtos_extras (fotografo_id);
+
+-- Acesso pela API de Dados (desde 30/10/2026 o Supabase não concede mais automaticamente)
+grant all on public.revelacao_produtos_extras to anon, authenticated, service_role;
