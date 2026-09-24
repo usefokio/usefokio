@@ -4,7 +4,14 @@
 
 SaaS para fotógrafos. Este repositório é o projeto Next.js principal (`usefokio`), branch **master** (produção ativa em usefokio.com.br). **Produção com dados reais — não editar nem deployar direto em produção.** Hoje só o Fernando usa o sistema (contas `fernandoagrela` + `estudio136`, ambas dele); ainda não há outros fotógrafos ativos.
 
-**Fluxo de trabalho (atual — regra vigente desde 2026-09-11):** desenvolver **localmente** contra o banco de DEV, na branch `desenvolvimento` → `npx tsc --noEmit` limpo → commitar e **PARAR**. O Fernando testa em `localhost:3001`. **Produção só quando ele pedir explicitamente** ("pode subir"): aí migrações na prod antes do push → **merge `--no-ff` + push na `master`** (o **Railway** faz o deploy automático) → sincronizar `desenvolvimento` de volta. Nada de merge/push na master, migração ou escrita no banco de produção por iniciativa própria (leitura/SELECT para investigar é ok). **A Vercel foi REMOVIDA (15/07/2026)** — não há mais Preview URL; os crons rodam no **GitHub Actions**. Migração de schema: aplicar só no dev; na prod apenas no deploy pedido (ver seção de migrações abaixo).
+**Fluxo de trabalho — duas trilhas, decididas pelo TIPO do trabalho (regra reafirmada em 2026-09-24):**
+- **BUG / erro real em produção → corrige DIRETO em produção.** O pedido de corrigir já é a autorização: fix →
+  `npx tsc --noEmit` → commit → merge `--no-ff` na `master` → push (Railway deploya) → ressincronizar
+  `desenvolvimento`. Nada de deixar a correção parada numa branch esperando novo "pode subir".
+- **Funcionalidade nova / arquitetura → branch `desenvolvimento`** contra o banco de DEV, commitar e PARAR.
+- Na dúvida sobre a trilha, **perguntar antes de commitar**.
+
+**Trilha de funcionalidade nova (detalhe):** desenvolver **localmente** contra o banco de DEV, na branch `desenvolvimento` → `npx tsc --noEmit` limpo → commitar e **PARAR**. O Fernando testa em `localhost:3001`. **Produção só quando ele pedir explicitamente** ("pode subir"): aí migrações na prod antes do push → **merge `--no-ff` + push na `master`** (o **Railway** faz o deploy automático) → sincronizar `desenvolvimento` de volta. Nada de merge/push na master, migração ou escrita no banco de produção por iniciativa própria (leitura/SELECT para investigar é ok). **A Vercel foi REMOVIDA (15/07/2026)** — não há mais Preview URL; os crons rodam no **GitHub Actions**. Migração de schema: aplicar só no dev; na prod apenas no deploy pedido (ver seção de migrações abaixo).
 
 ## Como rodar localmente
 
