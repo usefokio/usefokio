@@ -4,7 +4,7 @@
     "builder": "NIXPACKS"
   },
   "deploy": {
-    "startCommand": "next start -H 0.0.0.0 -p $PORT",
+    "startCommand": "NODE_OPTIONS=--max-old-space-size=512 next start -H 0.0.0.0 -p $PORT",
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 10
   }
