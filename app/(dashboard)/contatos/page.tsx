@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { fetchAllRows } from "@/lib/supabase/fetchAll";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import type { Contato, ContatoCategoria } from "@/lib/supabase/types";
 
@@ -21,10 +22,11 @@ export default function ContatosPage() {
     const supabase = createClient();
     Promise.all([
       supabase.from("contato_categorias").select("*").eq("fotografo_id", fotografo.id).order("nome"),
-      supabase.from("contatos").select("*").eq("fotografo_id", fotografo.id).order("created_at", { ascending: false }),
-    ]).then(([{ data: cats }, { data: cts }]) => {
+      fetchAllRows<Contato>((s, from, to) =>
+        s.from("contatos").select("*").eq("fotografo_id", fotografo.id).order("created_at", { ascending: false }).range(from, to), supabase),
+    ]).then(([{ data: cats }, cts]) => {
       setCategorias((cats as ContatoCategoria[]) ?? []);
-      setContatos((cts as Contato[]) ?? []);
+      setContatos(cts);
       setLoading(false);
     });
   }, [fotografo]);
@@ -38,6 +40,20 @@ export default function ContatosPage() {
     await navigator.clipboard.writeText(emails);
     setCopiada(catId);
     setTimeout(() => setCopiada(null), 2500);
+  }
+
+  // Planilha (CSV) com Nome e E-mail. Separador ";" + BOM UTF-8 para o Excel em português abrir
+  // em colunas e com acentos corretos.
+  function exportarPlanilha(cat: ContatoCategoria) {
+    const cel = (v: string | null | undefined) => `"${(v ?? "").replace(/"/g, '""')}"`;
+    const linhas = ["Nome;E-mail", ...contatosDa(cat.id).map((c) => `${cel(c.nome)};${cel(c.email)}`)];
+    const blob = new Blob(["﻿" + linhas.join("\r\n")], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `lista-${cat.nome.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-zA-Z0-9]+/g, "-").replace(/^-|-$/g, "").toLowerCase() || "emails"}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   async function excluirContato(id: string) {
@@ -118,6 +134,14 @@ export default function ContatosPage() {
                       style={{ padding: "5px 12px", borderRadius: 7, border: `0.5px solid ${copiada === cat.id ? "rgba(16,185,129,0.3)" : "var(--color-border-secondary)"}`, background: copiada === cat.id ? "rgba(16,185,129,0.08)" : "var(--color-background-secondary)", fontSize: 11, fontWeight: 600, color: copiada === cat.id ? "#059669" : "var(--color-text-secondary)", cursor: "pointer" }}
                     >
                       {copiada === cat.id ? "✓ Copiado" : "Copiar emails"}
+                    </button>
+                    <button
+                      onClick={() => exportarPlanilha(cat)}
+                      disabled={lista.length === 0}
+                      title="Baixar planilha com nome e e-mail"
+                      style={{ padding: "5px 12px", borderRadius: 7, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-secondary)", fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", cursor: lista.length === 0 ? "default" : "pointer", opacity: lista.length === 0 ? 0.5 : 1 }}
+                    >
+                      ⬇ Exportar planilha
                     </button>
                     {renomeando === cat.id ? (
                       <button onClick={() => renomearCategoria(cat.id)} style={{ padding: "5px 12px", borderRadius: 7, border: "none", background: "#2563EB", color: "#fff", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>Salvar</button>
