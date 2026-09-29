@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { fetchAllRows } from "@/lib/supabase/fetchAll";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import type { SiteLandingPage, SiteLandingAcesso } from "@/lib/supabase/types";
+import { ModalAcessosLanding } from "./_components/ModalAcessosLanding";
 
 const btnAcao: React.CSSProperties = {
   padding: "6px 10px", borderRadius: 8, border: "1px solid var(--color-border-secondary)",
@@ -25,6 +26,7 @@ export default function LandingPagesLista() {
   const [contagens, setContagens] = useState<Record<string, number>>({}); // landing_id → nº de acessos
   const [verAcessos, setVerAcessos] = useState<SiteLandingPage | null>(null);
   const [acessos, setAcessos] = useState<SiteLandingAcesso[] | null>(null);
+  const [verGrafico, setVerGrafico] = useState<SiteLandingPage | null>(null);
 
   const carregar = useCallback(async () => {
     if (!fotografo) return;
@@ -149,9 +151,9 @@ export default function LandingPagesLista() {
                 {p.publicado ? "Publicada" : "Rascunho"}
               </span>
               <div style={{ display: "flex", gap: 6, flexShrink: 0 }} onClick={(e) => e.stopPropagation()}>
-                <span title="Acessos" style={{ ...btnAcao, cursor: "default", fontWeight: 700 }}>
-                  👁 {p.views ?? 0}
-                </span>
+                <button title="Gráfico de acessos" style={{ ...btnAcao, fontWeight: 700 }} onClick={() => setVerGrafico(p)}>
+                  👁 {p.views ?? 0} 📈
+                </button>
                 {p.identificacao_obrigatoria && (
                   <button title="Quem acessou" style={{ ...btnAcao, fontWeight: 700 }} onClick={() => abrirAcessos(p)}>
                     👥 {contagens[p.id] ?? 0}
@@ -221,6 +223,8 @@ export default function LandingPagesLista() {
           </div>
         </div>
       )}
+
+      {verGrafico && <ModalAcessosLanding landing={verGrafico} onFechar={() => setVerGrafico(null)} />}
 
       {/* Excluir — modal do sistema (nunca o confirm() do navegador) */}
       {excluir && (

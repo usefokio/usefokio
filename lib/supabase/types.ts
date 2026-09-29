@@ -670,6 +670,13 @@ export type SiteBlocoModelo = {
   updated_at: string;
 };
 
+// Acessos da landing por dia (gráfico da listagem) — ver migração 20260929_0001_landing_views_diarias
+export type SiteLandingViewDia = {
+  landing_id: string;
+  dia: string; // YYYY-MM-DD (fuso de Brasília)
+  views: number;
+};
+
 export type SiteLandingAcesso = {
   id: string;
   landing_id: string;

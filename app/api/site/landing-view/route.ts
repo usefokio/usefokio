@@ -1,4 +1,5 @@
-// Registra uma visualização na landing page (contador simples, sem identificação).
+// Registra uma visualização na landing page (contador simples, sem identificação): soma no total e no dia
+// de hoje (site_landing_views_dia, alimenta o gráfico da listagem) numa operação só.
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -14,9 +15,8 @@ export async function POST(request: NextRequest) {
   if (!landingId) return NextResponse.json({ erro: "Informe a landing." }, { status: 400 });
 
   const admin = createAdminClient();
-  const { data: lp } = await admin.from("site_landing_pages").select("views").eq("id", landingId).maybeSingle();
-  if (!lp) return NextResponse.json({ erro: "Landing não encontrada." }, { status: 404 });
-
-  await admin.from("site_landing_pages").update({ views: (lp.views ?? 0) + 1 }).eq("id", landingId);
+  const { data: existe, error } = await admin.rpc("registrar_landing_view", { p_landing: landingId });
+  if (error) return NextResponse.json({ ok: false }, { status: 500 });
+  if (!existe) return NextResponse.json({ erro: "Landing não encontrada." }, { status: 404 });
   return NextResponse.json({ ok: true });
 }
