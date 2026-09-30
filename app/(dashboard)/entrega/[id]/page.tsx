@@ -6,6 +6,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { fetchAllRows } from "@/lib/supabase/fetchAll";
 import { deleteFilesClient } from "@/lib/storage/deleteClient";
+import { garantirCapaEntrega, AVISO_CAPA_NAO_PRESERVADA } from "@/lib/entrega/capa";
 import { PedidoVinculadoChip } from "@/components/ui/PedidoVinculadoChip";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { ClienteLink } from "@/components/ui/ClienteLink";
@@ -444,6 +445,7 @@ export default function EntregaDetailPage() {
   async function excluirTodasFotos() {
     setExcluindoFotos(true);
     setConfirmarTodas(false);
+    if (!(await garantirCapaEntrega(id))) { setExcluindoFotos(false); alert(AVISO_CAPA_NAO_PRESERVADA); return; }
     const supabase = createClient();
     const items = fotos.map((f) => ({ storage_path: f.storage_path, url_publica: f.url_publica }));
     for (let i = 0; i < items.length; i += 100)
@@ -459,6 +461,7 @@ export default function EntregaDetailPage() {
     if (selecionadas.size === 0) return;
     setExcluindoFotos(true);
     setConfirmarExclusao(false);
+    if (!(await garantirCapaEntrega(id))) { setExcluindoFotos(false); alert(AVISO_CAPA_NAO_PRESERVADA); return; }
     const supabase = createClient();
     const alvo = fotos.filter((f) => selecionadas.has(f.id));
     const storageItems = alvo.map((f) => ({ storage_path: f.storage_path, url_publica: f.url_publica }));
