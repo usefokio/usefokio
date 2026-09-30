@@ -6,6 +6,7 @@ import { fetchAllRows } from "@/lib/supabase/fetchAll";
 import { processarImagemEntrega } from "@/lib/imageResize";
 import { uploadFileClient } from "@/lib/storage/uploadClient";
 import { deleteFilesClient } from "@/lib/storage/deleteClient";
+import { garantirCapaEntrega, AVISO_CAPA_NAO_PRESERVADA } from "@/lib/entrega/capa";
 import type { GaleriaEntregaFoto } from "@/lib/supabase/types";
 
 // Foto com estado de upload inline (igual ao padrão da seleção)
@@ -257,6 +258,8 @@ export const FotosEntregaUpload = forwardRef<FotosEntregaUploadHandle, Props>(fu
       });
       return;
     }
+    const gid = galeriaIdRef.current;
+    if (gid && !(await garantirCapaEntrega(gid))) { alert(AVISO_CAPA_NAO_PRESERVADA); return; }
     const supabase = createClient();
     void deleteFilesClient([{ storage_path: foto.storage_path, url_publica: foto.url_publica }]);
     await supabase.from("galerias_entrega_fotos").delete().eq("id", foto.id);
@@ -266,6 +269,8 @@ export const FotosEntregaUpload = forwardRef<FotosEntregaUploadHandle, Props>(fu
   async function removerFotosSelecionadas(ids: Set<string>) {
     if (ids.size === 0) return;
     setExcluindo(true);
+    const gidCapa = galeriaIdRef.current;
+    if (gidCapa && !(await garantirCapaEntrega(gidCapa))) { setExcluindo(false); alert(AVISO_CAPA_NAO_PRESERVADA); return; }
     const supabase = createClient();
     const alvo = fotos.filter((f) => ids.has(f.id) && !f._uploading);
     const storageItems = alvo.map((f) => ({ storage_path: f.storage_path, url_publica: f.url_publica }));
@@ -282,6 +287,8 @@ export const FotosEntregaUpload = forwardRef<FotosEntregaUploadHandle, Props>(fu
 
   async function removerTodasFotos() {
     setExcluindo(true);
+    const gidCapa = galeriaIdRef.current;
+    if (gidCapa && !(await garantirCapaEntrega(gidCapa))) { setExcluindo(false); alert(AVISO_CAPA_NAO_PRESERVADA); return; }
     const supabase = createClient();
     const salvas = fotos.filter((f) => !f._uploading);
     const storageItems = salvas.map((f) => ({ storage_path: f.storage_path, url_publica: f.url_publica }));

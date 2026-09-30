@@ -12,6 +12,7 @@ import { normalizar } from "@/lib/utils/normalizar";
 import { ModalEmailCliente } from "./_components/ModalEmailCliente";
 import { fetchAllRows } from "@/lib/supabase/fetchAll";
 import { deleteFilesClient } from "@/lib/storage/deleteClient";
+import { garantirCapaEntrega } from "@/lib/entrega/capa";
 import { useWindowWidth, TABLET } from "@/lib/hooks/useWindowWidth";
 
 // ─── Helpers de status ────────────────────────────────────────────────────────
@@ -212,6 +213,9 @@ export default function EntregaPage() {
       setGalerias(lista.map(g =>
         g.foto_capa_url ? g : { ...g, foto_capa_url: mapa[g.id] ?? g.foto_capa_url }
       ));
+      // Autocorreção: transforma a capa "emprestada" (1ª foto) em capa própria, para não sumir se as
+      // fotos forem excluídas depois.
+      semCapa.forEach((gid) => { void garantirCapaEntrega(gid); });
     }
 
     // Auto-enroll suspended or expired galleries that aren't in the funnel yet
