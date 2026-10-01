@@ -41,6 +41,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 // ─── Página principal ─────────────────────────────────────────────────────────
 import { Suspense } from "react";
+import { hojeBR } from "@/lib/utils/format";
 
 function NovaSelecaoConteudo() {
   const router        = useRouter();
@@ -54,7 +55,7 @@ function NovaSelecaoConteudo() {
   const [categoriaId, setCategoriaId] = useState("");
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [clienteId, setClienteId]   = useState(params.get("cliente") ?? "");
-  const [dataEvento, setDataEvento] = useState(new Date().toISOString().split("T")[0]);
+  const [dataEvento, setDataEvento] = useState(hojeBR());
   const [prazo, setPrazo]           = useState("");
   const [resolucao, setResolucao]   = useState<ResolucaoExibicao>(BETA_RESOLUCAO_MAXIMA ? "hd" : "fullhd");
   const [selecaoLivre, setSelecaoLivre] = useState(true);

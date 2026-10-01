@@ -15,6 +15,7 @@ import { BarraProgressoEtapa } from "@/app/(dashboard)/crm/_components/BarraProg
 import { ContatoOportunidade } from "@/app/(dashboard)/crm/_components/ContatoOportunidade";
 import { ClienteLink } from "@/components/ui/ClienteLink";
 import type { CrmOpportunity } from "@/lib/supabase/types";
+import { hojeBR } from "@/lib/utils/format";
 
 // Larguras padrão das colunas (desktop) — redimensionáveis via useColunasLargura.
 const COLS_OPP: ColunaDef[] = [
@@ -212,7 +213,7 @@ export default function OportunidadesPage() {
       return;
     }
     await sb.from("crm_opportunities")
-      .update({ data_fechamento: new Date().toISOString().slice(0, 10) })
+      .update({ data_fechamento: hojeBR() })
       .eq("id", id).is("data_fechamento", null);
   }
 

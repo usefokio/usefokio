@@ -16,6 +16,7 @@ import type { Cliente, Categoria, GaleriaEntrega } from "@/lib/supabase/types";
 import { mascaraMoeda, parseMoeda, formatarMoeda } from "@/lib/moeda";
 import { VideosEntrega } from "../../_components/VideosEntrega";
 import { normalizarVideos, slotsDeVideos, videosParaSalvar, type VideoEntrega } from "@/lib/entrega/videos";
+import { hojeBR } from "@/lib/utils/format";
 
 const PRAZOS_FIXOS = [15, 30, 60, 120];
 
@@ -55,7 +56,7 @@ export default function EditarEntregaPage() {
   const [notFound,     setNotFound]     = useState(false);
   const [loadingPage,  setLoadingPage]  = useState(true);
 
-  const hoje = new Date().toISOString().split("T")[0];
+  const hoje = hojeBR();
 
   const [titulo,      setTitulo]     = useState("");
   const [clienteId,   setClienteId]  = useState("");

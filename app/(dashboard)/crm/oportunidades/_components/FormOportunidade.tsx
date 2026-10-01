@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
-import { isValidDate, mascaraValor, parsearValor, formatNum } from "@/lib/utils/format";
+import { isValidDate, mascaraValor, parsearValor, formatNum, hojeBR } from "@/lib/utils/format";
 import { Field } from "@/components/ui/Field";
 import { inputStyle } from "@/lib/styles";
 import { ClienteSelect } from "@/components/ui/ClienteSelect";
@@ -39,7 +39,7 @@ type FormData = {
 const EMPTY: FormData = {
   titulo: "", cliente_id: "", categoria: "", status: "em_aberto",
   canal_origem: "", prioridade: "media", valor_estimado: "",
-  data_evento: "", criada_em: new Date().toISOString().slice(0, 10), nome_noiva: "", nome_noivo: "",
+  data_evento: "", criada_em: hojeBR(), nome_noiva: "", nome_noivo: "",
   local_cerimonia: "", local_recepcao: "", eh_casamento: false, local_evento: "",
   cidade_evento: "", estado_evento: "", convidados: "",
   indicado_por_id: "", indicado_por_nome: "", observacoes: "",
@@ -216,7 +216,7 @@ export default function FormOportunidade({ inicial, onSalvo, leadId }: Props) {
     if (form.status === "em_aberto") {
       await sb.from("crm_opportunities").update({ data_fechamento: null }).eq("id", id!).not("data_fechamento", "is", null);
     } else {
-      await sb.from("crm_opportunities").update({ data_fechamento: new Date().toISOString().slice(0, 10) }).eq("id", id!).is("data_fechamento", null);
+      await sb.from("crm_opportunities").update({ data_fechamento: hojeBR() }).eq("id", id!).is("data_fechamento", null);
     }
 
     setSaving(false);

@@ -7,7 +7,7 @@ import { fetchAllRows } from "@/lib/supabase/fetchAll";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { Field } from "@/components/ui/Field";
 import { inputStyle } from "@/lib/styles";
-import { isValidDate, mascaraValor, parsearValor } from "@/lib/utils/format";
+import { isValidDate, mascaraValor, parsearValor, hojeBR } from "@/lib/utils/format";
 import type { CrmContaBancaria } from "@/lib/supabase/types";
 import { useWindowWidth, TABLET } from "@/lib/hooks/useWindowWidth";
 
@@ -57,7 +57,7 @@ export default function ContasBancariasPage() {
   const [error,    setError]    = useState("");
   const [confirmDel, setConfirmDel] = useState<string | null>(null);
 
-  const hoje = new Date().toISOString().slice(0, 10);
+  const hoje = hojeBR();
   const [modalTransf,   setModalTransf]   = useState(false);
   const [transfOrigem,  setTransfOrigem]  = useState("");
   const [transfDestino, setTransfDestino] = useState("");

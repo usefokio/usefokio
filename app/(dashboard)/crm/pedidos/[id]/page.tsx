@@ -9,7 +9,7 @@ import { ModalConfirmacao } from "@/app/(dashboard)/_components/ModalConfirmacao
 import { FIN_STATUS_MAP } from "@/lib/constants/statusMaps";
 import { carregarPedidoStatus, montarStatusMap, statusInfo } from "@/lib/crm/pedidoStatus";
 import type { CrmPedidoStatus } from "@/lib/supabase/types";
-import { formatBRL, formatData, formatNum, mascaraValor, parsearValor, mascaraHora } from "@/lib/utils/format";
+import { formatBRL, formatData, formatNum, mascaraValor, parsearValor, mascaraHora, hojeBR } from "@/lib/utils/format";
 import { escapeHtml } from "@/lib/email/comunicacao";
 import { usePersistState } from "@/lib/hooks/usePersistState";
 import { ClienteLink } from "@/components/ui/ClienteLink";
@@ -1301,7 +1301,7 @@ export default function PedidoDetailPage() {
       {modalAgenda && (
         <ModalEvento
           modo="novo"
-          diaInicial={new Date().toISOString().slice(0, 10)}
+          diaInicial={hojeBR()}
           fotografoId={pedido.fotografo_id}
           pedidoId={pedido.id}
           clienteIdInicial={pedido.cliente_id ?? undefined}
@@ -1334,7 +1334,7 @@ export default function PedidoDetailPage() {
                       if (m.dataCompetenciaManual) return { ...m, valor };
                       // Editou o valor → vale a data da edição (como no sistema antigo); voltou ao original → data original.
                       const mudou = Math.abs(parsearValor(valor) - Number(m.entry.valor)) > 0.004;
-                      return { ...m, valor, dataCompetencia: mudou ? new Date().toISOString().slice(0, 10) : (m.entry.data_competencia ?? m.entry.vencimento) };
+                      return { ...m, valor, dataCompetencia: mudou ? hojeBR() : (m.entry.data_competencia ?? m.entry.vencimento) };
                     })}
                     style={{ width: "100%", boxSizing: "border-box", padding: "9px 12px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", fontSize: 13, color: "var(--color-text-primary)", outline: "none" }} />
                 </div>

@@ -53,3 +53,8 @@ export function isValidDate(s: string): boolean {
   const d = new Date(s + "T12:00:00");
   return !isNaN(d.getTime()) && d.toISOString().slice(0, 10) === s;
 }
+
+/** Data de hoje (YYYY-MM-DD) no fuso de Brasília. Use no lugar de `new Date().toISOString().slice(0, 10)`,
+ *  que é UTC e vira o dia seguinte a partir das 21h (ex.: contas do mês abriam no mês seguinte). */
+export const hojeBR = (): string =>
+  new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date());
