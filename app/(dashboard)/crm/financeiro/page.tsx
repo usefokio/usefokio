@@ -7,7 +7,7 @@ import { useFotografo } from "@/lib/context/FotografoContext";
 import { useWindowWidth, TABLET } from "@/lib/hooks/useWindowWidth";
 import { usePersistState } from "@/lib/hooks/usePersistState";
 import { useColunasLargura, type ColunaDef } from "@/lib/hooks/useColunasLargura";
-import { formatBRL, isValidDate, mascaraValor, parsearValor } from "@/lib/utils/format";
+import { formatBRL, isValidDate, mascaraValor, parsearValor, hojeBR } from "@/lib/utils/format";
 import { fetchAllRows } from "@/lib/supabase/fetchAll";
 import { IcoEdit, IcoTrash, IcoMail, IcoCheck, IcoOpen } from "@/app/(dashboard)/crm/_components/Icons";
 import { Paginacao } from "@/app/(dashboard)/crm/_components/Paginacao";
@@ -231,7 +231,7 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
 
   const meses = [...new Set(entries.map(e => e.vencimento.slice(0, 7)))].sort();
 
-  const hoje = new Date().toISOString().slice(0, 10);
+  const hoje = hojeBR();
   const mesAtual = hoje.slice(0, 7);
   const proxMes  = (() => {
     const d = new Date(hoje + "T12:00:00");

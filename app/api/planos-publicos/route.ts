@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { hojeBR } from "@/lib/utils/format";
 
 export async function GET() {
   const admin = createAdminClient();
-  const hoje  = new Date().toISOString().slice(0, 10);
+  const hoje  = hojeBR();
 
   const { data, error } = await admin
     .from("planos_config")

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
-import { isValidDate, mascaraValor, parsearValor } from "@/lib/utils/format";
+import { isValidDate, mascaraValor, parsearValor, hojeBR } from "@/lib/utils/format";
 import { useEditorEstado, SeloEstado, ModalNaoSalvo } from "@/app/(dashboard)/_components/EditorEstado";
 
 type ChartOfAccounts = { id: string; codigo: string; nome: string; tipo: string };
@@ -51,7 +51,7 @@ export default function NovoLancamentoPage() {
   const router        = useRouter();
   const { fotografo } = useFotografo();
 
-  const hoje = new Date().toISOString().slice(0, 10);
+  const hoje = hojeBR();
   const vencimentoPadrao = addDays(hoje, 30);
 
   const [tipo,          setTipo]          = useState<"receita" | "despesa">("receita");

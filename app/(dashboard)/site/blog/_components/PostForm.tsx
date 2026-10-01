@@ -16,6 +16,7 @@ import { BotaoIA } from "@/app/(dashboard)/site/_components/BotaoIA";
 import { auditarPost, contarPalavras } from "@/lib/site/seoAudit";
 import type { ConfigPaginaValores } from "@/lib/site/seo";
 import type { SitePost } from "@/lib/supabase/types";
+import { hojeBR } from "@/lib/utils/format";
 
 function slugify(texto: string): string {
   return texto
@@ -51,7 +52,7 @@ export function PostForm({ postId }: { postId?: string }) {
   const [resumo, setResumo] = useState("");
   const [corpo, setCorpo] = useState("");
   const [publicado, setPublicado] = useState(false);
-  const [publicadoEm, setPublicadoEm] = useState(new Date().toISOString().slice(0, 10));
+  const [publicadoEm, setPublicadoEm] = useState(hojeBR());
   const [capaUrl, setCapaUrl] = useState<string | null>(null);
   const [legacyId, setLegacyId] = useState<number | null>(null);
   const [seoTitle, setSeoTitle] = useState("");
@@ -78,7 +79,7 @@ export function PostForm({ postId }: { postId?: string }) {
 
   useEffect(() => {
     if (!editando) {
-      estado.inicializar(JSON.stringify(["", "", "", "", "", "", null, false, new Date().toISOString().slice(0, 10), "", "", "", false, "", "", null, true]));
+      estado.inicializar(JSON.stringify(["", "", "", "", "", "", null, false, hojeBR(), "", "", "", false, "", "", null, true]));
       return;
     }
     if (!fotografo) return;
@@ -91,7 +92,7 @@ export function PostForm({ postId }: { postId?: string }) {
       setCategoria(p.categoria ?? ""); setTags(p.tags ?? "");
       setResumo(p.resumo ?? ""); setCorpo(p.corpo ?? "");
       setPublicado(p.publicado);
-      setPublicadoEm(p.publicado_em ? p.publicado_em.slice(0, 10) : new Date().toISOString().slice(0, 10));
+      setPublicadoEm(p.publicado_em ? p.publicado_em.slice(0, 10) : hojeBR());
       setCapaUrl(p.capa_url); setLegacyId(p.legacy_id);
       setSeoTitle(p.seo_title ?? ""); setSeoDesc(p.seo_description ?? ""); setSeoKw(p.seo_keywords ?? "");
       setSeoNoindex(p.seo_noindex); setOgTitle(p.og_title ?? ""); setOgDesc(p.og_description ?? ""); setOgImage(p.og_image_url);
@@ -100,7 +101,7 @@ export function PostForm({ postId }: { postId?: string }) {
       if (cfg) setDominio(cfg.dominio_customizado || (cfg.subdominio ? `${cfg.subdominio}.usefokio.com.br` : "seusite.usefokio.com.br"));
       estado.inicializar(JSON.stringify([
         p.titulo, p.slug, p.categoria ?? "", p.tags ?? "", p.resumo ?? "", p.corpo ?? "", p.capa_url, p.publicado,
-        p.publicado_em ? p.publicado_em.slice(0, 10) : new Date().toISOString().slice(0, 10),
+        p.publicado_em ? p.publicado_em.slice(0, 10) : hojeBR(),
         p.seo_title ?? "", p.seo_description ?? "", p.seo_keywords ?? "",
         p.seo_noindex, p.og_title ?? "", p.og_description ?? "", p.og_image_url, p.mostrar_data,
       ]));

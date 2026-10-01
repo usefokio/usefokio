@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { fotografoIdAtual } from "@/lib/auth/fotografoAtual";
 import { criarCobrancaAssinatura } from "@/lib/asaas-sistema";
+import { hojeBR } from "@/lib/utils/format";
 
 export async function POST(req: Request) {
   const fotografoId = await fotografoIdAtual();
@@ -35,7 +36,7 @@ export async function POST(req: Request) {
       .maybeSingle();
 
     if (pc && pc.ativo) {
-      const hoje = new Date().toISOString().slice(0, 10);
+      const hoje = hojeBR();
       if (!pc.valido_ate || pc.valido_ate >= hoje) {
         planoNome = pc.codigo;
         preco = periodoReq === "anual" && pc.preco_anual ? Number(pc.preco_anual) * 12 : Number(pc.preco);

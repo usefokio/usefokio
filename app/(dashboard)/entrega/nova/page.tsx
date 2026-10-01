@@ -13,6 +13,7 @@ import type { Cliente, Categoria } from "@/lib/supabase/types";
 import { mascaraMoeda, parseMoeda, formatarMoeda } from "@/lib/moeda";
 import { VideosEntrega } from "../_components/VideosEntrega";
 import { slotsDeVideos, videosParaSalvar, type VideoEntrega } from "@/lib/entrega/videos";
+import { hojeBR } from "@/lib/utils/format";
 
 const PRAZOS_FIXOS = [15, 30, 60, 120];
 
@@ -51,7 +52,7 @@ export default function NovaEntregaPage() {
   const router = useRouter();
   const { fotografo } = useFotografo();
 
-  const hoje = new Date().toISOString().split("T")[0];
+  const hoje = hojeBR();
 
   const [titulo,      setTitulo]      = useState("");
   const [clienteId,   setClienteId]   = useState("");

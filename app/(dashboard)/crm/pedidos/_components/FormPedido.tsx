@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
-import { isValidDate, formatNum, formatData, mascaraValor, parsearValor, mascaraHora } from "@/lib/utils/format";
+import { isValidDate, formatNum, formatData, mascaraValor, parsearValor, mascaraHora, hojeBR } from "@/lib/utils/format";
 import { Field } from "@/components/ui/Field";
 import { inputStyle } from "@/lib/styles";
 import { ClienteSelect } from "@/components/ui/ClienteSelect";
@@ -351,7 +351,7 @@ export default function FormPedido({ inicial, onSalvo, onCancelar }: Props) {
 
   // ── Planos de pagamento ─────────────────────────────────────────────────────
   const abrirNovoPlano = () => {
-    const hoje = new Date().toISOString().slice(0, 10);
+    const hoje = hojeBR();
     const valorDefault = valorRestante > 0 ? valorRestante.toFixed(2) : "";
     const pctDefault   = valorDefault && liquido > 0 ? (parseFloat(valorDefault) * 100 / liquido).toFixed(1) : "";
     setModalPlano({ ...EMPTY_PLANO, tmpId: gerarId(), dataPrazo: hoje, valor: valorDefault, percentual: pctDefault, editIdx: null });
@@ -507,7 +507,7 @@ export default function FormPedido({ inicial, onSalvo, onCancelar }: Props) {
       // esse campo no form, a primeira edição apagava o vínculo (relatório de Leads passava a
       // contar o pedido como venda direta e duplicava o fechamento).
       ...(!isEditing
-        ? { oportunidade_id: inicial?.oportunidade_id ?? null, data_lancamento: new Date().toISOString().slice(0, 10), crm_nativo: true }
+        ? { oportunidade_id: inicial?.oportunidade_id ?? null, data_lancamento: hojeBR(), crm_nativo: true }
         : {}),
     };
 
@@ -562,7 +562,7 @@ export default function FormPedido({ inicial, onSalvo, onCancelar }: Props) {
       const contaAnteriorId = (atuais ?? []).find(e => e.conta_id)?.conta_id ?? null;
       // Parcelas do pedido entram na competência da data do pedido (data_lancamento), não do vencimento.
       const { data: pedAtual } = await sb.from("crm_orders").select("data_lancamento").eq("id", id).single();
-      const dataLancPedido = (pedAtual as { data_lancamento: string | null } | null)?.data_lancamento ?? new Date().toISOString().slice(0, 10);
+      const dataLancPedido = (pedAtual as { data_lancamento: string | null } | null)?.data_lancamento ?? hojeBR();
       await sb.from("crm_financial_entries").delete().eq("pedido_id", id).eq("tipo", "receita").neq("status", "pago");
       if (planos.length > 0) {
         const contaVendasId = itens.map(i => produtos.find(p => p.id === i.produto_id)?.conta_vendas_id).find(Boolean) ?? contaAnteriorId;
@@ -599,7 +599,7 @@ export default function FormPedido({ inicial, onSalvo, onCancelar }: Props) {
         }
         await sb.from("crm_opportunities").update({
           status:          "venda_efetuada",
-          data_fechamento: new Date().toISOString().slice(0, 10),
+          data_fechamento: hojeBR(),
           ...(ultimaEtapaId ? { etapa_id: ultimaEtapaId } : {}),
         }).eq("id", inicial.oportunidade_id);
       }
@@ -629,7 +629,7 @@ export default function FormPedido({ inicial, onSalvo, onCancelar }: Props) {
         if (produtoIds.length > 0) {
           const { data: custos } = await sb.from("crm_product_custos").select("*").in("produto_id", produtoIds);
           if (custos && custos.length > 0) {
-            const hoje = new Date().toISOString().slice(0, 10);
+            const hoje = hojeBR();
             const despesas: object[] = [];
             for (const custo of custos as { id: string; produto_id: string; fotografo_id: string; descricao: string; valor: number; percentual: number | null; conta_id: string | null; referencia: string; dias_offset: number; dias_direcao: string }[]) {
               const item = itens.find(i => i.produto_id === custo.produto_id);
@@ -673,7 +673,7 @@ export default function FormPedido({ inicial, onSalvo, onCancelar }: Props) {
               descricao:             p.label,
               valor:                 p.valor,
               vencimento:            p.vencimento,
-              data_competencia:      new Date().toISOString().slice(0, 10), // pedido novo: data do pedido = hoje
+              data_competencia:      hojeBR(), // pedido novo: data do pedido = hoje
               status:                "pendente",
               parcela:               plano.numParcelas > 1 ? p.label.match(/Parcela (\d+)/)?.[1] ?? null : null,
               internal_account_type: "pedido",
