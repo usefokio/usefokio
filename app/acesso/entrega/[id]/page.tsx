@@ -7,6 +7,7 @@ import type { GaleriaEntrega, GaleriaEntregaFoto } from "@/lib/supabase/types";
 import { useWindowWidth, MOBILE } from "@/lib/hooks/useWindowWidth";
 import { youtubeEmbedUrl } from "@/lib/utils/youtube";
 import { normalizarVideos } from "@/lib/entrega/videos";
+import { compararPorCaptura } from "@/lib/fotos/capturaEm";
 
 const SESSION_KEY = "usefokio_entrega_identificado";
 type Identificacao = { nome: string; email: string };
@@ -198,7 +199,7 @@ export default function AcessoEntregaPage() {
       } else if (g.ordenacao_fotos === "nome_desc") {
         lista.sort((a, b) => (b.nome_arquivo ?? "").localeCompare(a.nome_arquivo ?? "", "pt-BR", { numeric: true }));
       } else if (g.ordenacao_fotos === "data") {
-        lista.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        lista.sort(compararPorCaptura);
       }
       setFotos(lista);
       if (g.suspensa) { setTela("suspensa"); return; }

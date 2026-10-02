@@ -7,6 +7,8 @@ import { processarImagemEntrega } from "@/lib/imageResize";
 import { uploadFileClient } from "@/lib/storage/uploadClient";
 import { deleteFilesClient } from "@/lib/storage/deleteClient";
 import { garantirCapaEntrega, AVISO_CAPA_NAO_PRESERVADA } from "@/lib/entrega/capa";
+import { capturadaEmDoArquivo } from "@/lib/fotos/capturaEm";
+import { completarCapturas } from "@/lib/fotos/completarCapturas";
 import type { GaleriaEntregaFoto } from "@/lib/supabase/types";
 
 // Foto com estado de upload inline (igual ao padrão da seleção)
@@ -68,6 +70,8 @@ export const FotosEntregaUpload = forwardRef<FotosEntregaUploadHandle, Props>(fu
     ).then((data) => {
       setFotos(data);
       setCarregando(false);
+      // Fotos antigas sem a hora da foto (ordenação "Data" do cliente): preenche em segundo plano.
+      if (data.some((f) => !f.capturada_em)) void completarCapturas("entrega", galeriaId);
     });
   }, [galeriaId]);
 
@@ -105,6 +109,7 @@ export const FotosEntregaUpload = forwardRef<FotosEntregaUploadHandle, Props>(fu
 
     try {
       setP(10);
+      const capturada_em = await capturadaEmDoArquivo(file);
       const processed = await processarImagemEntrega(file, 1200);
       setP(45);
 
@@ -125,6 +130,7 @@ export const FotosEntregaUpload = forwardRef<FotosEntregaUploadHandle, Props>(fu
           largura:       processed.largura,
           altura:        processed.altura,
           ordem:         0,
+          capturada_em,
         })
         .select()
         .single();

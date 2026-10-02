@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { fetchAllRows } from "@/lib/supabase/fetchAll";
 import { deleteFilesClient } from "@/lib/storage/deleteClient";
 import { garantirCapaEntrega, AVISO_CAPA_NAO_PRESERVADA } from "@/lib/entrega/capa";
+import { completarCapturas } from "@/lib/fotos/completarCapturas";
 import { PedidoVinculadoChip } from "@/components/ui/PedidoVinculadoChip";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { ClienteLink } from "@/components/ui/ClienteLink";
@@ -348,6 +349,7 @@ export default function EntregaDetailPage() {
       if (!g) { router.replace("/entrega"); return; }
       setGaleria(g);
       setFotos(f ?? []);
+      if ((f ?? []).some((x) => !x.capturada_em)) void completarCapturas("entrega", id);
       setAcessos((a as any[]) ?? []);
       setFunilInfo(funil as any ?? null);
       setPagamentos((pags as any[]) ?? []);

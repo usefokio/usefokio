@@ -11,6 +11,8 @@ import { deleteFilesClient } from "@/lib/storage/deleteClient";
 import { PedidoVinculadoChip } from "@/components/ui/PedidoVinculadoChip";
 import { fetchAllRows } from "@/lib/supabase/fetchAll";
 import exifr from "exifr";
+import { capturadaEmDoArquivo, compararPorCaptura } from "@/lib/fotos/capturaEm";
+import { completarCapturas } from "@/lib/fotos/completarCapturas";
 import { PLANOS, BETA_RESOLUCAO_MAXIMA, type PlanoId } from "@/lib/planos";
 import { useUsoPlano } from "@/lib/hooks/useUsoPlano";
 import type { GaleriaSelecao, GaleriaSelecaoFoto, Cliente, Categoria } from "@/lib/supabase/types";
@@ -125,6 +127,14 @@ function GaleriaSelecaoConteudo() {
 
         setGaleria(gal);
         setFotos((fts ?? []) as unknown as FotoComStatus[]);
+        // Fotos antigas sem a hora da foto: lê o EXIF no servidor e recarrega a lista já com a hora.
+        if ((fts ?? []).some((f) => !f.capturada_em)) {
+          completarCapturas("selecao", id).then(async (mudou) => {
+            if (!mudou) return;
+            const novas = await fetchAllRows<GaleriaSelecaoFoto>((sb, from, to) => sb.from("galerias_selecao_fotos").select("*").eq("galeria_id", id).order("ordem").order("created_at").range(from, to), createClient());
+            setFotos((prev) => [...prev.filter((p) => p._uploading), ...(novas as unknown as FotoComStatus[])]);
+          });
+        }
         setCategoria((gal as unknown as { categorias: Categoria | null }).categorias ?? null);
         setEscolhas((esc ?? []) as unknown as EscolhaItem[]);
         setEventos((evs ?? []) as Evento[]);
@@ -205,6 +215,7 @@ function GaleriaSelecaoConteudo() {
           rating = Math.min(5, Math.max(0, Number(raw) || 0));
         } catch { /* sem EXIF */ }
 
+        const capturada_em = await capturadaEmDoArquivo(file);
         setP(10);
         if (!galeria || !fotografo) throw new Error("Galeria ou fotógrafo não carregado");
         // Beta: forçar HD independente da configuração da galeria
@@ -229,7 +240,7 @@ function GaleriaSelecaoConteudo() {
             thumbnail_path: thumbUrlPublica, url_publica: mainUrlPublica,
             nome_arquivo: file.name, largura: processed.largura, altura: processed.altura,
             tamanho_bytes: processed.tamanho_bytes, resolucao: resolucaoUpload,
-            rating, ordem: 0,
+            rating, ordem: 0, capturada_em,
           })
           .select().single();
         if (e3) throw new Error(e3.message);
@@ -294,7 +305,7 @@ function GaleriaSelecaoConteudo() {
     .sort((a, b) => {
       let cmp = 0;
       if (ordemCampo === "nome")   cmp = (a.nome_arquivo ?? "").localeCompare(b.nome_arquivo ?? "", "pt-BR", { numeric: true });
-      if (ordemCampo === "data")   cmp = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      if (ordemCampo === "data")   cmp = compararPorCaptura(a, b);
       if (ordemCampo === "rating") cmp = (a.rating ?? 0) - (b.rating ?? 0);
       return ordemDir === "asc" ? cmp : -cmp;
     });
