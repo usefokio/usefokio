@@ -90,6 +90,7 @@ export type GaleriaEntregaFoto = {
   largura: number | null;
   altura: number | null;
   ordem: number;
+  capturada_em?: string | null; // hora em que a foto foi tirada (EXIF) — ordenação "Data"
   created_at: string;
 };
 
@@ -365,6 +366,7 @@ export type GaleriaSelecaoFoto = {
   resolucao: ResolucaoExibicao | null;
   ordem: number;
   rating: number;
+  capturada_em?: string | null; // hora em que a foto foi tirada (EXIF) — ordenação "Data"
   created_at: string;
 };
 
