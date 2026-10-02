@@ -346,6 +346,7 @@ export type GaleriaSelecao = {
   selecao_enviada: boolean;
   selecao_enviada_em: string | null;
   mostrar_rating_cliente: boolean;
+  ordenacao_fotos?: "data" | "nome"; // ordem que o CLIENTE vê (hora da foto ou nome do arquivo)
   marca_dagua: boolean;
   total_fotos: number;
   created_at: string;

@@ -19,6 +19,7 @@ export function ConfiguracaoGaleria({
   const [expiraEm,      setExpiraEm]      = useState(galeria.expira_em ? galeria.expira_em.slice(0, 10) : "");
   const [selecaoLivre,  setSelecaoLivre]  = useState(galeria.selecao_livre);
   const [mostrarRating, setMostrarRating] = useState(galeria.mostrar_rating_cliente);
+  const [ordenacao,     setOrdenacao]     = useState<"data" | "nome">(galeria.ordenacao_fotos ?? "data");
   const [limiteMin,     setLimiteMin]     = useState(galeria.limite_minimo?.toString() ?? "");
   const [limiteMax,     setLimiteMax]     = useState(galeria.limite_maximo?.toString() ?? "");
   const [clienteId,     setClienteId]     = useState(galeria.cliente_id ?? "");
@@ -42,7 +43,8 @@ export function ConfiguracaoGaleria({
       limite_minimo:          selecaoLivre ? null : (limiteMin ? parseInt(limiteMin) : null),
       limite_maximo:          selecaoLivre ? null : (limiteMax ? parseInt(limiteMax) : null),
       mostrar_rating_cliente: mostrarRating,
-      cliente_id:             clienteId   || null,
+      ordenacao_fotos:        ordenacao,
+      cliente_id:            clienteId   || null,
       updated_at:             new Date().toISOString(),
     };
 
@@ -150,6 +152,31 @@ export function ConfiguracaoGaleria({
             </div>
           </div>
         )}
+      </div>
+
+      <div style={field}>
+        <label style={label}>Ordem das fotos para o cliente</label>
+        <div style={{ display: "flex", gap: 8 }}>
+          {([
+            { val: "data", label: "Data e hora da foto" },
+            { val: "nome", label: "Nome do arquivo" },
+          ] as const).map((op) => (
+            <button
+              key={op.val}
+              onClick={() => setOrdenacao(op.val)}
+              style={{
+                padding: "7px 16px", borderRadius: 8, fontSize: 12, fontWeight: 600,
+                border: "0.5px solid",
+                borderColor: ordenacao === op.val ? "var(--color-text-primary)" : "var(--color-border-secondary)",
+                background: ordenacao === op.val ? "var(--color-text-primary)" : "transparent",
+                color: ordenacao === op.val ? "var(--color-background-primary)" : "var(--color-text-secondary)",
+                cursor: "pointer", transition: "all 0.15s",
+              }}
+            >
+              {op.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Toggle: mostrar rating para o cliente */}

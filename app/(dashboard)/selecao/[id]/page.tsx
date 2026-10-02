@@ -126,6 +126,8 @@ function GaleriaSelecaoConteudo() {
         if (eGal || !gal) { setLoading(false); return; }
 
         setGaleria(gal);
+        // O painel abre na mesma ordem que o cliente vê (configuração da galeria).
+        if (gal.ordenacao_fotos === "nome") setOrdemCampo("nome");
         setFotos((fts ?? []) as unknown as FotoComStatus[]);
         // Fotos antigas sem a hora da foto: lê o EXIF no servidor e recarrega a lista já com a hora.
         if ((fts ?? []).some((f) => !f.capturada_em)) {
