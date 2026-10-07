@@ -147,7 +147,22 @@ export async function criarCobrancaCartao(params: {
   descricao: string;
   externalReference?: string;
 }): Promise<{ paymentId: string; installmentId: string | null; invoiceUrl: string }> {
-  const customerId = await obterCustomer(params.apiKey, params.ambiente, params.cliente);
+  // Contato pode não ter e-mail: busca o cliente no Asaas pelo CPF; sem CPF, cai na busca por e-mail.
+  const cpfLimpo = params.cliente.cpf?.replace(/\D/g, "") || "";
+  let customerId: string | null = null;
+  if (cpfLimpo) {
+    const busca = await asaasFetch(params.apiKey, params.ambiente, `/customers?cpfCnpj=${cpfLimpo}&limit=1`);
+    customerId = busca?.data?.[0]?.id ?? null;
+    if (!customerId) {
+      const criado = await asaasFetch(params.apiKey, params.ambiente, "/customers", {
+        method: "POST",
+        body: JSON.stringify({ name: params.cliente.nome, email: params.cliente.email || undefined, cpfCnpj: cpfLimpo, notificationDisabled: true }),
+      });
+      customerId = criado.id;
+    }
+  } else {
+    customerId = await obterCustomer(params.apiKey, params.ambiente, params.cliente);
+  }
   const dueDate = new Date(Date.now() + 3 * 86_400_000).toISOString().split("T")[0];
   const pagamento = await asaasFetch(params.apiKey, params.ambiente, "/payments", {
     method: "POST",

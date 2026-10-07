@@ -1,7 +1,7 @@
 "use client";
 
-// Página pública da solicitação de pagamento: o cliente escolhe as parcelas, informa nome/e-mail/CPF e é levado
-// à página de cartão do Asaas. Os valores vêm calculados do servidor (/api/pagar/<id>).
+// Página pública da solicitação de pagamento: o cliente só escolhe as parcelas e é levado à página de cartão do
+// Asaas — os dados do pagador vêm do contato vinculado. Valores calculados no servidor (/api/pagar/<id>).
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { brl, type OpcaoParcela } from "@/lib/pagamentos/simularParcelas";
@@ -9,18 +9,8 @@ import { brl, type OpcaoParcela } from "@/lib/pagamentos/simularParcelas";
 type Dados = {
   descricao: string; detalhes: string | null; valor: number; status: "aberta" | "paga" | "cancelada";
   fotografo: { nome: string; logo_url: string | null };
+  cliente_primeiro_nome?: string | null;
   opcoes?: OpcaoParcela[]; erro?: string;
-};
-
-function mascaraCpf(v: string) {
-  const d = v.replace(/\D/g, "").slice(0, 14);
-  if (d.length <= 11) return d.replace(/(\d{3})(\d)/, "$1.$2").replace(/(\d{3})(\d)/, "$1.$2").replace(/(\d{3})(\d{1,2})$/, "$1-$2");
-  return d.replace(/^(\d{2})(\d)/, "$1.$2").replace(/^(\d{2})\.(\d{3})(\d)/, "$1.$2.$3").replace(/\.(\d{3})(\d)/, ".$1/$2").replace(/(\d{4})(\d)/, "$1-$2");
-}
-
-const inp: React.CSSProperties = {
-  width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid #ddd", fontSize: 14,
-  outline: "none", boxSizing: "border-box", fontFamily: "inherit", background: "#fff", color: "#111",
 };
 
 export default function PagarPage() {
@@ -28,9 +18,6 @@ export default function PagarPage() {
   const [dados, setDados] = useState<Dados | null>(null);
   const [naoEncontrada, setNaoEncontrada] = useState(false);
   const [parcelas, setParcelas] = useState(1);
-  const [nome, setNome] = useState("");
-  const [email, setEmail] = useState("");
-  const [cpf, setCpf] = useState("");
   const [erro, setErro] = useState("");
   const [enviando, setEnviando] = useState(false);
 
@@ -43,15 +30,11 @@ export default function PagarPage() {
 
   async function pagar() {
     setErro("");
-    if (!nome.trim()) { setErro("Informe seu nome."); return; }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) { setErro("Informe um e-mail válido."); return; }
-    const d = cpf.replace(/\D/g, "");
-    if (d.length !== 11 && d.length !== 14) { setErro("Informe seu CPF."); return; }
     setEnviando(true);
     try {
       const r = await fetch(`/api/pagar/${id}`, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nome: nome.trim(), email: email.trim(), cpf: d, parcelas }),
+        body: JSON.stringify({ parcelas }),
       });
       const j = await r.json().catch(() => ({}));
       if (!r.ok || !j.invoiceUrl) { setErro(j.erro ?? "Não foi possível gerar o pagamento."); setEnviando(false); return; }
@@ -77,6 +60,9 @@ export default function PagarPage() {
               ? <img src={dados.fotografo.logo_url} alt={dados.fotografo.nome} style={{ maxHeight: 56, maxWidth: 200, objectFit: "contain" }} />
               : <div style={{ fontSize: 14, fontWeight: 700, color: "#555" }}>{dados.fotografo.nome}</div>}
           </div>
+          {dados.cliente_primeiro_nome && (
+            <div style={{ fontSize: 14, color: "#666", textAlign: "center", marginBottom: 4 }}>Olá, {dados.cliente_primeiro_nome}!</div>
+          )}
           <div style={{ fontSize: 19, fontWeight: 800, textAlign: "center", letterSpacing: "-0.01em" }}>{dados.descricao}</div>
           {dados.detalhes && <div style={{ fontSize: 13, color: "#666", textAlign: "center", marginTop: 6, lineHeight: 1.5, whiteSpace: "pre-wrap" }}>{dados.detalhes}</div>}
           <div style={{ fontSize: 28, fontWeight: 800, textAlign: "center", margin: "14px 0 20px" }}>{brl(dados.valor)}</div>
@@ -99,11 +85,6 @@ export default function PagarPage() {
                     <span style={{ fontSize: 12, color: "#888" }}>{o.total === dados.valor ? "sem juros" : `total ${brl(o.total)}`}</span>
                   </label>
                 ))}
-              </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 14 }}>
-                <input style={inp} value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Nome completo" autoComplete="name" />
-                <input style={inp} type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="E-mail" autoComplete="email" />
-                <input style={inp} inputMode="numeric" value={cpf} onChange={(e) => setCpf(mascaraCpf(e.target.value))} placeholder="CPF do titular" />
               </div>
               {erro && <div style={{ fontSize: 13, color: "#DC2626", marginBottom: 10 }}>{erro}</div>}
               <button onClick={pagar} disabled={enviando}
