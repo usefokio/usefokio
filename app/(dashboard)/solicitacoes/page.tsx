@@ -18,7 +18,7 @@ type Solicitacao = {
   id: string; descricao: string; detalhes: string | null; valor: number; max_parcelas: number;
   repassar_taxa: boolean; status: "aberta" | "paga" | "cancelada"; pagador_nome: string | null;
   parcelas: number | null; valor_cobrado: number | null; pago_em: string | null; created_at: string;
-  clientes: { id: string; nome: string; whatsapp: string | null; telefone: string | null } | null;
+  clientes: { id: string; nome: string; email: string | null; whatsapp: string | null; telefone: string | null } | null;
 };
 
 const soDigitos = (v: string) => v.replace(/\D/g, "");
@@ -69,12 +69,18 @@ export default function SolicitacoesPage() {
   const [cpfTxt, setCpfTxt] = useState(""); // só quando o contato não tem CPF (o Asaas exige no cartão)
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState("");
+  const [editandoId, setEditandoId] = useState<string | null>(null); // null = nova solicitação
+  const [excluir, setExcluir] = useState<Solicitacao | null>(null);
+  const [emailDe, setEmailDe] = useState<Solicitacao | null>(null);
+  const [emailAssunto, setEmailAssunto] = useState("");
+  const [emailCorpo, setEmailCorpo] = useState("");
+  const [enviandoEmail, setEnviandoEmail] = useState(false);
 
   const carregar = useCallback(async () => {
     if (!fotografo) return;
     const rows = await fetchAllRows<Solicitacao>(
       (c, from, to) => c.from("solicitacoes_pagamento")
-        .select("id, descricao, detalhes, valor, max_parcelas, repassar_taxa, status, pagador_nome, parcelas, valor_cobrado, pago_em, created_at, clientes(id, nome, whatsapp, telefone)")
+        .select("id, descricao, detalhes, valor, max_parcelas, repassar_taxa, status, pagador_nome, parcelas, valor_cobrado, pago_em, created_at, clientes(id, nome, email, whatsapp, telefone)")
         .eq("fotografo_id", fotografo.id).order("created_at", { ascending: false }).range(from, to),
       createClient(),
     );
@@ -95,6 +101,27 @@ export default function SolicitacoesPage() {
   function aviso(t: string) { setMsg(t); setTimeout(() => setMsg(null), 2500); }
   const link = (id: string) => `${window.location.origin}/pagar/${id}`;
 
+  function limparForm() {
+    setDescricao(""); setDetalhes(""); setValorTxt(""); setMaxParcelas(1); setRepassar(false);
+    setClienteId(""); setCliente(null); setCpfTxt(""); setErro("");
+  }
+
+  function abrirNova() { limparForm(); setEditandoId(null); setNovo(true); }
+
+  async function abrirEdicao(s: Solicitacao) {
+    limparForm();
+    setEditandoId(s.id);
+    setDescricao(s.descricao); setDetalhes(s.detalhes ?? "");
+    setValorTxt(mascaraMoeda(Number(s.valor).toFixed(2).replace(".", "")));
+    setMaxParcelas(s.max_parcelas); setRepassar(s.repassar_taxa);
+    if (s.clientes) {
+      setClienteId(s.clientes.id);
+      const { data } = await createClient().from("clientes").select("*").eq("id", s.clientes.id).maybeSingle();
+      setCliente((data as Cliente) ?? null);
+    }
+    setNovo(true);
+  }
+
   async function criar() {
     if (!fotografo) return;
     if (!clienteId || !cliente) { setErro("Selecione o cliente."); return; }
@@ -110,6 +137,19 @@ export default function SolicitacoesPage() {
     if (precisaCpf) {
       const { error: eCpf } = await sb.from("clientes").update({ cpf: cpfNovo }).eq("id", clienteId);
       if (eCpf) { setSalvando(false); setErro("Erro ao salvar o CPF no contato: " + eCpf.message); return; }
+    }
+    if (editandoId) {
+      const r = await fetch(`/api/solicitacoes/${editandoId}`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ acao: "editar", campos: { descricao, detalhes, valor, max_parcelas: maxParcelas, repassar_taxa: repassar, cliente_id: clienteId } }),
+      });
+      const j = await r.json().catch(() => ({}));
+      setSalvando(false);
+      if (!r.ok) { setErro(j.erro ?? "Erro ao salvar."); return; }
+      setNovo(false); limparForm(); setEditandoId(null);
+      await carregar();
+      aviso("Solicitação atualizada — o link continua o mesmo.");
+      return;
     }
     const { data, error } = await sb.from("solicitacoes_pagamento").insert({
       fotografo_id: fotografo.id, cliente_id: clienteId, descricao: descricao.trim(), detalhes: detalhes.trim() || null,
@@ -134,6 +174,59 @@ export default function SolicitacoesPage() {
     carregar();
   }
 
+  async function confirmarExcluir() {
+    if (!excluir) return;
+    setOcupado(excluir.id);
+    const r = await fetch(`/api/solicitacoes/${excluir.id}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ acao: "excluir" }) });
+    const j = await r.json().catch(() => ({}));
+    setOcupado(null);
+    if (!r.ok) { aviso(j.erro ?? "Erro ao excluir."); return; }
+    setExcluir(null);
+    carregar();
+    aviso("Solicitação excluída.");
+  }
+
+  // E-mail com o link e tudo o que o cliente precisa para pagar (texto editável antes de enviar).
+  function abrirEmail(s: Solicitacao) {
+    const primeiro = s.clientes?.nome?.trim().split(/\s+/)[0];
+    const empresa = fotografo?.nome_empresa || fotografo?.nome_completo || "";
+    const opcoes = simularParcelas(Number(s.valor), s.max_parcelas, s.repassar_taxa, taxas);
+    const linhasParcelas = opcoes.map((o) => `• ${o.parcelas}x de ${brl(o.parcela)}${o.total === Number(s.valor) ? " (sem juros)" : ` — total ${brl(o.total)}`}`).join("\n");
+    setEmailAssunto(`Pagamento: ${s.descricao}`);
+    setEmailCorpo([
+      `Olá${primeiro ? `, ${primeiro}` : ""}!`,
+      "",
+      `Segue o link para o pagamento de ${s.descricao}, no valor de ${brl(Number(s.valor))}, no cartão de crédito.`,
+      ...(s.detalhes ? ["", s.detalhes] : []),
+      "",
+      s.max_parcelas > 1 ? `Você pode parcelar em até ${s.max_parcelas}x:` : "Pagamento à vista no cartão:",
+      linhasParcelas,
+      "",
+      "Para pagar, acesse:",
+      link(s.id),
+      "",
+      "É só escolher o número de parcelas e clicar em \"Pagar com cartão\". Você será levado ao ambiente seguro do Asaas para digitar os dados do cartão. Assim que o pagamento for aprovado, ele é confirmado automaticamente.",
+      "",
+      "Qualquer dúvida, é só responder este e-mail.",
+      ...(empresa ? ["", empresa] : []),
+    ].join("\n"));
+    setEmailDe(s);
+  }
+
+  async function enviarEmail() {
+    if (!emailDe?.clientes?.email) return;
+    setEnviandoEmail(true);
+    const r = await fetch("/api/email/enviar", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ to: emailDe.clientes.email, subject: emailAssunto, body: emailCorpo }),
+    });
+    const j = await r.json().catch(() => ({}));
+    setEnviandoEmail(false);
+    if (!r.ok) { aviso(j.erro ?? "Erro ao enviar o e-mail."); return; }
+    setEmailDe(null);
+    aviso(`E-mail enviado para ${emailDe.clientes.email}.`);
+  }
+
   function whatsapp(s: Solicitacao) {
     const primeiro = s.clientes?.nome?.trim().split(/\s+/)[0];
     const texto = `Olá${primeiro ? `, ${primeiro}` : ""}! Segue o link para pagamento de *${s.descricao}* (${brl(Number(s.valor))}) no cartão de crédito${s.max_parcelas > 1 ? `, em até ${s.max_parcelas}x` : ""}:\n${link(s.id)}`;
@@ -147,7 +240,7 @@ export default function SolicitacoesPage() {
     <div style={{ maxWidth: 900, margin: "0 auto", padding: "40px 24px" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6, gap: 12 }}>
         <h1 style={{ fontSize: 22, fontWeight: 800, color: "var(--color-text-primary)", margin: 0, letterSpacing: "-0.02em" }}>Solicitar pagamento</h1>
-        <button onClick={() => { setNovo(true); setErro(""); }} disabled={conectado === false}
+        <button onClick={abrirNova} disabled={conectado === false}
           style={{ padding: "9px 18px", borderRadius: 9, border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", fontSize: 13, fontWeight: 700, cursor: conectado === false ? "default" : "pointer", opacity: conectado === false ? 0.5 : 1 }}>
           + Nova solicitação
         </button>
@@ -186,14 +279,19 @@ export default function SolicitacoesPage() {
                   </div>
                 </div>
                 <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 10, background: st.bg, color: st.cor }}>{st.label}</span>
-                {s.status === "aberta" && (
-                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                    <button style={btn} onClick={() => { navigator.clipboard.writeText(link(s.id)).then(() => aviso("Link copiado!")).catch(() => {}); }}>🔗 Copiar link</button>
-                    <button style={btn} onClick={() => whatsapp(s)}>💬 WhatsApp</button>
-                    <button style={btn} disabled={ocupado === s.id} onClick={() => acao(s, "verificar")}>{ocupado === s.id ? "…" : "✓ Verificar"}</button>
-                    <button style={{ ...btn, color: "#DC2626" }} disabled={ocupado === s.id} onClick={() => acao(s, "cancelar")}>Cancelar</button>
-                  </div>
-                )}
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  {s.status === "aberta" && (
+                    <>
+                      <button style={btn} onClick={() => { navigator.clipboard.writeText(link(s.id)).then(() => aviso("Link copiado!")).catch(() => {}); }}>🔗 Copiar link</button>
+                      <button style={btn} onClick={() => whatsapp(s)}>💬 WhatsApp</button>
+                      <button style={btn} onClick={() => abrirEmail(s)}>✉️ E-mail</button>
+                      <button style={btn} disabled={ocupado === s.id} onClick={() => acao(s, "verificar")}>{ocupado === s.id ? "…" : "✓ Verificar"}</button>
+                      <button style={btn} title="Editar" onClick={() => abrirEdicao(s)}>✏️</button>
+                      <button style={{ ...btn, color: "#DC2626" }} disabled={ocupado === s.id} onClick={() => acao(s, "cancelar")}>Cancelar</button>
+                    </>
+                  )}
+                  <button style={{ ...btn, color: "#DC2626" }} title="Excluir" disabled={ocupado === s.id} onClick={() => setExcluir(s)}>🗑</button>
+                </div>
               </div>
             );
           })}
@@ -203,7 +301,7 @@ export default function SolicitacoesPage() {
       {novo && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 20 }} onClick={() => setNovo(false)}>
           <div onClick={(e) => e.stopPropagation()} style={{ background: "var(--color-background-primary)", borderRadius: 14, padding: 24, maxWidth: 520, width: "100%", maxHeight: "90vh", overflowY: "auto", boxShadow: "0 10px 40px rgba(0,0,0,0.2)" }}>
-            <div style={{ fontSize: 16, fontWeight: 800, color: "var(--color-text-primary)", marginBottom: 16 }}>💳 Nova solicitação de pagamento</div>
+            <div style={{ fontSize: 16, fontWeight: 800, color: "var(--color-text-primary)", marginBottom: 16 }}>💳 {editandoId ? "Editar solicitação de pagamento" : "Nova solicitação de pagamento"}</div>
 
             <div style={{ marginBottom: 14 }}>
               <label style={lbl}>Cliente</label>
@@ -268,12 +366,70 @@ export default function SolicitacoesPage() {
               <button onClick={() => setNovo(false)} style={{ ...btn, flex: 1, padding: 10 }}>Cancelar</button>
               <button onClick={criar} disabled={salvando}
                 style={{ flex: 1, padding: 10, borderRadius: 8, border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", fontSize: 13, fontWeight: 700, cursor: salvando ? "default" : "pointer" }}>
-                {salvando ? "Salvando…" : "Criar e copiar link"}
+                {salvando ? "Salvando…" : editandoId ? "Salvar alterações" : "Criar e copiar link"}
               </button>
             </div>
           </div>
         </div>
       )}
+      {excluir && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 20 }} onClick={() => setExcluir(null)}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: "var(--color-background-primary)", borderRadius: 14, padding: 24, maxWidth: 420, width: "100%", boxShadow: "0 10px 40px rgba(0,0,0,0.2)" }}>
+            <div style={{ fontSize: 16, fontWeight: 800, color: "#DC2626", marginBottom: 8 }}>🗑 Excluir solicitação</div>
+            <p style={{ fontSize: 13, color: "var(--color-text-secondary)", margin: "0 0 20px", lineHeight: 1.6 }}>
+              Excluir <strong style={{ color: "var(--color-text-primary)" }}>{excluir.descricao}</strong>{excluir.clientes ? ` (${excluir.clientes.nome})` : ""}? O link deixa de funcionar.
+              {excluir.status === "aberta" && <><br />A cobrança pendente no Asaas também é removida.</>}
+              {excluir.status === "paga" && <><br />Ela já foi <strong>paga</strong>: o pagamento continua registrado no Asaas, só some desta lista.</>}
+            </p>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={() => setExcluir(null)} style={{ ...btn, flex: 1, padding: 10 }}>Cancelar</button>
+              <button onClick={confirmarExcluir} disabled={ocupado === excluir.id}
+                style={{ flex: 1, padding: 10, borderRadius: 8, border: "none", background: "#DC2626", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+                {ocupado === excluir.id ? "Excluindo…" : "Excluir"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {emailDe && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 20 }} onClick={() => setEmailDe(null)}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: "var(--color-background-primary)", borderRadius: 14, padding: 24, maxWidth: 560, width: "100%", maxHeight: "90vh", overflowY: "auto", boxShadow: "0 10px 40px rgba(0,0,0,0.2)" }}>
+            <div style={{ fontSize: 16, fontWeight: 800, color: "var(--color-text-primary)", marginBottom: 14 }}>✉️ Enviar por e-mail</div>
+            {!emailDe.clientes?.email ? (
+              <div style={{ fontSize: 13, color: "#B45309", marginBottom: 16, lineHeight: 1.6 }}>
+                O contato <strong>{emailDe.clientes?.nome ?? ""}</strong> não tem e-mail cadastrado. Cadastre o e-mail no contato
+                {emailDe.clientes && <> (<ClienteLink id={emailDe.clientes.id} nome="abrir cadastro" />)</>} ou envie pelo WhatsApp.
+              </div>
+            ) : (
+              <>
+                <div style={{ marginBottom: 12 }}>
+                  <label style={lbl}>Para</label>
+                  <div style={{ fontSize: 13, color: "var(--color-text-primary)" }}>{emailDe.clientes.nome} &lt;{emailDe.clientes.email}&gt;</div>
+                </div>
+                <div style={{ marginBottom: 12 }}>
+                  <label style={lbl}>Assunto</label>
+                  <input style={inp} value={emailAssunto} onChange={(e) => setEmailAssunto(e.target.value)} />
+                </div>
+                <div style={{ marginBottom: 16 }}>
+                  <label style={lbl}>Mensagem</label>
+                  <textarea style={{ ...inp, resize: "vertical", lineHeight: 1.6 }} rows={14} value={emailCorpo} onChange={(e) => setEmailCorpo(e.target.value)} />
+                </div>
+              </>
+            )}
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={() => setEmailDe(null)} style={{ ...btn, flex: 1, padding: 10 }}>Fechar</button>
+              {emailDe.clientes?.email && (
+                <button onClick={enviarEmail} disabled={enviandoEmail || !emailAssunto.trim() || !emailCorpo.trim()}
+                  style={{ flex: 1, padding: 10, borderRadius: 8, border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+                  {enviandoEmail ? "Enviando…" : "Enviar e-mail"}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
