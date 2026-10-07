@@ -8,6 +8,9 @@ import { createClient } from "@/lib/supabase/client";
 import { fetchAllRows } from "@/lib/supabase/fetchAll";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { mascaraMoeda, parseMoeda } from "@/lib/moeda";
+import { ClienteSelect } from "@/components/ui/ClienteSelect";
+import { ClienteLink } from "@/components/ui/ClienteLink";
+import type { Cliente } from "@/lib/supabase/types";
 import { simularParcelas, brl } from "@/lib/pagamentos/simularParcelas";
 import type { TaxasCartao } from "@/lib/asaas";
 
@@ -15,7 +18,15 @@ type Solicitacao = {
   id: string; descricao: string; detalhes: string | null; valor: number; max_parcelas: number;
   repassar_taxa: boolean; status: "aberta" | "paga" | "cancelada"; pagador_nome: string | null;
   parcelas: number | null; valor_cobrado: number | null; pago_em: string | null; created_at: string;
+  clientes: { id: string; nome: string; whatsapp: string | null; telefone: string | null } | null;
 };
+
+const soDigitos = (v: string) => v.replace(/\D/g, "");
+function mascaraCpf(v: string) {
+  const d = soDigitos(v).slice(0, 14);
+  if (d.length <= 11) return d.replace(/(\d{3})(\d)/, "$1.$2").replace(/(\d{3})(\d)/, "$1.$2").replace(/(\d{3})(\d{1,2})$/, "$1-$2");
+  return d.replace(/^(\d{2})(\d)/, "$1.$2").replace(/^(\d{2})\.(\d{3})(\d)/, "$1.$2.$3").replace(/\.(\d{3})(\d)/, ".$1/$2").replace(/(\d{4})(\d)/, "$1-$2");
+}
 
 const STATUS: Record<Solicitacao["status"], { label: string; bg: string; cor: string }> = {
   aberta:    { label: "Aguardando", bg: "rgba(245,158,11,0.12)", cor: "#B45309" },
@@ -53,6 +64,9 @@ export default function SolicitacoesPage() {
   const [valorTxt, setValorTxt] = useState("");
   const [maxParcelas, setMaxParcelas] = useState(1);
   const [repassar, setRepassar] = useState(false);
+  const [clienteId, setClienteId] = useState("");
+  const [cliente, setCliente] = useState<Cliente | null>(null);
+  const [cpfTxt, setCpfTxt] = useState(""); // só quando o contato não tem CPF (o Asaas exige no cartão)
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState("");
 
@@ -60,7 +74,7 @@ export default function SolicitacoesPage() {
     if (!fotografo) return;
     const rows = await fetchAllRows<Solicitacao>(
       (c, from, to) => c.from("solicitacoes_pagamento")
-        .select("id, descricao, detalhes, valor, max_parcelas, repassar_taxa, status, pagador_nome, parcelas, valor_cobrado, pago_em, created_at")
+        .select("id, descricao, detalhes, valor, max_parcelas, repassar_taxa, status, pagador_nome, parcelas, valor_cobrado, pago_em, created_at, clientes(id, nome, whatsapp, telefone)")
         .eq("fotografo_id", fotografo.id).order("created_at", { ascending: false }).range(from, to),
       createClient(),
     );
@@ -83,16 +97,28 @@ export default function SolicitacoesPage() {
 
   async function criar() {
     if (!fotografo) return;
+    if (!clienteId || !cliente) { setErro("Selecione o cliente."); return; }
+    const cpfContato = soDigitos(cliente.cpf ?? "");
+    const cpfNovo = soDigitos(cpfTxt);
+    const precisaCpf = cpfContato.length !== 11 && cpfContato.length !== 14;
+    if (precisaCpf && cpfNovo.length !== 11 && cpfNovo.length !== 14) { setErro("Informe o CPF do cliente (o Asaas exige no cartão)."); return; }
     if (!descricao.trim()) { setErro("Informe a descrição."); return; }
     if (!(valor > 0)) { setErro("Informe o valor."); return; }
     setSalvando(true); setErro("");
-    const { data, error } = await createClient().from("solicitacoes_pagamento").insert({
-      fotografo_id: fotografo.id, descricao: descricao.trim(), detalhes: detalhes.trim() || null,
+    const sb = createClient();
+    // CPF completado aqui fica salvo no contato (cadastro único).
+    if (precisaCpf) {
+      const { error: eCpf } = await sb.from("clientes").update({ cpf: cpfNovo }).eq("id", clienteId);
+      if (eCpf) { setSalvando(false); setErro("Erro ao salvar o CPF no contato: " + eCpf.message); return; }
+    }
+    const { data, error } = await sb.from("solicitacoes_pagamento").insert({
+      fotografo_id: fotografo.id, cliente_id: clienteId, descricao: descricao.trim(), detalhes: detalhes.trim() || null,
       valor, max_parcelas: maxParcelas, repassar_taxa: repassar,
     }).select("id").single();
     setSalvando(false);
     if (error || !data) { setErro("Erro ao salvar: " + (error?.message ?? "")); return; }
     setNovo(false); setDescricao(""); setDetalhes(""); setValorTxt(""); setMaxParcelas(1); setRepassar(false);
+    setClienteId(""); setCliente(null); setCpfTxt("");
     await carregar();
     navigator.clipboard.writeText(link((data as { id: string }).id)).catch(() => {});
     aviso("Solicitação criada — link copiado!");
@@ -109,8 +135,12 @@ export default function SolicitacoesPage() {
   }
 
   function whatsapp(s: Solicitacao) {
-    const texto = `Olá! Segue o link para pagamento de *${s.descricao}* (${brl(Number(s.valor))}) no cartão de crédito${s.max_parcelas > 1 ? `, em até ${s.max_parcelas}x` : ""}:\n${link(s.id)}`;
-    window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, "_blank", "noopener,noreferrer");
+    const primeiro = s.clientes?.nome?.trim().split(/\s+/)[0];
+    const texto = `Olá${primeiro ? `, ${primeiro}` : ""}! Segue o link para pagamento de *${s.descricao}* (${brl(Number(s.valor))}) no cartão de crédito${s.max_parcelas > 1 ? `, em até ${s.max_parcelas}x` : ""}:\n${link(s.id)}`;
+    // Abre direto na conversa do contato vinculado (WhatsApp ou telefone do cadastro).
+    let num = (s.clientes?.whatsapp || s.clientes?.telefone || "").replace(/\D/g, "");
+    if (num && num.length <= 11) num = "55" + num;
+    window.open(`https://wa.me/${num}?text=${encodeURIComponent(texto)}`, "_blank", "noopener,noreferrer");
   }
 
   return (
@@ -146,7 +176,10 @@ export default function SolicitacoesPage() {
             return (
               <div key={s.id} style={{ border: "1px solid var(--color-border-tertiary)", borderRadius: 10, padding: "13px 16px", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
                 <div style={{ minWidth: 0, flex: 1 }}>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: "var(--color-text-primary)" }}>{s.descricao}</div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: "var(--color-text-primary)" }}>
+                    {s.descricao}
+                    {s.clientes && <span style={{ fontWeight: 500, fontSize: 13 }}> · <ClienteLink id={s.clientes.id} nome={s.clientes.nome} /></span>}
+                  </div>
                   <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginTop: 2 }}>
                     {brl(Number(s.valor))} · até {s.max_parcelas}x · {s.repassar_taxa ? "taxa repassada ao cliente" : "sem juros"} · {new Date(s.created_at).toLocaleDateString("pt-BR")}
                     {s.status === "paga" && s.parcelas && <> · pago em {s.parcelas}x ({brl(Number(s.valor_cobrado ?? s.valor))}){s.pagador_nome ? ` por ${s.pagador_nome}` : ""}</>}
@@ -172,6 +205,16 @@ export default function SolicitacoesPage() {
           <div onClick={(e) => e.stopPropagation()} style={{ background: "var(--color-background-primary)", borderRadius: 14, padding: 24, maxWidth: 520, width: "100%", maxHeight: "90vh", overflowY: "auto", boxShadow: "0 10px 40px rgba(0,0,0,0.2)" }}>
             <div style={{ fontSize: 16, fontWeight: 800, color: "var(--color-text-primary)", marginBottom: 16 }}>💳 Nova solicitação de pagamento</div>
 
+            <div style={{ marginBottom: 14 }}>
+              <label style={lbl}>Cliente</label>
+              <ClienteSelect value={clienteId} onChange={(id, c) => { setClienteId(id); setCliente(c); setCpfTxt(""); }} />
+              {cliente && !/^\d{11}$|^\d{14}$/.test(soDigitos(cliente.cpf ?? "")) && (
+                <div style={{ marginTop: 8 }}>
+                  <input style={inp} inputMode="numeric" value={cpfTxt} onChange={(e) => setCpfTxt(mascaraCpf(e.target.value))} placeholder="CPF do cliente (obrigatório no cartão)" />
+                  <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 4 }}>Este contato ainda não tem CPF — fica salvo no cadastro dele.</div>
+                </div>
+              )}
+            </div>
             <div style={{ marginBottom: 14 }}>
               <label style={lbl}>Descrição</label>
               <input style={inp} value={descricao} onChange={(e) => setDescricao(e.target.value)} placeholder="Ex.: Sinal do casamento Ana e Gustavo" />

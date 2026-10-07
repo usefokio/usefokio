@@ -9,7 +9,7 @@ import { simularParcelas } from "@/lib/pagamentos/simularParcelas";
 // POST cria (ou reaproveita) a cobrança no cartão no Asaas e devolve o link de pagamento.
 
 type Solicitacao = {
-  id: string; fotografo_id: string; descricao: string; detalhes: string | null; valor: number;
+  id: string; fotografo_id: string; cliente_id: string | null; descricao: string; detalhes: string | null; valor: number;
   max_parcelas: number; repassar_taxa: boolean; status: string; parcelas: number | null;
   invoice_url: string | null; asaas_payment_id: string | null; asaas_installment_id: string | null;
 };
@@ -17,9 +17,16 @@ type Solicitacao = {
 async function carregar(id: string) {
   const admin = createAdminClient();
   const { data } = await admin.from("solicitacoes_pagamento")
-    .select("id, fotografo_id, descricao, detalhes, valor, max_parcelas, repassar_taxa, status, parcelas, invoice_url, asaas_payment_id, asaas_installment_id")
+    .select("id, fotografo_id, cliente_id, descricao, detalhes, valor, max_parcelas, repassar_taxa, status, parcelas, invoice_url, asaas_payment_id, asaas_installment_id")
     .eq("id", id).maybeSingle();
   return { admin, s: data as Solicitacao | null };
+}
+
+// Dados do pagador vêm do contato vinculado (o cliente não digita nada na página).
+async function clienteDa(admin: ReturnType<typeof createAdminClient>, s: Solicitacao) {
+  if (!s.cliente_id) return null;
+  const { data } = await admin.from("clientes").select("nome, email, cpf").eq("id", s.cliente_id).eq("fotografo_id", s.fotografo_id).maybeSingle();
+  return data as { nome: string | null; email: string | null; cpf: string | null } | null;
 }
 
 async function opcoes(s: Solicitacao, cred: Awaited<ReturnType<typeof credAsaasDoFotografo>>) {
@@ -34,10 +41,14 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   const { admin, s } = await carregar(id);
   if (!s) return NextResponse.json({ erro: "não encontrada" }, { status: 404 });
 
-  const { data: f } = await admin.from("fotografos").select("nome_empresa, nome_completo, logo_url").eq("id", s.fotografo_id).maybeSingle();
+  const [{ data: f }, cli] = await Promise.all([
+    admin.from("fotografos").select("nome_empresa, nome_completo, logo_url").eq("id", s.fotografo_id).maybeSingle(),
+    clienteDa(admin, s),
+  ]);
   const base = {
     descricao: s.descricao, detalhes: s.detalhes, valor: Number(s.valor), status: s.status,
     fotografo: { nome: f?.nome_empresa || f?.nome_completo || "", logo_url: f?.logo_url ?? null },
+    cliente_primeiro_nome: cli?.nome?.trim().split(/\s+/)[0] ?? null, // só o primeiro nome (página pública)
   };
   if (s.status !== "aberta") return NextResponse.json(base);
 
@@ -55,19 +66,21 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!(await rateLimitOk(`pagar:${clientIp(req)}`, 10, 60))) {
     return NextResponse.json({ erro: "Muitas tentativas. Aguarde um minuto." }, { status: 429 });
   }
-  const body = (await req.json().catch(() => null)) as { nome?: string; email?: string; cpf?: string; parcelas?: number } | null;
-  const nome = body?.nome?.trim() ?? "";
-  const email = body?.email?.trim().toLowerCase() ?? "";
-  const cpf = (body?.cpf ?? "").replace(/\D/g, "");
+  const body = (await req.json().catch(() => null)) as { parcelas?: number } | null;
   const parcelas = Math.floor(Number(body?.parcelas) || 0);
-  if (!nome) return NextResponse.json({ erro: "Informe seu nome." }, { status: 400 });
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return NextResponse.json({ erro: "Informe um e-mail válido." }, { status: 400 });
-  if (cpf.length !== 11 && cpf.length !== 14) return NextResponse.json({ erro: "Informe um CPF (ou CNPJ) válido." }, { status: 400 });
 
   const { admin, s } = await carregar(id);
   if (!s) return NextResponse.json({ erro: "Solicitação não encontrada." }, { status: 404 });
   if (s.status !== "aberta") return NextResponse.json({ erro: s.status === "paga" ? "Este pagamento já foi feito." : "Esta solicitação foi cancelada." }, { status: 400 });
   if (parcelas < 1 || parcelas > s.max_parcelas) return NextResponse.json({ erro: "Escolha uma opção de parcelamento." }, { status: 400 });
+
+  const cli = await clienteDa(admin, s);
+  const nome = cli?.nome?.trim() ?? "";
+  const email = cli?.email?.trim().toLowerCase() ?? "";
+  const cpf = (cli?.cpf ?? "").replace(/\D/g, "");
+  if (!nome || (cpf.length !== 11 && cpf.length !== 14)) {
+    return NextResponse.json({ erro: "Cadastro incompleto para pagamento. Fale com o fotógrafo." }, { status: 400 });
+  }
 
   const cred = await credAsaasDoFotografo(admin, s.fotografo_id);
   if (!cred) return NextResponse.json({ erro: "Pagamento indisponível no momento." }, { status: 503 });
