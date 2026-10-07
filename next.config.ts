@@ -15,6 +15,7 @@ const nextConfig: NextConfig = {
       { source: "/recibo/:path*",   headers: noindex },
       { source: "/crm-contrato/:path*", headers: noindex },
       { source: "/campanha/:path*", headers: noindex },
+      { source: "/pagar/:path*",    headers: noindex },
     ];
   },
 };

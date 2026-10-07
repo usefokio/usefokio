@@ -19,7 +19,7 @@ const PATHS_APP = [
   "/conta", "/contatos", "/crm", "/site", "/album", "/agenda", "/recebimentos",
   "/tutoriais",
   // Produto UseFokio (links de cliente) — fica só no app principal nesta etapa
-  "/acesso", "/galeria", "/recibo", "/crm-contrato", "/campanha",
+  "/acesso", "/galeria", "/recibo", "/crm-contrato", "/campanha", "/pagar", "/solicitacoes",
 ];
 
 // ── Lookup host → fotógrafo (com cache em memória de módulo) ────────────────
