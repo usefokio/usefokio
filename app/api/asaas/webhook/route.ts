@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  let body: { event?: string; payment?: { id?: string; status?: string } };
+  let body: { event?: string; payment?: { id?: string; status?: string; installment?: string | null } };
   try {
     body = await request.json();
   } catch {
@@ -46,7 +46,19 @@ export async function POST(request: NextRequest) {
       .eq("status", "pendente")
       .maybeSingle();
 
-    if (!pagamento) return NextResponse.json({ ok: true });
+    if (!pagamento) {
+      // Solicitação de pagamento por cartão (/pagar): casa pelo parcelamento ou pelo pagamento.
+      const pagoSol = PAID_STATUSES.includes(asaasStatus) || event === "PAYMENT_RECEIVED" || event === "PAYMENT_CONFIRMED";
+      if (pagoSol) {
+        const instId = body?.payment?.installment ?? null;
+        const filtro = instId ? `asaas_installment_id.eq.${instId},asaas_payment_id.eq.${asaasPaymentId}` : `asaas_payment_id.eq.${asaasPaymentId}`;
+        const agora = new Date().toISOString();
+        await admin.from("solicitacoes_pagamento")
+          .update({ status: "paga", pago_em: agora, updated_at: agora })
+          .or(filtro).eq("status", "aberta");
+      }
+      return NextResponse.json({ ok: true });
+    }
 
     if (CANCELLED_STATUSES.includes(asaasStatus)) {
       await admin.from("pagamentos").update({ status: "cancelado" }).eq("id", pagamento.id);

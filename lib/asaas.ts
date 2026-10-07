@@ -113,6 +113,65 @@ export async function criarCobranca(params: {
   return { paymentId: pagamento.id, invoiceUrl: pagamento.invoiceUrl };
 }
 
+/** Taxas de cartão de crédito da conta (GET /myAccount/fees) — usadas para repassar a taxa ao cliente. */
+export type TaxasCartao = {
+  fixo: number;      // valor fixo por transação (R$)
+  pct1: number;      // % à vista
+  pct2a6: number;    // % de 2 a 6 parcelas
+  pct7a12: number;   // % de 7 a 12 parcelas
+};
+
+export async function taxasCartao(apiKey: string, ambiente: AsaasAmbiente): Promise<TaxasCartao> {
+  const body = await asaasFetch(apiKey, ambiente, "/myAccount/fees/");
+  const cc = body?.payment?.creditCard ?? body?.creditCard ?? {};
+  // Desconto promocional vigente substitui o percentual normal.
+  const comDesconto = !!cc.discountExpiration && new Date(String(cc.discountExpiration).replace(" ", "T")) > new Date();
+  const pct = (normal: unknown, desconto: unknown) => Number(comDesconto && desconto != null ? desconto : normal) || 0;
+  // Resposta sem as taxas de cartão: falha explícita (nunca repassar "taxa zero" calada).
+  if (cc.operationValue == null && cc.oneInstallmentPercentage == null) throw new Error("Taxas de cartão não encontradas na conta Asaas");
+  return {
+    fixo:    Number(cc.operationValue) || 0,
+    pct1:    pct(cc.oneInstallmentPercentage, cc.discountOneInstallmentPercentage),
+    pct2a6:  pct(cc.upToSixInstallmentsPercentage, cc.discountUpToSixInstallmentsPercentage),
+    pct7a12: pct(cc.upToTwelveInstallmentsPercentage, cc.discountUpToTwelveInstallmentsPercentage),
+  };
+}
+
+/** Cobrança no CARTÃO DE CRÉDITO (à vista ou parcelada). O cliente digita o cartão na fatura do Asaas. */
+export async function criarCobrancaCartao(params: {
+  apiKey: string;
+  ambiente: AsaasAmbiente;
+  cliente: { nome: string; email: string; cpf?: string };
+  valorTotal: number;
+  parcelas: number;
+  descricao: string;
+  externalReference?: string;
+}): Promise<{ paymentId: string; installmentId: string | null; invoiceUrl: string }> {
+  const customerId = await obterCustomer(params.apiKey, params.ambiente, params.cliente);
+  const dueDate = new Date(Date.now() + 3 * 86_400_000).toISOString().split("T")[0];
+  const pagamento = await asaasFetch(params.apiKey, params.ambiente, "/payments", {
+    method: "POST",
+    body: JSON.stringify({
+      customer:             customerId,
+      billingType:          "CREDIT_CARD",
+      dueDate,
+      description:          params.descricao,
+      externalReference:    params.externalReference,
+      notificationDisabled: true,
+      ...(params.parcelas > 1
+        ? { installmentCount: params.parcelas, totalValue: params.valorTotal }
+        : { value: params.valorTotal }),
+    }),
+  });
+  return { paymentId: pagamento.id, installmentId: pagamento.installment ?? null, invoiceUrl: pagamento.invoiceUrl };
+}
+
+/** Remove uma cobrança pendente (ou o parcelamento inteiro) — usado ao trocar as parcelas ou cancelar. */
+export async function excluirCobranca(apiKey: string, ambiente: AsaasAmbiente, ids: { paymentId?: string | null; installmentId?: string | null }): Promise<void> {
+  if (ids.installmentId) await asaasFetch(apiKey, ambiente, `/installments/${ids.installmentId}`, { method: "DELETE" });
+  else if (ids.paymentId) await asaasFetch(apiKey, ambiente, `/payments/${ids.paymentId}`, { method: "DELETE" });
+}
+
 /** Registra (ou atualiza) o webhook de pagamentos no Asaas para a URL do sistema */
 export async function registrarWebhook(apiKey: string, ambiente: AsaasAmbiente, webhookUrl: string, token?: string, email?: string): Promise<void> {
   // Normaliza a URL: remove aspas/espaços (NEXT_PUBLIC_APP_URL às vezes vem colado com aspas no

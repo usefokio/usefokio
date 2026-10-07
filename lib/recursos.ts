@@ -42,6 +42,7 @@ export function rotaPermitida(rec: Rec, pathname: string): boolean {
   if (sob("/album")) return rec?.album === true;
   if (sob("/contatos")) return rec?.contatos !== false;
   if (sob("/recebimentos")) return rec?.pagamentos !== false;
+  if (sob("/solicitacoes")) return rec?.pagamentos !== false;
 
   // Agenda e Clientes são universais — acessíveis por fotografia OU CRM.
   if (ehRotaUniversal(pathname)) return temProdutoFotografia(rec) || temProdutoCRM(rec);

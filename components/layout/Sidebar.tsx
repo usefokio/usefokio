@@ -88,6 +88,17 @@ const USEFOKIO_ITEMS = [
     ),
   },
   {
+    href: "/solicitacoes",
+    label: "Solicitar pagamento",
+    icon: (
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+        <rect x="1" y="3" width="14" height="10" rx="2" stroke="currentColor" strokeWidth="1.3" fill="none" opacity=".8" />
+        <path d="M1 6.5h14" stroke="currentColor" strokeWidth="1.6" opacity=".6" />
+        <path d="M10.5 10.5h2" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" opacity=".8" />
+      </svg>
+    ),
+  },
+  {
     href: "/tutoriais",
     label: "Tutoriais",
     icon: (
@@ -480,7 +491,7 @@ export function Sidebar({ isMobile = false, mobileAberta = false, onFechar }: Si
         {(() => {
           const recursosPorRota: Record<string, keyof NonNullable<typeof fotografo>["recursos"]> = {
             "/selecao": "selecao", "/entrega": "entrega", "/revelacao": "entrega", "/album": "album", "/contatos": "contatos",
-            "/recebimentos": "pagamentos",
+            "/recebimentos": "pagamentos", "/solicitacoes": "pagamentos",
           };
 
           // Agenda e Clientes (rotas universais, no topo) não acendem nenhum módulo do menu.
