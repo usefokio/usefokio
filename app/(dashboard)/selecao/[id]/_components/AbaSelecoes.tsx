@@ -88,11 +88,22 @@ export function AbaSelecoes({
 
         {semFoto > 0 && (
           <div style={{ fontSize: 12, color: "var(--color-text-secondary)", background: "var(--color-background-secondary)", borderRadius: 8, padding: "8px 12px", marginBottom: 10 }}>
-            🗂 {semFoto === escolhas.length ? "As fotos desta galeria foram apagadas" : `${semFoto} foto${semFoto !== 1 ? "s" : ""} foram apagadas`} — a lista de selecionadas foi mantida (nomes{escolhas.some((e) => e.comentario) ? " e comentários" : ""}).
+            🗂 {semFoto === escolhas.length ? "As fotos desta galeria foram apagadas" : `${semFoto} foto${semFoto !== 1 ? "s" : ""} foram apagadas`} — a lista de nomes foi mantida abaixo.
           </div>
         )}
+        {/* Comentários das fotos apagadas (sem miniatura, só nome + comentário) */}
+        {escolhas.some((e) => !e.fotos && e.comentario) && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 10 }}>
+            {escolhas.filter((e) => !e.fotos && e.comentario).map((e) => (
+              <div key={e.id} style={{ fontSize: 12, color: "var(--color-text-primary)" }}>
+                <strong>{nomeDe(e)}</strong> <span style={{ color: "var(--color-text-secondary)" }}>💬 {e.comentario}</span>
+              </div>
+            ))}
+          </div>
+        )}
+        {/* Miniaturas só das fotos que ainda existem */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(110px, 1fr))", gap: 6 }}>
-          {escolhas.map((esc) => {
+          {escolhas.filter((e) => !!e.fotos).map((esc) => {
             const src     = thumbUrl(esc.fotos?.thumbnail_path, esc.fotos?.url_publica);
             const temComt = !!esc.comentario;
             const aberto  = tooltipId === esc.id;
@@ -105,12 +116,7 @@ export function AbaSelecoes({
                 <div style={{ width: "100%", height: "100%", borderRadius: 7, overflow: "hidden", border: temComt ? "2px solid #F59E0B" : "0.5px solid var(--color-border-tertiary)" }}>
                   {src
                     ? <img src={src} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} loading="lazy" />
-                    : (
-                      // Foto apagada: mostra o nome do arquivo no lugar da miniatura
-                      <div style={{ width: "100%", height: "100%", background: "var(--color-background-secondary)", display: "flex", alignItems: "center", justifyContent: "center", padding: 6, boxSizing: "border-box" }}>
-                        <span style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", wordBreak: "break-all", textAlign: "center" }}>{nomeDe(esc)}</span>
-                      </div>
-                    )
+                    : <div style={{ width: "100%", height: "100%", background: "var(--color-background-secondary)" }} />
                   }
                 </div>
                 {temComt && (
