@@ -38,9 +38,11 @@ export function AbaSelecoes({
     );
   }
 
-  const listaCsv  = escolhas.map((e) => e.fotos?.nome_arquivo ?? e.foto_id).join(", ");
+  const nomeDe = (e: EscolhaItem) => e.nome_arquivo ?? e.fotos?.nome_arquivo ?? e.foto_id ?? "";
+  const semFoto = escolhas.filter((e) => !e.fotos).length;
+  const listaCsv  = escolhas.map(nomeDe).join(", ");
   const listaFull = escolhas.map((e, i) => {
-    const nome = e.fotos?.nome_arquivo ?? e.foto_id;
+    const nome = nomeDe(e);
     return e.comentario ? `${i + 1}. ${nome}\n   💬 ${e.comentario}` : `${i + 1}. ${nome}`;
   }).join("\n");
 
@@ -84,6 +86,11 @@ export function AbaSelecoes({
           </button>
         </div>
 
+        {semFoto > 0 && (
+          <div style={{ fontSize: 12, color: "var(--color-text-secondary)", background: "var(--color-background-secondary)", borderRadius: 8, padding: "8px 12px", marginBottom: 10 }}>
+            🗂 {semFoto === escolhas.length ? "As fotos desta galeria foram apagadas" : `${semFoto} foto${semFoto !== 1 ? "s" : ""} foram apagadas`} — a lista de selecionadas foi mantida (nomes{escolhas.some((e) => e.comentario) ? " e comentários" : ""}).
+          </div>
+        )}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(110px, 1fr))", gap: 6 }}>
           {escolhas.map((esc) => {
             const src     = thumbUrl(esc.fotos?.thumbnail_path, esc.fotos?.url_publica);
@@ -98,7 +105,12 @@ export function AbaSelecoes({
                 <div style={{ width: "100%", height: "100%", borderRadius: 7, overflow: "hidden", border: temComt ? "2px solid #F59E0B" : "0.5px solid var(--color-border-tertiary)" }}>
                   {src
                     ? <img src={src} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} loading="lazy" />
-                    : <div style={{ width: "100%", height: "100%", background: "var(--color-background-secondary)" }} />
+                    : (
+                      // Foto apagada: mostra o nome do arquivo no lugar da miniatura
+                      <div style={{ width: "100%", height: "100%", background: "var(--color-background-secondary)", display: "flex", alignItems: "center", justifyContent: "center", padding: 6, boxSizing: "border-box" }}>
+                        <span style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", wordBreak: "break-all", textAlign: "center" }}>{nomeDe(esc)}</span>
+                      </div>
+                    )
                   }
                 </div>
                 {temComt && (

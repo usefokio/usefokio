@@ -116,7 +116,7 @@ function GaleriaSelecaoConteudo() {
           supabase.from("galerias_selecao").select("*, categorias!galerias_selecao_categoria_id_fkey(*)").eq("id", id).eq("fotografo_id", fid).single(),
           fetchAllRows<GaleriaSelecaoFoto>((sb, from, to) => sb.from("galerias_selecao_fotos").select("*").eq("galeria_id", id).order("ordem").order("created_at").range(from, to), supabase),
           fetchAllRows((sb, from, to) => sb.from("galerias_selecao_escolhas")
-            .select("id, foto_id, comentario, created_at, fotos:galerias_selecao_fotos(nome_arquivo, url_publica, thumbnail_path)")
+            .select("id, foto_id, nome_arquivo, comentario, created_at, fotos:galerias_selecao_fotos(nome_arquivo, url_publica, thumbnail_path)")
             .eq("galeria_id", id).order("created_at").range(from, to), supabase),
           supabase.from("galeria_selecao_eventos")
             .select("id, tipo, descricao, foto_id, created_at")
@@ -317,10 +317,10 @@ function GaleriaSelecaoConteudo() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fotos]);
 
-  const handleDeleteLote = useCallback(async () => {
-    if (selecionados.size === 0) return;
-    if (!confirm(`Excluir ${selecionados.size} foto${selecionados.size !== 1 ? "s" : ""}? Esta ação não pode ser desfeita.`)) return;
-    const ids = Array.from(selecionados);
+  // Apaga fotos (arquivo + miniatura + registro). As ESCOLHAS do cliente ficam: guardam o nome do arquivo e o
+  // comentário (foto_id vira vazio no banco) — a lista de selecionadas nunca se perde ao liberar espaço.
+  const apagarFotos = useCallback(async (ids: string[]) => {
+    if (ids.length === 0) return;
     const fotosParaDeletar = fotos.filter((f) => ids.includes(f.id));
     const storageItems = fotosParaDeletar.flatMap((f) => [
       f.storage_path   ? { storage_path: f.storage_path,   url_publica: f.url_publica } : null,
@@ -337,14 +337,9 @@ function GaleriaSelecaoConteudo() {
     //    bloqueia o delete quando a capa é uma das fotos sendo apagadas
     await supabase.from("galerias_selecao").update({ foto_capa_id: null }).eq("id", id);
 
-    // 2. Deletar escolhas do cliente que referenciam essas fotos
+    // 2. Deletar as fotos (as escolhas do cliente NÃO são apagadas — ver comentário acima)
     const batches: string[][] = [];
     for (let i = 0; i < ids.length; i += BATCH) batches.push(ids.slice(i, i + BATCH));
-    await Promise.allSettled(
-      batches.map((batch) => supabase.from("galerias_selecao_escolhas").delete().in("foto_id", batch))
-    );
-
-    // 3. Deletar as fotos
     await Promise.allSettled(
       batches.map((batch) => supabase.from("galerias_selecao_fotos").delete().in("id", batch))
     );
@@ -361,7 +356,25 @@ function GaleriaSelecaoConteudo() {
     setDeletandoLote(false);
     setDeleteProgresso({ atual: 0, total: 0 });
     reload();
-  }, [selecionados, fotos, id]);
+  }, [fotos, id]);
+
+  const handleDeleteLote = useCallback(async () => {
+    if (selecionados.size === 0) return;
+    if (!confirm(`Excluir ${selecionados.size} foto${selecionados.size !== 1 ? "s" : ""}? Esta ação não pode ser desfeita.`)) return;
+    await apagarFotos(Array.from(selecionados));
+  }, [selecionados, apagarFotos]);
+
+  // Encerrar: só muda o status, ou encerra e apaga todos os arquivos (libera espaço; galeria, andamento e lista
+  // de selecionadas continuam).
+  const [modalEncerrar, setModalEncerrar] = useState(false);
+  const [encerrando, setEncerrando] = useState(false);
+  async function encerrar(apagar: boolean) {
+    setEncerrando(true);
+    await mudarStatus("encerrada");
+    if (apagar) await apagarFotos(fotos.filter((f) => !f._uploading).map((f) => f.id));
+    setEncerrando(false);
+    setModalEncerrar(false);
+  }
 
   // ── Status ───────────────────────────────────────────────────────────────────
   async function mudarStatus(novoStatus: GaleriaSelecao["status"]) {
@@ -506,7 +519,7 @@ function GaleriaSelecaoConteudo() {
             </button>
           )}
           {(galeria.status === "ativa" || galeria.status === "aguardando_revisao") && (
-            <button onClick={() => mudarStatus("encerrada")} style={{ padding: "8px 16px", borderRadius: 8, background: "rgba(239,68,68,0.1)", color: "#EF4444", border: "0.5px solid rgba(239,68,68,0.3)", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+            <button onClick={() => setModalEncerrar(true)} style={{ padding: "8px 16px", borderRadius: 8, background: "rgba(239,68,68,0.1)", color: "#EF4444", border: "0.5px solid rgba(239,68,68,0.3)", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
               ⏹ Encerrar
             </button>
           )}
@@ -747,6 +760,38 @@ function GaleriaSelecaoConteudo() {
             setCliente(novoCliente);
           }}
         />
+      )}
+
+      {/* ── Modal: Encerrar galeria ── */}
+      {modalEncerrar && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 20 }}
+          onClick={() => !encerrando && setModalEncerrar(false)}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: "var(--color-background-primary)", borderRadius: 14, padding: 24, maxWidth: 460, width: "100%", boxShadow: "0 10px 40px rgba(0,0,0,0.2)" }}>
+            <div style={{ fontSize: 16, fontWeight: 800, color: "var(--color-text-primary)", marginBottom: 8 }}>⏹ Encerrar galeria</div>
+            <p style={{ fontSize: 13, color: "var(--color-text-secondary)", margin: "0 0 16px", lineHeight: 1.6 }}>
+              O cliente deixa de acessar a galeria. Escolha se as fotos ficam guardadas ou se quer apagar os arquivos para liberar espaço.
+            </p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <button disabled={encerrando} onClick={() => encerrar(false)}
+                style={{ textAlign: "left", padding: "12px 14px", borderRadius: 10, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-secondary)", cursor: encerrando ? "default" : "pointer" }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "var(--color-text-primary)" }}>Apenas encerrar</div>
+                <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginTop: 2 }}>As fotos continuam guardadas. Dá para reativar depois.</div>
+              </button>
+              <button disabled={encerrando} onClick={() => encerrar(true)}
+                style={{ textAlign: "left", padding: "12px 14px", borderRadius: 10, border: "0.5px solid rgba(239,68,68,0.35)", background: "rgba(239,68,68,0.06)", cursor: encerrando ? "default" : "pointer" }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "#DC2626" }}>Encerrar e apagar as fotos ({fotos.filter((f) => !f._uploading).length})</div>
+                <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginTop: 2, lineHeight: 1.5 }}>
+                  Apaga os arquivos e libera espaço. A galeria, o andamento e a <strong>lista das fotos selecionadas</strong> (nomes e comentários) continuam guardados. Não dá para desfazer.
+                </div>
+              </button>
+            </div>
+            {encerrando && <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginTop: 12 }}>Encerrando…</div>}
+            <button disabled={encerrando} onClick={() => setModalEncerrar(false)}
+              style={{ marginTop: 14, width: "100%", padding: 9, borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "transparent", fontSize: 13, color: "var(--color-text-secondary)", cursor: "pointer" }}>
+              Cancelar
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );
