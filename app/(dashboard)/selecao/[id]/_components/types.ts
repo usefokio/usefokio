@@ -9,7 +9,8 @@ export type FotoComStatus = GaleriaSelecaoFoto & {
 
 export type EscolhaItem = {
   id: string;
-  foto_id: string;
+  foto_id: string | null;      // vazio quando a foto foi apagada (a escolha continua)
+  nome_arquivo: string | null; // nome guardado na escolha — sobrevive à exclusão da foto
   comentario: string | null;
   created_at: string;
   fotos: { nome_arquivo: string | null; url_publica: string | null; thumbnail_path: string | null } | null;
