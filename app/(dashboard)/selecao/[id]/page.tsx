@@ -335,7 +335,11 @@ function GaleriaSelecaoConteudo() {
 
     // 1. Limpar foto_capa_id — FK de galerias_selecao → galerias_selecao_fotos
     //    bloqueia o delete quando a capa é uma das fotos sendo apagadas
-    await supabase.from("galerias_selecao").update({ foto_capa_id: null }).eq("id", id);
+    //    (só quando a capa está entre as fotos apagadas — "manter a capa" preserva o vínculo)
+    if (galeria?.foto_capa_id && ids.includes(galeria.foto_capa_id)) {
+      await supabase.from("galerias_selecao").update({ foto_capa_id: null }).eq("id", id);
+      setGaleria((g) => g ? { ...g, foto_capa_id: null } : g);
+    }
 
     // 2. Deletar as fotos (as escolhas do cliente NÃO são apagadas — ver comentário acima)
     const batches: string[][] = [];
@@ -356,7 +360,7 @@ function GaleriaSelecaoConteudo() {
     setDeletandoLote(false);
     setDeleteProgresso({ atual: 0, total: 0 });
     reload();
-  }, [fotos, id]);
+  }, [fotos, id, galeria?.foto_capa_id]);
 
   const handleDeleteLote = useCallback(async () => {
     if (selecionados.size === 0) return;
@@ -368,10 +372,18 @@ function GaleriaSelecaoConteudo() {
   // de selecionadas continuam).
   const [modalEncerrar, setModalEncerrar] = useState(false);
   const [encerrando, setEncerrando] = useState(false);
+  const [manterCapa, setManterCapa] = useState(true);
+  // Capa atual: a escolhida pelo fotógrafo ou, sem escolha, a 1ª foto (mesma regra automática da listagem).
+  const capaAtualId = galeria?.foto_capa_id ?? fotos.filter((f) => !f._uploading)[0]?.id ?? null;
   async function encerrar(apagar: boolean) {
     setEncerrando(true);
     await mudarStatus("encerrada");
-    if (apagar) await apagarFotos(fotos.filter((f) => !f._uploading).map((f) => f.id));
+    if (apagar) {
+      const manter = manterCapa ? capaAtualId : null;
+      // Fixa a capa explicitamente, para ela continuar sendo a capa depois que as outras fotos saírem.
+      if (manter && !galeria?.foto_capa_id) await handleSetarCapa(manter);
+      await apagarFotos(fotos.filter((f) => !f._uploading && f.id !== manter).map((f) => f.id));
+    }
     setEncerrando(false);
     setModalEncerrar(false);
   }
@@ -779,11 +791,19 @@ function GaleriaSelecaoConteudo() {
               </button>
               <button disabled={encerrando} onClick={() => encerrar(true)}
                 style={{ textAlign: "left", padding: "12px 14px", borderRadius: 10, border: "0.5px solid rgba(239,68,68,0.35)", background: "rgba(239,68,68,0.06)", cursor: encerrando ? "default" : "pointer" }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: "#DC2626" }}>Encerrar e apagar as fotos ({fotos.filter((f) => !f._uploading).length})</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "#DC2626" }}>
+                  Encerrar e apagar as fotos ({fotos.filter((f) => !f._uploading && !(manterCapa && f.id === capaAtualId)).length})
+                </div>
                 <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginTop: 2, lineHeight: 1.5 }}>
                   Apaga os arquivos e libera espaço. A galeria, o andamento e a <strong>lista das fotos selecionadas</strong> (nomes e comentários) continuam guardados. Não dá para desfazer.
                 </div>
               </button>
+              {capaAtualId && (
+                <label onClick={(e) => e.stopPropagation()} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "var(--color-text-primary)", padding: "2px 4px", cursor: "pointer" }}>
+                  <input type="checkbox" checked={manterCapa} disabled={encerrando} onChange={(e) => setManterCapa(e.target.checked)} />
+                  Manter a foto de capa (só ela não é apagada)
+                </label>
+              )}
             </div>
             {encerrando && <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginTop: 12 }}>Encerrando…</div>}
             <button disabled={encerrando} onClick={() => setModalEncerrar(false)}
