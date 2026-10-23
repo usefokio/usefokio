@@ -16,3 +16,9 @@ export function urlSupabase(): string {
 export function anonSupabase(): string {
   return limpar(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
 }
+
+// Cabeçalhos para chamar a API REST do Supabase com fetch direto. A chave legada (JWT "eyJ…") vai também no
+// Authorization; a chave nova (sb_publishable_/sb_secret_) não é JWT e vai só no apikey.
+export function cabecalhosSupabase(chave: string): Record<string, string> {
+  return chave.startsWith("eyJ") ? { apikey: chave, Authorization: `Bearer ${chave}` } : { apikey: chave };
+}

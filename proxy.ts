@@ -1,7 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
 import { ehAppHost, hostDaRequisicao, normalizarHost, rotuloSubdominio, SUBDOMINIOS_RESERVADOS } from "@/lib/site/publico";
-import { urlSupabase, anonSupabase } from "@/lib/supabase/env";
+import { urlSupabase, anonSupabase, cabecalhosSupabase } from "@/lib/supabase/env";
 
 const WEBMASTER_ID = process.env.NEXT_PUBLIC_WEBMASTER_ID ?? "";
 const APP_PRINCIPAL = "https://www.usefokio.com.br";
@@ -46,7 +46,7 @@ async function resolverTenant(host: string, rotulo: string | null): Promise<Tena
         : `or=(dominio_customizado.eq.${host},dominio_customizado.eq.${host.startsWith("www.") ? host.slice(4) : `www.${host}`})&publicado=eq.true`;
       const r = await fetch(
         `${supabaseUrl}/rest/v1/site_config?select=fotografo_id,dominio_customizado,subdominio&${query}&limit=1`,
-        { headers: { apikey: anonKey, Authorization: `Bearer ${anonKey}` } },
+        { headers: cabecalhosSupabase(anonKey) },
       );
       if (r.ok) {
         const linhas = (await r.json()) as { fotografo_id: string; dominio_customizado: string | null; subdominio: string | null }[];
@@ -87,7 +87,7 @@ async function redirectsDoTenant(fid: string): Promise<Redirect301[]> {
   const anonKey = anonSupabase();
   let lista: Redirect301[] = [];
   if (supabaseUrl && anonKey) {
-    const h = { apikey: anonKey, Authorization: `Bearer ${anonKey}` };
+    const h = cabecalhosSupabase(anonKey);
     try {
       // CONTEÚDO VENCE O REDIRECT: um 301 da migração nunca pode sequestrar uma landing/página
       // publicada com aquele mesmo slug (aconteceu com /orcamentooo-casamento-2026, que existia
