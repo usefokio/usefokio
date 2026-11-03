@@ -2,16 +2,15 @@
 
 ## Visão Geral
 
-SaaS para fotógrafos. Este repositório é o projeto Next.js principal (`usefokio`), branch **master** (produção ativa em usefokio.com.br). **Produção com dados reais — não editar nem deployar direto em produção.** Hoje só o Fernando usa o sistema (contas `fernandoagrela` + `estudio136`, ambas dele); ainda não há outros fotógrafos ativos.
+SaaS para fotógrafos. Este repositório é o projeto Next.js principal (`usefokio`), branch **master** (produção ativa em usefokio.com.br). **Produção com dados reais — nunca apagar dados do usuário.** Hoje só o Fernando usa o sistema (contas `fernandoagrela` + `estudio136`, ambas dele); ainda não há outros fotógrafos ativos.
 
-**Fluxo de trabalho — duas trilhas, decididas pelo TIPO do trabalho (regra reafirmada em 2026-09-24):**
-- **BUG / erro real em produção → corrige DIRETO em produção.** O pedido de corrigir já é a autorização: fix →
-  `npx tsc --noEmit` → commit → merge `--no-ff` na `master` → push (Railway deploya) → ressincronizar
-  `desenvolvimento`. Nada de deixar a correção parada numa branch esperando novo "pode subir".
-- **Funcionalidade nova / arquitetura → branch `desenvolvimento`** contra o banco de DEV, commitar e PARAR.
-- Na dúvida sobre a trilha, **perguntar antes de commitar**.
-
-**Trilha de funcionalidade nova (detalhe):** desenvolver **localmente** contra o banco de DEV, na branch `desenvolvimento` → `npx tsc --noEmit` limpo → commitar e **PARAR**. O Fernando testa em `localhost:3001`. **Produção só quando ele pedir explicitamente** ("pode subir"): aí migrações na prod antes do push → **merge `--no-ff` + push na `master`** (o **Railway** faz o deploy automático) → sincronizar `desenvolvimento` de volta. Nada de merge/push na master, migração ou escrita no banco de produção por iniciativa própria (leitura/SELECT para investigar é ok). **A Vercel foi REMOVIDA (15/07/2026)** — não há mais Preview URL; os crons rodam no **GitHub Actions**. Migração de schema: aplicar só no dev; na prod apenas no deploy pedido (ver seção de migrações abaixo).
+**Fluxo de trabalho (regra vigente desde 2026-11-02):** o banco de DEV **não é mais usado por enquanto**. O
+Fernando é o único usuário ativo, então **toda alteração — bug ou funcionalidade nova — vai direto para
+produção**: trabalhar na `master` → `npx tsc --noEmit` limpo → commit → push (o **Railway** deploya automático).
+Migrações de schema: arquivo em `supabase/migrations/` aplicado **direto na prod** (`fhsoqlttxggjpgrupjse`).
+**Nunca apagar dados do usuário** — DELETE/DROP/limpeza de dados só com pedido explícito dele. A branch
+`desenvolvimento` fica parada. **A Vercel foi REMOVIDA (15/07/2026)**; os crons rodam no **GitHub Actions**.
+(Histórico: de 24/09 a 01/11 valia "bug = prod, feature = dev".)
 
 ## Como rodar localmente
 
@@ -108,8 +107,8 @@ Dados copiados da produção (fotógrafo `contato@fernandoagrelafotografia.com.b
 - Sem comentários desnecessários no código
 - Sem login/auth em dev — qualquer chamada ao Supabase Auth deve ser protegida por `if (process.env.NODE_ENV === "development") return`
 - Commits em português no estilo `feat(crm): descrição`
-- Desenvolver em `desenvolvimento` contra o banco de DEV, `tsc` limpo, commitar e parar — **master/produção só quando o Fernando pedir** (regra vigente desde 2026-09-11)
-- **Schema do banco:** mudanças via arquivo SQL em `supabase/migrations/`, aplicadas **só no DEV**; na PROD apenas no deploy pedido
+- Trabalhar na `master`, `tsc` limpo, commit e push direto em produção (regra vigente desde 2026-11-02; dev não é usado)
+- **Schema do banco:** mudanças via arquivo SQL em `supabase/migrations/`, aplicadas direto na PROD; nunca apagar dados do usuário
 
 ---
 
@@ -249,9 +248,9 @@ sessão após sessão — tratar como checklist obrigatório, não como preferê
   sem 301. Ver memória [[feedback_seo_regra_mae]].
 
 ## Migrações de schema (regra)
-Toda mudança de schema vira um **arquivo SQL numerado** em `supabase/migrations/`, aplicado **primeiro no dev**
-(`lcpoufencuaawpztmclb`), testado, e só então na **prod** (`fhsoqlttxggjpgrupjse`) no dia do deploy em lote.
-Nunca alterar schema direto em produção sem passar pelo dev. (O guard de SQL destrutivo em prod é mecânico —
+Toda mudança de schema vira um **arquivo SQL numerado** em `supabase/migrations/`, aplicado **direto na prod**
+(`fhsoqlttxggjpgrupjse`) — regra de 2026-11-02, o dev (`lcpoufencuaawpztmclb`) não é mais usado por enquanto.
+Migração só adiciona/ajusta; nunca apagar dados do usuário. (O guard de SQL destrutivo em prod é mecânico —
 ver memória [[project_setup_hooks]].)
 
 **Tabela nova = `grant` na MESMA migração** (mudança do Supabase em 30/10/2026 — tabelas novas no schema
