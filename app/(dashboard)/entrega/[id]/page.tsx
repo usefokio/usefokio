@@ -13,6 +13,8 @@ import { useFotografo } from "@/lib/context/FotografoContext";
 import { ClienteLink } from "@/components/ui/ClienteLink";
 import type { GaleriaEntrega, GaleriaEntregaFoto, ContatoCategoria, Pagamento, RevelacaoPedido, RevelacaoPedidoItem } from "@/lib/supabase/types";
 import { ModalEmailCliente } from "../_components/ModalEmailCliente";
+import { useRegrasRenovacao, efetivasDaGaleria } from "../_components/RenovacaoGaleria";
+import { resumoOpcoes } from "@/lib/entrega/renovacao";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -288,6 +290,7 @@ export default function EntregaDetailPage() {
   const { id }      = useParams<{ id: string }>();
   const router      = useRouter();
   const { fotografo } = useFotografo();
+  const regrasRenov = useRegrasRenovacao(fotografo?.id);
 
   const [galeria,  setGaleria]  = useState<any>(null);
   const [fotos,    setFotos]    = useState<GaleriaEntregaFoto[]>([]);
@@ -859,7 +862,7 @@ export default function EntregaDetailPage() {
               { label: "Vídeos",         value: (g.videos?.length ?? 0) > 0 ? `${g.videos!.length} vídeo${g.videos!.length !== 1 ? "s" : ""}` : null },
               { label: "Vídeo baixado",  value: g.videos?.some((v) => v.download_url) ? `${g.downloads_video ?? 0} vez${(g.downloads_video ?? 0) !== 1 ? "es" : ""}` : null },
               { label: "Prazo",      value: g.expires_at ? `${formatarData(g.expires_at)}${dias !== null && dias >= 0 ? ` (${dias} dia${dias !== 1 ? "s" : ""} restantes)` : dias !== null && dias < 0 ? " (expirado)" : ""}` : "Sem prazo" },
-              { label: "Renovação",  value: g.renewal_fee && g.renewal_fee > 0 ? `R$ ${g.renewal_fee.toFixed(2).replace(".", ",")}` : null },
+              { label: "Renovação",  value: regrasRenov ? `${resumoOpcoes(efetivasDaGaleria(regrasRenov, g.categoria_id ?? null, g.renovacao_personalizada ?? null))}${g.renovacao_personalizada ? " (personalizada)" : ""}` : null },
               { label: "Drive",      value: g.drive_link ? "Configurado" : null },
               { label: "Criado em",  value: formatarData(g.created_at) },
             ].filter((r) => r.value !== null).map((row, i, arr) => (

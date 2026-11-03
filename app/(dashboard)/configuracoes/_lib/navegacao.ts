@@ -37,6 +37,17 @@ export const CATEGORIAS_CONFIG: CategoriaConfig[] = [
         ativo: (p) => p.startsWith("/configuracoes/empresa/email") },
     ],
   },
+  // Financeiro (Fernando, 03/11/2026): regras da galeria de entrega (renovação, prazo, funil) e formas de recebimento.
+  {
+    id: "financeiro", label: "Financeiro", icon: "💰",
+    descricao: "Regras de renovação e prazo das galerias de entrega, funil de reativação e formas de recebimento (Asaas, PIX).",
+    itens: [
+      { href: "/configuracoes/financeiro/galeria-entrega", label: "Galeria de entrega e funil", icon: "🖼️",
+        ativo: (p) => p.startsWith("/configuracoes/financeiro/galeria-entrega") },
+      { href: "/configuracoes/financeiro/recebimento", label: "Formas de recebimento", icon: "💳",
+        ativo: (p) => p.startsWith("/configuracoes/financeiro/recebimento") },
+    ],
+  },
   // Tudo que não é do usuário nem da empresa entra aqui, como abas (Fernando, 12/09). Bloco novo só quando ele pedir.
   {
     id: "sistema", label: "Configurações do sistema", icon: "🛠️",

@@ -17,6 +17,8 @@ import { mascaraMoeda, parseMoeda, formatarMoeda } from "@/lib/moeda";
 import { VideosEntrega } from "../../_components/VideosEntrega";
 import { normalizarVideos, slotsDeVideos, videosParaSalvar, type VideoEntrega } from "@/lib/entrega/videos";
 import { hojeBR } from "@/lib/utils/format";
+import { RenovacaoGaleria, useRegrasRenovacao, efetivasDaGaleria } from "../../_components/RenovacaoGaleria";
+import type { RenovacaoPersonalizada } from "@/lib/entrega/renovacao";
 
 const PRAZOS_FIXOS = [15, 30, 60, 120];
 
@@ -64,9 +66,8 @@ export default function EditarEntregaPage() {
   const [dataEvento,  setDataEvento] = useState(hoje);
   const [driveLink,   setDriveLink]  = useState("");
   const [videos,      setVideos]     = useState<VideoEntrega[]>(slotsDeVideos([]));
-  const [renovacao,   setRenovacao]  = useState("");
-  const [renovacaoAnual, setRenovacaoAnual] = useState("");
-  const [renovacaoDias, setRenovacaoDias] = useState("30");
+  // Renovação: herda das regras (Configurações → Financeiro); "Personalizar" grava só nesta galeria.
+  const [renovPersonalizada, setRenovPersonalizada] = useState<RenovacaoPersonalizada | null>(null);
   const [mensagem,    setMensagem]   = useState("");
   const [apenaZip,              setApenaZip]              = useState(false);
   const [ordenacaoFotos,        setOrdenacaoFotos]        = useState<"envio" | "nome" | "nome_desc" | "data">("nome");
@@ -76,6 +77,7 @@ export default function EditarEntregaPage() {
   const [produtosExtrasAtivo,   setProdutosExtrasAtivo]   = useState(false);
   const [categoriaId,  setCategoriaId]  = useState<string>("");
   const [categorias,   setCategorias]   = useState<Categoria[]>([]);
+  const regrasRenov = useRegrasRenovacao(fotografo?.id);
   const [saving,      setSaving]     = useState(false);
   const [modalExcluir, setModalExcluir] = useState(false);
   const [deletando,    setDeletando]   = useState(false);
@@ -116,7 +118,6 @@ export default function EditarEntregaPage() {
         setOriginal(g);
         setExpiresAt(g.expires_at ? new Date(g.expires_at) : null);
         setApenaZip(g.apenas_zip ?? false);
-        setRenovacaoDias(String(g.renovacao_dias ?? 30));
         setOrdenacaoFotos(g.ordenacao_fotos ?? "envio");
         setIdentificacaoObrig(g.identificacao_obrigatoria ?? false);
         setDriveApenasIdentif(g.drive_apenas_identificado ?? false);
@@ -128,8 +129,7 @@ export default function EditarEntregaPage() {
         setDataEvento(g.data_evento ?? hoje);
         setDriveLink(g.drive_link ?? "");
         setVideos(slotsDeVideos(normalizarVideos(g.videos)));
-        setRenovacao(g.renewal_fee != null ? formatarMoeda(g.renewal_fee) : "");
-        setRenovacaoAnual(g.renovacao_anual_valor != null ? formatarMoeda(g.renovacao_anual_valor) : "");
+        setRenovPersonalizada((g.renovacao_personalizada as RenovacaoPersonalizada | null) ?? null);
         setMensagem(g.mensagem ?? fotografo.mensagem_padrao_entrega ?? "");
         setCapaUrl(g.foto_capa_url ?? null);
         setCapaPreview(g.foto_capa_url ?? null);
@@ -163,9 +163,7 @@ export default function EditarEntregaPage() {
     dataEvento !== (original.data_evento ?? hoje) ||
     driveLink !== (original.drive_link ?? "") ||
     JSON.stringify(videosParaSalvar(videos)) !== JSON.stringify(normalizarVideos(original.videos)) ||
-    renovacao !== (original.renewal_fee != null ? formatarMoeda(original.renewal_fee) : "") ||
-    renovacaoAnual !== (original.renovacao_anual_valor != null ? formatarMoeda(original.renovacao_anual_valor) : "") ||
-    renovacaoDias !== String(original.renovacao_dias ?? 30) ||
+    JSON.stringify(renovPersonalizada) !== JSON.stringify(original.renovacao_personalizada ?? null) ||
     mensagem !== (original.mensagem ?? fotografo?.mensagem_padrao_entrega ?? "") ||
     apenaZip !== (original.apenas_zip ?? false) ||
     ordenacaoFotos !== (original.ordenacao_fotos ?? "envio") ||
@@ -224,9 +222,16 @@ export default function EditarEntregaPage() {
         drive_link:  driveLink.trim() || null,
         videos:      videosParaSalvar(videos),
         expires_at:  expiresAt ? expiresAt.toISOString() : null,
-        renewal_fee: parseMoeda(renovacao),
-        renovacao_anual_valor: parseMoeda(renovacaoAnual) || null,
-        renovacao_dias: parseInt(renovacaoDias) || 30,
+        renovacao_personalizada: renovPersonalizada,
+        // Colunas antigas mantidas em sincronia (compatibilidade): 1ª opção e a de 1 ano, se houver.
+        ...(() => {
+          const ef = efetivasDaGaleria(regrasRenov, categoriaId || null, renovPersonalizada);
+          return {
+            renewal_fee: ef[0]?.valor ?? null,
+            renovacao_dias: ef[0]?.dias ?? 30,
+            renovacao_anual_valor: ef.find((o) => o.dias === 365)?.valor ?? null,
+          };
+        })(),
         mensagem:    mensagem.trim() || null,
         apenas_zip:                 apenaZip,
         identificacao_obrigatoria:  identificacaoObrig,
@@ -372,16 +377,10 @@ export default function EditarEntregaPage() {
         </Field>
 
         {categorias.length > 0 && (
-          <Field label="Categoria" hint="Ao selecionar, as taxas de renovação (30 dias e 1 ano) da categoria são preenchidas">
+          <Field label="Categoria" hint="Define os valores de renovação herdados (Configurações → Financeiro)">
             <select
               value={categoriaId}
-              onChange={(e) => {
-                const id = e.target.value;
-                setCategoriaId(id);
-                const cat = categorias.find((c) => c.id === id);
-                if (cat?.taxa_renovacao_padrao != null) setRenovacao(formatarMoeda(cat.taxa_renovacao_padrao));
-                if (cat?.taxa_renovacao_anual != null) setRenovacaoAnual(formatarMoeda(cat.taxa_renovacao_anual));
-              }}
+              onChange={(e) => setCategoriaId(e.target.value)}
               style={inputStyle}
             >
               <option value="">— Sem categoria —</option>
@@ -403,46 +402,14 @@ export default function EditarEntregaPage() {
 
         <VideosEntrega value={videos} onChange={setVideos} />
 
-        <Field label="Taxa de renovação">
-          <div style={{ position: "relative", width: 200 }}>
-            <span style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", fontSize: 13, color: "var(--color-text-secondary)", pointerEvents: "none" }}>R$</span>
-            <input
-              type="text" inputMode="numeric"
-              value={renovacao} onChange={(e) => setRenovacao(mascaraMoeda(e.target.value))}
-              placeholder="0,00"
-              style={{ ...inputStyle, width: "100%", paddingLeft: 34 }}
-            />
-          </div>
-          {renovacao.trim() !== "" && (
-            <div style={{ marginTop: 12 }}>
-              <label style={{ fontSize: 12, fontWeight: 600, color: "var(--color-text-secondary)", display: "block", marginBottom: 6 }}>
-                Dias liberados após o pagamento
-              </label>
-              <input
-                type="number" min={1}
-                value={renovacaoDias}
-                onChange={(e) => setRenovacaoDias(e.target.value)}
-                style={{ ...inputStyle, width: 120 }}
-              />
-            </div>
-          )}
-          <div style={{ marginTop: 14 }}>
-            <label style={{ fontSize: 12, fontWeight: 600, color: "var(--color-text-secondary)", display: "block", marginBottom: 6 }}>
-              Renovação por 1 ano (opcional)
-            </label>
-            <div style={{ position: "relative", width: 200 }}>
-              <span style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", fontSize: 13, color: "var(--color-text-secondary)", pointerEvents: "none" }}>R$</span>
-              <input
-                type="text" inputMode="numeric"
-                value={renovacaoAnual} onChange={(e) => setRenovacaoAnual(mascaraMoeda(e.target.value))}
-                placeholder="0,00"
-                style={{ ...inputStyle, width: "100%", paddingLeft: 34 }}
-              />
-            </div>
-            <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: "4px 0 0" }}>
-              Se preenchido, o cliente também poderá renovar por 1 ano (além dos 30 dias).
-            </p>
-          </div>
+        <Field label="Renovação">
+          <RenovacaoGaleria
+            regras={regrasRenov}
+            categoriaId={categoriaId || null}
+            categoriaNome={categorias.find((c) => c.id === categoriaId)?.nome ?? null}
+            value={renovPersonalizada}
+            onChange={setRenovPersonalizada}
+          />
         </Field>
 
         <Field label="Mensagem para o cliente">

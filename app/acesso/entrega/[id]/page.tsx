@@ -165,7 +165,8 @@ export default function AcessoEntregaPage() {
   const [renovNome,        setRenovNome]        = useState("");
   const [renovEmail,       setRenovEmail]       = useState("");
   const [renovCpf,         setRenovCpf]         = useState("");
-  const [planoRenov,       setPlanoRenov]       = useState<"mensal" | "anual" | null>(null);
+  const [opcaoRenov,       setOpcaoRenov]       = useState<string | null>(null);
+  const [opcoesRenov,      setOpcoesRenov]      = useState<{ id: string; rotulo: string; dias: number; valor: number }[] | null>(null);
   const [pagamentoAtivo,   setPagamentoAtivo]   = useState<boolean | null>(null);
   const [metodoPagamento,  setMetodoPagamento]  = useState<string | null>(null);
   const [renewalFeePadrao, setRenewalFeePadrao] = useState<number | null>(null);
@@ -345,12 +346,13 @@ export default function AcessoEntregaPage() {
           setPagamentoAtivo(d.pagamento_ativo ?? false);
           setMetodoPagamento(d.metodo ?? null);
           setRenewalFeePadrao(d.renewal_fee_padrao ?? null);
+          setOpcoesRenov(Array.isArray(d.opcoes) ? d.opcoes : []);
         })
         .catch(() => setPagamentoAtivo(false));
     }
   }, [tela]);
 
-  async function gerarCobrancaRenovacao(anual: boolean = false) {
+  async function gerarCobrancaRenovacao(opcao: string | null) {
     const pagadorNome  = renovNome.trim();
     const pagadorEmail = renovEmail.trim();
     const pagadorCpf   = renovCpf.trim();
@@ -366,7 +368,7 @@ export default function AcessoEntregaPage() {
       const res = await fetch(`/api/entrega/${id}/renovar`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nome: pagadorNome, email: pagadorEmail, cpf: pagadorCpf || undefined, anual }),
+        body: JSON.stringify({ nome: pagadorNome, email: pagadorEmail, cpf: pagadorCpf || undefined, opcao: opcao ?? undefined }),
       });
       const json = await res.json();
       if (!res.ok) { setRenovMsg(json.erro ?? "Erro ao gerar pagamento."); return; }
@@ -383,12 +385,13 @@ export default function AcessoEntregaPage() {
     }
   }
 
-  // Taxa efetiva: a da galeria; se não houver, a taxa padrão do fotógrafo (fallback).
-  const taxaEfetiva = (galeria?.renewal_fee && galeria.renewal_fee > 0)
-    ? galeria.renewal_fee
-    : (renewalFeePadrao ?? 0);
-  const valorAnual = (galeria?.renovacao_anual_valor ?? 0) as number;
-  const temAnualRenov = valorAnual > 0;                  // galeria oferece também a opção de 1 ano
+  // Opções de renovação resolvidas no servidor (Configurações → Financeiro). Enquanto não chegam,
+  // usa a taxa antiga da galeria só para decidir se mostra o bloco.
+  const listaRenov = opcoesRenov ?? [];
+  const taxaEfetiva = opcoesRenov
+    ? (listaRenov[0]?.valor ?? 0)
+    : ((galeria?.renewal_fee && galeria.renewal_fee > 0) ? galeria.renewal_fee : (renewalFeePadrao ?? 0));
+  const temVariasRenov = listaRenov.length > 1;          // cliente escolhe entre as opções
 
   // Bloco de pagamento de renovação — usado nas telas expirada e suspensa.
   // Chamado como função (não como <Componente/>) para não remontar os inputs a cada render.
@@ -460,18 +463,15 @@ export default function AcessoEntregaPage() {
           </div>
         ) : (
           <div>
-            {/* 1) O cliente escolhe a opção (30 dias / 1 ano) — só quando há a de 1 ano */}
-            {temAnualRenov && (
+            {/* 1) O cliente escolhe a opção — só quando há mais de uma */}
+            {temVariasRenov && (
               <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 14 }}>
-                {([
-                  { key: "mensal" as const, label: "30 dias", valor: taxaEfetiva },
-                  { key: "anual"  as const, label: "1 ano",   valor: valorAnual  },
-                ]).map((op) => {
-                  const sel = planoRenov === op.key;
+                {listaRenov.map((op) => {
+                  const sel = opcaoRenov === op.id;
                   return (
                     <button
-                      key={op.key}
-                      onClick={() => setPlanoRenov(op.key)}
+                      key={op.id}
+                      onClick={() => setOpcaoRenov(op.id)}
                       style={{
                         display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10,
                         padding: "12px 16px", borderRadius: 10, cursor: "pointer", textAlign: "left",
@@ -481,7 +481,7 @@ export default function AcessoEntregaPage() {
                     >
                       <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
                         <span style={{ width: 16, height: 16, borderRadius: "50%", flexShrink: 0, boxSizing: "border-box", border: sel ? "5px solid #fff" : "1.5px solid rgba(255,255,255,0.5)" }} />
-                        <span style={{ fontSize: 14, fontWeight: 600 }}>Renovar por {op.label}</span>
+                        <span style={{ fontSize: 14, fontWeight: 600 }}>Renovar por {op.rotulo}</span>
                       </span>
                       <span style={{ fontSize: 15, fontWeight: 800 }}>R$ {op.valor.toFixed(2).replace(".", ",")}</span>
                     </button>
@@ -515,11 +515,12 @@ export default function AcessoEntregaPage() {
 
             {/* 3) Confirmar → pagamento da opção escolhida */}
             {(() => {
-              const bloqueado = renovGerando || (temAnualRenov && !planoRenov);
-              const valorSel = temAnualRenov ? (planoRenov === "anual" ? valorAnual : taxaEfetiva) : taxaEfetiva;
+              const bloqueado = renovGerando || (temVariasRenov && !opcaoRenov);
+              const opSel = temVariasRenov ? listaRenov.find((o) => o.id === opcaoRenov) : listaRenov[0];
+              const valorSel = opSel?.valor ?? taxaEfetiva;
               return (
                 <button
-                  onClick={() => gerarCobrancaRenovacao(temAnualRenov ? planoRenov === "anual" : false)}
+                  onClick={() => gerarCobrancaRenovacao(opSel?.id ?? null)}
                   disabled={bloqueado}
                   style={{
                     width: "100%", padding: "13px 24px", borderRadius: 9, border: "none",
@@ -529,7 +530,7 @@ export default function AcessoEntregaPage() {
                   }}
                 >
                   {renovGerando ? "Gerando pagamento…"
-                    : temAnualRenov && !planoRenov ? "Selecione uma opção acima"
+                    : temVariasRenov && !opcaoRenov ? "Selecione uma opção acima"
                     : `Confirmar e pagar — R$ ${valorSel.toFixed(2).replace(".", ",")}`}
                 </button>
               );
@@ -537,9 +538,9 @@ export default function AcessoEntregaPage() {
           </div>
         )}
         {renovMsg && <div style={{ fontSize: 12, color: cor, marginTop: 10, lineHeight: 1.5 }}>{renovMsg}</div>}
-        {galeria.renovacao_dias > 0 && !renovInvoiceUrl && !((galeria?.renovacao_anual_valor ?? 0) > 0) && (
+        {listaRenov.length === 1 && !renovInvoiceUrl && (
           <div style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", marginTop: 8 }}>
-            O pagamento libera o acesso por mais {galeria.renovacao_dias} dias.
+            O pagamento libera o acesso por mais {listaRenov[0].dias} dias.
           </div>
         )}
       </div>
@@ -616,7 +617,7 @@ export default function AcessoEntregaPage() {
           </div>
           {taxaEfetiva > 0 && (
             <div style={{ borderTop: "1px solid rgba(239,68,68,0.2)", paddingTop: 14 }}>
-              {!temAnualRenov && (<>
+              {!temVariasRenov && (<>
                 <div style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>Taxa de renovação</div>
                 <div style={{ fontSize: 28, fontWeight: 800, color: "#fff", letterSpacing: "-0.02em" }}>
                   R$ {taxaEfetiva.toFixed(2).replace(".", ",")}
@@ -654,7 +655,7 @@ export default function AcessoEntregaPage() {
           </div>
           {taxaEfetiva > 0 && (
             <div style={{ borderTop: "1px solid rgba(245,158,11,0.2)", paddingTop: 14 }}>
-              {!temAnualRenov && (<>
+              {!temVariasRenov && (<>
                 <div style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>Taxa de reativação</div>
                 <div style={{ fontSize: 28, fontWeight: 800, color: "#fff", letterSpacing: "-0.02em" }}>
                   R$ {taxaEfetiva.toFixed(2).replace(".", ",")}

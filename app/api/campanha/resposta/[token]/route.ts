@@ -6,6 +6,7 @@ import type { NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getResend, FROM_DEFAULT, APP_URL } from "@/lib/email/resend";
 import { templateRespostaCampanha, templateAgradecimentoCampanha } from "@/lib/email/templates";
+import { opcoesDaGaleria } from "@/lib/entrega/renovacaoServidor";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
@@ -34,13 +35,16 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ tok
 
   if (!galeria || galeria.rascunho) return NextResponse.json({ erro: "Galeria não disponível." }, { status: 404 });
 
+  // Valor exibido = a primeira opção de renovação (a mesma que a cobrança usa sem escolha explícita).
+  const [principal] = await opcoesDaGaleria(admin, galeria.id);
+
   return NextResponse.json({
     titulo:       galeria.titulo,
     nomeCliente:  galeria.clientes?.nome ?? null,
     nomeEmpresa:  galeria.fotografos?.nome_empresa ?? galeria.fotografos?.nome_completo ?? "Fotógrafo",
     galeriaId:    galeria.id,
     asaasAtivo:   galeria.fotografos?.asaas_ativo ?? false,
-    renewalFee:   galeria.renewal_fee ?? 0,
+    renewalFee:   principal?.valor ?? 0,
     resposta:     registro.resposta,
     respondidoEm: registro.respondido_em,
   });

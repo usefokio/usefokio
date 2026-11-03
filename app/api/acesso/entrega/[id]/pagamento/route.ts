@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { NextResponse } from "next/server";
+import { opcoesDaGaleria } from "@/lib/entrega/renovacaoServidor";
 
 export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -9,7 +10,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
     .select("fotografo_id")
     .eq("id", id)
     .maybeSingle();
-  if (!galeria) return NextResponse.json({ asaas_ativo: false, pagamento_ativo: false, metodo: null, renewal_fee_padrao: null });
+  if (!galeria) return NextResponse.json({ asaas_ativo: false, pagamento_ativo: false, metodo: null, renewal_fee_padrao: null, opcoes: [] });
 
   const { data: foto } = await admin
     .from("fotografos")
@@ -23,10 +24,14 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
   // Mesmo critério de prioridade da rota /renovar (PIX na frente).
   const metodo = pixOk ? "pix_manual" : (asaasOk ? "asaas" : null);
 
+  // Opções de renovação que o cliente pode escolher (só rótulo, dias e valor).
+  const opcoes = (await opcoesDaGaleria(admin, id)).map(({ id: opId, rotulo, dias, valor }) => ({ id: opId, rotulo, dias, valor }));
+
   return NextResponse.json({
     asaas_ativo: foto?.asaas_ativo ?? false,
     pagamento_ativo: pixOk || asaasOk,
     metodo,
     renewal_fee_padrao: foto?.renewal_fee_padrao ?? null,
+    opcoes,
   });
 }

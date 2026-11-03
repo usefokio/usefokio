@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { mascaraMoeda, parseMoeda, formatarMoeda } from "@/lib/moeda";
 import type { Categoria } from "@/lib/supabase/types";
+import { salvarValorPadraoRenovacao, salvarValorCategoriaRenovacao } from "@/lib/entrega/regrasCliente";
 
 const inputStyle: React.CSSProperties = {
   width: "100%", padding: "9px 12px", borderRadius: 8,
@@ -41,7 +42,9 @@ export default function ConfigurarPage() {
     if (!fotografo) return;
     setSalvandoTaxa(true);
     const valor = parseMoeda(taxaPadrao) || 20.90;
-    await createClient().from("fotografos").update({ renewal_fee_padrao: valor }).eq("id", fotografo.id);
+    const sb = createClient();
+    await sb.from("fotografos").update({ renewal_fee_padrao: valor }).eq("id", fotografo.id);
+    await salvarValorPadraoRenovacao(sb, fotografo.id, valor);
     setSalvandoTaxa(false);
     setStep("categorias");
   }
@@ -118,9 +121,11 @@ export default function ConfigurarPage() {
   async function salvarTaxas() {
     setSalvandoTaxas(true);
     const sb = createClient();
+    const opcaoId = fotografo ? await salvarValorPadraoRenovacao(sb, fotografo.id, parseMoeda(taxaPadrao) || 20.90) : null;
     for (const cat of categoriasComTaxa) {
       const valor = parseMoeda(cat.taxa) || 20.90;
       await sb.from("categorias").update({ taxa_renovacao_padrao: valor }).eq("id", cat.id);
+      if (opcaoId) await salvarValorCategoriaRenovacao(sb, opcaoId, cat.id, valor);
     }
     setSalvandoTaxas(false);
     setStep("email");

@@ -251,7 +251,7 @@ export default function SolicitacoesPage() {
 
       {conectado === false && (
         <div style={{ background: "rgba(245,158,11,0.08)", border: "0.5px solid rgba(245,158,11,0.3)", borderRadius: 8, padding: "10px 14px", fontSize: 13, color: "#92400E", marginBottom: 14 }}>
-          Conecte sua conta Asaas para solicitar pagamentos. <Link href="/config" style={{ color: "#92400E", fontWeight: 700 }}>Configurar →</Link>
+          Conecte sua conta Asaas para solicitar pagamentos. <Link href="/configuracoes/financeiro/recebimento" style={{ color: "#92400E", fontWeight: 700 }}>Configurar →</Link>
         </div>
       )}
       {msg && <div style={{ fontSize: 12, color: "#059669", marginBottom: 12, fontWeight: 600 }}>{msg}</div>}

@@ -14,6 +14,8 @@ import { mascaraMoeda, parseMoeda, formatarMoeda } from "@/lib/moeda";
 import { VideosEntrega } from "../_components/VideosEntrega";
 import { slotsDeVideos, videosParaSalvar, type VideoEntrega } from "@/lib/entrega/videos";
 import { hojeBR } from "@/lib/utils/format";
+import { RenovacaoGaleria, useRegrasRenovacao, efetivasDaGaleria, prazoSugerido } from "../_components/RenovacaoGaleria";
+import type { RenovacaoPersonalizada } from "@/lib/entrega/renovacao";
 
 const PRAZOS_FIXOS = [15, 30, 60, 120];
 
@@ -62,9 +64,9 @@ export default function NovaEntregaPage() {
   const [videos,      setVideos]      = useState<VideoEntrega[]>(slotsDeVideos([]));
   const [prazoFixo,   setPrazoFixo]   = useState<number | "custom">(0);
   const [prazoCustom, setPrazoCustom] = useState("");
-  const [renovacao,          setRenovacao]          = useState("");
-  const [renovacaoAnual,     setRenovacaoAnual]     = useState("");
-  const [renovacaoDias,      setRenovacaoDias]      = useState("30");
+  // Renovação: herda das regras (Configurações → Financeiro); "Personalizar" grava só nesta galeria.
+  const [renovPersonalizada, setRenovPersonalizada] = useState<RenovacaoPersonalizada | null>(null);
+  const [prazoTocado,        setPrazoTocado]        = useState(false);
   const [mensagem,           setMensagem]           = useState("");
   const [apenaZip,           setApenaZip]           = useState(false);
   const [ordenacaoFotos,     setOrdenacaoFotos]     = useState<"envio" | "nome" | "nome_desc" | "data">("nome");
@@ -108,7 +110,6 @@ export default function NovaEntregaPage() {
   useEffect(() => {
     if (!fotografo || initialized) return;
     if (fotografo.mensagem_padrao_entrega) setMensagem(fotografo.mensagem_padrao_entrega);
-    if (fotografo.renewal_fee_padrao != null) setRenovacao(formatarMoeda(fotografo.renewal_fee_padrao));
     // Carrega categorias do fotógrafo
     createClient()
       .from("categorias")
@@ -245,6 +246,17 @@ export default function NovaEntregaPage() {
     return falhas;
   }
 
+  const regrasRenov = useRegrasRenovacao(fotografo?.id);
+
+  // Prazo inicial sugerido pela categoria ou pelo padrão, enquanto o fotógrafo não escolher outro.
+  useEffect(() => {
+    if (!regrasRenov || prazoTocado) return;
+    const dias = prazoSugerido(regrasRenov, categoriaId || null);
+    if (!dias) { setPrazoFixo(0); return; }
+    if (PRAZOS_FIXOS.includes(dias)) { setPrazoFixo(dias); return; }
+    setPrazoFixo("custom"); setPrazoCustom(String(dias));
+  }, [regrasRenov, categoriaId, prazoTocado]);
+
   const diasEfetivos = prazoFixo === "custom" ? (parseInt(prazoCustom) || 0) : prazoFixo;
   const dataExpiracao = diasEfetivos > 0 ? addDias(diasEfetivos) : null;
 
@@ -293,9 +305,16 @@ export default function NovaEntregaPage() {
             drive_link:   driveLink.trim() || null,
             videos:       videosParaSalvar(videos),
             expires_at,
-            renewal_fee:  parseMoeda(renovacao),
-            renovacao_anual_valor: parseMoeda(renovacaoAnual) || null,
-            renovacao_dias: parseInt(renovacaoDias) || 30,
+            renovacao_personalizada: renovPersonalizada,
+            // Colunas antigas mantidas em sincronia (compatibilidade): 1ª opção e a de 1 ano, se houver.
+            ...(() => {
+              const ef = efetivasDaGaleria(regrasRenov, categoriaId || null, renovPersonalizada);
+              return {
+                renewal_fee: ef[0]?.valor ?? null,
+                renovacao_dias: ef[0]?.dias ?? 30,
+                renovacao_anual_valor: ef.find((o) => o.dias === 365)?.valor ?? null,
+              };
+            })(),
             mensagem:     mensagem.trim() || null,
             apenas_zip:   apenaZip,
             identificacao_obrigatoria: identificacaoObrig,
@@ -482,20 +501,10 @@ export default function NovaEntregaPage() {
         </Field>
 
         {categorias.length > 0 && (
-          <Field label="Categoria" hint="Preenche a taxa de renovação automaticamente" tooltip="Categoria do serviço prestado. Ao selecionar, a taxa de renovação padrão da categoria é preenchida automaticamente.">
+          <Field label="Categoria" hint="Define o prazo e os valores de renovação herdados" tooltip="Categoria do serviço prestado. O prazo de acesso e os valores de renovação vêm das regras da categoria (Configurações → Financeiro).">
             <select
               value={categoriaId}
-              onChange={(e) => {
-                const id = e.target.value;
-                setCategoriaId(id);
-                const cat = categorias.find((c) => c.id === id);
-                if (cat?.taxa_renovacao_padrao != null) {
-                  setRenovacao(formatarMoeda(cat.taxa_renovacao_padrao));
-                }
-                if (cat?.taxa_renovacao_anual != null) {
-                  setRenovacaoAnual(formatarMoeda(cat.taxa_renovacao_anual));
-                }
-              }}
+              onChange={(e) => setCategoriaId(e.target.value)}
               style={inputStyle}
             >
               <option value="">— Sem categoria —</option>
@@ -534,7 +543,7 @@ export default function NovaEntregaPage() {
             Prazo de acesso
           </div>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-            <button type="button" onClick={() => setPrazoFixo(0)} style={{
+            <button type="button" onClick={() => { setPrazoTocado(true); setPrazoFixo(0); }} style={{
               padding: "9px 16px", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer",
               border: `0.5px solid ${prazoFixo === 0 ? "var(--color-text-primary)" : "var(--color-border-secondary)"}`,
               background: prazoFixo === 0 ? "var(--color-text-primary)" : "var(--color-background-secondary)",
@@ -544,7 +553,7 @@ export default function NovaEntregaPage() {
               Sem prazo
             </button>
             {PRAZOS_FIXOS.map((d) => (
-              <button key={d} type="button" onClick={() => setPrazoFixo(d)} style={{
+              <button key={d} type="button" onClick={() => { setPrazoTocado(true); setPrazoFixo(d); }} style={{
                 padding: "9px 16px", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer",
                 border: `0.5px solid ${prazoFixo === d ? "var(--color-text-primary)" : "var(--color-border-secondary)"}`,
                 background: prazoFixo === d ? "var(--color-text-primary)" : "var(--color-background-secondary)",
@@ -554,7 +563,7 @@ export default function NovaEntregaPage() {
                 {d} dias
               </button>
             ))}
-            <button type="button" onClick={() => setPrazoFixo("custom")} style={{
+            <button type="button" onClick={() => { setPrazoTocado(true); setPrazoFixo("custom"); }} style={{
               padding: "9px 16px", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer",
               border: `0.5px solid ${prazoFixo === "custom" ? "var(--color-text-primary)" : "var(--color-border-secondary)"}`,
               background: prazoFixo === "custom" ? "var(--color-text-primary)" : "var(--color-background-secondary)",
@@ -567,7 +576,7 @@ export default function NovaEntregaPage() {
           {prazoFixo === "custom" && (
             <input
               type="number" min={1} placeholder="Número de dias"
-              value={prazoCustom} onChange={(e) => setPrazoCustom(e.target.value)}
+              value={prazoCustom} onChange={(e) => { setPrazoTocado(true); setPrazoCustom(e.target.value); }}
               style={{ ...inputStyle, marginTop: 8, width: 180 }}
             />
           )}
@@ -582,49 +591,14 @@ export default function NovaEntregaPage() {
           )}
         </div>
 
-        <Field label="Taxa de renovação" tooltip="Valor cobrado do cliente para reabrir o acesso à galeria após o prazo expirar. Deixe em branco para não cobrar renovação.">
-          <div style={{ position: "relative", width: 200 }}>
-            <span style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", fontSize: 13, color: "var(--color-text-secondary)", pointerEvents: "none" }}>R$</span>
-            <input
-              type="text" inputMode="numeric"
-              value={renovacao} onChange={(e) => setRenovacao(mascaraMoeda(e.target.value))}
-              placeholder="0,00"
-              style={{ ...inputStyle, width: "100%", paddingLeft: 34 }}
-            />
-          </div>
-          <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: "4px 0 0" }}>
-            Valor cobrado do cliente para reabrir o acesso após expirar.
-          </p>
-          {renovacao.trim() !== "" && (
-            <div style={{ marginTop: 12 }}>
-              <label style={{ fontSize: 12, fontWeight: 600, color: "var(--color-text-secondary)", display: "block", marginBottom: 6 }}>
-                Dias liberados após o pagamento
-              </label>
-              <input
-                type="number" min={1}
-                value={renovacaoDias}
-                onChange={(e) => setRenovacaoDias(e.target.value)}
-                style={{ ...inputStyle, width: 120 }}
-              />
-            </div>
-          )}
-          <div style={{ marginTop: 14 }}>
-            <label style={{ fontSize: 12, fontWeight: 600, color: "var(--color-text-secondary)", display: "block", marginBottom: 6 }}>
-              Renovação por 1 ano (opcional)
-            </label>
-            <div style={{ position: "relative", width: 200 }}>
-              <span style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", fontSize: 13, color: "var(--color-text-secondary)", pointerEvents: "none" }}>R$</span>
-              <input
-                type="text" inputMode="numeric"
-                value={renovacaoAnual} onChange={(e) => setRenovacaoAnual(mascaraMoeda(e.target.value))}
-                placeholder="0,00"
-                style={{ ...inputStyle, width: "100%", paddingLeft: 34 }}
-              />
-            </div>
-            <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: "4px 0 0" }}>
-              Se preenchido, o cliente também poderá renovar por 1 ano (além dos 30 dias).
-            </p>
-          </div>
+        <Field label="Renovação" tooltip="O que o cliente pode escolher para reabrir o acesso depois que o prazo expirar. Vem das regras em Configurações → Financeiro; personalize só se esta galeria for uma exceção.">
+          <RenovacaoGaleria
+            regras={regrasRenov}
+            categoriaId={categoriaId || null}
+            categoriaNome={categorias.find((c) => c.id === categoriaId)?.nome ?? null}
+            value={renovPersonalizada}
+            onChange={setRenovPersonalizada}
+          />
         </Field>
 
         <Field label="Mensagem para o cliente" tooltip="Texto enviado por e-mail ao cliente junto com o link da galeria. Você pode personalizar por galeria ou usar a mensagem padrão configurada em Configurações.">

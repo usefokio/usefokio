@@ -9,6 +9,7 @@ import { rateLimitOk, clientIp } from "@/lib/rate-limit";
 import { escapeHtml } from "@/lib/email/comunicacao";
 import QRCode from "qrcode";
 import { gerarBrCodePix } from "@/lib/pix/brcode";
+import { opcoesDaGaleria } from "@/lib/entrega/renovacaoServidor";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -20,7 +21,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     return NextResponse.json({ erro: "Muitas tentativas. Aguarde um instante e tente novamente." }, { status: 429 });
   }
 
-  const { nome, email, cpf, anual } = await request.json().catch(() => ({}));
+  const { nome, email, cpf, anual, opcao } = await request.json().catch(() => ({}));
 
   if (!nome?.trim() || !EMAIL_RE.test(email?.trim() ?? "")) {
     return NextResponse.json({ erro: "Informe nome e um e-mail válido." }, { status: 400 });
@@ -41,15 +42,15 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     .eq("id", galeria.fotografo_id)
     .maybeSingle();
 
-  // Opção anual (1 ano): quando o cliente escolheu e a galeria tem valor de 1 ano configurado.
-  const usarAnual = !!anual && (galeria.renovacao_anual_valor ?? 0) > 0;
-
-  // Taxa e prazo efetivos. Anual → valor anual + 365 dias; senão → taxa da galeria (ou padrão do
-  // fotógrafo como fallback) + o prazo padrão (30 dias).
-  const taxa = usarAnual
-    ? galeria.renovacao_anual_valor!
-    : (galeria.renewal_fee && galeria.renewal_fee > 0 ? galeria.renewal_fee : (fotografo?.renewal_fee_padrao ?? 0));
-  const dias = usarAnual ? 365 : (galeria.renovacao_dias ?? 30);
+  // Opção escolhida pelo cliente, resolvida pelas regras (galeria personalizada > categoria > padrão).
+  // `anual` (telas antigas em cache) = a opção de 365 dias; sem escolha = a primeira opção.
+  const opcoes = await opcoesDaGaleria(admin, galeria.id);
+  const escolhida =
+    (opcao ? opcoes.find((o) => o.id === opcao) : undefined) ??
+    (anual ? opcoes.find((o) => o.dias === 365) : undefined) ??
+    (!opcao ? opcoes[0] : undefined);
+  const taxa = escolhida?.valor ?? 0;
+  const dias = escolhida?.dias ?? 30;
   if (!taxa || taxa <= 0) {
     return NextResponse.json({ erro: "Esta galeria não tem taxa de renovação configurada." }, { status: 400 });
   }
