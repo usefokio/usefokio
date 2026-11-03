@@ -274,6 +274,56 @@ a {
 .site-slideshow-nav.next { right: 12px; }
 .site-slideshow-contador { text-align: center; font-size: 12px; color: var(--site-suave); margin-top: 8px; letter-spacing: 0.06em; }
 
+/* Galeria embutida no conteúdo rico (editor do site): zera as regras de .site-conteudo img
+   (margem/raio/altura automática) para os modelos controlarem o próprio layout. */
+.site-galeria-conteudo { margin: 18px 0 22px; }
+.site-conteudo .site-galeria-conteudo img { margin: 0; border-radius: 0; max-width: none; }
+
+/* Miniaturas: grade de quadrados que amplia no clique */
+.site-galeria-miniaturas { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.site-galeria-miniaturas .site-foto { aspect-ratio: 1 / 1; border-radius: 6px; cursor: zoom-in; }
+.site-galeria-conteudo .site-galeria-miniaturas .site-foto img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 0.35s ease; }
+.site-galeria-miniaturas .site-foto:hover img { transform: scale(1.04); }
+@media (max-width: 640px) { .site-galeria-miniaturas { grid-template-columns: repeat(2, 1fr); gap: 6px; } }
+
+/* Slider: palco 3:2 (reusa .site-slideshow-palco) + fileira de miniaturas com a atual destacada */
+.site-slider { outline: none; }
+.site-slider:focus-visible .site-slideshow-palco { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.5); }
+.site-slider-img { animation: site-slider-entra 0.45s ease; }
+@keyframes site-slider-entra { from { opacity: 0.25; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .site-slider-img { animation: none; } }
+.site-slider-pausa {
+  position: absolute; right: 12px; bottom: 12px; width: 34px; height: 34px; border-radius: 50%;
+  background: rgba(0, 0, 0, 0.5); color: #fff; border: none; cursor: pointer; font-size: 12px; line-height: 1;
+  display: flex; align-items: center; justify-content: center; z-index: 3; padding: 0;
+}
+.site-slider-miniaturas {
+  position: relative; display: flex; gap: 6px; margin-top: 8px; overflow-x: auto; padding: 2px;
+  scrollbar-width: thin;
+}
+.site-slider-mini {
+  flex: 0 0 auto; width: 84px; height: 60px; padding: 0; border: none; border-radius: 4px; overflow: hidden;
+  cursor: pointer; opacity: 0.5; background: #111; transition: opacity 0.2s, box-shadow 0.2s;
+}
+.site-slider-mini:hover { opacity: 0.85; }
+.site-slider-mini.ativa { opacity: 1; box-shadow: 0 0 0 2px var(--site-texto, #222); }
+.site-galeria-conteudo .site-slider-mini img { width: 100%; height: 100%; object-fit: cover; display: block; }
+@media (max-width: 640px) { .site-slider-mini { width: 64px; height: 46px; } }
+
+/* Faixa horizontal: altura fixa, cada foto na largura natural, rola com o dedo ou pelas setas */
+.site-faixa { position: relative; }
+.site-faixa-trilho {
+  display: flex; gap: 6px; overflow-x: auto; scroll-snap-type: x mandatory; scroll-behavior: smooth;
+  scrollbar-width: none; -ms-overflow-style: none;
+}
+.site-faixa-trilho::-webkit-scrollbar { display: none; }
+.site-faixa-item { flex: 0 0 auto; height: 320px; scroll-snap-align: start; cursor: zoom-in; border-radius: 6px; overflow: hidden; background: #111; }
+.site-galeria-conteudo .site-faixa-item img { height: 100%; width: auto; display: block; }
+@media (max-width: 640px) { .site-faixa-item { height: 220px; } }
+
+/* Grade justificada embutida: as regras de .site-galeria-grid já cuidam do layout */
+.site-galeria-conteudo .site-galeria-grid .site-foto img { width: 100%; height: 100%; object-fit: cover; }
+
 /* Conteúdo rico do Site (posts, trabalhos, páginas) — no editor e nas páginas públicas */
 .site-conteudo img,
 .site-conteudo .post-img {

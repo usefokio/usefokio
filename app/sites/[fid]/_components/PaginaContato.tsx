@@ -5,6 +5,7 @@ import { objectPositionDe, ASPECT } from "@/lib/site/design";
 import type { CfgContato } from "@/lib/site/paginaCfg";
 import { ContatoForm } from "./ContatoForm";
 import { LinkConversao } from "./LinkConversao";
+import { ConteudoRico } from "./ConteudoRico";
 
 export type CanalContato = { icon: string; label: string; href: string; texto: string };
 
@@ -34,7 +35,7 @@ export function PaginaContato({ cfg, titulo, canais, fid, categorias }: {
   const objPos = objectPositionDe(cfg); // alinhamento do recorte das imagens (ponto focal tem prioridade sobre a âncora)
   const form = <ContatoForm fid={fid} config={cfg.formulario} categorias={categorias} />;
   const textoEl = cfg.html
-    ? <div className="site-conteudo" style={{ fontSize: 15, color: "var(--site-suave)", lineHeight: 1.8, margin: "0 0 20px" }} dangerouslySetInnerHTML={{ __html: cfg.html }} />
+    ? <ConteudoRico style={{ fontSize: 15, color: "var(--site-suave)", lineHeight: 1.8, margin: "0 0 20px" }} html={cfg.html} />
     : null;
 
   // Botão dedicado de WhatsApp (usa o WhatsApp do cadastro, o mesmo do canal "WhatsApp").
@@ -57,7 +58,7 @@ export function PaginaContato({ cfg, titulo, canais, fid, categorias }: {
           {cfg.banner && <img className="lp-hero-bg" src={cfg.banner} alt="" style={{ objectPosition: objPos }} />}
           <div className="lp-hero-inner">
             <h1>{titulo}</h1>
-            {cfg.html && <div className="lp-hero-texto site-conteudo" dangerouslySetInnerHTML={{ __html: cfg.html }} />}
+            {cfg.html && <ConteudoRico className="lp-hero-texto site-conteudo" html={cfg.html} />}
             <div className="lp-hero-form">{form}</div>
           </div>
         </section>

@@ -10,6 +10,8 @@ import { resolverMetaPagina, ogPagina } from "@/lib/site/seo";
 import { youtubeEmbedUrl } from "@/lib/utils/youtube";
 import { FotosTrabalho } from "../../../_components/FotosTrabalho";
 import { JsonLd } from "../../../_components/JsonLd";
+import { ConteudoRico } from "../../../_components/ConteudoRico";
+import { Relacionados } from "../../../_components/Relacionados";
 import type { SiteTrabalho, SiteTrabalhoFoto } from "@/lib/supabase/types";
 
 async function buscarTrabalho(fid: string, idslug: string): Promise<SiteTrabalho | null> {
@@ -107,10 +109,10 @@ export default async function TrabalhoPage({ params }: { params: Promise<{ fid: 
       </header>
 
       {t.descricao && (
-        <div
-          className="site-conteudo"
+        <ConteudoRico
           style={{ maxWidth: 760, margin: "0 auto 36px", fontSize: 15, lineHeight: 1.9, color: "#333" }}
-          dangerouslySetInnerHTML={{ __html: t.descricao }}
+          html={t.descricao}
+          altPadrao={t.titulo}
         />
       )}
 
@@ -139,6 +141,7 @@ export default async function TrabalhoPage({ params }: { params: Promise<{ fid: 
           Ver mais {catLabel}
         </Link>
       </footer>
+      <Relacionados fid={fid} tipo="trabalho" id={t.id} />
       </div>
     </article>
   );

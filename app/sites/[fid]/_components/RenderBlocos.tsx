@@ -7,6 +7,7 @@ import { ASPECT, OBJECT_POSITION, objectPositionDe } from "@/lib/site/design";
 import type { SiteDepoimento } from "@/lib/supabase/types";
 import { ContatoForm } from "./ContatoForm";
 import { GaleriaFotos } from "./GaleriaFotos";
+import { ConteudoRico } from "./ConteudoRico";
 import { CarrosselLateral } from "./CarrosselLateral";
 import { LinkConversao } from "./LinkConversao";
 import { VerValorGate } from "./VerValorGate";
@@ -67,7 +68,7 @@ function ListaItens({ itens, estilo }: { itens?: string[]; estilo: NonNullable<S
 function ItensPacote({ html, itens, estilo }: { html?: string | null; itens?: string[]; estilo: NonNullable<SiteBloco["dados"]["lista_estilo"]> }) {
   const rico = (html ?? "").trim();
   if (rico && rico !== "<p></p>") {
-    return <div className="site-conteudo lp-itens-rico" dangerouslySetInnerHTML={{ __html: rico }} />;
+    return <ConteudoRico className="site-conteudo lp-itens-rico" html={rico} />;
   }
   return <ListaItens itens={itens} estilo={estilo} />;
 }
@@ -119,7 +120,7 @@ function Bloco({ bloco, ctx }: { bloco: SiteBloco; ctx: ContextoBlocos }) {
     case "texto":
       return d.html ? (
         <section className="lp-secao" style={{ paddingTop: 24, paddingBottom: 24 }}>
-          <div className="site-conteudo" style={{ fontSize: 16, lineHeight: 1.9, maxWidth: 820, margin: "0 auto" }} dangerouslySetInnerHTML={{ __html: d.html }} />
+          <ConteudoRico style={{ fontSize: 16, lineHeight: 1.9, maxWidth: 820, margin: "0 auto" }} html={d.html} />
         </section>
       ) : null;
 
@@ -142,7 +143,7 @@ function Bloco({ bloco, ctx }: { bloco: SiteBloco; ctx: ContextoBlocos }) {
         <div className={classeDuas(d)}>
           <div className="lp-duas-txt">
             {d.titulo && <h2 className="lp-pacote-nome" style={estTit}>{d.titulo}</h2>}
-            {d.html && <div className="site-conteudo" style={{ fontSize: 16, lineHeight: 1.8 }} dangerouslySetInnerHTML={{ __html: d.html }} />}
+            {d.html && <ConteudoRico style={{ fontSize: 16, lineHeight: 1.8 }} html={d.html} />}
           </div>
           {d.imagem_url && <img className="lp-duas-img" src={d.imagem_url} alt={d.imagem_alt || d.titulo || ""} loading="lazy" style={estiloImagem(d)} />}
         </div>
@@ -153,7 +154,7 @@ function Bloco({ bloco, ctx }: { bloco: SiteBloco; ctx: ContextoBlocos }) {
         <div className={classeDuas(d)}>
           <div className="lp-duas-txt">
             {d.titulo && <h2 className="lp-pacote-nome" style={estTit}>{d.titulo}</h2>}
-            {d.html && <div className="site-conteudo" style={{ fontSize: 16, lineHeight: 1.8 }} dangerouslySetInnerHTML={{ __html: d.html }} />}
+            {d.html && <ConteudoRico style={{ fontSize: 16, lineHeight: 1.8 }} html={d.html} />}
           </div>
           {(d.fotos?.length ?? 0) > 0 && <CarrosselLateral fotos={d.fotos!} alt={d.titulo ?? ""} estilo={estiloImagem(d)} />}
         </div>
@@ -227,7 +228,7 @@ function Bloco({ bloco, ctx }: { bloco: SiteBloco; ctx: ContextoBlocos }) {
         <section className="lp-secao">
           {d.titulo && <h2 className="lp-titulo" style={estTit}>{mask(d.titulo)}</h2>}
           {intro && intro !== "<p></p>" && (
-            <div className="site-conteudo lp-pgto-intro" dangerouslySetInnerHTML={{ __html: intro }} />
+            <ConteudoRico className="site-conteudo lp-pgto-intro" html={intro} />
           )}
           {cond.length > 0 && (
             <div className="lp-pagamento">

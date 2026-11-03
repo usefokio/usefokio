@@ -5,6 +5,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { legacyDoSlug } from "@/lib/site/publico";
 import { resolverMetaPagina, ogPagina } from "@/lib/site/seo";
 import { JsonLd } from "../../_components/JsonLd";
+import { ConteudoRico } from "../../_components/ConteudoRico";
+import { Relacionados } from "../../_components/Relacionados";
 import type { SitePost } from "@/lib/supabase/types";
 
 async function buscarPost(fid: string, idslug: string): Promise<SitePost | null> {
@@ -63,8 +65,9 @@ export default async function PostPage({ params }: { params: Promise<{ fid: stri
           {dataFmt && <div style={{ fontSize: 12, textTransform: "uppercase", letterSpacing: "0.1em", color: "var(--site-suave)" }}>{dataFmt}</div>}
         </header>
         {p.corpo && (
-          <div className="site-conteudo" style={{ fontSize: 16, lineHeight: 1.9 }} dangerouslySetInnerHTML={{ __html: p.corpo }} />
+          <ConteudoRico style={{ fontSize: 16, lineHeight: 1.9 }} html={p.corpo} altPadrao={p.titulo} />
         )}
+        <Relacionados fid={fid} tipo="post" id={p.id} />
       </div>
     </article>
   );
