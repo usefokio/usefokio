@@ -10,20 +10,27 @@ import type { Fotografo } from "@/lib/supabase/types";
 type FotografoContextType = {
   fotografo: Fotografo | null;
   loading: boolean;
+  // true = há login, mas o cadastro não pôde ser lido (rede/token) — NÃO é "sem cadastro"/"não aprovado"
+  erroCarga: boolean;
   reload: () => Promise<void>;
 };
 
 const FotografoContext = createContext<FotografoContextType>({
   fotografo: null,
   loading: true,
+  erroCarga: false,
   reload: async () => {},
 });
 
 export function FotografoProvider({ children }: { children: ReactNode }) {
   const [fotografo, setFotografo] = useState<Fotografo | null>(null);
   const [loading, setLoading]     = useState(true);
+  const [erroCarga, setErroCarga] = useState(false);
+  const erroCargaRef              = useRef(false);
   const firstLoadDone             = useRef(false);
   const lastKnownFotografo        = useRef<Fotografo | null>(null);
+
+  const marcarErro = (v: boolean) => { erroCargaRef.current = v; setErroCarga(v); };
 
   const load = useCallback(async () => {
     if (process.env.NODE_ENV === "development") {
@@ -82,6 +89,7 @@ export function FotografoProvider({ children }: { children: ReactNode }) {
       const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
 
       if (sessionError || !sessionData.session?.user?.id) {
+        marcarErro(false);
         setFotografo(null);
         return;
       }
@@ -92,6 +100,7 @@ export function FotografoProvider({ children }: { children: ReactNode }) {
         const sessionFlag = sessionStorage.getItem("usefokio_session_only");
         if (querLembrar === "false" && !sessionFlag) {
           await supabase.auth.signOut();
+          marcarErro(false);
           setFotografo(null);
           return;
         }
@@ -109,9 +118,11 @@ export function FotografoProvider({ children }: { children: ReactNode }) {
         if (firstLoadDone.current && lastKnownFotografo.current) {
           setFotografo(lastKnownFotografo.current);
         } else {
+          marcarErro(true);
           setFotografo(null);
         }
       } else {
+        marcarErro(false);
         const prev = lastKnownFotografo.current;
         if (!prev || prev.id !== data?.id || prev.updated_at !== data?.updated_at) {
           lastKnownFotografo.current = data;
@@ -124,6 +135,7 @@ export function FotografoProvider({ children }: { children: ReactNode }) {
       if (firstLoadDone.current && lastKnownFotografo.current) {
         setFotografo(lastKnownFotografo.current);
       } else {
+        marcarErro(true);
         setFotografo(null);
       }
     } finally {
@@ -139,14 +151,18 @@ export function FotografoProvider({ children }: { children: ReactNode }) {
     const supabase = createClient();
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === "TOKEN_REFRESHED" || event === "SIGNED_IN") load();
-      if (event === "SIGNED_OUT") { setFotografo(null); setLoading(false); }
+      if (event === "SIGNED_OUT") { marcarErro(false); setFotografo(null); setLoading(false); }
     });
 
-    return () => subscription.unsubscribe();
+    // Falhou ao carregar o cadastro? Tenta de novo quando a aba volta a ficar visível.
+    const aoVoltar = () => { if (document.visibilityState === "visible" && erroCargaRef.current) load(); };
+    document.addEventListener("visibilitychange", aoVoltar);
+
+    return () => { subscription.unsubscribe(); document.removeEventListener("visibilitychange", aoVoltar); };
   }, [load]);
 
   return (
-    <FotografoContext.Provider value={{ fotografo, loading, reload: load }}>
+    <FotografoContext.Provider value={{ fotografo, loading, erroCarga, reload: load }}>
       {children}
     </FotografoContext.Provider>
   );

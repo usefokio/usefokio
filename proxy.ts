@@ -188,15 +188,18 @@ export async function proxy(request: NextRequest) {
     }
   );
 
-  const { data: { session } } = await supabase.auth.getSession();
+  // getClaims valida o token no servidor (relógio certo) e renova a sessão vencida — os cookies
+  // novos saem no `response`. Diferente do getSession, não confia só no cookie.
+  const { data: auth } = await supabase.auth.getClaims();
+  const userId = auth?.claims?.sub;
 
   // Sem sessão → login
-  if (!session?.user) {
+  if (!userId) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
   // Webmaster tentando acessar dashboard → /webmaster
-  if (WEBMASTER_ID && session.user.id === WEBMASTER_ID) {
+  if (WEBMASTER_ID && userId === WEBMASTER_ID) {
     return NextResponse.redirect(new URL("/webmaster", request.url));
   }
 

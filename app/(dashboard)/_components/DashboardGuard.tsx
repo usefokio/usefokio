@@ -60,7 +60,7 @@ function ModalAceiteTermos({ onAceito }: { onAceito: () => void }) {
 }
 
 export function DashboardGuard({ children }: { children: React.ReactNode }) {
-  const { fotografo, loading } = useFotografo();
+  const { fotografo, loading, erroCarga, reload } = useFotografo();
   const router   = useRouter();
   const pathname = usePathname();
   const [termosVerificados, setTermosVerificados] = useState(() => {
@@ -75,6 +75,8 @@ export function DashboardGuard({ children }: { children: React.ReactNode }) {
     if (loading) return;
 
     if (!fotografo) {
+      // Falha ao LER o cadastro (rede/token) não é "não aprovado": fica em "Reconectando…".
+      if (erroCarga) return;
       // Não chamar criar_perfil_fotografo aqui — o perfil é criado apenas no auth/callback
       // Chamar a RPC aqui sobrescrevia dados reais com fallbacks do user_metadata
       createClient().auth.getUser().then(({ data }) => {
@@ -116,9 +118,21 @@ export function DashboardGuard({ children }: { children: React.ReactNode }) {
         sessionStorage.setItem(`termos_${TERMOS_VERSAO}`, "1");
         setTermosVerificados(true);
       });
-  }, [fotografo, loading, router, pathname]);
+  }, [fotografo, loading, erroCarga, router, pathname]);
 
   const spinStyle = { height: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--color-background-tertiary)", fontFamily: "var(--font-sans)" } as const;
+
+  if (!loading && !fotografo && erroCarga) {
+    return (
+      <div style={{ ...spinStyle, flexDirection: "column", gap: 12 }}>
+        <div style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>Reconectando…</div>
+        <button type="button" onClick={() => reload()}
+          style={{ padding: "8px 16px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", color: "var(--color-text-primary)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+          Tentar de novo
+        </button>
+      </div>
+    );
+  }
 
   if (loading || !termosVerificados) {
     return <div style={spinStyle}><div style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>Carregando…</div></div>;
