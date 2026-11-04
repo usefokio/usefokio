@@ -27,11 +27,16 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
   // Opções de renovação que o cliente pode escolher (só rótulo, dias e valor).
   const opcoes = (await opcoesDaGaleria(admin, id)).map(({ id: opId, rotulo, dias, valor }) => ({ id: opId, rotulo, dias, valor }));
 
+  // Cliente já confirmou que tem os arquivos (pela campanha ou por esta tela)
+  const { data: resp } = await admin.from("respostas_campanha").select("resposta, respondido_em").eq("galeria_id", id).maybeSingle();
+  const temArquivosEm = resp?.resposta === "tem_arquivos" ? resp.respondido_em : null;
+
   return NextResponse.json({
     asaas_ativo: foto?.asaas_ativo ?? false,
     pagamento_ativo: pixOk || asaasOk,
     metodo,
     renewal_fee_padrao: foto?.renewal_fee_padrao ?? null,
     opcoes,
+    tem_arquivos_em: temArquivosEm,
   });
 }

@@ -169,6 +169,10 @@ export default function AcessoEntregaPage() {
   const [opcoesRenov,      setOpcoesRenov]      = useState<{ id: string; rotulo: string; dias: number; valor: number }[] | null>(null);
   const [pagamentoAtivo,   setPagamentoAtivo]   = useState<boolean | null>(null);
   const [metodoPagamento,  setMetodoPagamento]  = useState<string | null>(null);
+  const [temArquivosEm,    setTemArquivosEm]    = useState<string | null>(null);
+  const [temArquivosAberto, setTemArquivosAberto] = useState(false);
+  const [temArquivosEnviando, setTemArquivosEnviando] = useState(false);
+  const [temArquivosErro,  setTemArquivosErro]  = useState("");
 
   const largura  = useWindowWidth();
   const isMobile = largura < MOBILE;
@@ -345,6 +349,7 @@ export default function AcessoEntregaPage() {
           setPagamentoAtivo(d.pagamento_ativo ?? false);
           setMetodoPagamento(d.metodo ?? null);
           setOpcoesRenov(Array.isArray(d.opcoes) ? d.opcoes : []);
+          setTemArquivosEm(d.tem_arquivos_em ?? null);
         })
         .catch(() => { setPagamentoAtivo(false); setOpcoesRenov([]); });
     }
@@ -389,6 +394,65 @@ export default function AcessoEntregaPage() {
   const listaRenov = opcoesRenov ?? [];
   const taxaEfetiva = listaRenov[0]?.valor ?? 0;
   const temVariasRenov = listaRenov.length > 1;          // cliente escolhe entre as opções
+
+  async function confirmarTemArquivos() {
+    setTemArquivosEnviando(true);
+    setTemArquivosErro("");
+    try {
+      const res = await fetch(`/api/acesso/entrega/${id}/tem-arquivos`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nome: renovNome.trim() || identificacao?.nome || undefined, email: renovEmail.trim() || undefined }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) { setTemArquivosErro(json.erro ?? "Não foi possível registrar. Tente novamente."); return; }
+      setTemArquivosEm(json.respondido_em ?? new Date().toISOString());
+      setTemArquivosAberto(false);
+    } catch {
+      setTemArquivosErro("Erro de conexão. Tente novamente.");
+    } finally {
+      setTemArquivosEnviando(false);
+    }
+  }
+
+  // "Já tenho os arquivos" — cliente encerra os contatos sobre a galeria (telas expirada e suspensa).
+  function renderTemArquivos() {
+    if (carregandoRenov) return null;
+    if (temArquivosEm) return (
+      <div style={{ marginTop: 16, paddingTop: 14, borderTop: "1px solid rgba(255,255,255,0.1)", fontSize: 12, color: "#6ee7b7", lineHeight: 1.6 }}>
+        ✓ Você confirmou em {new Date(temArquivosEm).toLocaleDateString("pt-BR")} que já tem os arquivos salvos. Não enviaremos novas mensagens sobre esta galeria.
+      </div>
+    );
+    return (
+      <div style={{ marginTop: 16, paddingTop: 14, borderTop: "1px solid rgba(255,255,255,0.1)" }}>
+        {!temArquivosAberto ? (
+          <button type="button" onClick={() => setTemArquivosAberto(true)}
+            style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.18)", background: "transparent", color: "rgba(255,255,255,0.75)", fontSize: 13, fontWeight: 600, cursor: "pointer", lineHeight: 1.4 }}>
+            Já tenho meus arquivos salvos e não quero receber novas mensagens
+          </button>
+        ) : (
+          <div style={{ padding: "12px 14px", borderRadius: 10, background: "rgba(239,68,68,0.10)", border: "1px solid rgba(239,68,68,0.35)" }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "#fca5a5", marginBottom: 6 }}>⚠️ Atenção</div>
+            <div style={{ fontSize: 12, color: "rgba(255,255,255,0.75)", lineHeight: 1.6, marginBottom: 12 }}>
+              Ao confirmar, você não receberá novas mensagens sobre esta galeria e as fotos serão excluídas do nosso banco de dados.
+              Antes de confirmar, verifique se todos os arquivos estão salvos no seu computador ou em uma nuvem pessoal.
+            </div>
+            {temArquivosErro && <div style={{ fontSize: 12, color: "#fca5a5", marginBottom: 8 }}>{temArquivosErro}</div>}
+            <div style={{ display: "flex", gap: 8 }}>
+              <button type="button" onClick={() => { setTemArquivosAberto(false); setTemArquivosErro(""); }} disabled={temArquivosEnviando}
+                style={{ flex: 1, padding: "9px 0", borderRadius: 8, border: "1px solid rgba(255,255,255,0.2)", background: "transparent", color: "rgba(255,255,255,0.75)", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+                Cancelar
+              </button>
+              <button type="button" onClick={confirmarTemArquivos} disabled={temArquivosEnviando}
+                style={{ flex: 1, padding: "9px 0", borderRadius: 8, border: "none", background: "#ef4444", color: "#fff", fontSize: 12, fontWeight: 700, cursor: temArquivosEnviando ? "default" : "pointer", opacity: temArquivosEnviando ? 0.6 : 1 }}>
+                {temArquivosEnviando ? "Registrando…" : "Confirmar"}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   // Bloco de pagamento de renovação — usado nas telas expirada e suspensa.
   // Chamado como função (não como <Componente/>) para não remontar os inputs a cada render.
@@ -631,6 +695,7 @@ export default function AcessoEntregaPage() {
               Entre em contato com o fotógrafo para renovar o acesso.
             </div>
           )}
+          {renderTemArquivos()}
         </div>
       </div>
     </div>
@@ -672,6 +737,7 @@ export default function AcessoEntregaPage() {
               Entre em contato com o fotógrafo para reativar o acesso.
             </div>
           )}
+          {renderTemArquivos()}
         </div>
       </div>
     </div>

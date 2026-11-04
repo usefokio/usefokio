@@ -4,8 +4,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getResend, FROM_DEFAULT, APP_URL } from "@/lib/email/resend";
-import { templateRespostaCampanha, templateAgradecimentoCampanha } from "@/lib/email/templates";
+import { confirmarTemArquivos } from "@/lib/campanha/resposta";
 import { opcoesDaGaleria } from "@/lib/entrega/renovacaoServidor";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ token: string }> }) {
@@ -76,60 +75,22 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
     }
   }
 
-  const agora = new Date().toISOString();
-
-  // Registrar resposta e encerrar funil
-  const updatePayload: Record<string, unknown> = {
-    resposta,
-    respondido_em:    agora,
-    respondido_nome:  nome?.trim() || null,
-    respondido_email: email?.trim() || null,
-  };
-  // Only close the funnel stage when the client actually confirms they have the files.
-  // For "renovar", the stage stays open until payment is confirmed via /renovar/verificar.
+  // "Já tenho os arquivos": grava, encerra o funil e avisa o fotógrafo (mesma regra da tela da galeria)
   if (resposta === "tem_arquivos") {
-    updatePayload.estagio = "encerrado";
+    await confirmarTemArquivos(admin, registro.galeria_id, nome, email);
+    return NextResponse.json({ ok: true, galeriaId: registro.galeria_id });
   }
 
+  // "Renovar": o estágio fica aberto até o pagamento ser confirmado (/renovar/verificar)
   await admin
     .from("respostas_campanha")
-    .update(updatePayload)
+    .update({
+      resposta,
+      respondido_em:    new Date().toISOString(),
+      respondido_nome:  nome?.trim() || null,
+      respondido_email: email?.trim() || null,
+    })
     .eq("token", token);
-
-  if (resposta === "tem_arquivos") {
-    const { data: galeria } = await admin
-      .from("galerias_entrega")
-      .select("titulo, clientes(nome, email), fotografos:fotografo_id(nome_completo, nome_empresa, email, site)")
-      .eq("id", registro.galeria_id)
-      .maybeSingle() as { data: {
-        titulo: string;
-        clientes: { nome: string; email: string | null } | null;
-        fotografos: { nome_completo: string; nome_empresa: string; email: string; site: string | null } | null;
-      } | null };
-
-    // Notificar fotógrafo (falha silenciosa — resposta já foi gravada)
-    try {
-      const resend = getResend();
-      const respondidoEm = new Date(agora).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
-      const clienteNome = galeria?.clientes?.nome ?? (nome?.trim() || "Cliente");
-
-      if (galeria?.fotografos?.email) {
-        const { subject, html } = templateRespostaCampanha({
-          fotografoNome:   galeria.fotografos.nome_empresa ?? galeria.fotografos.nome_completo,
-          clienteNome,
-          galeriaTitulo:   galeria.titulo,
-          resposta:        "tem_arquivos",
-          respondidoEm,
-          respondidoNome:  nome?.trim() || null,
-          galeriaAdminUrl: `${APP_URL}/entrega/${registro.galeria_id}`,
-        });
-        await resend.emails.send({ from: FROM_DEFAULT, to: galeria.fotografos.email, subject, html });
-        await admin.from("respostas_campanha").update({ notificado: true }).eq("token", token);
-      }
-    } catch (err) {
-      console.error("[campanha/resposta] notificacao error:", err);
-    }
-  }
 
   return NextResponse.json({ ok: true, galeriaId: registro.galeria_id });
 }
