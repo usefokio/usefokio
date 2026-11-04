@@ -169,7 +169,6 @@ export default function AcessoEntregaPage() {
   const [opcoesRenov,      setOpcoesRenov]      = useState<{ id: string; rotulo: string; dias: number; valor: number }[] | null>(null);
   const [pagamentoAtivo,   setPagamentoAtivo]   = useState<boolean | null>(null);
   const [metodoPagamento,  setMetodoPagamento]  = useState<string | null>(null);
-  const [renewalFeePadrao, setRenewalFeePadrao] = useState<number | null>(null);
 
   const largura  = useWindowWidth();
   const isMobile = largura < MOBILE;
@@ -345,10 +344,9 @@ export default function AcessoEntregaPage() {
         .then(d => {
           setPagamentoAtivo(d.pagamento_ativo ?? false);
           setMetodoPagamento(d.metodo ?? null);
-          setRenewalFeePadrao(d.renewal_fee_padrao ?? null);
           setOpcoesRenov(Array.isArray(d.opcoes) ? d.opcoes : []);
         })
-        .catch(() => setPagamentoAtivo(false));
+        .catch(() => { setPagamentoAtivo(false); setOpcoesRenov([]); });
     }
   }, [tela]);
 
@@ -386,11 +384,10 @@ export default function AcessoEntregaPage() {
   }
 
   // Opções de renovação resolvidas no servidor (Configurações → Financeiro). Enquanto não chegam,
-  // usa a taxa antiga da galeria só para decidir se mostra o bloco.
+  // mostra "Carregando…" (nada de valor provisório).
+  const carregandoRenov = opcoesRenov === null;
   const listaRenov = opcoesRenov ?? [];
-  const taxaEfetiva = opcoesRenov
-    ? (listaRenov[0]?.valor ?? 0)
-    : ((galeria?.renewal_fee && galeria.renewal_fee > 0) ? galeria.renewal_fee : (renewalFeePadrao ?? 0));
+  const taxaEfetiva = listaRenov[0]?.valor ?? 0;
   const temVariasRenov = listaRenov.length > 1;          // cliente escolhe entre as opções
 
   // Bloco de pagamento de renovação — usado nas telas expirada e suspensa.
@@ -615,7 +612,10 @@ export default function AcessoEntregaPage() {
           <div style={{ fontSize: 13, color: "rgba(255,255,255,0.55)", lineHeight: 1.6, marginBottom: taxaEfetiva > 0 ? 16 : 0 }}>
             O prazo de acesso expirou em {galeria?.expires_at ? new Date(galeria.expires_at).toLocaleDateString("pt-BR") : "—"}.
           </div>
-          {taxaEfetiva > 0 && (
+          {carregandoRenov && (
+            <div style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", marginTop: 10 }}>Carregando…</div>
+          )}
+          {!carregandoRenov && taxaEfetiva > 0 && (
             <div style={{ borderTop: "1px solid rgba(239,68,68,0.2)", paddingTop: 14 }}>
               {!temVariasRenov && (<>
                 <div style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>Taxa de renovação</div>
@@ -626,7 +626,7 @@ export default function AcessoEntregaPage() {
               {renderBlocoRenovacao({ cor: "#f87171" })}
             </div>
           )}
-          {!(taxaEfetiva > 0) && (
+          {!carregandoRenov && !(taxaEfetiva > 0) && (
             <div style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", marginTop: 10 }}>
               Entre em contato com o fotógrafo para renovar o acesso.
             </div>
@@ -653,7 +653,10 @@ export default function AcessoEntregaPage() {
           <div style={{ fontSize: 13, color: "rgba(255,255,255,0.55)", lineHeight: 1.6, marginBottom: taxaEfetiva > 0 ? 16 : 0 }}>
             O acesso a esta galeria foi suspenso temporariamente.
           </div>
-          {taxaEfetiva > 0 && (
+          {carregandoRenov && (
+            <div style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", marginTop: 10 }}>Carregando…</div>
+          )}
+          {!carregandoRenov && taxaEfetiva > 0 && (
             <div style={{ borderTop: "1px solid rgba(245,158,11,0.2)", paddingTop: 14 }}>
               {!temVariasRenov && (<>
                 <div style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>Taxa de reativação</div>
@@ -664,7 +667,7 @@ export default function AcessoEntregaPage() {
               {renderBlocoRenovacao({ cor: "#fbbf24" })}
             </div>
           )}
-          {!(taxaEfetiva > 0) && (
+          {!carregandoRenov && !(taxaEfetiva > 0) && (
             <div style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", marginTop: 10 }}>
               Entre em contato com o fotógrafo para reativar o acesso.
             </div>
