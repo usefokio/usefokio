@@ -79,6 +79,8 @@ type ModalReceberLote = {
   entries: EntryWithPedido[];
   dataPagamento: string;
   contaId: string;
+  liquido: string;          // total líquido recebido; a diferença para o bruto vira taxa (despesa)
+  contaDespesaId: string;   // conta de despesa da taxa
 };
 
 const STATUS_MAP: Record<string, { label: string; color: string; bg: string }> = {
@@ -439,22 +441,61 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
       return;
     }
     setErroPagamento("");
-    setModalReceberLote({ entries: sel, dataPagamento: hoje, contaId: contas.find(c => c.principal)?.id ?? (contas.length === 1 ? contas[0].id : "") });
+    const bruto = sel.reduce((s, e) => s + Number(e.valor), 0);
+    setModalReceberLote({
+      entries: sel, dataPagamento: hoje, contaId: contas.find(c => c.principal)?.id ?? (contas.length === 1 ? contas[0].id : ""),
+      liquido: bruto.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }), contaDespesaId: "",
+    });
   };
 
   const confirmarReceberLote = async () => {
     if (!modalReceberLote) return;
     if (!isValidDate(modalReceberLote.dataPagamento)) { setErroPagamento("Data de pagamento inválida."); return; }
+    const { entries: sel, dataPagamento, contaId, liquido, contaDespesaId } = modalReceberLote;
+    // Mesma regra do recebimento de uma parcela: a diferença entre o bruto e o líquido vira despesa (taxa),
+    // dividida entre as parcelas na proporção do valor de cada uma (o estorno de uma parcela tira só a dela).
+    const bruto = Math.round(sel.reduce((s, e) => s + Number(e.valor), 0) * 100) / 100;
+    const liq = parsearValor(liquido);
+    const taxaTotal = Math.round((bruto - liq) * 100) / 100;
+    if (liq <= 0) { setErroPagamento("Informe o valor líquido recebido."); return; }
+    if (taxaTotal < 0) { setErroPagamento("O valor líquido não pode ser maior que o total das parcelas."); return; }
+    if (taxaTotal > 0 && !contaDespesaId) { setErroPagamento("Selecione a conta de despesa para lançar a taxa."); return; }
     setSalvandoPag(true);
     setErroPagamento("");
-    const { entries: sel, dataPagamento, contaId } = modalReceberLote;
     const grupo = crypto.randomUUID();
-    const { error } = await createClient()
+    const sb = createClient();
+    const { error } = await sb
       .from("crm_financial_entries")
       .update({ status: "pago", pago_em: dataPagamento, conta_bancaria_id: contaId || null, recibo_grupo_id: grupo })
       .in("id", sel.map(e => e.id));
+    if (error) { setSalvandoPag(false); setErroPagamento(error.message); return; }
+    if (taxaTotal > 0) {
+      let restante = taxaTotal;
+      const taxas = sel.map((e, i) => {
+        const valor = i === sel.length - 1 ? Math.round(restante * 100) / 100 : Math.round((taxaTotal * Number(e.valor) / bruto) * 100) / 100;
+        restante -= valor;
+        return {
+          fotografo_id: fotografo!.id,
+          tipo: "despesa",
+          descricao: `Taxa de recebimento — ${e.descricao}`,
+          valor,
+          vencimento: dataPagamento,
+          data_competencia: dataPagamento,
+          pago_em: dataPagamento,
+          status: "pago",
+          conta_id: contaDespesaId,
+          conta_bancaria_id: contaId || null,
+          cliente_id: e.cliente_id ?? null,
+          pedido_id: e.pedido_id ?? null,
+          recibo_grupo_id: grupo,
+          num_documento: e.num_documento ?? null,
+          forma_pagamento: e.forma_pagamento ?? null,
+        };
+      }).filter(t => t.valor > 0);
+      const { error: errTaxa } = await sb.from("crm_financial_entries").insert(taxas);
+      if (errTaxa) { setSalvandoPag(false); setErroPagamento(`Recebimento salvo, mas o lançamento da taxa falhou: ${errTaxa.message}`); return; }
+    }
     setSalvandoPag(false);
-    if (error) { setErroPagamento(error.message); return; }
     await promoverPedidosPagos(createClient(), sel.map(e => e.pedido_id));
     const contaNome = contas.find(c => c.id === contaId)?.nome ?? "Conta";
     setModalReceberLote(null);
@@ -523,8 +564,15 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
     const sb = createClient();
     // A taxa/tarifa lançada no recebimento (despesa vinculada pelo mesmo recibo_grupo_id) não faz
     // mais sentido sem o recebimento — sem apagar ela, dar baixa de novo cria uma taxa duplicada.
+    // Recibo de várias parcelas: se outras do grupo continuam pagas, tira só a taxa desta parcela.
     if (e.tipo === "receita" && e.recibo_grupo_id) {
-      await sb.from("crm_financial_entries").delete().eq("recibo_grupo_id", e.recibo_grupo_id).eq("tipo", "despesa");
+      const { data: doGrupo } = await sb.from("crm_financial_entries")
+        .select("id, tipo, status, descricao").eq("recibo_grupo_id", e.recibo_grupo_id);
+      const lista = (doGrupo ?? []) as { id: string; tipo: string; status: string; descricao: string | null }[];
+      const taxas = lista.filter(x => x.tipo === "despesa");
+      const outrasPagas = lista.some(x => x.tipo === "receita" && x.status === "pago" && x.id !== e.id);
+      const alvo = outrasPagas ? taxas.filter(t => t.descricao === `Taxa de recebimento — ${e.descricao}`).slice(0, 1) : taxas;
+      if (alvo.length) await sb.from("crm_financial_entries").delete().in("id", alvo.map(t => t.id));
     }
     await sb
       .from("crm_financial_entries")
@@ -1206,6 +1254,39 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
                 />
               </div>
             )}
+
+            {/* Valor recebido: se menor que o total, a diferença vira despesa (taxa do cartão etc.) */}
+            {(() => {
+              const brutoLote = modalReceberLote.entries.reduce((s, e) => s + Number(e.valor), 0);
+              const diferenca = Math.round((brutoLote - parsearValor(modalReceberLote.liquido)) * 100) / 100;
+              return (
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>Valor recebido (total)</div>
+                  <input value={modalReceberLote.liquido} inputMode="decimal"
+                    onChange={e => setModalReceberLote(m => m ? { ...m, liquido: mascaraValor(e.target.value) } : m)}
+                    style={{ width: "100%", boxSizing: "border-box", padding: "9px 12px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", fontSize: 13, color: "var(--color-text-primary)", outline: "none" }} />
+                  <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 6 }}>
+                    Total das parcelas: {fmt(brutoLote)}. Deixe igual se recebeu tudo.
+                  </div>
+                  {diferenca > 0 && (
+                    <div style={{ marginTop: 12 }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>
+                        Lançar a diferença de {fmt(diferenca)} em (despesa) *
+                      </div>
+                      <ComboSelect
+                        options={chartAccounts.filter(c => c.codigo.startsWith("4") || c.codigo.startsWith("5")).map(c => ({ id: c.id, label: `${c.codigo} — ${c.nome}` }))}
+                        value={modalReceberLote.contaDespesaId}
+                        onChange={v => setModalReceberLote(m => m ? { ...m, contaDespesaId: v } : m)}
+                        placeholder="Selecione a conta de despesa…"
+                      />
+                      <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 6 }}>
+                        A taxa é dividida entre as parcelas, na proporção do valor de cada uma.
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             {erroPagamento && <div style={{ fontSize: 12, color: "#EF4444", marginBottom: 12 }}>{erroPagamento}</div>}
 
