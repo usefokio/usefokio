@@ -71,15 +71,17 @@ function diasDesde(iso: string | null): string {
 
 const CORES_CAPA = ["#7C6E5A","#5A6E7C","#6E5A7C","#5A7C6E","#7C5A6E","#6E7C5A"];
 
-type Tarefa = { item: CampanhaItem; etapa: Exclude<EtapaRegua, "email_1" | "email_2">; atraso: number };
+type Tarefa = { item: CampanhaItem; etapa: Exclude<EtapaRegua, "email_1" | "email_2"> | "respondeu"; atraso: number };
 
-const TAREFA_INFO: Record<Tarefa["etapa"], { titulo: string; icone: string; acao: "whatsapp_1" | "whatsapp_2" | "exclusao" }> = {
+const TAREFA_INFO: Record<Tarefa["etapa"], { titulo: string; icone: string; acao: string }> = {
   whatsapp_1: { titulo: "Enviar 1º WhatsApp",                   icone: "📱", acao: "whatsapp_1" },
   whatsapp_2: { titulo: "Enviar 2º WhatsApp — aviso de exclusão", icone: "⚠️", acao: "whatsapp_2" },
   exclusao:   { titulo: "Excluir as fotos (sem resposta)",       icone: "🗑", acao: "exclusao" },
+  respondeu:  { titulo: "Cliente respondeu o e-mail — régua pausada", icone: "💬", acao: "retomar" },
 };
 
-function textoPrazo(atraso: number): string {
+function textoPrazo(atraso: number, etapa?: Tarefa["etapa"]): string {
+  if (etapa === "respondeu") return atraso <= 0 ? "respondeu hoje" : atraso === 1 ? "respondeu há 1 dia" : `respondeu há ${atraso} dias`;
   if (atraso <= 0) return "hoje";
   return atraso === 1 ? "atrasada há 1 dia" : `atrasada há ${atraso} dias`;
 }
@@ -100,6 +102,8 @@ export default function CampanhaPage() {
   const [regras,         setRegras]         = useState<RegrasFunil | null>(null);
   const [tarefaSalvando, setTarefaSalvando] = useState<string | null>(null);
   const [copiadoId,      setCopiadoId]      = useState<string | null>(null);
+  const [respostasCliente, setRespostasCliente] = useState<Record<string, string>>({});
+  const [respostaAberta, setRespostaAberta] = useState<string | null>(null);
 
   useEffect(() => {
     if (!fotografo) return;
@@ -207,6 +211,19 @@ export default function CampanhaPage() {
           cliente_whatsapp: r.galerias_entrega?.clientes?.whatsapp ?? null,
         },
       }));
+      // Respostas por e-mail das galerias com a régua pausada (para "Ver resposta" nas Tarefas)
+      const pausadas = mapped.filter((it) => it.pausado_em && !it.resposta).map((it) => it.galeria.id);
+      if (pausadas.length) {
+        const { data: resps } = await supabase.from("entrega_contatos")
+          .select("galeria_id, detalhe, criado_em").in("galeria_id", pausadas)
+          .eq("etapa", "resposta").eq("direcao", "recebido").order("criado_em", { ascending: false });
+        const mapa: Record<string, string> = {};
+        for (const r of (resps ?? []) as { galeria_id: string; detalhe: string | null }[]) {
+          if (!(r.galeria_id in mapa)) mapa[r.galeria_id] = r.detalhe ?? "";
+        }
+        setRespostasCliente(mapa);
+      }
+
       // Galeria com renovação válida (expires_at no futuro) não deve aparecer no funil.
       const nowMs = Date.now();
       setItens(mapped.filter((it) => !(it.galeria.expires_at && new Date(it.galeria.expires_at).getTime() > nowMs)));
@@ -279,7 +296,11 @@ export default function CampanhaPage() {
     if (!regras) return [];
     const lista: Tarefa[] = [];
     for (const item of itens) {
-      if (item.resposta || item.pausado_em || pendentes.has(item.galeria.id)) continue;
+      if (item.pausado_em && !item.resposta) {
+        lista.push({ item, etapa: "respondeu", atraso: Math.max(0, diasDeAtraso(new Date(item.pausado_em))) });
+        continue;
+      }
+      if (item.resposta || pendentes.has(item.galeria.id)) continue;
       const prox = proximaEtapa(item, baseDaRegua(item.galeria.expires_at, item.created_at), !!item.galeria.cliente_email, regras);
       if (!prox || prox.etapa === "email_1" || prox.etapa === "email_2") continue;
       const atraso = diasDeAtraso(prox.venceEm);
@@ -322,14 +343,15 @@ export default function CampanhaPage() {
     }
   }
 
-  async function concluirTarefa(t: Tarefa) {
+  async function concluirTarefa(t: Tarefa, acao = TAREFA_INFO[t.etapa].acao) {
     if (t.etapa === "exclusao" && !window.confirm("Confirma que as fotos desta galeria já foram excluídas por você? (o sistema só registra, não apaga nada)")) return;
+    if (acao === "encerrar" && !window.confirm("Encerrar o funil desta galeria? Nenhum outro contato será feito.")) return;
     setTarefaSalvando(t.item.id);
     try {
       const res = await fetch(`/api/campanha/galeria/${t.item.galeria.id}/tarefa`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ acao: TAREFA_INFO[t.etapa].acao }),
+        body: JSON.stringify({ acao }),
       });
       if (res.ok) atualizarEstagio(t.item.galeria.id, await res.json());
     } finally {
@@ -400,9 +422,19 @@ export default function CampanhaPage() {
                     <a href={`/entrega/${g.id}`} style={{ color: "inherit" }}>{g.titulo}</a>{g.cliente_nome ? ` · ${g.cliente_nome}` : ""}
                   </div>
                 </div>
-                <span style={{ fontSize: 11, fontWeight: 700, color: t.atraso > 0 ? "#DC2626" : "#B45309" }}>{textoPrazo(t.atraso)}</span>
+                <span style={{ fontSize: 11, fontWeight: 700, color: t.etapa === "respondeu" ? "#2563EB" : t.atraso > 0 ? "#DC2626" : "#B45309" }}>{textoPrazo(t.atraso, t.etapa)}</span>
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                  {t.etapa !== "exclusao" ? (
+                  {t.etapa === "respondeu" ? (
+                    <>
+                      <button onClick={() => setRespostaAberta((a) => (a === t.item.id ? null : t.item.id))} style={botaoTarefa("#2563EB")}>
+                        {respostaAberta === t.item.id ? "Ocultar resposta" : "Ver resposta"}
+                      </button>
+                      <button onClick={() => concluirTarefa(t, "retomar")} disabled={salvando} style={{ ...botaoTarefa("#15803D"), opacity: salvando ? 0.6 : 1 }}
+                        title="A régua continua de onde parou">Retomar</button>
+                      <button onClick={() => concluirTarefa(t, "encerrar")} disabled={salvando} style={{ ...botaoTarefa("#6B7280"), opacity: salvando ? 0.6 : 1 }}
+                        title="Fecha o funil desta galeria (vai para Concluído)">Encerrar</button>
+                    </>
+                  ) : t.etapa !== "exclusao" ? (
                     <button onClick={() => abrirWhatsAppTarefa(t)} style={botaoTarefa("#15803D")}>
                       {copiadoId === t.item.id ? "✓ Copiado" : temFone ? "Abrir WhatsApp" : "Copiar mensagem"}
                     </button>
@@ -412,10 +444,17 @@ export default function CampanhaPage() {
                       <a href={`/entrega/${g.id}`} style={{ ...botaoTarefa("#6B7280"), textDecoration: "none" }}>Abrir galeria</a>
                     </>
                   )}
-                  <button onClick={() => concluirTarefa(t)} disabled={salvando} style={{ ...botaoTarefa("#111"), opacity: salvando ? 0.6 : 1 }}>
-                    {salvando ? "Salvando…" : t.etapa === "exclusao" ? "Marcar feito" : "Marcar enviado"}
-                  </button>
+                  {t.etapa !== "respondeu" && (
+                    <button onClick={() => concluirTarefa(t)} disabled={salvando} style={{ ...botaoTarefa("#111"), opacity: salvando ? 0.6 : 1 }}>
+                      {salvando ? "Salvando…" : t.etapa === "exclusao" ? "Marcar feito" : "Marcar enviado"}
+                    </button>
+                  )}
                 </div>
+                {t.etapa === "respondeu" && respostaAberta === t.item.id && (
+                  <div style={{ flexBasis: "100%", marginLeft: 26, padding: "10px 12px", borderRadius: 8, background: "var(--color-background-secondary)", fontSize: 12, color: "var(--color-text-primary)", whiteSpace: "pre-wrap", lineHeight: 1.5, maxHeight: 240, overflowY: "auto" }}>
+                    {respostasCliente[t.item.galeria.id] || "Resposta não encontrada — confira no seu e-mail (ela foi encaminhada para você)."}
+                  </div>
+                )}
               </div>
             );
           })}
@@ -517,6 +556,9 @@ export default function CampanhaPage() {
 
                           {/* Info */}
                           <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginBottom: 8 }}>
+                            {item.pausado_em && !item.resposta && (
+                              <div style={{ color: "#2563EB", fontWeight: 600, marginBottom: 2 }}>💬 Cliente respondeu — régua pausada</div>
+                            )}
                             {item.resposta === "tem_arquivos" && item.agradecimento_em && (
                               <span style={{ color: "#059669", fontWeight: 600 }}>✅ Agradecimento enviado</span>
                             )}

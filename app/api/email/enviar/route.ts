@@ -6,12 +6,13 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { decryptKey } from "@/lib/asaas";
 import { getResend } from "@/lib/email/resend";
 import { htmlEmailCliente, remetenteCliente } from "@/lib/email/clienteHtml";
+import { enderecoRespostas } from "@/lib/campanha/respostasEmail";
 
 export async function POST(req: NextRequest) {
   const fotografoId = await fotografoIdAtual();
   if (!fotografoId) return NextResponse.json({ erro: "Não autenticado." }, { status: 401 });
 
-  const { to, subject, body } = await req.json().catch(() => ({}));
+  const { to, subject, body, galeriaId } = await req.json().catch(() => ({}));
   if (!to || !subject || !body) {
     return NextResponse.json({ erro: "Campos obrigatórios: to, subject, body." }, { status: 400 });
   }
@@ -23,13 +24,21 @@ export async function POST(req: NextRequest) {
 
   const html = htmlEmailCliente(f, String(body));
 
+  // E-mail do funil: a resposta do cliente vai para o endereço único da galeria (pausa a régua)
+  let replyTo: string | null = f?.email ?? null;
+  if (galeriaId) {
+    const { data: reg } = await admin.from("respostas_campanha").select("token")
+      .eq("galeria_id", galeriaId).eq("fotografo_id", fotografoId).maybeSingle();
+    replyTo = enderecoRespostas(reg?.token) ?? replyTo;
+  }
+
   let enviado = false;
 
   // Tentar Resend primeiro (email do sistema, com o nome do estúdio e "responder para" = fotógrafo)
   try {
     const { error } = await getResend().emails.send({
       from: remetenteCliente(f), to, subject, html,
-      ...(f?.email ? { replyTo: f.email } : {}),
+      ...(replyTo ? { replyTo } : {}),
     });
     if (error) throw new Error(error.message);
     enviado = true;

@@ -285,7 +285,7 @@ export function ModalEmailCliente({ galeria, onFechar, templateInicial, onEstagi
       const res = await fetch("/api/email/enviar", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ to: email, subject: assunto, body: mensagem }),
+        body: JSON.stringify({ to: email, subject: assunto, body: mensagem, galeriaId: templateId === "campanha" ? galeria.id : undefined }),
       });
       const json = await res.json();
       if (!res.ok) {

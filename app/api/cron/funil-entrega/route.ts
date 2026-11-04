@@ -11,6 +11,7 @@ import { htmlEmailCliente, remetenteCliente } from "@/lib/email/clienteHtml";
 import { REGRAS_FUNIL_PADRAO, baseDaRegua, proximaEtapa, type RegrasFunil } from "@/lib/campanha/regua";
 import { substituirVars, assinaturaTexto, CAMPANHA_EMAIL1_DEFAULT, CAMPANHA_EMAIL2_DEFAULT, ASSUNTO_EMAIL1, ASSUNTO_EMAIL2 } from "@/lib/campanha/textos";
 import { registrarContato } from "@/lib/campanha/servidor";
+import { enderecoRespostas } from "@/lib/campanha/respostasEmail";
 import type { EstagioFunil } from "@/lib/supabase/types";
 
 export const maxDuration = 300;
@@ -130,13 +131,16 @@ export async function GET(req: Request) {
     });
     const assunto = (prox.etapa === "email_1" ? ASSUNTO_EMAIL1 : ASSUNTO_EMAIL2).replace("{titulo}", g.titulo);
 
+    // Resposta do cliente vai para o endereço da galeria (pausa a régua); sem ele, para o fotógrafo
+    const replyTo = enderecoRespostas(reg.token) ?? f?.email ?? null;
+
     try {
       const { data, error } = await getResend().emails.send({
         from: remetenteCliente(f),
         to: g.clientes!.email!,
         subject: assunto,
         html: htmlEmailCliente(f, corpo),
-        ...(f?.email ? { replyTo: f.email } : {}),
+        ...(replyTo ? { replyTo } : {}),
       });
       if (error) throw new Error(error.message);
       enviados++;

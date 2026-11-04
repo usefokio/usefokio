@@ -296,7 +296,7 @@ export default function EntregaDetailPage() {
   const [fotos,    setFotos]    = useState<GaleriaEntregaFoto[]>([]);
   const [acessos,  setAcessos]  = useState<{ id: string; nome: string; email: string; acessado_em: string }[]>([]);
   const [funilInfo, setFunilInfo] = useState<{ estagio: string; resposta: string | null; respondido_em: string | null; respondido_nome: string | null; email_1_em: string | null; email_2_em: string | null; whatsapp_em: string | null; whatsapp_2_em: string | null; ignorar_funil: boolean } | null | undefined>(undefined);
-  const [contatos, setContatos] = useState<{ etapa: string; canal: string; modo: string; criado_em: string }[]>([]);
+  const [contatos, setContatos] = useState<{ etapa: string; canal: string; modo: string; criado_em: string; detalhe: string | null }[]>([]);
   const [pagamentos, setPagamentos] = useState<Pick<Pagamento, "id" | "valor" | "status" | "paid_at" | "pagador_nome" | "pagador_email" | "dias_liberados" | "gateway">[]>([]);
   const [revelacaoPedidos, setRevelacaoPedidos] = useState<RevelacaoPedidoView[]>([]);
   const [confirmandoRevId, setConfirmandoRevId] = useState<string | null>(null);
@@ -350,7 +350,7 @@ export default function EntregaDetailPage() {
         .neq("status", "aberto")
         .order("created_at", { ascending: false }),
       supabase.from("entrega_contatos")
-        .select("etapa, canal, modo, criado_em")
+        .select("etapa, canal, modo, criado_em, detalhe")
         .eq("galeria_id", id)
         .order("criado_em"),
     ]).then(([{ data: g }, f, { data: a }, { data: funil }, { data: pags }, { data: revs }, { data: cont }]) => {
@@ -764,10 +764,16 @@ export default function EntregaDetailPage() {
           whatsapp_1: { texto: "WhatsApp enviado",                     icone: "📱", cor: "#15803D" },
           whatsapp_2: { texto: "2º WhatsApp (aviso de exclusão) enviado", icone: "📱", cor: "#B45309" },
           exclusao:   { texto: "Fotos excluídas (marcado por você)",    icone: "🗑", cor: "#6B7280" },
+          resposta:   { texto: "Cliente respondeu o e-mail — régua pausada", icone: "💬", cor: "#2563EB" },
+          retomada:   { texto: "Régua retomada",                        icone: "▶️", cor: "#15803D" },
         };
         for (const c of contatos) {
           const r = ROTULO_CONTATO[c.etapa];
-          if (r) eventos.push({ data: fmtData(c.criado_em), texto: `${r.texto}${c.modo === "auto" ? " · automático" : ""}`, icone: r.icone, cor: r.cor });
+          if (!r) continue;
+          const automatica = c.etapa === "resposta" && (c.detalhe ?? "").startsWith("[resposta automática]");
+          const texto = automatica ? "Resposta automática do cliente (férias/ausência) — régua seguiu"
+            : `${r.texto}${c.modo === "auto" && c.etapa.startsWith("email") ? " · automático" : ""}`;
+          eventos.push({ data: fmtData(c.criado_em), texto, icone: r.icone, cor: r.cor });
         }
         if (funilInfo.respondido_em) eventos.push({
           data: fmtData(funilInfo.respondido_em),
