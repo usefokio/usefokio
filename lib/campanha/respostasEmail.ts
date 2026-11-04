@@ -12,6 +12,25 @@ export function enderecoRespostas(token: string | null | undefined, nomeExibido?
   return nome ? `${nome} <${endereco}>` : endereco;
 }
 
+/** Só o que o cliente escreveu: corta o e-mail original citado ("Em … escreveu:", "On … wrote:", "De:", "> …"). */
+export function textoSemCitacao(texto: string): string {
+  const marcadores = [
+    /\n[^\n]*\bEm [^\n]*(\n[^\n]*)?escreveu:/i,
+    /\n[^\n]*\bOn [^\n]*(\n[^\n]*)?wrote:/i,
+    /\n-{2,}\s*(Mensagem original|Original Message)/i,
+    /\n_{5,}\s*\n\s*(De|From):/i,
+    /\n\s*(De|From):\s[^\n]+\n\s*(Enviad[oa]|Sent|Data|Date):/i,
+    /\n>/,
+  ];
+  let corte = texto.length;
+  for (const m of marcadores) {
+    const i = texto.search(m);
+    if (i >= 0 && i < corte) corte = i;
+  }
+  const limpo = texto.slice(0, corte).trim();
+  return limpo || texto.trim();
+}
+
 /** Token da galeria a partir dos destinatários de um e-mail recebido. */
 export function tokenDosDestinatarios(enderecos: (string | null | undefined)[]): string | null {
   for (const e of enderecos) {

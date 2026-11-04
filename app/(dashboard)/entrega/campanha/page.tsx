@@ -10,6 +10,7 @@ import type { EstagioFunil, GaleriaEntrega } from "@/lib/supabase/types";
 import { useWindowWidth, TABLET } from "@/lib/hooks/useWindowWidth";
 import { REGRAS_FUNIL_PADRAO, baseDaRegua, proximaEtapa, diasDeAtraso, type RegrasFunil, type EtapaRegua } from "@/lib/campanha/regua";
 import { substituirVars, formatarDataContato, assinaturaTexto, CAMPANHA_WHATSAPP_DEFAULT, CAMPANHA_WHATSAPP2_DEFAULT } from "@/lib/campanha/textos";
+import { textoSemCitacao } from "@/lib/campanha/respostasEmail";
 
 type CampanhaItem = {
   id: string;
@@ -219,7 +220,7 @@ export default function CampanhaPage() {
           .eq("etapa", "resposta").eq("direcao", "recebido").order("criado_em", { ascending: false });
         const mapa: Record<string, string> = {};
         for (const r of (resps ?? []) as { galeria_id: string; detalhe: string | null }[]) {
-          if (!(r.galeria_id in mapa)) mapa[r.galeria_id] = r.detalhe ?? "";
+          if (!(r.galeria_id in mapa)) mapa[r.galeria_id] = textoSemCitacao(r.detalhe ?? "");
         }
         setRespostasCliente(mapa);
       }

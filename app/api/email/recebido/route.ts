@@ -4,7 +4,7 @@
 // Respostas automáticas (férias, ausência) só entram no histórico, sem pausar.
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getResend, getResendRecebimento, FROM_DEFAULT, APP_URL } from "@/lib/email/resend";
-import { tokenDosDestinatarios, ehRespostaAutomatica } from "@/lib/campanha/respostasEmail";
+import { tokenDosDestinatarios, ehRespostaAutomatica, textoSemCitacao } from "@/lib/campanha/respostasEmail";
 import { registrarContato } from "@/lib/campanha/servidor";
 
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -47,7 +47,9 @@ export async function POST(req: Request) {
   const { data: email, error: errLeitura } = await getResendRecebimento().emails.receiving.get(d.email_id);
   if (errLeitura) console.error("[email/recebido] leitura do e-mail:", errLeitura.message);
   const assunto = email?.subject ?? d.subject ?? "";
-  const texto = (email?.text ?? (email?.html ?? "").replace(/<[^>]+>/g, " ")).replace(/\s+\n/g, "\n").trim();
+  const textoCompleto = (email?.text ?? (email?.html ?? "").replace(/<[^>]+>/g, " ")).replace(/[ \t]+\n/g, "\n").trim();
+  const texto = textoSemCitacao(textoCompleto);
+  const anexos = email?.attachments?.length ?? 0;
   const automatica = ehRespostaAutomatica(email?.headers, assunto);
 
   await registrarContato(admin, {
@@ -75,7 +77,8 @@ export async function POST(req: Request) {
       <strong style="color:#222">${esc(nomeCliente)}</strong> respondeu o e-mail do funil da galeria <strong style="color:#222">${esc(galeria?.titulo ?? "")}</strong>.<br>
       ${esc(aviso)}<br>
       <a href="${APP_URL}/entrega/campanha" style="color:#2563EB">Abrir o funil</a> · Responder este e-mail vai direto para o cliente.
-    </div>${email?.html ?? `<pre style="font-family:sans-serif;white-space:pre-wrap">${esc(texto)}</pre>`}`;
+    </div><div style="font-family:sans-serif;font-size:15px;line-height:1.6;color:#222;white-space:pre-wrap">${esc(texto)}</div>${
+      anexos ? `<div style="font-family:sans-serif;font-size:12px;color:#888;margin-top:14px">O cliente enviou ${anexos} anexo(s) — peça para reenviar se precisar.</div>` : ""}`;
     const { error } = await resend.emails.send({
       from: FROM_DEFAULT,
       to: f.email,
