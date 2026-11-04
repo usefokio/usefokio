@@ -9,12 +9,18 @@ on:
     - cron: "0 11 * * *"    # lembretes de agenda (08:00 BRT)
     - cron: "0 12 * * *"    # checagem de assinaturas + funil da galeria expirada (09:00 BRT)
     - cron: "*/30 * * * *"  # reconciliação de pagamentos pendentes (rede de segurança do webhook)
-  workflow_dispatch:        # permite rodar manualmente (testar) pelo painel do GitHub
+  workflow_dispatch:        # permite rodar manualmente (testar) pelo painel do GitHub, escolhendo qual cron
+    inputs:
+      job:
+        description: "Qual cron rodar"
+        type: choice
+        default: todos
+        options: [todos, lembretes, assinaturas, funil-entrega, reconciliar-pagamentos]
 
 jobs:
   lembretes:
     # No agendamento das 11h UTC (ou ao rodar manual). Não roda no schedule das 12h.
-    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '0 11 * * *'
+    if: (github.event_name == 'workflow_dispatch' && (inputs.job == 'todos' || inputs.job == 'lembretes')) || github.event.schedule == '0 11 * * *'
     runs-on: ubuntu-latest
     steps:
       - name: Disparar lembretes de agenda
@@ -25,7 +31,7 @@ jobs:
 
   assinaturas:
     # No agendamento das 12h UTC (ou ao rodar manual). Não roda no schedule das 11h.
-    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '0 12 * * *'
+    if: (github.event_name == 'workflow_dispatch' && (inputs.job == 'todos' || inputs.job == 'assinaturas')) || github.event.schedule == '0 12 * * *'
     runs-on: ubuntu-latest
     steps:
       - name: Checar assinaturas
@@ -37,7 +43,7 @@ jobs:
   funil-entrega:
     # No agendamento das 12h UTC (ou ao rodar manual). Galeria vencida entra no funil e, se ligado,
     # os e-mails automáticos saem no dia configurado (Configurações → Financeiro → Galeria de entrega).
-    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '0 12 * * *'
+    if: (github.event_name == 'workflow_dispatch' && (inputs.job == 'todos' || inputs.job == 'funil-entrega')) || github.event.schedule == '0 12 * * *'
     runs-on: ubuntu-latest
     steps:
       - name: Rodar o funil da galeria expirada
@@ -49,7 +55,7 @@ jobs:
   reconciliar-pagamentos:
     # A cada 30 min (ou ao rodar manual). Rede de segurança: confirma pagamentos
     # pendentes mesmo se o webhook do Asaas falhar.
-    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '*/30 * * * *'
+    if: (github.event_name == 'workflow_dispatch' && (inputs.job == 'todos' || inputs.job == 'reconciliar-pagamentos')) || github.event.schedule == '*/30 * * * *'
     runs-on: ubuntu-latest
     steps:
       - name: Reconciliar pagamentos pendentes
