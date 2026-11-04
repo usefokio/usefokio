@@ -509,7 +509,8 @@ export default function PedidoDetailPage() {
               </div>
               <div><span style={{ fontSize: 11, fontWeight: 600, color: stFin.color }}>{stFin.label}</span></div>
               <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
-                {(f.status === "pendente" || f.status === "vencido") && (
+                {/* Pagamentos (receitas) só se alteram no Editar do pedido — visualizar é read-only */}
+                {!ehReceita && (f.status === "pendente" || f.status === "vencido") && (
                   <button onClick={() => setEditLanc({ entry: f, descricao: f.descricao ?? "", valor: formatNum(f.valor), vencimento: f.vencimento, dataCompetencia: f.data_competencia ?? f.vencimento, dataCompetenciaManual: false })} title="Editar lançamento em aberto"
                     style={{ padding: "4px 8px", borderRadius: 6, border: "0.5px solid var(--color-border-secondary)", background: "transparent", cursor: "pointer", fontSize: 12 }}>
                     ✏️
