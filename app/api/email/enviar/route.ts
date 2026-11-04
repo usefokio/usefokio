@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
   if (galeriaId) {
     const { data: reg } = await admin.from("respostas_campanha").select("token")
       .eq("galeria_id", galeriaId).eq("fotografo_id", fotografoId).maybeSingle();
-    replyTo = enderecoRespostas(reg?.token) ?? replyTo;
+    replyTo = enderecoRespostas(reg?.token, f?.nome_empresa ?? f?.nome_completo) ?? replyTo;
   }
 
   let enviado = false;

@@ -132,7 +132,7 @@ export async function GET(req: Request) {
     const assunto = (prox.etapa === "email_1" ? ASSUNTO_EMAIL1 : ASSUNTO_EMAIL2).replace("{titulo}", g.titulo);
 
     // Resposta do cliente vai para o endereço da galeria (pausa a régua); sem ele, para o fotógrafo
-    const replyTo = enderecoRespostas(reg.token) ?? f?.email ?? null;
+    const replyTo = enderecoRespostas(reg.token, f?.nome_empresa ?? f?.nome_completo) ?? f?.email ?? null;
 
     try {
       const { data, error } = await getResend().emails.send({

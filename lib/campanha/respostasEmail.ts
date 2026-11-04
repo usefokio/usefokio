@@ -3,10 +3,13 @@
 // Só fica ativo quando EMAIL_RESPOSTAS_DOMINIO está configurado (ex.: respostas.usefokio.com.br, com o MX do
 // Resend no DNS). Sem ele, o "responder para" continua sendo o e-mail do fotógrafo.
 
-export function enderecoRespostas(token: string | null | undefined): string | null {
+export function enderecoRespostas(token: string | null | undefined, nomeExibido?: string | null): string | null {
   const dominio = process.env.EMAIL_RESPOSTAS_DOMINIO?.trim();
   if (!dominio || !token) return null;
-  return `g-${token}@${dominio}`;
+  const endereco = `g-${token}@${dominio}`;
+  // Com nome, o cliente vê "Nome do Estúdio" ao responder, e não o código da galeria
+  const nome = (nomeExibido ?? "").replace(/["<>,;\s]+/g, " ").trim();
+  return nome ? `${nome} <${endereco}>` : endereco;
 }
 
 /** Token da galeria a partir dos destinatários de um e-mail recebido. */
