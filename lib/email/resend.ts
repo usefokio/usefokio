@@ -11,6 +11,16 @@ export function getResend(): Resend {
   return _resend;
 }
 
+// Chave com "Full access" usada só para ler e-mails recebidos (respostas do funil). As chaves de envio são
+// "Sending access" e não leem a caixa de entrada. Sem ela, tenta a chave padrão.
+let _resendRecebimento: Resend | null = null;
+export function getResendRecebimento(): Resend {
+  const key = process.env.RESEND_RECEBIMENTO_API_KEY;
+  if (!key) return getResend();
+  if (!_resendRecebimento) _resendRecebimento = new Resend(key);
+  return _resendRecebimento;
+}
+
 // Mantém compatibilidade com código existente que usa `resend` diretamente
 export const resend = new Proxy({} as Resend, {
   get(_target, prop) {

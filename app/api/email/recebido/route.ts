@@ -3,7 +3,7 @@
 // Tarefas) e encaminha a resposta ao e-mail do fotógrafo com "responder para" = cliente.
 // Respostas automáticas (férias, ausência) só entram no histórico, sem pausar.
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getResend, FROM_DEFAULT, APP_URL } from "@/lib/email/resend";
+import { getResend, getResendRecebimento, FROM_DEFAULT, APP_URL } from "@/lib/email/resend";
 import { tokenDosDestinatarios, ehRespostaAutomatica } from "@/lib/campanha/respostasEmail";
 import { registrarContato } from "@/lib/campanha/servidor";
 
@@ -44,7 +44,8 @@ export async function POST(req: Request) {
   if (jaVisto?.length) return Response.json({ ok: true, duplicado: true });
 
   const resend = getResend();
-  const { data: email } = await resend.emails.receiving.get(d.email_id);
+  const { data: email, error: errLeitura } = await getResendRecebimento().emails.receiving.get(d.email_id);
+  if (errLeitura) console.error("[email/recebido] leitura do e-mail:", errLeitura.message);
   const assunto = email?.subject ?? d.subject ?? "";
   const texto = (email?.text ?? (email?.html ?? "").replace(/<[^>]+>/g, " ")).replace(/\s+\n/g, "\n").trim();
   const automatica = ehRespostaAutomatica(email?.headers, assunto);
