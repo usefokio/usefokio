@@ -3,17 +3,30 @@
 // Configurações › Financeiro › Galeria de entrega e funil: prazo inicial de acesso, opções de renovação
 // (lista livre), valores e prazo por categoria, e "aplicar às galerias existentes". Prioridade do valor que
 // o cliente vê: galeria personalizada > categoria > padrão da opção (lib/entrega/renovacao.ts).
+// Também as regras do funil da galeria expirada (dias de cada contato, envio automático e textos dos WhatsApps),
+// usadas pelo cron (app/api/cron/funil-entrega) e pelo bloco de Tarefas (lib/campanha/regua.ts).
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
 import { inputStyle } from "@/lib/styles";
 import { mascaraMoeda, parseMoeda, formatarMoeda } from "@/lib/moeda";
 import { useEditorEstado, SeloEstado, BotaoSalvarEstado, ModalNaoSalvo } from "@/app/(dashboard)/_components/EditorEstado";
+import { REGRAS_FUNIL_PADRAO } from "@/lib/campanha/regua";
+import { CAMPANHA_WHATSAPP_DEFAULT, CAMPANHA_WHATSAPP2_DEFAULT } from "@/lib/campanha/textos";
 
 type OpcaoForm = { id: string | null; chave: string; rotulo: string; dias: string; valor: string; ativo: boolean };
 type CategoriaForm = { id: string; nome: string; prazo: string };
 type GaleriaPersonalizada = { id: string; titulo: string; categoria_id: string | null; renovacao_personalizada: Record<string, number | null> };
 type UltimaAplicacao = { aplicado_em: string; total: number } | null;
+type FunilForm = { entrarAuto: boolean; emailAuto: boolean; d1: string; d2: string; dw1: string; dw2: string; dexc: string; textoW1: string; textoW2: string };
+
+const numOuVazio = (n: number | null | undefined) => (n == null ? "" : String(n));
+const FUNIL_INICIAL: FunilForm = {
+  entrarAuto: REGRAS_FUNIL_PADRAO.funil_entrar_auto, emailAuto: REGRAS_FUNIL_PADRAO.funil_email_auto,
+  d1: numOuVazio(REGRAS_FUNIL_PADRAO.dias_email_1), d2: numOuVazio(REGRAS_FUNIL_PADRAO.dias_email_2),
+  dw1: numOuVazio(REGRAS_FUNIL_PADRAO.dias_whatsapp_1), dw2: "", dexc: "",
+  textoW1: CAMPANHA_WHATSAPP_DEFAULT, textoW2: CAMPANHA_WHATSAPP2_DEFAULT,
+};
 
 const cardStyle: React.CSSProperties = {
   background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)",
@@ -27,7 +40,7 @@ const thStyle: React.CSSProperties = { fontSize: 11, fontWeight: 600, color: "va
 const somenteDigitos = (v: string) => v.replace(/\D/g, "").slice(0, 4);
 
 export default function GaleriaEntregaRegrasPage() {
-  const { fotografo } = useFotografo();
+  const { fotografo, reload } = useFotografo();
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
@@ -45,19 +58,24 @@ export default function GaleriaEntregaRegrasPage() {
   const [aplicando, setAplicando] = useState(false);
   const [ultimaAplicacao, setUltimaAplicacao] = useState<UltimaAplicacao>(null);
 
-  const snapshot = JSON.stringify([prazoPadrao, opcoes, categorias, precos]);
+  const [funil, setFunil] = useState<FunilForm>(FUNIL_INICIAL);
+  const [funilDesde, setFunilDesde] = useState<string | null>(null);
+  const mudarFunil = (patch: Partial<FunilForm>) => setFunil((f) => ({ ...f, ...patch }));
+
+  const snapshot = JSON.stringify([prazoPadrao, opcoes, categorias, precos, funil]);
   const estado = useEditorEstado(snapshot, "/configuracoes");
 
   async function carregar() {
     if (!fotografo) return;
     const sb = createClient();
     const fid = fotografo.id;
-    const [{ data: ops }, { data: cats }, { data: regras }, { data: pers }, { data: logs }] = await Promise.all([
+    const [{ data: ops }, { data: cats }, { data: regras }, { data: pers }, { data: logs }, { data: foto }] = await Promise.all([
       sb.from("renovacao_opcoes").select("id, rotulo, dias, valor_padrao, ativo, ordem").eq("fotografo_id", fid).order("ordem").order("dias"),
       sb.from("categorias").select("id, nome, prazo_inicial_dias").eq("fotografo_id", fid).order("ordem").order("created_at"),
-      sb.from("entrega_regras").select("prazo_inicial_dias").eq("fotografo_id", fid).maybeSingle(),
+      sb.from("entrega_regras").select("prazo_inicial_dias, funil_entrar_auto, funil_email_auto, funil_email_auto_desde, dias_email_1, dias_email_2, dias_whatsapp_1, dias_whatsapp_2, dias_exclusao").eq("fotografo_id", fid).maybeSingle(),
       sb.from("galerias_entrega").select("id, titulo, categoria_id, renovacao_personalizada").eq("fotografo_id", fid).not("renovacao_personalizada", "is", null).order("titulo"),
       sb.from("renovacao_aplicacoes_log").select("aplicado_em").eq("fotografo_id", fid).order("aplicado_em", { ascending: false }).limit(1000),
+      sb.from("fotografos").select("templates_mensagem").eq("id", fid).maybeSingle(),
     ]);
 
     const listaOps = (ops ?? []) as { id: string; rotulo: string; dias: number; valor_padrao: number | null; ativo: boolean }[];
@@ -76,6 +94,17 @@ export default function GaleriaEntregaRegrasPage() {
       }
     }
     const prazoForm = regras?.prazo_inicial_dias ? String(regras.prazo_inicial_dias) : "";
+    const tpls = (foto?.templates_mensagem ?? null) as Record<string, string> | null;
+    const textos = {
+      textoW1: tpls?.campanha_whatsapp?.trim() || CAMPANHA_WHATSAPP_DEFAULT,
+      textoW2: tpls?.campanha_whatsapp2?.trim() || CAMPANHA_WHATSAPP2_DEFAULT,
+    };
+    const funilForm: FunilForm = regras ? {
+      entrarAuto: regras.funil_entrar_auto, emailAuto: regras.funil_email_auto,
+      d1: numOuVazio(regras.dias_email_1), d2: numOuVazio(regras.dias_email_2), dw1: numOuVazio(regras.dias_whatsapp_1),
+      dw2: numOuVazio(regras.dias_whatsapp_2), dexc: numOuVazio(regras.dias_exclusao),
+      ...textos,
+    } : { ...FUNIL_INICIAL, ...textos };
 
     setOpcoes(opsForm);
     setCategorias(catsForm);
@@ -83,13 +112,15 @@ export default function GaleriaEntregaRegrasPage() {
     setPrecosOriginais(new Set(Object.keys(precosMap)));
     setPrazosOriginais(Object.fromEntries(catsForm.map((c) => [c.id, c.prazo])));
     setPrazoPadrao(prazoForm);
+    setFunil(funilForm);
+    setFunilDesde(regras?.funil_email_auto ? (regras.funil_email_auto_desde ?? null) : null);
     setPersonalizadas((pers ?? []) as GaleriaPersonalizada[]);
 
     const listaLogs = (logs ?? []) as { aplicado_em: string }[];
     const ultima = listaLogs[0]?.aplicado_em;
     setUltimaAplicacao(ultima ? { aplicado_em: ultima, total: listaLogs.filter((l) => l.aplicado_em === ultima).length } : null);
 
-    estado.inicializar(JSON.stringify([prazoForm, opsForm, catsForm, precosMap]));
+    estado.inicializar(JSON.stringify([prazoForm, opsForm, catsForm, precosMap, funilForm]));
     setCarregando(false);
   }
 
@@ -115,12 +146,23 @@ export default function GaleriaEntregaRegrasPage() {
       if (!o.rotulo.trim()) { setErro("Dê um nome para cada opção de renovação."); return false; }
       if (!(parseInt(o.dias) > 0)) { setErro(`Informe os dias da opção "${o.rotulo}".`); return false; }
     }
+    const d1 = parseInt(funil.d1), d2 = parseInt(funil.d2), dw1 = parseInt(funil.dw1);
+    if ([d1, d2, dw1].some((d) => isNaN(d))) { setErro("Informe os dias do 1º e-mail, do 2º e-mail e do 1º WhatsApp."); return false; }
+    if (!(d1 <= d2 && d2 <= dw1)) { setErro("Os dias do funil precisam estar em ordem: 1º e-mail ≤ 2º e-mail ≤ 1º WhatsApp."); return false; }
     setSalvando(true);
     const sb = createClient();
     const fid = fotografo.id;
     try {
       const { error: eRegras } = await sb.from("entrega_regras").upsert(
-        { fotografo_id: fid, prazo_inicial_dias: parseInt(prazoPadrao) > 0 ? parseInt(prazoPadrao) : null, updated_at: new Date().toISOString() },
+        {
+          fotografo_id: fid, prazo_inicial_dias: parseInt(prazoPadrao) > 0 ? parseInt(prazoPadrao) : null,
+          funil_entrar_auto: funil.entrarAuto, funil_email_auto: funil.emailAuto,
+          funil_email_auto_desde: funil.emailAuto ? (funilDesde ?? new Date().toISOString()) : null,
+          dias_email_1: d1, dias_email_2: d2, dias_whatsapp_1: dw1,
+          dias_whatsapp_2: parseInt(funil.dw2) > 0 ? parseInt(funil.dw2) : null,
+          dias_exclusao: parseInt(funil.dexc) > 0 ? parseInt(funil.dexc) : null,
+          updated_at: new Date().toISOString(),
+        },
         { onConflict: "fotografo_id" },
       );
       if (eRegras) throw eRegras;
@@ -171,6 +213,18 @@ export default function GaleriaEntregaRegrasPage() {
       // Compatibilidade: o valor padrão antigo do fotógrafo acompanha a 1ª opção ativa
       const primeira = opcoes.find((o) => o.ativo);
       await sb.from("fotografos").update({ renewal_fee_padrao: primeira ? (parseMoeda(primeira.valor) || null) : null }).eq("id", fid);
+
+      // Textos dos WhatsApps do funil (igual ao padrão = não guarda, segue o padrão do sistema)
+      const { data: fAtual } = await sb.from("fotografos").select("templates_mensagem").eq("id", fid).maybeSingle();
+      const tpls = { ...((fAtual?.templates_mensagem ?? {}) as Record<string, string>) };
+      const guardarTexto = (chave: string, texto: string, padrao: string) => {
+        if (texto.trim() && texto.trim() !== padrao.trim()) tpls[chave] = texto; else delete tpls[chave];
+      };
+      guardarTexto("campanha_whatsapp", funil.textoW1, CAMPANHA_WHATSAPP_DEFAULT);
+      guardarTexto("campanha_whatsapp2", funil.textoW2, CAMPANHA_WHATSAPP2_DEFAULT);
+      const { error: eTpl } = await sb.from("fotografos").update({ templates_mensagem: Object.keys(tpls).length ? tpls : null }).eq("id", fid);
+      if (eTpl) throw eTpl;
+      await reload();
 
       setMsg("Regras salvas.");
       await carregar();
@@ -400,6 +454,80 @@ export default function GaleriaEntregaRegrasPage() {
         )}
       </div>
 
+      {/* 5. Funil da galeria expirada */}
+      <div style={cardStyle}>
+        <h2 style={tituloCard}>Funil da galeria expirada</h2>
+        <p style={descCard}>
+          O que acontece depois que a galeria vence. Os e-mails podem sair sozinhos; os WhatsApps e a exclusão das fotos aparecem como
+          tarefas para você no funil. O sistema nunca apaga fotos nem mexe em links.
+        </p>
+        <label style={linhaCheck}>
+          <input type="checkbox" checked={funil.entrarAuto} onChange={(e) => mudarFunil({ entrarAuto: e.target.checked })} style={{ width: 16, height: 16 }} />
+          Colocar a galeria no funil automaticamente quando vencer
+        </label>
+        <label style={linhaCheck}>
+          <input type="checkbox" checked={funil.emailAuto} onChange={(e) => mudarFunil({ emailAuto: e.target.checked })} style={{ width: 16, height: 16 }} />
+          Enviar os e-mails automaticamente
+        </label>
+        <div style={{ fontSize: 12, color: "var(--color-text-secondary)", margin: "0 0 14px 26px", lineHeight: 1.5 }}>
+          Saem às 9h, com o nome do seu estúdio; as respostas do cliente chegam em {fotografo?.email ?? "seu e-mail"}.
+          Vale para as galerias que entrarem no funil depois de ligar — as que já estão no funil continuam manuais.
+          {funil.emailAuto && funilDesde && <> Ligado desde {new Date(funilDesde).toLocaleDateString("pt-BR")}.</>}
+        </div>
+
+        <table style={{ borderCollapse: "collapse", marginBottom: 16 }}>
+          <tbody>
+            {([
+              ["1º e-mail", "d1", "dias após vencer"],
+              ["2º e-mail", "d2", "dias após vencer"],
+              ["1º WhatsApp (tarefa)", "dw1", "dias após vencer"],
+              ["2º WhatsApp — aviso de exclusão (tarefa)", "dw2", "dias após o 1º WhatsApp (vazio = não usa)"],
+              ["Excluir as fotos (tarefa)", "dexc", "dias após o 2º WhatsApp (vazio = não usa)"],
+            ] as const).map(([rotulo, chave, sufixo]) => (
+              <tr key={chave}>
+                <td style={{ padding: "4px 12px 4px 0", fontSize: 13, color: "var(--color-text-primary)", whiteSpace: "nowrap" }}>{rotulo}</td>
+                <td style={{ padding: "4px 8px 4px 0" }}>
+                  <input value={funil[chave]} inputMode="numeric" placeholder="—"
+                    onChange={(e) => mudarFunil({ [chave]: somenteDigitos(e.target.value) })}
+                    style={{ ...celula, width: 70 }} />
+                </td>
+                <td style={{ padding: "4px 0", fontSize: 12, color: "var(--color-text-secondary)" }}>{sufixo}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginBottom: 14, lineHeight: 1.5 }}>
+          Sem e-mail cadastrado, o cliente vai direto para a tarefa de WhatsApp no dia do 1º e-mail. Os textos dos e-mails ficam em
+          Configurações → Mensagens.
+        </div>
+
+        {([
+          ["Mensagem do 1º WhatsApp", "textoW1", CAMPANHA_WHATSAPP_DEFAULT],
+          ["Mensagem do 2º WhatsApp (aviso de exclusão)", "textoW2", CAMPANHA_WHATSAPP2_DEFAULT],
+        ] as const).map(([rotulo, chave, padrao]) => (
+          <div key={chave} style={{ marginBottom: 14 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+              <span style={{ fontSize: 12, fontWeight: 600, color: "var(--color-text-primary)" }}>{rotulo}</span>
+              {funil[chave].trim() !== padrao.trim() && (
+                <button type="button" onClick={() => mudarFunil({ [chave]: padrao })}
+                  style={{ background: "none", border: "none", color: "var(--color-text-secondary)", fontSize: 11, cursor: "pointer", padding: 0 }}>
+                  Restaurar padrão
+                </button>
+              )}
+            </div>
+            <textarea value={funil[chave]} onChange={(e) => mudarFunil({ [chave]: e.target.value })} rows={8}
+              style={{ ...inputStyle, width: "100%", boxSizing: "border-box", resize: "vertical", lineHeight: 1.6, fontFamily: "inherit", fontSize: 12 }} />
+          </div>
+        ))}
+        <div style={{ fontSize: 11, color: "var(--color-text-secondary)" }}>
+          Variáveis: <code>{"{nomeCliente} {titulo} {respostaUrl} {nomeEmpresa} {dataEmail1} {dataEmail2} {emailCliente}"}</code>
+        </div>
+        <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 10, marginTop: 16 }}>
+          <SeloEstado temAlteracoes={estado.temAlteracoes} />
+          <BotaoSalvarEstado temAlteracoes={estado.temAlteracoes} salvando={salvando} onClick={salvar} />
+        </div>
+      </div>
+
       <ModalNaoSalvo
         aberto={estado.modalAberto}
         salvando={salvando}
@@ -410,6 +538,10 @@ export default function GaleriaEntregaRegrasPage() {
     </div>
   );
 }
+
+const linhaCheck: React.CSSProperties = {
+  display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: "var(--color-text-primary)", marginBottom: 8, cursor: "pointer",
+};
 
 const botaoMini: React.CSSProperties = {
   border: "none", background: "transparent", cursor: "pointer", fontSize: 11, color: "var(--color-text-secondary)", padding: "2px 4px",

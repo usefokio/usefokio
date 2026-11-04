@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { fetchAllRows } from "@/lib/supabase/fetchAll";
@@ -8,6 +8,8 @@ import { useFotografo } from "@/lib/context/FotografoContext";
 import { ModalEmailCliente } from "../_components/ModalEmailCliente";
 import type { EstagioFunil, GaleriaEntrega } from "@/lib/supabase/types";
 import { useWindowWidth, TABLET } from "@/lib/hooks/useWindowWidth";
+import { REGRAS_FUNIL_PADRAO, baseDaRegua, proximaEtapa, diasDeAtraso, type RegrasFunil, type EtapaRegua } from "@/lib/campanha/regua";
+import { substituirVars, formatarDataContato, assinaturaTexto, CAMPANHA_WHATSAPP_DEFAULT, CAMPANHA_WHATSAPP2_DEFAULT } from "@/lib/campanha/textos";
 
 type CampanhaItem = {
   id: string;
@@ -18,6 +20,9 @@ type CampanhaItem = {
   email_1_em: string | null;
   email_2_em: string | null;
   whatsapp_em: string | null;
+  whatsapp_2_em: string | null;
+  exclusao_feita_em: string | null;
+  pausado_em: string | null;
   agradecimento_em: string | null;
   drive_revogado: boolean;
   created_at: string;
@@ -50,7 +55,9 @@ const COLUNAS: Coluna[] = [
   { id: "email_1",     label: "1º Email",     icone: "📧", cor: "#7C3AED", bg: "rgba(124,58,237,0.07)", estagios: ["email_1"] },
   { id: "email_2",     label: "2º Email",     icone: "📧", cor: "#2563EB", bg: "rgba(37,99,235,0.07)",  estagios: ["email_2"] },
   { id: "whatsapp",    label: "WhatsApp",     icone: "📱", cor: "#15803D", bg: "rgba(34,197,94,0.07)",   estagios: ["whatsapp"] },
+  { id: "whatsapp_2",  label: "2º WhatsApp",  icone: "📱", cor: "#B45309", bg: "rgba(180,83,9,0.07)",    estagios: ["whatsapp_2"] },
   { id: "ag_pagamento", label: "Ag. Pagamento",  icone: "💳", cor: "#D97706", bg: "rgba(245,158,11,0.07)",  estagios: [] },
+  { id: "excluido",     label: "Informado / excluído", icone: "🗂", cor: "#6B7280", bg: "rgba(107,114,128,0.07)", estagios: ["excluido"] },
   { id: "concluido",    label: "Concluído",      icone: "✓",  cor: "#059669", bg: "rgba(16,185,129,0.07)",  estagios: ["encerrado", "respondeu"] },
 ];
 
@@ -63,6 +70,19 @@ function diasDesde(iso: string | null): string {
 }
 
 const CORES_CAPA = ["#7C6E5A","#5A6E7C","#6E5A7C","#5A7C6E","#7C5A6E","#6E7C5A"];
+
+type Tarefa = { item: CampanhaItem; etapa: Exclude<EtapaRegua, "email_1" | "email_2">; atraso: number };
+
+const TAREFA_INFO: Record<Tarefa["etapa"], { titulo: string; icone: string; acao: "whatsapp_1" | "whatsapp_2" | "exclusao" }> = {
+  whatsapp_1: { titulo: "Enviar 1º WhatsApp",                   icone: "📱", acao: "whatsapp_1" },
+  whatsapp_2: { titulo: "Enviar 2º WhatsApp — aviso de exclusão", icone: "⚠️", acao: "whatsapp_2" },
+  exclusao:   { titulo: "Excluir as fotos (sem resposta)",       icone: "🗑", acao: "exclusao" },
+};
+
+function textoPrazo(atraso: number): string {
+  if (atraso <= 0) return "hoje";
+  return atraso === 1 ? "atrasada há 1 dia" : `atrasada há ${atraso} dias`;
+}
 
 export default function CampanhaPage() {
   const router = useRouter();
@@ -77,12 +97,24 @@ export default function CampanhaPage() {
   const [recarregarKey,  setRecarregarKey]  = useState(0);
   const [movendoId,      setMovendoId]      = useState<string | null>(null);
   const [busca,          setBusca]          = useState("");
+  const [regras,         setRegras]         = useState<RegrasFunil | null>(null);
+  const [tarefaSalvando, setTarefaSalvando] = useState<string | null>(null);
+  const [copiadoId,      setCopiadoId]      = useState<string | null>(null);
 
   useEffect(() => {
     if (!fotografo) return;
     const supabase = createClient();
 
     async function carregar() {
+      // 0. Regras do funil (Configurações → Financeiro → Galeria de entrega e funil)
+      const { data: regrasRow } = await supabase
+        .from("entrega_regras")
+        .select("funil_entrar_auto, funil_email_auto, funil_email_auto_desde, dias_email_1, dias_email_2, dias_whatsapp_1, dias_whatsapp_2, dias_exclusao")
+        .eq("fotografo_id", fotografo!.id)
+        .maybeSingle();
+      const regrasEf: RegrasFunil = { ...REGRAS_FUNIL_PADRAO, ...(regrasRow ?? {}) };
+      setRegras(regrasEf);
+
       // 1. Auto-enroll suspended/expired galleries that aren't in the funnel yet
       const todasGalerias = await fetchAllRows<any>(
         (sb, from, to) =>
@@ -95,7 +127,7 @@ export default function CampanhaPage() {
         supabase,
       );
 
-      if (todasGalerias) {
+      if (todasGalerias && regrasEf.funil_entrar_auto) {
         const agora = new Date();
         const semFunil = (todasGalerias as any[]).filter((g) => {
           if (g.respostas_campanha && g.respostas_campanha.length > 0) return false;
@@ -114,7 +146,7 @@ export default function CampanhaPage() {
         (sb, from, to) =>
           sb
             .from("respostas_campanha")
-            .select("id, token, estagio, resposta, respondido_em, email_1_em, email_2_em, whatsapp_em, agradecimento_em, drive_revogado, created_at, galerias_entrega(id, titulo, foto_capa_url, cover_color, data_evento, drive_link, expires_at, clientes(nome, email, telefone, whatsapp))")
+            .select("id, token, estagio, resposta, respondido_em, email_1_em, email_2_em, whatsapp_em, whatsapp_2_em, exclusao_feita_em, pausado_em, agradecimento_em, drive_revogado, created_at, galerias_entrega(id, titulo, foto_capa_url, cover_color, data_evento, drive_link, expires_at, clientes(nome, email, telefone, whatsapp))")
             .eq("fotografo_id", fotografo!.id)
             .eq("ignorar_funil", false)
             .neq("estagio", "sem_retorno")
@@ -155,6 +187,9 @@ export default function CampanhaPage() {
         email_1_em:    r.email_1_em,
         email_2_em:    r.email_2_em,
         whatsapp_em:    r.whatsapp_em,
+        whatsapp_2_em:  r.whatsapp_2_em ?? null,
+        exclusao_feita_em: r.exclusao_feita_em ?? null,
+        pausado_em:     r.pausado_em ?? null,
         agradecimento_em: r.agradecimento_em ?? null,
         drive_revogado: r.drive_revogado ?? false,
         created_at:    r.created_at,
@@ -239,6 +274,69 @@ export default function CampanhaPage() {
     }
   }
 
+  // Tarefas manuais da régua (WhatsApps e exclusão), calculadas pelas datas — lib/campanha/regua.ts
+  const tarefas = useMemo<Tarefa[]>(() => {
+    if (!regras) return [];
+    const lista: Tarefa[] = [];
+    for (const item of itens) {
+      if (item.resposta || item.pausado_em || pendentes.has(item.galeria.id)) continue;
+      const prox = proximaEtapa(item, baseDaRegua(item.galeria.expires_at, item.created_at), !!item.galeria.cliente_email, regras);
+      if (!prox || prox.etapa === "email_1" || prox.etapa === "email_2") continue;
+      const atraso = diasDeAtraso(prox.venceEm);
+      if (atraso < 0) continue;
+      lista.push({ item, etapa: prox.etapa, atraso });
+    }
+    return lista.sort((a, b) => b.atraso - a.atraso);
+  }, [itens, regras, pendentes]);
+
+  function mensagemWhatsApp(t: Tarefa): string {
+    const tpls = fotografo?.templates_mensagem as Record<string, string> | null;
+    const texto = t.etapa === "whatsapp_2"
+      ? (tpls?.campanha_whatsapp2?.trim() || CAMPANHA_WHATSAPP2_DEFAULT)
+      : (tpls?.campanha_whatsapp?.trim() || CAMPANHA_WHATSAPP_DEFAULT);
+    const g = t.item.galeria;
+    return substituirVars(texto, {
+      nomeCliente: g.cliente_nome ?? "Cliente",
+      titulo: g.titulo,
+      link: `${window.location.origin}/acesso/entrega/${g.id}`,
+      respostaUrl: `${window.location.origin}/campanha/resposta/${t.item.token}`,
+      diasRestantes: null,
+      nomeEmpresa: fotografo?.nome_empresa ?? fotografo?.nome_completo ?? "",
+      assinatura: assinaturaTexto(fotografo),
+      prazo: "",
+      dataEmail1: formatarDataContato(t.item.email_1_em),
+      dataEmail2: formatarDataContato(t.item.email_2_em),
+      emailCliente: g.cliente_email ?? undefined,
+    });
+  }
+
+  async function abrirWhatsAppTarefa(t: Tarefa) {
+    const msg = mensagemWhatsApp(t);
+    const numero = (t.item.galeria.cliente_whatsapp ?? t.item.galeria.cliente_telefone ?? "").replace(/\D/g, "");
+    if (numero) {
+      window.open(`https://wa.me/${numero.startsWith("55") ? numero : `55${numero}`}?text=${encodeURIComponent(msg)}`);
+    } else {
+      await navigator.clipboard.writeText(msg);
+      setCopiadoId(t.item.id);
+      setTimeout(() => setCopiadoId(null), 2000);
+    }
+  }
+
+  async function concluirTarefa(t: Tarefa) {
+    if (t.etapa === "exclusao" && !window.confirm("Confirma que as fotos desta galeria já foram excluídas por você? (o sistema só registra, não apaga nada)")) return;
+    setTarefaSalvando(t.item.id);
+    try {
+      const res = await fetch(`/api/campanha/galeria/${t.item.galeria.id}/tarefa`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ acao: TAREFA_INFO[t.etapa].acao }),
+      });
+      if (res.ok) atualizarEstagio(t.item.galeria.id, await res.json());
+    } finally {
+      setTarefaSalvando(null);
+    }
+  }
+
   function fecharModal() {
     setModalGaleriaId(null);
     setRecarregarKey((k) => k + 1);
@@ -276,6 +374,53 @@ export default function CampanhaPage() {
           }}
         />
       </div>
+
+      {/* Tarefas do dia (WhatsApps e exclusão) */}
+      {!loading && regras && (
+        <div style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 12, padding: "14px 16px", marginBottom: 20 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: tarefas.length ? 10 : 0 }}>
+            <span style={{ fontSize: 14, fontWeight: 700, color: "var(--color-text-primary)" }}>Tarefas</span>
+            <span style={{ fontSize: 12, fontWeight: 700, color: tarefas.length ? "#B45309" : "var(--color-text-secondary)", background: tarefas.length ? "rgba(245,158,11,0.12)" : "var(--color-background-secondary)", padding: "1px 8px", borderRadius: 20 }}>
+              {tarefas.length}
+            </span>
+            {tarefas.length === 0 && <span style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>Nenhuma tarefa pendente.</span>}
+            <a href="/configuracoes/financeiro/galeria-entrega" style={{ marginLeft: "auto", fontSize: 11, color: "var(--color-text-secondary)" }}>Regras do funil</a>
+          </div>
+          {tarefas.map((t, i) => {
+            const info = TAREFA_INFO[t.etapa];
+            const g = t.item.galeria;
+            const temFone = !!(g.cliente_whatsapp ?? g.cliente_telefone);
+            const salvando = tarefaSalvando === t.item.id;
+            return (
+              <div key={t.item.id} style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", padding: "9px 0", borderTop: i ? "0.5px solid var(--color-border-tertiary)" : "none" }}>
+                <span style={{ fontSize: 16 }}>{info.icone}</span>
+                <div style={{ flex: "1 1 220px", minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)" }}>{info.titulo}</div>
+                  <div style={{ fontSize: 12, color: "var(--color-text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    <a href={`/entrega/${g.id}`} style={{ color: "inherit" }}>{g.titulo}</a>{g.cliente_nome ? ` · ${g.cliente_nome}` : ""}
+                  </div>
+                </div>
+                <span style={{ fontSize: 11, fontWeight: 700, color: t.atraso > 0 ? "#DC2626" : "#B45309" }}>{textoPrazo(t.atraso)}</span>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  {t.etapa !== "exclusao" ? (
+                    <button onClick={() => abrirWhatsAppTarefa(t)} style={botaoTarefa("#15803D")}>
+                      {copiadoId === t.item.id ? "✓ Copiado" : temFone ? "Abrir WhatsApp" : "Copiar mensagem"}
+                    </button>
+                  ) : (
+                    <>
+                      {g.drive_link && <a href={g.drive_link} target="_blank" rel="noopener noreferrer" style={{ ...botaoTarefa("#2563EB"), textDecoration: "none" }}>Abrir Drive</a>}
+                      <a href={`/entrega/${g.id}`} style={{ ...botaoTarefa("#6B7280"), textDecoration: "none" }}>Abrir galeria</a>
+                    </>
+                  )}
+                  <button onClick={() => concluirTarefa(t)} disabled={salvando} style={{ ...botaoTarefa("#111"), opacity: salvando ? 0.6 : 1 }}>
+                    {salvando ? "Salvando…" : t.etapa === "exclusao" ? "Marcar feito" : "Marcar enviado"}
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {loading ? (
         <div style={{ padding: "60px 0", textAlign: "center", fontSize: 13, color: "var(--color-text-secondary)" }}>Carregando…</div>
@@ -319,7 +464,7 @@ export default function CampanhaPage() {
                     </div>
                   ) : (
                     items.map((item, idx) => {
-                      const ultimoContato = item.whatsapp_em ?? item.email_2_em ?? item.email_1_em ?? null;
+                      const ultimoContato = item.whatsapp_2_em ?? item.whatsapp_em ?? item.email_2_em ?? item.email_1_em ?? null;
                       const corCapa = item.galeria.cover_color ?? CORES_CAPA[idx % CORES_CAPA.length];
                       return (
                         <div
@@ -396,7 +541,7 @@ export default function CampanhaPage() {
                           </div>
 
                           {/* Ação rápida */}
-                          {col.id !== "concluido" && col.id !== "whatsapp" && item.resposta !== "renovar" && (
+                          {col.id !== "concluido" && col.id !== "whatsapp" && col.id !== "whatsapp_2" && col.id !== "excluido" && item.resposta !== "renovar" && (
                             <button
                               onClick={() => { setModalTemplate("campanha"); setModalGaleriaId(item.galeria.id); }}
                               style={{
@@ -495,6 +640,8 @@ export default function CampanhaPage() {
                             <option value="email_1">📧 1º Email</option>
                             <option value="email_2">📧 2º Email</option>
                             <option value="whatsapp">📱 WhatsApp</option>
+                            <option value="whatsapp_2">📱 2º WhatsApp</option>
+                            <option value="excluido">🗂 Informado / excluído</option>
                             <option value="sem_retorno">🚫 Sem retorno</option>
                           </select>}
                         </div>
@@ -539,4 +686,11 @@ export default function CampanhaPage() {
       })()}
     </div>
   );
+}
+
+function botaoTarefa(cor: string): React.CSSProperties {
+  return {
+    padding: "5px 10px", borderRadius: 7, fontSize: 11, fontWeight: 600, cursor: "pointer",
+    border: `0.5px solid ${cor}55`, background: `${cor}0d`, color: cor, whiteSpace: "nowrap",
+  };
 }

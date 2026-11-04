@@ -708,6 +708,16 @@ export default function EntregaPage() {
                           encerrado
                         </span>
                       );
+                      if (rc.estagio === "excluido") return (
+                        <span title="Cliente informado — fotos excluídas" style={{ flexShrink: 0, fontSize: 10, fontWeight: 600, padding: "2px 7px", borderRadius: 20, background: "rgba(107,114,128,0.10)", color: "#6B7280" }}>
+                          🗂 excluída
+                        </span>
+                      );
+                      if (rc.estagio === "whatsapp_2") return (
+                        <span title="2º WhatsApp (aviso de exclusão) enviado — aguardando resposta" style={{ flexShrink: 0, fontSize: 10, fontWeight: 600, padding: "2px 7px", borderRadius: 20, background: "rgba(180,83,9,0.10)", color: "#B45309" }}>
+                          📱 2º whatsapp
+                        </span>
+                      );
                       if (rc.estagio === "whatsapp") return (
                         <span title="WhatsApp enviado — aguardando resposta" style={{ flexShrink: 0, fontSize: 10, fontWeight: 600, padding: "2px 7px", borderRadius: 20, background: "rgba(34,197,94,0.10)", color: "#15803D" }}>
                           📱 whatsapp

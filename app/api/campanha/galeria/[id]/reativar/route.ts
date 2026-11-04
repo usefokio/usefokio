@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { fotografoIdDaRequisicao } from "@/lib/campanha/owner";
+import { CAMPOS_REGUA_ZERADOS } from "@/lib/campanha/servidor";
 
 export async function POST(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -14,9 +15,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
     .update({
       ignorar_funil:    false,
       estagio:          "nao_contatado",
-      email_1_em:       null,
-      email_2_em:       null,
-      whatsapp_em:      null,
+      ...CAMPOS_REGUA_ZERADOS,
       resposta:         null,
       respondido_em:    null,
       respondido_nome:  null,

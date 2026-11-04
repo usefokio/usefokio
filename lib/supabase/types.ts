@@ -41,7 +41,7 @@ export type Fotografo = {
   revelacao_valor_minimo: number | null;
   revelacao_extras_titulo: string;
   revelacao_extras_subtitulo: string;
-  templates_mensagem: { link?: string; pronta?: string; expirando?: string; suspensa?: string; campanha?: string; campanha_email1?: string; campanha_email2?: string; campanha_whatsapp?: string; campanha_agradecimento?: string } | null;
+  templates_mensagem: { link?: string; pronta?: string; expirando?: string; suspensa?: string; campanha?: string; campanha_email1?: string; campanha_email2?: string; campanha_whatsapp?: string; campanha_whatsapp2?: string; campanha_agradecimento?: string } | null;
   asaas_api_key_enc: string | null;
   asaas_ambiente: "producao" | "sandbox";
   asaas_ativo: boolean;
@@ -135,7 +135,7 @@ export type Categoria = {
   created_at: string;
 };
 
-export type EstagioFunil = "nao_contatado" | "email_1" | "email_2" | "whatsapp" | "encerrado" | "sem_retorno";
+export type EstagioFunil = "nao_contatado" | "email_1" | "email_2" | "whatsapp" | "whatsapp_2" | "excluido" | "encerrado" | "sem_retorno";
 
 export type RespostaCampanha = {
   id: string;
@@ -146,6 +146,10 @@ export type RespostaCampanha = {
   email_1_em: string | null;
   email_2_em: string | null;
   whatsapp_em: string | null;
+  whatsapp_2_em: string | null;
+  exclusao_feita_em: string | null;
+  pausado_em: string | null;
+  pausa_motivo: string | null;
   resposta: "renovar" | "tem_arquivos" | null;
   respondido_em: string | null;
   respondido_nome: string | null;

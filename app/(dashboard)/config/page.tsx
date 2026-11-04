@@ -182,14 +182,6 @@ const DEFS_TEMPLATE = [
     padrao: "Olá, {nomeCliente}!\n\nEnviamos um email há alguns dias sobre as fotos de {titulo} e ainda não recebemos sua resposta.\n\nPrecisamos de um posicionamento antes de tomar uma decisão sobre esses arquivos.\n\nPor favor, acesse o link e nos informe:\n{respostaUrl}\n\n✅ Já tenho meus arquivos — tudo certo\n🔄 Quero renovar meu acesso às fotos\n\nAguardamos seu retorno,\n{nomeEmpresa}",
   },
   {
-    id: "campanha_whatsapp",
-    nome: "Campanha — WhatsApp",
-    icone: "📱",
-    quando: "Mensagem de WhatsApp (após o 2º email) — explica o motivo do contato e os custos de armazenamento.",
-    variaveis: "{nomeCliente}, {titulo}, {respostaUrl}, {nomeEmpresa}, {dataEmail1}, {dataEmail2}",
-    padrao: "Oi, {nomeCliente}! Aqui é {nomeEmpresa}.\n\nTentamos entrar em contato por email duas vezes sobre as fotos de {titulo}, mas acreditamos que você pode não ter recebido:\n📧 1º email enviado em {dataEmail1}\n📧 2º email enviado em {dataEmail2}\n\nO motivo do contato: com o aumento nos custos de armazenamento, não é mais possível manter os arquivos ativos indefinidamente. Precisamos de uma posição sua antes de tomar uma decisão definitiva sobre essas fotos.\n\nPor favor, acesse o link e nos diga o que prefere:\n{respostaUrl}\n\n✅ Já tenho meus arquivos baixados e salvos\n🔄 Quero renovar meu acesso para fazer o download\n\nSem uma resposta, as fotos serão excluídas permanentemente e não poderão ser recuperadas.",
-  },
-  {
     id: "renovacao",
     nome: "Renovação confirmada",
     icone: "✅",
@@ -247,6 +239,7 @@ function MensagensConfig() {
     <div>
       <p style={{ fontSize: 13, color: "var(--color-text-secondary)", marginTop: 0, marginBottom: 24, lineHeight: 1.6 }}>
         Personalize os textos usados no modal de envio de email/WhatsApp para clientes. Deixe em branco para usar o texto padrão do sistema.
+        Os textos dos WhatsApps do funil ficam em Configurações → Financeiro → Galeria de entrega e funil.
       </p>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>

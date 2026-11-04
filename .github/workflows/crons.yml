@@ -1,13 +1,13 @@
 # Crons do UseFokio (substituem os crons do vercel.json na saída da Vercel).
 # Batem nas rotas GET protegidas por Authorization: Bearer $CRON_SECRET.
-# Horários em UTC — 0 11 = 08:00 BRT (lembretes de agenda), 0 12 = 09:00 BRT (assinaturas).
+# Horários em UTC — 0 11 = 08:00 BRT (lembretes de agenda), 0 12 = 09:00 BRT (assinaturas e funil da galeria expirada).
 # O segredo CRON_SECRET fica em Settings → Secrets and variables → Actions (mesmo valor do Railway).
 name: Crons UseFokio
 
 on:
   schedule:
     - cron: "0 11 * * *"    # lembretes de agenda (08:00 BRT)
-    - cron: "0 12 * * *"    # checagem de assinaturas (09:00 BRT)
+    - cron: "0 12 * * *"    # checagem de assinaturas + funil da galeria expirada (09:00 BRT)
     - cron: "*/30 * * * *"  # reconciliação de pagamentos pendentes (rede de segurança do webhook)
   workflow_dispatch:        # permite rodar manualmente (testar) pelo painel do GitHub
 
@@ -33,6 +33,18 @@ jobs:
           curl -fsS --retry 3 --retry-delay 10 -X GET \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
             https://www.usefokio.com.br/api/cron/assinaturas
+
+  funil-entrega:
+    # No agendamento das 12h UTC (ou ao rodar manual). Galeria vencida entra no funil e, se ligado,
+    # os e-mails automáticos saem no dia configurado (Configurações → Financeiro → Galeria de entrega).
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '0 12 * * *'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Rodar o funil da galeria expirada
+        run: |
+          curl -fsS --retry 3 --retry-delay 10 --max-time 290 -X GET \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            https://www.usefokio.com.br/api/cron/funil-entrega
 
   reconciliar-pagamentos:
     # A cada 30 min (ou ao rodar manual). Rede de segurança: confirma pagamentos

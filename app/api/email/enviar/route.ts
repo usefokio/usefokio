@@ -4,7 +4,8 @@ import nodemailer from "nodemailer";
 import { fotografoIdAtual } from "@/lib/auth/fotografoAtual";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { decryptKey } from "@/lib/asaas";
-import { getResend, FROM_DEFAULT } from "@/lib/email/resend";
+import { getResend } from "@/lib/email/resend";
+import { htmlEmailCliente, remetenteCliente } from "@/lib/email/clienteHtml";
 
 export async function POST(req: NextRequest) {
   const fotografoId = await fotografoIdAtual();
@@ -20,25 +21,17 @@ export async function POST(req: NextRequest) {
     .select("nome_empresa, nome_completo, email, site, smtp_host, smtp_port, smtp_user, smtp_pass_enc, smtp_from")
     .eq("id", fotografoId).single();
 
-  const nome = f?.nome_empresa ?? f?.nome_completo ?? null;
-  const assiLinhas = [
-    nome ? `<strong style="color:#333">${nome}</strong>` : null,
-    f?.email ? `<a href="mailto:${f.email}" style="color:#555;text-decoration:none">${f.email}</a>` : null,
-    f?.site ? `<a href="${f.site}" style="color:#2563EB;text-decoration:none">${f.site.replace(/^https?:\/\//, "")}</a>` : null,
-  ].filter(Boolean);
-
-  const assiHtml = assiLinhas.length
-    ? `<hr style="margin:24px 0;border:none;border-top:1px solid #eee"><div style="font-family:sans-serif;font-size:13px;line-height:2;color:#666">${assiLinhas.join("<br>")}</div>`
-    : "";
-
-  const corpo = String(body).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br>");
-  const html = `<div style="font-family:sans-serif;font-size:15px;line-height:1.7;color:#222;max-width:600px">${corpo}</div>${assiHtml}`;
+  const html = htmlEmailCliente(f, String(body));
 
   let enviado = false;
 
-  // Tentar Resend primeiro (email do sistema)
+  // Tentar Resend primeiro (email do sistema, com o nome do estúdio e "responder para" = fotógrafo)
   try {
-    await getResend().emails.send({ from: FROM_DEFAULT, to, subject, html });
+    const { error } = await getResend().emails.send({
+      from: remetenteCliente(f), to, subject, html,
+      ...(f?.email ? { replyTo: f.email } : {}),
+    });
+    if (error) throw new Error(error.message);
     enviado = true;
   } catch (e) {
     console.error("[email/enviar] Resend falhou:", e instanceof Error ? e.message : e);

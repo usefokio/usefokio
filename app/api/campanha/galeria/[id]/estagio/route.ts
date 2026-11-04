@@ -3,14 +3,17 @@ import type { NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { fotografoIdDaRequisicao } from "@/lib/campanha/owner";
 import type { EstagioFunil } from "@/lib/supabase/types";
+import { registrarContato, type EtapaContato } from "@/lib/campanha/servidor";
 
-const ESTAGIOS_VALIDOS: EstagioFunil[] = ["nao_contatado", "email_1", "email_2", "whatsapp", "encerrado", "sem_retorno"];
+const ESTAGIOS_VALIDOS: EstagioFunil[] = ["nao_contatado", "email_1", "email_2", "whatsapp", "whatsapp_2", "excluido", "encerrado", "sem_retorno"];
 
 const PROXIMO: Record<EstagioFunil, EstagioFunil | null> = {
   nao_contatado: "email_1",
   email_1:       "email_2",
   email_2:       "whatsapp",
   whatsapp:      "encerrado",
+  whatsapp_2:    null,
+  excluido:      null,
   encerrado:     null,
   sem_retorno:   null,
 };
@@ -19,6 +22,13 @@ const TIMESTAMP_CAMPO: Partial<Record<EstagioFunil, string>> = {
   email_1:  "email_1_em",
   email_2:  "email_2_em",
   whatsapp: "whatsapp_em",
+};
+
+// Etapa registrada no histórico quando o fotógrafo marca o contato como feito
+const ETAPA_HISTORICO: Partial<Record<EstagioFunil, { etapa: EtapaContato; canal: "email" | "whatsapp" }>> = {
+  email_1:  { etapa: "email_1",    canal: "email" },
+  email_2:  { etapa: "email_2",    canal: "email" },
+  whatsapp: { etapa: "whatsapp_1", canal: "whatsapp" },
 };
 
 export async function PATCH(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -52,6 +62,8 @@ export async function PATCH(_req: NextRequest, { params }: { params: Promise<{ i
     .single();
 
   if (error) return NextResponse.json({ erro: error.message }, { status: 500 });
+  const hist = ETAPA_HISTORICO[proximo];
+  if (hist) await registrarContato(admin, { fotografo_id: fotografoId, galeria_id: id, etapa: hist.etapa, canal: hist.canal, modo: "manual" });
   return NextResponse.json(atualizado);
 }
 
@@ -83,10 +95,12 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   // Manual card moves via PUT must NOT overwrite them to avoid showing false "last contact" dates.
 
   // When regressing to an earlier stage, clear timestamps of stages being reverted.
-  const ORDEM: EstagioFunil[] = ["nao_contatado", "email_1", "email_2", "whatsapp", "encerrado", "sem_retorno"];
+  const ORDEM: EstagioFunil[] = ["nao_contatado", "email_1", "email_2", "whatsapp", "whatsapp_2", "excluido", "encerrado", "sem_retorno"];
   const idxAtual = ORDEM.indexOf(registro.estagio as EstagioFunil);
   const idxNovo  = ORDEM.indexOf(novoEstagio);
   if (idxNovo < idxAtual) {
+    if (idxNovo < ORDEM.indexOf("excluido" as EstagioFunil)) campos.exclusao_feita_em = null;
+    if (idxNovo < ORDEM.indexOf("whatsapp_2" as EstagioFunil)) campos.whatsapp_2_em = null;
     if (idxNovo < ORDEM.indexOf("whatsapp" as EstagioFunil)) campos.whatsapp_em = null;
     if (idxNovo < ORDEM.indexOf("email_2"  as EstagioFunil)) campos.email_2_em  = null;
     if (idxNovo < ORDEM.indexOf("email_1"  as EstagioFunil)) campos.email_1_em  = null;

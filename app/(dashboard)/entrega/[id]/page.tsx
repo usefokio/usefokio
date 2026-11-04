@@ -295,7 +295,8 @@ export default function EntregaDetailPage() {
   const [galeria,  setGaleria]  = useState<any>(null);
   const [fotos,    setFotos]    = useState<GaleriaEntregaFoto[]>([]);
   const [acessos,  setAcessos]  = useState<{ id: string; nome: string; email: string; acessado_em: string }[]>([]);
-  const [funilInfo, setFunilInfo] = useState<{ estagio: string; resposta: string | null; respondido_em: string | null; respondido_nome: string | null; email_1_em: string | null; email_2_em: string | null; whatsapp_em: string | null; ignorar_funil: boolean } | null | undefined>(undefined);
+  const [funilInfo, setFunilInfo] = useState<{ estagio: string; resposta: string | null; respondido_em: string | null; respondido_nome: string | null; email_1_em: string | null; email_2_em: string | null; whatsapp_em: string | null; whatsapp_2_em: string | null; ignorar_funil: boolean } | null | undefined>(undefined);
+  const [contatos, setContatos] = useState<{ etapa: string; canal: string; modo: string; criado_em: string }[]>([]);
   const [pagamentos, setPagamentos] = useState<Pick<Pagamento, "id" | "valor" | "status" | "paid_at" | "pagador_nome" | "pagador_email" | "dias_liberados" | "gateway">[]>([]);
   const [revelacaoPedidos, setRevelacaoPedidos] = useState<RevelacaoPedidoView[]>([]);
   const [confirmandoRevId, setConfirmandoRevId] = useState<string | null>(null);
@@ -332,7 +333,7 @@ export default function EntregaDetailPage() {
         .eq("galeria_id", id)
         .order("acessado_em", { ascending: false }),
       supabase.from("respostas_campanha")
-        .select("estagio, resposta, respondido_em, respondido_nome, email_1_em, email_2_em, whatsapp_em, ignorar_funil, agradecimento_em")
+        .select("estagio, resposta, respondido_em, respondido_nome, email_1_em, email_2_em, whatsapp_em, whatsapp_2_em, ignorar_funil, agradecimento_em")
         .eq("galeria_id", id)
         .eq("fotografo_id", fotografo.id)
         .maybeSingle(),
@@ -348,13 +349,18 @@ export default function EntregaDetailPage() {
         .eq("fotografo_id", fotografo.id)
         .neq("status", "aberto")
         .order("created_at", { ascending: false }),
-    ]).then(([{ data: g }, f, { data: a }, { data: funil }, { data: pags }, { data: revs }]) => {
+      supabase.from("entrega_contatos")
+        .select("etapa, canal, modo, criado_em")
+        .eq("galeria_id", id)
+        .order("criado_em"),
+    ]).then(([{ data: g }, f, { data: a }, { data: funil }, { data: pags }, { data: revs }, { data: cont }]) => {
       if (!g) { router.replace("/entrega"); return; }
       setGaleria(g);
       setFotos(f ?? []);
       if ((f ?? []).some((x) => !x.capturada_em)) void completarCapturas("entrega", id);
       setAcessos((a as any[]) ?? []);
       setFunilInfo(funil as any ?? null);
+      setContatos((cont as any[]) ?? []);
       setPagamentos((pags as any[]) ?? []);
       const revsList = (revs as RevelacaoPedidoView[]) ?? [];
       setRevelacaoPedidos(revsList);
@@ -719,6 +725,8 @@ export default function EntregaDetailPage() {
           email_1:       { label: "1º email enviado",   icone: "📧", cor: "#7C3AED", bg: "rgba(124,58,237,0.07)", border: "rgba(124,58,237,0.25)" },
           email_2:       { label: "2º email enviado",   icone: "📧", cor: "#2563EB", bg: "rgba(37,99,235,0.07)",  border: "rgba(37,99,235,0.25)" },
           whatsapp:      { label: "WhatsApp enviado",   icone: "📱", cor: "#15803D", bg: "rgba(34,197,94,0.07)",  border: "rgba(34,197,94,0.25)" },
+          whatsapp_2:    { label: "2º WhatsApp enviado", icone: "📱", cor: "#B45309", bg: "rgba(180,83,9,0.07)",  border: "rgba(180,83,9,0.25)" },
+          excluido:      { label: "Informado / fotos excluídas", icone: "🗂", cor: "#6B7280", bg: "rgba(107,114,128,0.07)", border: "rgba(107,114,128,0.25)" },
           encerrado:     { label: "Encerrado",          icone: "✓",  cor: "#059669", bg: "rgba(16,185,129,0.07)", border: "rgba(16,185,129,0.25)" },
         };
         // Ciclo encerrado (ex.: renovou) tem precedência: não mostrar "quer renovar"/resposta do ciclo
@@ -731,7 +739,7 @@ export default function EntregaDetailPage() {
               ? { label: "Cliente: quer renovar", icone: "🔄", cor: "#2563EB", bg: "rgba(37,99,235,0.07)", border: "rgba(37,99,235,0.25)" }
               : ESTAGIO_INFO[funilInfo.estagio] ?? ESTAGIO_INFO.nao_contatado;
 
-        const ultimoContato = funilInfo.whatsapp_em ?? funilInfo.email_2_em ?? funilInfo.email_1_em ?? null;
+        const ultimoContato = funilInfo.whatsapp_2_em ?? funilInfo.whatsapp_em ?? funilInfo.email_2_em ?? funilInfo.email_1_em ?? null;
         const fmtData = (iso: string) => new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
         const diasDesde = (iso: string) => Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
 
@@ -749,9 +757,18 @@ export default function EntregaDetailPage() {
 
         // Monta timeline de eventos
         const eventos: { data: string; texto: string; icone: string; cor: string }[] = [];
-        if (funilInfo.email_1_em) eventos.push({ data: fmtData(funilInfo.email_1_em), texto: "1º email enviado", icone: "📧", cor: "#7C3AED" });
-        if (funilInfo.email_2_em) eventos.push({ data: fmtData(funilInfo.email_2_em), texto: "2º email enviado", icone: "📧", cor: "#2563EB" });
-        if (funilInfo.whatsapp_em) eventos.push({ data: fmtData(funilInfo.whatsapp_em), texto: "WhatsApp enviado", icone: "📱", cor: "#15803D" });
+        // Contatos feitos (histórico entrega_contatos — manuais e automáticos, mantido mesmo ao reiniciar o ciclo)
+        const ROTULO_CONTATO: Record<string, { texto: string; icone: string; cor: string }> = {
+          email_1:    { texto: "1º email enviado",                     icone: "📧", cor: "#7C3AED" },
+          email_2:    { texto: "2º email enviado",                     icone: "📧", cor: "#2563EB" },
+          whatsapp_1: { texto: "WhatsApp enviado",                     icone: "📱", cor: "#15803D" },
+          whatsapp_2: { texto: "2º WhatsApp (aviso de exclusão) enviado", icone: "📱", cor: "#B45309" },
+          exclusao:   { texto: "Fotos excluídas (marcado por você)",    icone: "🗑", cor: "#6B7280" },
+        };
+        for (const c of contatos) {
+          const r = ROTULO_CONTATO[c.etapa];
+          if (r) eventos.push({ data: fmtData(c.criado_em), texto: `${r.texto}${c.modo === "auto" ? " · automático" : ""}`, icone: r.icone, cor: r.cor });
+        }
         if (funilInfo.respondido_em) eventos.push({
           data: fmtData(funilInfo.respondido_em),
           texto: funilInfo.resposta === "tem_arquivos"
