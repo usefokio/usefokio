@@ -18,6 +18,7 @@ import { useUnsavedGuard } from "@/lib/hooks/useUnsavedGuard";
 import { SeloEstado, ModalNaoSalvo } from "@/app/(dashboard)/_components/EditorEstado";
 import { ModalConfirmacao } from "@/app/(dashboard)/_components/ModalConfirmacao";
 import { criarAgendamentoDoPedido, recriarAgendamentosDoPedido } from "@/lib/crm/agendamentos";
+import { recalcularCustosDoPedido } from "@/lib/crm/custosPedido";
 
 // ── Tipos locais ──────────────────────────────────────────────────────────────
 
@@ -531,6 +532,9 @@ export default function FormPedido({ inicial, onSalvo, onCancelar }: Props) {
           preco_unit: i.preco_unit,
         })));
       }
+      // Produtos/valores mudaram → refaz os custos em aberto (pagos e lançamentos manuais ficam)
+      const erroCustos = await recalcularCustosDoPedido(sb, id, fotografo.id);
+      if (erroCustos) { setError("Pedido salvo, mas os custos não foram recalculados: " + erroCustos); setSaving(false); return false; }
 
       // Data mudou → cancela e recria o(s) agendamento(s) na nova data (o modal já confirmou quando
       // havia agendamento; se não havia, apenas cria — corrige o furo de a edição nunca criar).
@@ -624,39 +628,9 @@ export default function FormPedido({ inicial, onSalvo, onCancelar }: Props) {
           preco_unit: i.preco_unit,
         })));
 
-        // Gerar contas a pagar a partir dos custos dos produtos
-        const produtoIds = itens.map(i => i.produto_id).filter(Boolean) as string[];
-        if (produtoIds.length > 0) {
-          const { data: custos } = await sb.from("crm_product_custos").select("*").in("produto_id", produtoIds);
-          if (custos && custos.length > 0) {
-            const hoje = hojeBR();
-            const despesas: object[] = [];
-            for (const custo of custos as { id: string; produto_id: string; fotografo_id: string; descricao: string; valor: number; percentual: number | null; conta_id: string | null; referencia: string; dias_offset: number; dias_direcao: string }[]) {
-              const item = itens.find(i => i.produto_id === custo.produto_id);
-              if (!item) continue;
-              const baseDate = custo.referencia === "data_evento" ? (form.data_evento || hoje) : hoje;
-              const d = new Date(baseDate + "T12:00:00");
-              if (custo.dias_direcao === "antes") d.setDate(d.getDate() - custo.dias_offset);
-              else if (custo.dias_direcao === "apos") d.setDate(d.getDate() + custo.dias_offset);
-              const vencimento = d.toISOString().slice(0, 10);
-              const valorCusto = custo.valor > 0 ? custo.valor * item.quantidade : custo.percentual ? (liquido * custo.percentual / 100) : 0;
-              if (valorCusto <= 0) continue;
-              despesas.push({
-                fotografo_id:          fotografo.id,
-                pedido_id:             id,
-                tipo:                  "despesa",
-                descricao:             custo.descricao || item.descricao,
-                valor:                 +valorCusto.toFixed(2),
-                vencimento,
-                data_competencia:      hoje, // pedido novo: custo entra na competência da venda (data do pedido)
-                status:                "pendente",
-                conta_id:              custo.conta_id,
-                internal_account_type: "pedido",
-              });
-            }
-            if (despesas.length > 0) await sb.from("crm_financial_entries").insert(despesas);
-          }
-        }
+        // Contas a pagar a partir dos custos dos produtos
+        const erroCustos = await recalcularCustosDoPedido(sb, id, fotografo.id);
+        if (erroCustos) console.error("[pedido] custos:", erroCustos);
       }
 
       // Lançamentos financeiros a partir dos planos

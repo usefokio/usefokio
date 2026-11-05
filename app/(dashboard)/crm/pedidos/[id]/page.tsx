@@ -17,6 +17,7 @@ import { ModalEvento } from "@/app/(dashboard)/crm/_components/ModalEvento";
 import { RichTextEditor } from "@/app/(dashboard)/crm/_components/RichTextEditor";
 import { ProdutoSearch } from "@/components/ui/ProdutoSearch";
 import { GaleriasPedido } from "./_components/GaleriasPedido";
+import { recalcularCustosDoPedido } from "@/lib/crm/custosPedido";
 
 type OrderWithCliente = CrmOrder & { crm_nativo?: boolean | null; clientes?: { id: string; nome: string; email?: string | null; telefone?: string | null; whatsapp?: string | null } | null };
 
@@ -156,7 +157,7 @@ export default function PedidoDetailPage() {
     carregarPedidoStatus(createClient(), fid).then(setStatusDefs);
   }, [pedido?.fotografo_id]);
 
-  // ── Editor de produtos (isolado): grava só crm_order_items, sem tocar em nada financeiro ──
+  // ── Editor de produtos (isolado): grava crm_order_items e refaz só os custos em aberto (receitas não mudam) ──
   const iniciarEdicaoProdutos = () => {
     setItensEdit(itens.map(i => ({ key: i.id, produto_id: i.produto_id, descricao: i.descricao, quantidade: i.quantidade, preco_unit: i.preco_unit })));
     setEditandoProdutos(true);
@@ -184,6 +185,10 @@ export default function PedidoDetailPage() {
         pedido_id: id, produto_id: i.produto_id, descricao: i.descricao, quantidade: i.quantidade, preco_unit: i.preco_unit,
       })));
       if (error) { alert("Erro ao salvar produtos: " + error.message); setSalvandoProdutos(false); return; }
+    }
+    if (pedido?.fotografo_id) {
+      const erroCustos = await recalcularCustosDoPedido(sb, id, pedido.fotografo_id);
+      if (erroCustos) alert("Produtos salvos, mas os custos não foram recalculados: " + erroCustos);
     }
     setSalvandoProdutos(false);
     setEditandoProdutos(false);
