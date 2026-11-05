@@ -187,8 +187,9 @@ export default function PedidoDetailPage() {
       if (error) { alert("Erro ao salvar produtos: " + error.message); setSalvandoProdutos(false); return; }
     }
     if (pedido?.fotografo_id) {
-      const erroCustos = await recalcularCustosDoPedido(sb, id, pedido.fotografo_id);
-      if (erroCustos) alert("Produtos salvos, mas os custos não foram recalculados: " + erroCustos);
+      const custos = await recalcularCustosDoPedido(sb, id, pedido.fotografo_id);
+      if (custos.erro) alert("Produtos salvos, mas os custos não foram recalculados: " + custos.erro);
+      else if (custos.aviso) alert(custos.aviso);
     }
     setSalvandoProdutos(false);
     setEditandoProdutos(false);

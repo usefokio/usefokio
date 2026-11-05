@@ -513,6 +513,7 @@ export default function FormPedido({ inicial, onSalvo, onCancelar }: Props) {
     };
 
     let agendaAtualizado = false;
+    let avisoCustos: string | null = null;
 
     let id = inicial?.id;
     if (isEditing && id) {
@@ -533,8 +534,9 @@ export default function FormPedido({ inicial, onSalvo, onCancelar }: Props) {
         })));
       }
       // Produtos/valores mudaram → refaz os custos em aberto (pagos e lançamentos manuais ficam)
-      const erroCustos = await recalcularCustosDoPedido(sb, id, fotografo.id);
-      if (erroCustos) { setError("Pedido salvo, mas os custos não foram recalculados: " + erroCustos); setSaving(false); return false; }
+      const custos = await recalcularCustosDoPedido(sb, id, fotografo.id);
+      if (custos.erro) { setError("Pedido salvo, mas os custos não foram recalculados: " + custos.erro); setSaving(false); return false; }
+      avisoCustos = custos.aviso;
 
       // Data mudou → cancela e recria o(s) agendamento(s) na nova data (o modal já confirmou quando
       // havia agendamento; se não havia, apenas cria — corrige o furo de a edição nunca criar).
@@ -629,7 +631,7 @@ export default function FormPedido({ inicial, onSalvo, onCancelar }: Props) {
         })));
 
         // Contas a pagar a partir dos custos dos produtos
-        const erroCustos = await recalcularCustosDoPedido(sb, id, fotografo.id);
+        const { erro: erroCustos } = await recalcularCustosDoPedido(sb, id, fotografo.id);
         if (erroCustos) console.error("[pedido] custos:", erroCustos);
       }
 
@@ -661,6 +663,7 @@ export default function FormPedido({ inicial, onSalvo, onCancelar }: Props) {
     }
 
     setSaving(false);
+    if (avisoCustos) alert(avisoCustos);
     setSaiu(true); // desliga o guard antes de navegar/fechar o editor
     if (navegar) {
       onSalvo ? onSalvo(id!, agendaAtualizado) : router.push(`/crm/pedidos/${id}`);
