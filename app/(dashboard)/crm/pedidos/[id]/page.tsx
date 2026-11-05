@@ -5,7 +5,6 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import FormPedido from "../_components/FormPedido";
-import { ModalConfirmacao } from "@/app/(dashboard)/_components/ModalConfirmacao";
 import { FIN_STATUS_MAP } from "@/lib/constants/statusMaps";
 import { carregarPedidoStatus, montarStatusMap, statusInfo } from "@/lib/crm/pedidoStatus";
 import type { CrmPedidoStatus } from "@/lib/supabase/types";
@@ -69,8 +68,6 @@ export default function PedidoDetailPage() {
   const [lancSortDir, setLancSortDir] = usePersistState<"asc" | "desc">("pedidoLanc:sortDir", "asc");
 
   // Editar lançamento em aberto (nunca pago)
-  const [editLanc,     setEditLanc]     = useState<{ entry: CrmFinancialEntry; descricao: string; valor: string; vencimento: string; dataCompetencia: string; dataCompetenciaManual: boolean } | null>(null);
-  const [salvandoLanc, setSalvandoLanc] = useState(false);
 
   // Contratos
   const [contratos,           setContratos]           = useState<CrmContract[]>([]);
@@ -102,8 +99,6 @@ export default function PedidoDetailPage() {
   const [emailEnviado,        setEmailEnviado]        = useState(false);
   // Excluir contrato
   const [confirmExcluirContrato, setConfirmExcluirContrato] = useState<CrmContract | null>(null);
-  const [custoExcluir, setCustoExcluir] = useState<CrmFinancialEntry | null>(null);
-  const [excluindoCusto, setExcluindoCusto] = useState(false);
   const [excluindoContrato,      setExcluindoContrato]      = useState(false);
 
   const carregar = () => {
@@ -195,22 +190,6 @@ export default function PedidoDetailPage() {
     carregar();
   };
 
-
-  // ── Editar lançamento em aberto ── (nunca altera pagos/recebidos)
-  const salvarLancEditado = async () => {
-    if (!editLanc) return;
-    if (!["pendente", "vencido"].includes(editLanc.entry.status)) { setEditLanc(null); return; }
-    const valor = parsearValor(editLanc.valor);
-    if (!editLanc.descricao.trim() || valor <= 0 || !editLanc.vencimento) return;
-    setSalvandoLanc(true);
-    await createClient().from("crm_financial_entries")
-      .update({ descricao: editLanc.descricao.trim(), valor, vencimento: editLanc.vencimento, data_competencia: editLanc.dataCompetencia || null })
-      .eq("id", editLanc.entry.id)
-      .in("status", ["pendente", "vencido"]); // guarda extra no banco: nunca edita pago/cancelado
-    setSalvandoLanc(false);
-    setEditLanc(null);
-    carregar();
-  };
 
   // Fecha o modal descartando a revisão em memória (nada foi gravado até o "Confirmar e gerar").
   const fecharModalContrato = () => {
@@ -509,23 +488,11 @@ export default function PedidoDetailPage() {
               </div>
               <div><span style={{ fontSize: 11, fontWeight: 600, color: stFin.color }}>{stFin.label}</span></div>
               <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
-                {/* Pagamentos (receitas) só se alteram no Editar do pedido — visualizar é read-only */}
-                {!ehReceita && (f.status === "pendente" || f.status === "vencido") && (
-                  <button onClick={() => setEditLanc({ entry: f, descricao: f.descricao ?? "", valor: formatNum(f.valor), vencimento: f.vencimento, dataCompetencia: f.data_competencia ?? f.vencimento, dataCompetenciaManual: false })} title="Editar lançamento em aberto"
-                    style={{ padding: "4px 8px", borderRadius: 6, border: "0.5px solid var(--color-border-secondary)", background: "transparent", cursor: "pointer", fontSize: 12 }}>
-                    ✏️
-                  </button>
-                )}
+                {/* Visualizar é read-only: pagamentos mudam no Editar do pedido; custos, no Financeiro → A pagar */}
                 {ehReceita && f.status === "pago" && (
                   <button onClick={() => { setReciboCopiado(false); setReciboModal(f); }} title="Reenviar recibo ao cliente"
                     style={{ padding: "4px 8px", borderRadius: 6, border: "0.5px solid rgba(37,99,235,0.3)", background: "transparent", cursor: "pointer", fontSize: 12 }}>
                     🧾
-                  </button>
-                )}
-                {!ehReceita && (f.status === "pendente" || f.status === "vencido") && (
-                  <button onClick={() => setCustoExcluir(f)} title="Excluir custo (provisionado)"
-                    style={{ padding: "4px 8px", borderRadius: 6, border: "0.5px solid rgba(239,68,68,0.3)", background: "transparent", cursor: "pointer", fontSize: 12, color: "#EF4444" }}>
-                    🗑
                   </button>
                 )}
               </div>
@@ -1223,25 +1190,6 @@ export default function PedidoDetailPage() {
         </div>
       )}
 
-      {/* Modal excluir custo do pedido */}
-      <ModalConfirmacao
-        aberto={!!custoExcluir}
-        titulo="Excluir custo do pedido?"
-        mensagem={<>O custo <strong>{custoExcluir?.descricao}</strong> ({custoExcluir ? fmt(custoExcluir.valor) : ""}) será removido permanentemente e sai dos resultados. Esta ação é irreversível.</>}
-        textoConfirmar="Sim, excluir"
-        perigo
-        ocupado={excluindoCusto}
-        onConfirmar={async () => {
-          if (!custoExcluir) return;
-          setExcluindoCusto(true);
-          await createClient().from("crm_financial_entries").delete().eq("id", custoExcluir.id);
-          setExcluindoCusto(false);
-          setCustoExcluir(null);
-          carregar();
-        }}
-        onCancelar={() => setCustoExcluir(null)}
-      />
-
       {/* Modal excluir contrato */}
       {confirmExcluirContrato && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center" }}
@@ -1313,59 +1261,6 @@ export default function PedidoDetailPage() {
 
       {/* Modal — adicionar produto (informativo) */}
 
-      {/* Modal — editar lançamento em aberto */}
-      {editLanc && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}
-          onClick={e => e.target === e.currentTarget && setEditLanc(null)}>
-          <div style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 14, padding: "24px 28px", width: 420, maxWidth: "100%", boxShadow: "0 24px 64px rgba(0,0,0,0.22)" }}>
-            <div style={{ fontSize: 15, fontWeight: 800, color: "var(--color-text-primary)", marginBottom: 4 }}>Editar lançamento</div>
-            <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginBottom: 18 }}>Em aberto · {editLanc.entry.parcela ? `Parcela ${editLanc.entry.parcela}` : editLanc.entry.tipo === "receita" ? "Receita" : "Custo"}</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 18 }}>
-              <div>
-                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>Descrição</div>
-                <input value={editLanc.descricao} onChange={e => setEditLanc(m => m ? { ...m, descricao: e.target.value } : m)}
-                  style={{ width: "100%", boxSizing: "border-box", padding: "9px 12px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", fontSize: 13, color: "var(--color-text-primary)", outline: "none" }} />
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                <div>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>Valor (R$)</div>
-                  <input type="text" inputMode="decimal" value={editLanc.valor} onChange={e => setEditLanc(m => {
-                      if (!m) return m;
-                      const valor = mascaraValor(e.target.value);
-                      if (m.dataCompetenciaManual) return { ...m, valor };
-                      // Editou o valor → vale a data da edição (como no sistema antigo); voltou ao original → data original.
-                      const mudou = Math.abs(parsearValor(valor) - Number(m.entry.valor)) > 0.004;
-                      return { ...m, valor, dataCompetencia: mudou ? hojeBR() : (m.entry.data_competencia ?? m.entry.vencimento) };
-                    })}
-                    style={{ width: "100%", boxSizing: "border-box", padding: "9px 12px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", fontSize: 13, color: "var(--color-text-primary)", outline: "none" }} />
-                </div>
-                <div>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>Vencimento</div>
-                  <input type="date" value={editLanc.vencimento} onChange={e => setEditLanc(m => m ? { ...m, vencimento: e.target.value } : m)}
-                    style={{ width: "100%", boxSizing: "border-box", padding: "9px 12px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", fontSize: 13, color: "var(--color-text-primary)", outline: "none" }} />
-                </div>
-              </div>
-              <div>
-                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>Data de lançamento (competência)</div>
-                <input type="date" value={editLanc.dataCompetencia} onChange={e => setEditLanc(m => m ? { ...m, dataCompetencia: e.target.value, dataCompetenciaManual: true } : m)}
-                  style={{ width: "100%", boxSizing: "border-box", padding: "9px 12px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", fontSize: 13, color: "var(--color-text-primary)", outline: "none" }} />
-                <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 4 }}>
-                  Passa para hoje quando você altera o valor — é o mês em que o valor entra na competência.
-                </div>
-              </div>
-            </div>
-            <div style={{ display: "flex", gap: 10 }}>
-              <button onClick={salvarLancEditado} disabled={salvandoLanc}
-                style={{ padding: "9px 22px", borderRadius: 8, background: "#111", color: "#fff", border: "none", fontSize: 13, fontWeight: 700, cursor: "pointer", opacity: salvandoLanc ? 0.6 : 1 }}>
-                {salvandoLanc ? "Salvando…" : "Salvar"}
-              </button>
-              <button onClick={() => setEditLanc(null)} style={{ padding: "9px 16px", borderRadius: 8, background: "transparent", color: "var(--color-text-secondary)", border: "0.5px solid var(--color-border-secondary)", fontSize: 13, cursor: "pointer" }}>
-                Cancelar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
