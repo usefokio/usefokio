@@ -1,6 +1,6 @@
 "use client";
 
-// Combobox de CATEGORIA (trabalho e coleção): input + datalist das categorias da conta
+// Combobox de CATEGORIA (trabalho, coleção e blog): input + datalist das categorias da conta
 // + aviso anti-duplicata ("Retrato" quando já existe "Retratos"), com um clique para usar
 // a existente. A resolução digitado→slug vive em lib/site/categorias (fonte única).
 import { quaseDuplicata } from "@/lib/site/categorias";
@@ -11,7 +11,7 @@ export function CategoriaCombobox({
 }: {
   valor: string;
   onChange: (nome: string) => void;
-  cats: SiteCategoria[];
+  cats: Pick<SiteCategoria, "id" | "slug" | "nome">[];
   listaId: string;               // id único do <datalist> (a tela pode ter mais de um combobox)
   placeholder?: string;
   style?: React.CSSProperties;

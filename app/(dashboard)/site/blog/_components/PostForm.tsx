@@ -1,6 +1,8 @@
 "use client";
 
-// Form de criar/editar post do blog: título, slug, categoria, tags, capa, corpo rico, SEO e publicação.
+// Form de criar/editar post do blog: título, slug, categoria, capa, corpo rico, SEO e publicação.
+// Categoria do blog é própria (não usa site_categorias do portfólio): a lista vem das categorias já usadas nos posts.
+// Tags saíram do form (palavras-chave ficam em ⚙ Configurações); o valor antigo é preservado ao salvar.
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -13,6 +15,8 @@ import { useEditorEstado, SeloEstado, BotaoSalvarEstado, ModalNaoSalvo } from "@
 import { ConfigPaginaModal } from "@/app/(dashboard)/site/_components/ConfigPaginaModal";
 import { SeoDicas } from "@/app/(dashboard)/site/_components/SeoDica";
 import { BotaoIA } from "@/app/(dashboard)/site/_components/BotaoIA";
+import { CategoriaCombobox } from "@/app/(dashboard)/site/_components/CategoriaCombobox";
+import { resolverCategoria, slugifyCategoria } from "@/lib/site/categorias";
 import { auditarPost, contarPalavras } from "@/lib/site/seoAudit";
 import type { ConfigPaginaValores } from "@/lib/site/seo";
 import type { SitePost } from "@/lib/supabase/types";
@@ -49,6 +53,7 @@ export function PostForm({ postId }: { postId?: string }) {
   const [slugTocado, setSlugTocado] = useState(false);
   const [categoria, setCategoria] = useState("");
   const [tags, setTags] = useState("");
+  const [catsBlog, setCatsBlog] = useState<{ id: string; slug: string; nome: string }[]>([]);
   const [resumo, setResumo] = useState("");
   const [corpo, setCorpo] = useState("");
   const [publicado, setPublicado] = useState(false);
@@ -111,6 +116,21 @@ export function PostForm({ postId }: { postId?: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editando, postId, fotografo]);
 
+  // Categorias do blog = as já usadas nos posts desta conta (ordem alfabética)
+  useEffect(() => {
+    if (!fotografo) return;
+    createClient().from("site_posts").select("categoria").eq("fotografo_id", fotografo.id).not("categoria", "is", null)
+      .then(({ data }) => {
+        const nomes = new Map<string, string>();
+        for (const r of (data ?? []) as { categoria: string | null }[]) {
+          const n = (r.categoria ?? "").trim();
+          if (n && !nomes.has(n.toLowerCase())) nomes.set(n.toLowerCase(), n);
+        }
+        setCatsBlog([...nomes.values()].sort((a, b) => a.localeCompare(b, "pt-BR"))
+          .map((nome) => ({ id: nome, slug: slugifyCategoria(nome), nome })));
+      });
+  }, [fotografo]);
+
   const urlPublica = useMemo(() => `/post/${legacyId ? `${legacyId}-` : ""}${slug || slugify(titulo)}`, [legacyId, slug, titulo]);
 
   // Ponte para o modal de Configurações (post: URL + mostrar data + SEO + redes; sem modo de exibição).
@@ -138,9 +158,11 @@ export function PostForm({ postId }: { postId?: string }) {
     setSalvando(true); setMsg(null);
     const supabase = createClient();
     const corpoLimpo = corpo.replace(/<p>\s*<\/p>/g, "").trim();
+    // Mesma categoria escrita diferente ("eventos culturais") vira a existente ("Eventos Culturais")
+    const categoriaFinal = categoria.trim() ? (resolverCategoria(categoria, catsBlog).existente?.nome ?? categoria.trim()) : null;
     const campos = {
       titulo: titulo.trim(), slug: slugFinal,
-      categoria: categoria.trim() || null, tags: tags.trim() || null,
+      categoria: categoriaFinal, tags: tags.trim() || null,
       resumo: resumo.trim() || null, corpo: corpoLimpo || null,
       capa_url: capaUrl, publicado,
       publicado_em: publicado ? `${publicadoEm}T12:00:00Z` : null,
@@ -221,15 +243,10 @@ export function PostForm({ postId }: { postId?: string }) {
           <input value={titulo} onChange={(e) => { setTitulo(e.target.value); if (!slugTocado) setSlug(slugify(e.target.value)); }} style={inputStyle} />
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-          <div>
-            <label style={labelStyle}>Categoria</label>
-            <input value={categoria} onChange={(e) => setCategoria(e.target.value)} style={inputStyle} placeholder="Ex.: Dicas para o Casamento" />
-          </div>
-          <div>
-            <label style={labelStyle}>Tags (separadas por vírgula)</label>
-            <input value={tags} onChange={(e) => setTags(e.target.value)} style={inputStyle} placeholder="dicas para noivas, making-of…" />
-          </div>
+        <div>
+          <label style={labelStyle}>Categoria do blog</label>
+          <CategoriaCombobox valor={categoria} onChange={setCategoria} cats={catsBlog} listaId="lista-categorias-blog"
+            placeholder="Escolha uma categoria do blog ou digite uma nova" style={inputStyle} />
         </div>
 
         <div>
