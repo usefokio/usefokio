@@ -2,7 +2,7 @@
 
 // Form de criar/editar post do blog: título, slug, categoria, capa, corpo rico, SEO e publicação.
 // Categoria do blog é própria (não usa site_categorias do portfólio): a lista vem das categorias já usadas nos posts.
-// Tags saíram do form (palavras-chave ficam em ⚙ Configurações); o valor antigo é preservado ao salvar.
+// Tags e Resumo saíram do form (palavras-chave e descrição ficam em ⚙ Configurações); valores antigos são preservados ao salvar.
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -260,11 +260,6 @@ export function PostForm({ postId }: { postId?: string }) {
             <BotaoEscolherDoSite pasta={`posts/${postId ?? "novo"}`} onEscolher={(u) => setCapaUrl(u)} />
             <input ref={inputCapaRef} type="file" accept="image/*" style={{ display: "none" }} onChange={(e) => enviarCapa(e.target.files)} />
           </div>
-        </div>
-
-        <div>
-          <label style={labelStyle}>Resumo (aparece na lista do blog e no SEO)</label>
-          <textarea value={resumo} onChange={(e) => setResumo(e.target.value)} rows={2} style={{ ...inputStyle, resize: "vertical" }} />
         </div>
 
         <div>

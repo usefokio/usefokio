@@ -41,7 +41,7 @@ export default async function BlogPage({ params }: { params: Promise<{ fid: stri
             <div style={{ flex: 1, minWidth: 240 }}>
               {p.categoria && <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", color: "#999", marginBottom: 4 }}>{p.categoria}</div>}
               <h2 style={{ fontSize: 18, fontWeight: 700, margin: "0 0 6px", lineHeight: 1.4 }}>{p.titulo}</h2>
-              {p.resumo && <p style={{ fontSize: 13, color: "#666", lineHeight: 1.7, margin: 0 }}>{p.resumo.slice(0, 160)}…</p>}
+              {(p.resumo ?? p.seo_description) && <p style={{ fontSize: 13, color: "#666", lineHeight: 1.7, margin: 0 }}>{(p.resumo ?? p.seo_description ?? "").slice(0, 160)}…</p>}
             </div>
           </Link>
         ))}

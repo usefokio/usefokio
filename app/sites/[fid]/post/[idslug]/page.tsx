@@ -8,6 +8,7 @@ import { JsonLd } from "../../_components/JsonLd";
 import { ConteudoRico } from "../../_components/ConteudoRico";
 import { Relacionados } from "../../_components/Relacionados";
 import type { SitePost } from "@/lib/supabase/types";
+import { RegistrarViewPost } from "../../_components/RegistrarViewPost";
 
 async function buscarPost(fid: string, idslug: string): Promise<SitePost | null> {
   const admin = createAdminClient();
@@ -24,7 +25,7 @@ export async function generateMetadata({ params }: { params: Promise<{ fid: stri
   const { fid, idslug } = await params;
   const p = await buscarPost(fid, idslug);
   if (!p) return {};
-  const m = resolverMetaPagina(p, { titulo: p.titulo, descricao: p.resumo, imagem: p.capa_url });
+  const m = resolverMetaPagina(p, { titulo: p.titulo, descricao: p.resumo ?? p.seo_description, imagem: p.capa_url });
   return {
     title: m.title,
     description: m.description,
@@ -43,6 +44,7 @@ export default async function PostPage({ params }: { params: Promise<{ fid: stri
 
   return (
     <article>
+      <RegistrarViewPost postId={p.id} />
       <JsonLd data={{
         "@context": "https://schema.org",
         "@type": "Article",
@@ -50,7 +52,7 @@ export default async function PostPage({ params }: { params: Promise<{ fid: stri
         image: p.capa_url ? [p.capa_url] : undefined,
         datePublished: p.publicado_em ?? undefined,
         articleSection: p.categoria ?? undefined,
-        description: p.resumo ?? undefined,
+        description: p.resumo ?? p.seo_description ?? undefined,
       }} />
       {/* Capa em página inteira, como um banner, acima do texto */}
       {p.capa_url && (
