@@ -1,5 +1,6 @@
 "use client";
 
+import { normalizar } from "@/lib/utils/normalizar";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
@@ -132,9 +133,9 @@ function ModalVincular({ pedidoId, fotografoId, clienteId, onFechar, onVinculado
 
   // Mesmo contato do pedido primeiro; depois as mais recentes.
   const lista = useMemo(() => {
-    const b = busca.trim().toLowerCase();
+    const b = normalizar(busca.trim());
     return galerias
-      .filter(g => !b || g.titulo.toLowerCase().includes(b) || (g.cliente_id && (nomes[g.cliente_id] ?? "").toLowerCase().includes(b)))
+      .filter(g => !b || normalizar(g.titulo).includes(b) || (g.cliente_id && normalizar(nomes[g.cliente_id] ?? "").includes(b)))
       .sort((a, c) => {
         const ma = clienteId && a.cliente_id === clienteId ? 0 : 1;
         const mc = clienteId && c.cliente_id === clienteId ? 0 : 1;

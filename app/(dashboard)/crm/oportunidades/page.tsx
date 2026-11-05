@@ -1,5 +1,6 @@
 "use client";
 
+import { normalizar } from "@/lib/utils/normalizar";
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -189,10 +190,10 @@ export default function OportunidadesPage() {
     if (dataInicio && o.created_at < dataInicio) return false;
     if (dataFim && o.created_at > dataFim + "T23:59:59") return false;
     if (busca !== "" &&
-      !o.titulo.toLowerCase().includes(busca.toLowerCase()) &&
-      !(o.clientes?.nome ?? "").toLowerCase().includes(busca.toLowerCase()) &&
-      !(o.cidade_evento ?? "").toLowerCase().includes(busca.toLowerCase()) &&
-      !(o.observacoes ?? "").toLowerCase().includes(busca.toLowerCase())
+      !normalizar(o.titulo).includes(normalizar(busca)) &&
+      !normalizar(o.clientes?.nome ?? "").includes(normalizar(busca)) &&
+      !normalizar(o.cidade_evento ?? "").includes(normalizar(busca)) &&
+      !normalizar(o.observacoes ?? "").includes(normalizar(busca))
     ) return false;
     return true;
   });

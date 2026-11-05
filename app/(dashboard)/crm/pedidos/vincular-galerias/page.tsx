@@ -1,5 +1,6 @@
 "use client";
 
+import { normalizar } from "@/lib/utils/normalizar";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
@@ -107,9 +108,9 @@ export default function VincularGaleriasPage() {
   useEffect(() => { carregar(); }, [carregar]);
 
   const visiveis = useMemo(() => {
-    const b = busca.trim().toLowerCase();
+    const b = normalizar(busca.trim());
     if (!b) return itens;
-    return itens.filter(it => it.g.titulo.toLowerCase().includes(b) || (it.g.cliente_id && (nomes[it.g.cliente_id] ?? "").toLowerCase().includes(b)));
+    return itens.filter(it => normalizar(it.g.titulo).includes(b) || (it.g.cliente_id && normalizar(nomes[it.g.cliente_id] ?? "").includes(b)));
   }, [itens, busca, nomes]);
 
   const selecionadas = itens.filter(it => marcadas.has(it.key) && escolha[it.key]);

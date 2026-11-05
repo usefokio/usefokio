@@ -1,5 +1,6 @@
 "use client";
 
+import { normalizar } from "@/lib/utils/normalizar";
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -225,12 +226,12 @@ export default function ComunicacaoPage() {
   }
 
   const fotoFiltrados = fotografos.filter((f) => {
-    const q = buscaFoto.trim().toLowerCase();
+    const q = normalizar(buscaFoto.trim());
     if (!q) return true;
     return (
-      f.nome_completo.toLowerCase().includes(q) ||
-      f.nome_empresa.toLowerCase().includes(q) ||
-      f.email.toLowerCase().includes(q)
+      normalizar(f.nome_completo).includes(q) ||
+      normalizar(f.nome_empresa).includes(q) ||
+      normalizar(f.email).includes(q)
     );
   });
 

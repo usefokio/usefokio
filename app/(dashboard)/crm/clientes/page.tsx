@@ -1,5 +1,6 @@
 "use client";
 
+import { normalizar } from "@/lib/utils/normalizar";
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -74,12 +75,12 @@ export default function CrmClientesPage() {
   const filtrados = clientes.filter((c: Cliente) => {
     if (tipoFiltro && c.tipo_contato !== tipoFiltro) return false;
     if (!busca) return true;
-    const b = busca.toLowerCase();
+    const b = normalizar(busca);
     return (
-      c.nome.toLowerCase().includes(b) ||
-      (c.email ?? "").toLowerCase().includes(b) ||
+      normalizar(c.nome).includes(b) ||
+      normalizar(c.email ?? "").includes(b) ||
       (c.telefone ?? "").includes(b) ||
-      (c.empresa ?? "").toLowerCase().includes(b)
+      normalizar(c.empresa ?? "").includes(b)
     );
   });
 

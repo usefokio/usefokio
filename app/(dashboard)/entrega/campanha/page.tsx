@@ -1,5 +1,6 @@
 "use client";
 
+import { normalizar } from "@/lib/utils/normalizar";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -242,11 +243,11 @@ export default function CampanhaPage() {
     return COLUNAS.find((c) => c.estagios.includes(item.estagio))?.id ?? "sem_contato";
   }
 
-  const buscaLower = busca.trim().toLowerCase();
+  const buscaLower = normalizar(busca.trim());
   const itensFiltrados = buscaLower
     ? itens.filter((i) =>
-        i.galeria.titulo.toLowerCase().includes(buscaLower) ||
-        (i.galeria.cliente_nome ?? "").toLowerCase().includes(buscaLower)
+        normalizar(i.galeria.titulo).includes(buscaLower) ||
+        normalizar(i.galeria.cliente_nome ?? "").includes(buscaLower)
       )
     : itens;
 

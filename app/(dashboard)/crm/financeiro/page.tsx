@@ -1,5 +1,6 @@
 "use client";
 
+import { normalizar } from "@/lib/utils/normalizar";
 import { useEffect, useState, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -242,12 +243,12 @@ function FinanceiroInner({ tipoMenu }: { tipoMenu: "receber" | "pagar" }) {
   })();
 
   const filtradas = entries.filter(e => {
-    const q = busca.toLowerCase();
+    const q = normalizar(busca);
     const clienteNome = e.crm_orders?.clientes?.nome ?? e.clientes?.nome ?? "";
     const matchBusca = busca === "" ||
-      clienteNome.toLowerCase().includes(q) ||
-      (e.crm_orders?.nome ?? "").toLowerCase().includes(q) ||
-      (e.descricao ?? "").toLowerCase().includes(q);
+      normalizar(clienteNome).includes(q) ||
+      normalizar(e.crm_orders?.nome ?? "").includes(q) ||
+      normalizar(e.descricao ?? "").includes(q);
 
     const dataRef = (aba === "recebidas" || aba === "pagas") && e.pago_em ? e.pago_em : e.vencimento;
 

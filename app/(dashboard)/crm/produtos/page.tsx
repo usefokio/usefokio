@@ -1,5 +1,6 @@
 "use client";
 
+import { normalizar } from "@/lib/utils/normalizar";
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -62,7 +63,7 @@ export default function ProdutosPage() {
   useEffect(() => { setPage(1); }, [busca, categFiltro, somenteAtivos, sortCol, sortDir]);
 
   const filtrados = produtos.filter((p: CrmProduct) => {
-    const ok = busca === "" || p.nome.toLowerCase().includes(busca.toLowerCase()) || (p.codigo ?? "").toLowerCase().includes(busca.toLowerCase()) || (p.descricao ?? "").toLowerCase().includes(busca.toLowerCase());
+    const ok = busca === "" || normalizar(p.nome).includes(normalizar(busca)) || normalizar(p.codigo ?? "").includes(normalizar(busca)) || normalizar(p.descricao ?? "").includes(normalizar(busca));
     const okCat = categFiltro === "" || p.categoria === categFiltro;
     return ok && okCat;
   });

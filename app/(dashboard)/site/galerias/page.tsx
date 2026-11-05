@@ -2,6 +2,7 @@
 
 // Galerias = Trabalhos (cobertura de cada evento; cada trabalho vira uma página em /portfolio).
 // O best-of por área de atuação foi separado para /site/portfolio.
+import { normalizar } from "@/lib/utils/normalizar";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -66,8 +67,8 @@ export default function GaleriasPage() {
     let lista = trabalhos;
     if (catFiltro !== "todas") lista = lista.filter((t) => t.categoria === catFiltro);
     if (busca.trim()) {
-      const q = busca.trim().toLowerCase();
-      lista = lista.filter((t) => t.titulo.toLowerCase().includes(q) || t.slug.includes(q));
+      const q = normalizar(busca.trim());
+      lista = lista.filter((t) => normalizar(t.titulo).includes(q) || t.slug.includes(q));
     }
     return [...lista].sort((a, b) => {
       const dir = sortAsc ? 1 : -1;

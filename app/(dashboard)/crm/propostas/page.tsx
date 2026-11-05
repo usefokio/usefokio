@@ -4,6 +4,7 @@
 // Cada proposta tem 3 saídas: copiar texto (WhatsApp), PDF (/crm-proposta/{id}) e
 // link público (/proposta/{slug}). Padrões de listagem do CRM: busca/filtros
 // persistentes, fetchAllRows, exclusão com modal.
+import { normalizar } from "@/lib/utils/normalizar";
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -73,7 +74,7 @@ export default function PropostasPage() {
   // Agrupamento por categoria (categorias ativas na ordem + "(sem categoria)" no fim)
   const grupos = useMemo(() => {
     const filtradas = propostas.filter((p) =>
-      !busca.trim() || p.titulo.toLowerCase().includes(busca.trim().toLowerCase()));
+      !busca.trim() || normalizar(p.titulo).includes(normalizar(busca.trim())));
     const porCat = new Map<string, CrmProposta[]>();
     for (const p of filtradas) {
       const nome = categorias.find((c) => c.id === p.categoria_id)?.nome ?? SEM_CATEGORIA;

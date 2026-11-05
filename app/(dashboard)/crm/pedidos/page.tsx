@@ -1,5 +1,6 @@
 "use client";
 
+import { normalizar } from "@/lib/utils/normalizar";
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -144,9 +145,9 @@ export default function PedidosPage() {
     if (dataInicio && (!dataRef || dataRef < dataInicio)) return false;
     if (dataFim && (!dataRef || dataRef > dataFim)) return false;
     if (busca !== "" &&
-      !(p.nome ?? "").toLowerCase().includes(busca.toLowerCase()) &&
-      !(p.clientes?.nome ?? "").toLowerCase().includes(busca.toLowerCase()) &&
-      !(p.numero ?? "").toLowerCase().includes(busca.toLowerCase())
+      !normalizar(p.nome ?? "").includes(normalizar(busca)) &&
+      !normalizar(p.clientes?.nome ?? "").includes(normalizar(busca)) &&
+      !normalizar(p.numero ?? "").includes(normalizar(busca))
     ) return false;
     return true;
   });

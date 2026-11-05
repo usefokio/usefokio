@@ -1,5 +1,6 @@
 "use client";
 
+import { normalizar } from "@/lib/utils/normalizar";
 import { useState, useEffect, useCallback, useRef, forwardRef, useImperativeHandle } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useFotografo } from "@/lib/context/FotografoContext";
@@ -888,10 +889,10 @@ export default function CrmConfigPage() {
 
   function filtraArvore(nodes: ContaNode[], termo: string): ContaNode[] {
     if (!termo) return nodes;
-    const t = termo.toLowerCase();
+    const t = normalizar(termo);
     return nodes.reduce<ContaNode[]>((acc, n) => {
       const filhos = filtraArvore(n.filhos, termo);
-      if (n.nome.toLowerCase().includes(t) || n.codigo.toLowerCase().includes(t) || filhos.length > 0) acc.push({ ...n, filhos });
+      if (normalizar(n.nome).includes(t) || normalizar(n.codigo).includes(t) || filhos.length > 0) acc.push({ ...n, filhos });
       return acc;
     }, []);
   }
