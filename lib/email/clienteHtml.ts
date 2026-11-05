@@ -1,6 +1,6 @@
 // E-mail do fotógrafo para o cliente (manual pelo modal e automático pelo funil): HTML com a assinatura
-// e remetente com o nome do estúdio. Sai pelo domínio do sistema (noreply), com "responder para" = fotógrafo.
-import { FROM_DEFAULT } from "@/lib/email/resend";
+// e remetente com o nome do estúdio. Sai pelo domínio do sistema, com "responder para" = fotógrafo.
+import { ENDERECO_RESPONDIVEL } from "@/lib/email/resend";
 
 type FotografoEmail = { nome_empresa?: string | null; nome_completo?: string | null; email?: string | null; site?: string | null };
 
@@ -20,9 +20,8 @@ export function htmlEmailCliente(f: FotografoEmail | null, body: string): string
   return `<div style="font-family:sans-serif;font-size:15px;line-height:1.7;color:#222;max-width:600px">${corpo}</div>${assiHtml}`;
 }
 
-/** "Nome do Estúdio <noreply@usefokio.com.br>" — mantém o endereço do sistema e troca só o nome exibido. */
+/** "Nome do Estúdio <respostas@usefokio.com.br>" — endereço do sistema sem "noreply", com o nome do estúdio. */
 export function remetenteCliente(f: FotografoEmail | null): string {
-  const endereco = FROM_DEFAULT.match(/<([^>]+)>/)?.[1] ?? FROM_DEFAULT;
   const nome = (f?.nome_empresa ?? f?.nome_completo ?? "").replace(/["<>\r\n,;]/g, "").trim();
-  return nome ? `${nome} <${endereco}>` : FROM_DEFAULT;
+  return `${nome || "UseFokio"} <${ENDERECO_RESPONDIVEL}>`;
 }

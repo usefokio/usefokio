@@ -3,7 +3,7 @@
 // Tarefas) e encaminha a resposta ao e-mail do fotógrafo com "responder para" = cliente.
 // Respostas automáticas (férias, ausência) só entram no histórico, sem pausar.
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getResend, getResendRecebimento, FROM_DEFAULT, APP_URL } from "@/lib/email/resend";
+import { getResend, getResendRecebimento, ENDERECO_RESPONDIVEL, APP_URL } from "@/lib/email/resend";
 import { tokenDosDestinatarios, ehRespostaAutomatica, textoSemCitacao } from "@/lib/campanha/respostasEmail";
 import { registrarContato } from "@/lib/campanha/servidor";
 
@@ -80,7 +80,7 @@ export async function POST(req: Request) {
     </div><div style="font-family:sans-serif;font-size:15px;line-height:1.6;color:#222;white-space:pre-wrap">${esc(texto)}</div>${
       anexos ? `<div style="font-family:sans-serif;font-size:12px;color:#888;margin-top:14px">O cliente enviou ${anexos} anexo(s) — peça para reenviar se precisar.</div>` : ""}`;
     const { error } = await resend.emails.send({
-      from: FROM_DEFAULT,
+      from: `UseFokio Respostas <${ENDERECO_RESPONDIVEL}>`,
       to: f.email,
       replyTo: d.from,
       subject: `Resposta do cliente — ${galeria?.titulo ?? ""}: ${assunto}`.slice(0, 250),

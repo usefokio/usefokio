@@ -29,5 +29,7 @@ export const resend = new Proxy({} as Resend, {
 });
 
 export const FROM_DEFAULT    = process.env.EMAIL_FROM         ?? "UseFokio <noreply@usefokio.com.br>";
+// Remetente dos e-mails que aceitam resposta (a resposta segue pelo "responder para"): sem "noreply" no endereço
+export const ENDERECO_RESPONDIVEL = `respostas@${FROM_DEFAULT.match(/@([^>\s]+)/)?.[1] ?? "usefokio.com.br"}`;
 export const WEBMASTER_EMAIL = process.env.WEBMASTER_EMAIL    ?? "usefokio@gmail.com";
 export const APP_URL         = process.env.NEXT_PUBLIC_APP_URL ?? "https://www.usefokio.com.br";

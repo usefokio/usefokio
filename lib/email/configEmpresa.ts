@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { decryptKey } from "@/lib/asaas";
+import { ENDERECO_RESPONDIVEL } from "@/lib/email/resend";
 
 // Configuração de e-mail ÚNICA da empresa (Configurações › Empresa › Servidor de e-mail).
 // SMTP: fotografos.smtp_* (senha criptografada). Identidade do remetente: fotografos.crm_email_config
@@ -10,7 +11,7 @@ export type SmtpEmpresa = { host: string; port: number; secure: boolean; user: s
 
 export type EmailEmpresa = {
   smtp: SmtpEmpresa | null;
-  /** Remetente final: com SMTP, o "Remetente (From)" configurado; sem SMTP, "Nome via UseFokio <noreply@…>". */
+  /** Remetente final: com SMTP, o "Remetente (From)" configurado; sem SMTP, "Nome via UseFokio <respostas@…>". */
   from: string;
   nomeRemetente: string;
   replyTo: string | undefined;
@@ -48,7 +49,7 @@ export async function carregarEmailEmpresa(sb: SupabaseClient, fotografoId: stri
 
   const from = smtp
     ? (f?.smtp_from?.trim() || `${nome} <${smtp.user}>`)
-    : `${nome} via UseFokio <noreply@usefokio.com.br>`;
+    : `${nome} via UseFokio <${ENDERECO_RESPONDIVEL}>`;
 
   return {
     smtp,
