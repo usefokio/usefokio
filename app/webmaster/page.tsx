@@ -38,15 +38,21 @@ function Badge({ children, color }: { children: React.ReactNode; color: string }
   );
 }
 
-const RECURSOS_LABELS: { chave: string; label: string }[] = [
-  { chave: "album",      label: "Álbum" },
-  { chave: "contatos",   label: "Contatos" },
-  { chave: "entrega",    label: "Entrega" },
-  { chave: "pagamentos", label: "Pagamentos" },
-  { chave: "selecao",    label: "Seleção" },
-  { chave: "crm",        label: "CRM" },
-  { chave: "site",       label: "Site" },
+// Recursos agrupados nos 3 blocos (regra em lib/recursos.ts). A flag "contatos" não aparece mais:
+// as Listas de e-mail seguem a Entrega. "pagamentos" (nome antigo no banco) = Cobrança por cartão do CRM.
+const GRUPOS_RECURSOS: { bloco: string; chaveBloco?: string; partes: { chave: string; label: string; dica?: string }[] }[] = [
+  { bloco: "UseFokio", partes: [
+    { chave: "selecao", label: "Seleção" },
+    { chave: "entrega", label: "Entrega", dica: "Funil, Revelação, Recebimentos e Listas de e-mail" },
+    { chave: "album",   label: "Álbum", dica: "beta" },
+  ] },
+  { bloco: "CRM", chaveBloco: "crm", partes: [
+    { chave: "pagamentos", label: "Cobrança por cartão", dica: "precisa do Asaas" },
+  ] },
+  { bloco: "Site", chaveBloco: "site", partes: [] },
 ];
+const PARTES_USEFOKIO = ["selecao", "entrega", "album"];
+const TOTAL_RECURSOS = 6; // selecao, entrega, album, crm, pagamentos, site
 
 // Recursos opt-in (beta): só ficam disponíveis quando explicitamente = true (ocultos por padrão).
 // Os demais são opt-out (disponíveis a menos que = false).
@@ -73,9 +79,9 @@ function RecursosCell({ fotografoId }: { fotografoId: string }) {
     setAberto(!aberto);
   }
 
-  async function alternar(chave: string) {
-    if (!recursos) return;
-    const novos = { ...recursos, [chave]: !recursos[chave] };
+  const ativo = (chave: string) => !!recursos && (RECURSOS_OPT_IN.has(chave) ? recursos[chave] === true : recursos[chave] !== false);
+
+  async function gravar(novos: Record<string, boolean>) {
     setRecursos(novos);
     setSalvando(true);
     await fetch(`/api/webmaster/fotografo-config/${fotografoId}`, {
@@ -85,8 +91,15 @@ function RecursosCell({ fotografoId }: { fotografoId: string }) {
     });
     setSalvando(false);
   }
+  const alternar = (chave: string) => { if (recursos) gravar({ ...recursos, [chave]: !ativo(chave) }); };
+  // Bloco UseFokio: desligar desliga todas as partes; ligar liga Seleção e Entrega (Álbum é beta, fica como está).
+  const usefokioAtivo = PARTES_USEFOKIO.some(ativo);
+  const alternarUseFokio = () => {
+    if (!recursos) return;
+    gravar(usefokioAtivo ? { ...recursos, selecao: false, entrega: false, album: false } : { ...recursos, selecao: true, entrega: true });
+  };
 
-  const ativos = recursos ? Object.values(recursos).filter(Boolean).length : null;
+  const ativos = recursos ? ["selecao", "entrega", "album", "crm", "pagamentos", "site"].filter(ativo).length : null;
 
   return (
     <div style={{ position: "relative" }}>
@@ -94,21 +107,34 @@ function RecursosCell({ fotografoId }: { fotografoId: string }) {
         onClick={abrir}
         style={{ padding: "5px 12px", borderRadius: 7, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-secondary)", fontSize: 11, fontWeight: 600, color: "var(--color-text-primary)", cursor: "pointer", whiteSpace: "nowrap" }}
       >
-        ⚙ {ativos !== null ? `${ativos}/${RECURSOS_LABELS.length}` : "Recursos"}
+        ⚙ {ativos !== null ? `${ativos}/${TOTAL_RECURSOS}` : "Recursos"}
       </button>
       {aberto && recursos && (
-        <div style={{ position: "absolute", top: "calc(100% + 4px)", right: 0, zIndex: 30, background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-secondary)", borderRadius: 10, padding: "12px 14px", boxShadow: "0 6px 24px rgba(0,0,0,0.15)", minWidth: 170 }}>
-          {RECURSOS_LABELS.map((r) => (
-            <label key={r.chave} style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 0", cursor: "pointer", fontSize: 12, color: "var(--color-text-primary)" }}>
-              <input
-                type="checkbox"
-                checked={RECURSOS_OPT_IN.has(r.chave) ? recursos[r.chave] === true : recursos[r.chave] !== false}
-                onChange={() => alternar(r.chave)}
-                style={{ width: 14, height: 14, accentColor: "#2563EB", cursor: "pointer" }}
-              />
-              {r.label}
-            </label>
-          ))}
+        <div style={{ position: "absolute", top: "calc(100% + 4px)", right: 0, zIndex: 30, background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-secondary)", borderRadius: 10, padding: "12px 14px", boxShadow: "0 6px 24px rgba(0,0,0,0.15)", minWidth: 230 }}>
+          {GRUPOS_RECURSOS.map((g) => {
+            const blocoLigado = g.chaveBloco ? ativo(g.chaveBloco) : usefokioAtivo;
+            return (
+              <div key={g.bloco} style={{ padding: "4px 0 6px", borderBottom: "0.5px solid var(--color-border-tertiary)", marginBottom: 4 }}>
+                <label style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 0", cursor: "pointer", fontSize: 12.5, fontWeight: 700, color: "var(--color-text-primary)" }}>
+                  <input type="checkbox" checked={blocoLigado}
+                    onChange={() => (g.chaveBloco ? alternar(g.chaveBloco) : alternarUseFokio())}
+                    style={{ width: 14, height: 14, accentColor: "#2563EB", cursor: "pointer" }} />
+                  {g.bloco}{g.chaveBloco === "site" && <span style={{ fontSize: 10, fontWeight: 500, color: "var(--color-text-secondary)" }}>beta</span>}
+                </label>
+                {g.partes.map((r) => {
+                  const desabilitado = !!g.chaveBloco && !blocoLigado;
+                  return (
+                    <label key={r.chave} style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "3px 0 3px 20px", cursor: desabilitado ? "default" : "pointer", fontSize: 12, color: "var(--color-text-primary)", opacity: desabilitado ? 0.45 : 1 }}>
+                      <input type="checkbox" checked={ativo(r.chave)} disabled={desabilitado}
+                        onChange={() => alternar(r.chave)}
+                        style={{ width: 13, height: 13, marginTop: 1, accentColor: "#2563EB", cursor: desabilitado ? "default" : "pointer" }} />
+                      <span>{r.label}{r.dica && <span style={{ display: "block", fontSize: 10, color: "var(--color-text-secondary)" }}>{r.dica}</span>}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            );
+          })}
           <div style={{ fontSize: 10, color: "var(--color-text-secondary)", marginTop: 6 }}>
             {salvando ? "Salvando…" : "Salvo automaticamente"}
           </div>

@@ -239,7 +239,7 @@ export default function SolicitacoesPage() {
   return (
     <div style={{ maxWidth: 900, margin: "0 auto", padding: "40px 24px" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6, gap: 12 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 800, color: "var(--color-text-primary)", margin: 0, letterSpacing: "-0.02em" }}>Solicitar pagamento</h1>
+        <h1 style={{ fontSize: 22, fontWeight: 800, color: "var(--color-text-primary)", margin: 0, letterSpacing: "-0.02em" }}>Cobrança por cartão</h1>
         <button onClick={abrirNova} disabled={conectado === false}
           style={{ padding: "9px 18px", borderRadius: 9, border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", fontSize: 13, fontWeight: 700, cursor: conectado === false ? "default" : "pointer", opacity: conectado === false ? 0.5 : 1 }}>
           + Nova solicitação

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { fetchAllRows } from "@/lib/supabase/fetchAll";
 import { useFotografo } from "@/lib/context/FotografoContext";
@@ -253,6 +254,15 @@ export default function RecebimentosPage() {
           Histórico de renovações de acesso e pedidos de revelação pagos pelos seus clientes
         </div>
       </div>
+
+      {/* Sem nenhuma forma de recebimento conectada, o cliente não consegue pagar pela galeria */}
+      {fotografo && !(fotografo.asaas_ativo || fotografo.pix_ativo || fotografo.mp_ativo || fotografo.abacate_ativo) && (
+        <div style={{ background: "rgba(245,158,11,0.08)", border: "0.5px solid rgba(245,158,11,0.3)", borderRadius: 8, padding: "10px 14px", fontSize: 13, color: "#92400E", marginBottom: 20 }}>
+          Nenhuma forma de recebimento conectada: seus clientes não conseguem pagar renovação nem revelação pela galeria.
+          Conecte o Asaas para a liberação automática.{" "}
+          <Link href="/configuracoes/financeiro/recebimento" style={{ color: "#92400E", fontWeight: 700 }}>Configurar →</Link>
+        </div>
+      )}
 
       {/* Cards de resumo */}
       <div style={{ display: "flex", gap: 14, marginBottom: 28, flexWrap: "wrap" }}>
