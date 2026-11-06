@@ -112,8 +112,9 @@ function SliderMiniaturas({ fotos, auto, onAmpliar }: { fotos: FotoGaleria[]; au
           {fotos.map((m, i) => (
             <button key={m.id} type="button" className={`site-slider-mini${i === atual ? " ativa" : ""}`}
               onClick={() => setAtual(i)} aria-label={`Ver foto ${i + 1}`} aria-current={i === atual}>
+              {/* Miniatura leva o alt da foto: é por ela que o Google lê as fotos que não são a atual */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={m.url} alt="" loading="lazy" />
+              <img src={m.url} alt={m.alt} loading="lazy" />
             </button>
           ))}
         </div>
@@ -241,8 +242,11 @@ export function GaleriaFotos({ fotos, modo = "lista", colunas, auto = true, onCu
       <div className="site-slideshow">
         <div className="site-slideshow-palco">
           <div className="site-foto" style={{ width: "100%", height: "100%", cursor: "zoom-in" }} onClick={() => setLb(atual)}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={fotos[atual].url} alt={fotos[atual].alt} loading="lazy" />
+            {/* Todas as fotos vão no HTML (só a atual aparece): o Google precisa ver cada foto com o seu alt */}
+            {fotos.map((f, i) => (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img key={f.id} src={f.url} alt={f.alt} loading="lazy" style={i === atual ? undefined : { display: "none" }} />
+            ))}
             {botaoLike(fotos[atual])}
           </div>
           {fotos.length > 1 && (
