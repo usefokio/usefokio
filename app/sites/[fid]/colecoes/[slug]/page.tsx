@@ -3,7 +3,7 @@
 // Os importados do Alboom mantêm /gallery.php?id={legacy_id} (SEO preservado); os criados no painel usam esta.
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createSiteClient } from "@/lib/supabase/admin";
 import { fetchAllRows } from "@/lib/supabase/fetchAll";
 import { resolverMetaPagina, ogPagina } from "@/lib/site/seo";
 import { GaleriaFotos } from "../../_components/GaleriaFotos";
@@ -14,7 +14,7 @@ type Props = { params: Promise<{ fid: string; slug: string }> };
 
 async function buscarPortfolio(fid: string, slug: string): Promise<SitePortfolio | null> {
   if (!slug) return null;
-  const admin = createAdminClient();
+  const admin = createSiteClient();
   // Só portfólios NOVOS (sem legacy_id): os importados são servidos por /gallery.php?id= —
   // evita a mesma galeria em 2 URLs (conteúdo duplicado / prejuízo de SEO).
   const { data } = await admin.from("site_portfolios").select("*").eq("fotografo_id", fid).eq("slug", slug).is("legacy_id", null).eq("publicado", true).maybeSingle();
@@ -40,7 +40,7 @@ export default async function ColecaoPortfolioPage({ params }: Props) {
   const p = await buscarPortfolio(fid, slug);
   if (!p) notFound();
 
-  const admin = createAdminClient();
+  const admin = createSiteClient();
   const todasFotos = await fetchAllRows<SitePortfolioFoto>((c, from, to) => c.from("site_portfolio_fotos")
     .select("*").eq("portfolio_id", p.id).order("ordem").range(from, to), admin);
   // A capa é UMA das fotos da coleção: fica no grid, na posição dela, e também abre a página

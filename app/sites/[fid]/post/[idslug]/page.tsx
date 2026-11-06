@@ -1,7 +1,7 @@
 // Página do post do blog — URL preservada: /post/{legacyId}-{slug} (resolve pelo id).
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createSiteClient } from "@/lib/supabase/admin";
 import { legacyDoSlug } from "@/lib/site/publico";
 import { resolverMetaPagina, ogPagina } from "@/lib/site/seo";
 import { JsonLd } from "../../_components/JsonLd";
@@ -11,7 +11,7 @@ import type { SitePost } from "@/lib/supabase/types";
 import { RegistrarViewPost } from "../../_components/RegistrarViewPost";
 
 async function buscarPost(fid: string, idslug: string): Promise<SitePost | null> {
-  const admin = createAdminClient();
+  const admin = createSiteClient();
   const legacy = legacyDoSlug(idslug);
   if (legacy) {
     const { data } = await admin.from("site_posts").select("*").eq("fotografo_id", fid).eq("legacy_id", legacy).eq("publicado", true).maybeSingle();

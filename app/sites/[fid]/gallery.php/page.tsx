@@ -1,7 +1,7 @@
 // Página do PORTFÓLIO (best-of da categoria) — URL legada preservada: /gallery.php?id={legacy_id}.
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createSiteClient } from "@/lib/supabase/admin";
 import { fetchAllRows } from "@/lib/supabase/fetchAll";
 import { resolverMetaPagina, ogPagina } from "@/lib/site/seo";
 import { GaleriaFotos } from "../_components/GaleriaFotos";
@@ -13,7 +13,7 @@ type Props = { params: Promise<{ fid: string }>; searchParams: Promise<{ id?: st
 async function buscarPortfolio(fid: string, idParam?: string): Promise<SitePortfolio | null> {
   const legacy = parseInt(idParam ?? "", 10);
   if (!Number.isFinite(legacy)) return null;
-  const admin = createAdminClient();
+  const admin = createSiteClient();
   const { data } = await admin.from("site_portfolios").select("*").eq("fotografo_id", fid).eq("legacy_id", legacy).eq("publicado", true).maybeSingle();
   return (data as SitePortfolio) ?? null;
 }
@@ -39,7 +39,7 @@ export default async function GaleriaLegadaPage({ params, searchParams }: Props)
   const p = await buscarPortfolio(fid, id);
   if (!p) notFound();
 
-  const admin = createAdminClient();
+  const admin = createSiteClient();
   const todasFotos = await fetchAllRows<SitePortfolioFoto>((c, from, to) => c.from("site_portfolio_fotos")
     .select("*").eq("portfolio_id", p.id).order("ordem").range(from, to), admin);
   // A capa é UMA das fotos da coleção: fica no grid, na posição dela, e também abre a página

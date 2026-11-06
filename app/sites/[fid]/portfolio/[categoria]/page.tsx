@@ -1,6 +1,6 @@
 // Lista de trabalhos de uma categoria.
 import type { Metadata } from "next";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createSiteClient } from "@/lib/supabase/admin";
 import { baseLinks, baseAbsoluta, carregarSite, infoCategorias, categoriasParaNav, nomeCategoria } from "@/lib/site/publico";
 import { metaPaginaGenerica, ogPagina } from "@/lib/site/seo";
 import { normalizarDesign } from "@/lib/site/design";
@@ -28,7 +28,7 @@ export async function generateMetadata({ params }: { params: Promise<{ fid: stri
 export default async function CategoriaPage({ params }: { params: Promise<{ fid: string; categoria: string }> }) {
   const { fid, categoria } = await params;
   const b = await baseLinks(fid);
-  const admin = createAdminClient();
+  const admin = createSiteClient();
   // Traz todos os trabalhos publicados: filtra a categoria atual para o grid e deriva a lista
   // completa de categorias para a barra de navegação (todas ficam visíveis; a atual é destacada).
   const [{ data: trabalhos }, info, { data: cfg }] = await Promise.all([

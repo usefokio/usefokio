@@ -1,6 +1,6 @@
 // "Veja também" no fim do post (posts + trabalhos) e do trabalho (só trabalhos): 3 itens
 // escolhidos por assunto (lib/site/relacionados). Usa o mesmo card das listagens (GradeCards).
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createSiteClient } from "@/lib/supabase/admin";
 import { baseLinks, infoCategorias, nomeCategoria } from "@/lib/site/publico";
 import { normalizarDesign } from "@/lib/site/design";
 import { escolherRelacionados, type ItemRelacionavel } from "@/lib/site/relacionados";
@@ -14,7 +14,7 @@ type Linha = {
 type Candidato = ItemRelacionavel & { grade: ItemGrade; categoriaSlug: string | null };
 
 export async function Relacionados({ fid, tipo, id }: { fid: string; tipo: "post" | "trabalho"; id: string }) {
-  const admin = createAdminClient();
+  const admin = createSiteClient();
   const [{ data: trabalhos }, { data: posts }, info, { data: cfg }, b] = await Promise.all([
     admin.from("site_trabalhos").select("id, titulo, slug, legacy_id, categoria, tags, seo_keywords, capa_url, data_evento, local")
       .eq("fotografo_id", fid).eq("publicado", true),

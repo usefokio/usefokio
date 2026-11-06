@@ -1,7 +1,7 @@
 // Portfólio de vídeos — grade de miniaturas do YouTube; o player abre em lightbox.
 // Exibição (colunas/proporção/título) vem de design.grades.videos (Aparência).
 import type { Metadata } from "next";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createSiteClient } from "@/lib/supabase/admin";
 import { carregarSite } from "@/lib/site/publico";
 import { metaPaginaGenerica, ogPagina } from "@/lib/site/seo";
 import { fetchAllRows } from "@/lib/supabase/fetchAll";
@@ -27,7 +27,7 @@ export async function generateMetadata({ params }: { params: Promise<{ fid: stri
 
 export default async function VideosPage({ params }: { params: Promise<{ fid: string }> }) {
   const { fid } = await params;
-  const admin = createAdminClient();
+  const admin = createSiteClient();
   const [videos, { data: cfg }] = await Promise.all([
     fetchAllRows<SiteVideo>(
       (sb, from, to) => sb.from("site_videos").select("*").eq("fotografo_id", fid).eq("publicado", true).order("ordem").range(from, to),

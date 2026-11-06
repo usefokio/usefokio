@@ -2,7 +2,7 @@
 // foto+biografia / foto de fundo / minimalista (lib/site/paginaCfg.ts).
 // O mesmo componente PaginaSobre renderiza aqui e na prévia ao vivo do editor.
 import type { Metadata } from "next";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createSiteClient } from "@/lib/supabase/admin";
 import { baseLinks } from "@/lib/site/publico";
 import { resolverMetaPagina, ogPagina } from "@/lib/site/seo";
 import { cfgSobreDe } from "@/lib/site/paginaCfg";
@@ -10,7 +10,7 @@ import { PaginaSobre } from "../_components/PaginaSobre";
 import type { SitePagina } from "@/lib/supabase/types";
 
 async function buscarSobre(fid: string): Promise<SitePagina | null> {
-  const admin = createAdminClient();
+  const admin = createSiteClient();
   const { data } = await admin.from("site_paginas").select("*").eq("fotografo_id", fid).eq("slug", "sobre").maybeSingle();
   return (data as SitePagina) ?? null;
 }

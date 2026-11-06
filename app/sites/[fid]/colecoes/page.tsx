@@ -3,7 +3,7 @@
 // project_site_portfolio_vs_trabalho. Independe de haver trabalhos publicados.
 // (/galeria é reservado pro produto de galeria de cliente; por isso a coleção usa /colecoes.)
 import type { Metadata } from "next";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createSiteClient } from "@/lib/supabase/admin";
 import { baseLinks, carregarSite, infoCategorias } from "@/lib/site/publico";
 import { metaPaginaGenerica, ogPagina } from "@/lib/site/seo";
 import { normalizarDesign } from "@/lib/site/design";
@@ -33,7 +33,7 @@ function urlDoPortfolio(base: string, p: SitePortfolio): string | null {
 export default async function PortfolioColecoesPage({ params }: { params: Promise<{ fid: string }> }) {
   const { fid } = await params;
   const b = await baseLinks(fid);
-  const admin = createAdminClient();
+  const admin = createSiteClient();
   const [{ data }, { data: cfg }, info] = await Promise.all([
     admin.from("site_portfolios").select("*").eq("fotografo_id", fid).eq("publicado", true).order("ordem"),
     admin.from("site_config").select("design").eq("fotografo_id", fid).maybeSingle(),

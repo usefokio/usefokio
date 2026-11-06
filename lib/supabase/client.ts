@@ -42,6 +42,17 @@ async function ehTokenRecusado(res: Response): Promise<boolean> {
   try { return /jwt/i.test(await res.clone().text()); } catch { return false; }
 }
 
+// Gravou algo que o site público mostra → pede para limpar o cache do site (uma chamada por rajada).
+let timerSite: ReturnType<typeof setTimeout> | null = null;
+function avisarSiteAlterado() {
+  if (timerSite) clearTimeout(timerSite);
+  timerSite = setTimeout(() => {
+    timerSite = null;
+    fetch("/api/site/revalidar", { method: "POST" }).catch(() => {});
+  }, 1500);
+}
+const TABELAS_DO_SITE = /\/rest\/v1\/(site_[a-z_]+|fotografos)(\?|$)/;
+
 export function createClient() {
   const novo = createBrowserClient(
     urlSupabase(),
@@ -53,11 +64,13 @@ export function createClient() {
         // login se a renovação falhar — em vez de derrubar o usuário no primeiro 401.
         fetch: async (input: RequestInfo | URL, init?: RequestInit) => {
           const res = await fetch(input, init);
-          if (typeof window === "undefined" || process.env.NODE_ENV === "development") return res;
           const url =
             typeof input === "string" ? input :
             input instanceof URL ? input.href :
             input instanceof Request ? input.url : "";
+          const metodo = (init?.method ?? (input instanceof Request ? input.method : "GET")).toUpperCase();
+          if (typeof window !== "undefined" && metodo !== "GET" && res.ok && TABELAS_DO_SITE.test(url)) avisarSiteAlterado();
+          if (typeof window === "undefined" || process.env.NODE_ENV === "development") return res;
           // Não reagir ao próprio fluxo de auth (refresh/logout).
           if (url.includes("/auth/v1/") || !(await ehTokenRecusado(res))) return res;
 

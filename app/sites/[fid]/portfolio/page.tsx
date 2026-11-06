@@ -1,6 +1,6 @@
 // Lista geral do portfólio (todas as categorias).
 import type { Metadata } from "next";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createSiteClient } from "@/lib/supabase/admin";
 import { baseLinks, carregarSite, infoCategorias, categoriasParaNav, nomeCategoria } from "@/lib/site/publico";
 import { metaPaginaGenerica, ogPagina } from "@/lib/site/seo";
 import { normalizarDesign } from "@/lib/site/design";
@@ -25,7 +25,7 @@ export async function generateMetadata({ params }: { params: Promise<{ fid: stri
 export default async function PortfolioPage({ params }: { params: Promise<{ fid: string }> }) {
   const { fid } = await params;
   const b = await baseLinks(fid);
-  const admin = createAdminClient();
+  const admin = createSiteClient();
   const [{ data: trabalhos }, info, { data: cfg }] = await Promise.all([
     admin.from("site_trabalhos").select("*")
       .eq("fotografo_id", fid).eq("publicado", true)

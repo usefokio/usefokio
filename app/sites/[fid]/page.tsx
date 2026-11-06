@@ -1,7 +1,7 @@
 // Home do site público — renderizada pelo construtor de blocos (design.blocos):
 // banner, trabalhos recentes, blog, depoimentos e selos, na ordem configurada na Aparência.
 // A CTA final fica fora do sistema de blocos (rodapé de chamada fixo).
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createSiteClient } from "@/lib/supabase/admin";
 import { fetchAllRows } from "@/lib/supabase/fetchAll";
 import { baseLinks, infoCategorias } from "@/lib/site/publico";
 import { normalizarDesign } from "@/lib/site/design";
@@ -12,7 +12,7 @@ import type { SiteBanner, SiteDepoimento, SitePost, SiteSelo, SiteTrabalho, Site
 export default async function HomeSite({ params }: { params: Promise<{ fid: string }> }) {
   const { fid } = await params;
   const b = await baseLinks(fid);
-  const admin = createAdminClient();
+  const admin = createSiteClient();
 
   const { data: cfg } = await admin.from("site_config").select("design").eq("fotografo_id", fid).maybeSingle();
   const design = normalizarDesign((cfg as { design?: unknown } | null)?.design);

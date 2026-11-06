@@ -1,7 +1,7 @@
 // Lista de posts do blog.
 import Link from "next/link";
 import type { Metadata } from "next";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createSiteClient } from "@/lib/supabase/admin";
 import { baseLinks, carregarSite } from "@/lib/site/publico";
 import { metaPaginaGenerica, ogPagina } from "@/lib/site/seo";
 import type { SitePost } from "@/lib/supabase/types";
@@ -23,7 +23,7 @@ export async function generateMetadata({ params }: { params: Promise<{ fid: stri
 export default async function BlogPage({ params }: { params: Promise<{ fid: string }> }) {
   const { fid } = await params;
   const b = await baseLinks(fid);
-  const admin = createAdminClient();
+  const admin = createSiteClient();
   const { data: posts } = await admin.from("site_posts").select("*")
     .eq("fotografo_id", fid).eq("publicado", true)
     .order("ordem", { ascending: true });

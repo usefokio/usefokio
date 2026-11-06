@@ -2,7 +2,7 @@
 // As rotas vivem em /sites/[fid]/** — em produção serão servidas pelo domínio
 // do fotógrafo via rewrite por host no proxy; em dev acessa-se direto pela URL.
 // (Não usar prefixo "_" na pasta: no App Router, _pasta é privada e sai do roteamento.)
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createSiteClient } from "@/lib/supabase/admin";
 import { nomeCategoria } from "./categorias";
 
 // Categorias por fotógrafo: nomes/helpers em lib/site/categorias.ts (client-safe).
@@ -43,7 +43,7 @@ export async function resolverCanonical(fid: string, path: string): Promise<stri
   if (process.env.NODE_ENV === "development") return undefined;
   const { headers } = await import("next/headers");
   const h = await headers();
-  const admin = createAdminClient();
+  const admin = createSiteClient();
   const { data: config } = await admin.from("site_config").select("dominio_customizado, subdominio").eq("fotografo_id", fid).maybeSingle();
   const hostPrincipal = config?.dominio_customizado
     ? normalizarHost(config.dominio_customizado)
@@ -139,7 +139,7 @@ export type InfoCategorias = {
 };
 
 export async function infoCategorias(fid: string): Promise<InfoCategorias> {
-  const admin = createAdminClient();
+  const admin = createSiteClient();
   const { data } = await admin.from("site_categorias").select("slug, nome, ordem, ativo").eq("fotografo_id", fid).order("ordem");
   const cats = (data ?? []) as { slug: string; nome: string; ordem: number; ativo: boolean }[];
   const map: Record<string, string> = {};
@@ -160,7 +160,7 @@ export function categoriasParaNav(todas: string[], info: InfoCategorias, ativa: 
 // Contexto do motor de blocos (RenderBlocos) para páginas do site — o mesmo conjunto
 // que a landing pública monta: depoimentos, whatsapp de fallback e categorias do formulário.
 export async function contextoBlocos(fid: string): Promise<import("@/app/sites/[fid]/_components/RenderBlocos").ContextoBlocos> {
-  const admin = createAdminClient();
+  const admin = createSiteClient();
   const [{ data: fotografo }, { data: depoimentos }, { data: trabalhos }, info, base] = await Promise.all([
     admin.from("fotografos").select("whatsapp").eq("id", fid).maybeSingle(),
     admin.from("site_depoimentos").select("*").eq("fotografo_id", fid).eq("publicado", true).order("ordem").limit(4),
@@ -178,7 +178,7 @@ export async function contextoBlocos(fid: string): Promise<import("@/app/sites/[
 }
 
 export async function carregarSite(fid: string) {
-  const admin = createAdminClient();
+  const admin = createSiteClient();
   const [{ data: fotografo }, { data: config }, { data: menu }] = await Promise.all([
     admin.from("fotografos").select("id, nome_empresa, nome_completo, email, telefone, whatsapp, logo_url, rua, numero, bairro, cidade, estado, cep, instagram, facebook, tiktok, youtube").eq("id", fid).maybeSingle(),
     admin.from("site_config").select("*").eq("fotografo_id", fid).maybeSingle(),

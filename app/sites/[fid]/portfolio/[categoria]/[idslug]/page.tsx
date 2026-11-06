@@ -3,7 +3,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createSiteClient } from "@/lib/supabase/admin";
 import { fetchAllRows } from "@/lib/supabase/fetchAll";
 import { baseLinks, baseAbsoluta, infoCategorias, nomeCategoria, legacyDoSlug, resolverCanonical } from "@/lib/site/publico";
 import { resolverMetaPagina, ogPagina } from "@/lib/site/seo";
@@ -15,7 +15,7 @@ import { Relacionados } from "../../../_components/Relacionados";
 import type { SiteTrabalho, SiteTrabalhoFoto } from "@/lib/supabase/types";
 
 async function buscarTrabalho(fid: string, idslug: string): Promise<SiteTrabalho | null> {
-  const admin = createAdminClient();
+  const admin = createSiteClient();
   const legacy = legacyDoSlug(idslug);
   if (legacy) {
     const { data } = await admin.from("site_trabalhos").select("*").eq("fotografo_id", fid).eq("legacy_id", legacy).eq("publicado", true).maybeSingle();
@@ -50,7 +50,7 @@ export default async function TrabalhoPage({ params }: { params: Promise<{ fid: 
   const t = await buscarTrabalho(fid, idslug);
   if (!t) notFound();
 
-  const admin = createAdminClient();
+  const admin = createSiteClient();
   const [fotosRaw, info] = await Promise.all([
     fetchAllRows<SiteTrabalhoFoto>((c, from, to) => c.from("site_trabalho_fotos")
       .select("*").eq("trabalho_id", t.id).order("ordem").range(from, to), admin),

@@ -2,7 +2,7 @@
 // Cada página leva as suas FOTOS (sitemap de imagens do Google): assim todas as fotos são descobertas,
 // seja qual for o modo da galeria (slider/slideshow só mostram parte delas no HTML).
 // Prévia: /sites/{fid}/sitemap.xml — Produção (domínio próprio): dominio.com/sitemap.xml (via rewrite).
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createSiteClient } from "@/lib/supabase/admin";
 import { fetchAllRows } from "@/lib/supabase/fetchAll";
 import { siteBaseUrl, hostDaRequisicao } from "@/lib/site/publico";
 import type { SitePortfolio, SitePost, SiteTrabalho } from "@/lib/supabase/types";
@@ -17,7 +17,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ fid:
   const { fid } = await params;
   const host = hostDaRequisicao(request.headers) || "localhost:3001";
   const b = siteBaseUrl(host, fid);
-  const admin = createAdminClient();
+  const admin = createSiteClient();
 
   const [{ data: trabalhos }, { data: portfolios }, { data: posts }, { data: paginas }, { count: videosCount }] = await Promise.all([
     admin.from("site_trabalhos").select("id, categoria, slug, legacy_id, updated_at, capa_url").eq("fotografo_id", fid).eq("publicado", true),

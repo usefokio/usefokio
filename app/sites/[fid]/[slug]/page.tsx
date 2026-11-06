@@ -5,7 +5,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { cookies } from "next/headers";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createSiteClient } from "@/lib/supabase/admin";
 import { baseLinks, infoCategorias, categoriasParaNav, nomeCategoria, contextoBlocos } from "@/lib/site/publico";
 import { dadosParaBlocos, conteudoParaBlocos, type SiteBloco } from "@/lib/site/blocos";
 import { resolverMetaPagina, ogPagina } from "@/lib/site/seo";
@@ -15,14 +15,14 @@ import { LandingView } from "../_components/LandingView";
 import type { SiteLandingPage, SiteLandingDados, SiteDepoimento, SitePagina } from "@/lib/supabase/types";
 
 async function buscarLanding(fid: string, slug: string): Promise<SiteLandingPage | null> {
-  const admin = createAdminClient();
+  const admin = createSiteClient();
   const { data } = await admin.from("site_landing_pages").select("*")
     .eq("fotografo_id", fid).eq("slug", slug).eq("publicado", true).maybeSingle();
   return (data as SiteLandingPage) ?? null;
 }
 
 async function buscarPaginaCustom(fid: string, slug: string): Promise<SitePagina | null> {
-  const admin = createAdminClient();
+  const admin = createSiteClient();
   const { data } = await admin.from("site_paginas").select("*")
     .eq("fotografo_id", fid).eq("slug", slug).eq("publicado", true).maybeSingle();
   return (data as SitePagina) ?? null;
@@ -79,7 +79,7 @@ export default async function LandingPage({ params }: { params: Promise<{ fid: s
     );
   }
 
-  const admin = createAdminClient();
+  const admin = createSiteClient();
   const [{ data: fotografo }, { data: depoimentos }, { data: trabalhos }, info] = await Promise.all([
     admin.from("fotografos").select("whatsapp").eq("id", fid).maybeSingle(),
     admin.from("site_depoimentos").select("*").eq("fotografo_id", fid).eq("publicado", true).order("ordem").limit(4),

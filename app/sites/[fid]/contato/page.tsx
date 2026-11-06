@@ -3,7 +3,7 @@
 // (WhatsApp/telefone/e-mail/Instagram, derivados do cadastro) são a moldura fixa da página.
 // O mesmo componente PaginaContato renderiza aqui e na prévia ao vivo do editor.
 import type { Metadata } from "next";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createSiteClient } from "@/lib/supabase/admin";
 import { carregarSite, infoCategorias, categoriasParaNav, nomeCategoria } from "@/lib/site/publico";
 import { redesDaEmpresa } from "@/lib/empresa/redes";
 import { cfgContatoDe } from "@/lib/site/paginaCfg";
@@ -13,7 +13,7 @@ import type { SitePagina } from "@/lib/supabase/types";
 
 export async function generateMetadata({ params }: { params: Promise<{ fid: string }> }): Promise<Metadata> {
   const { fid } = await params;
-  const admin = createAdminClient();
+  const admin = createSiteClient();
   const { data } = await admin.from("site_paginas")
     .select("titulo, conteudo, seo_title, seo_description, seo_keywords, seo_noindex, og_title, og_description, og_image_url")
     .eq("fotografo_id", fid).eq("slug", "contato").maybeSingle();
@@ -35,7 +35,7 @@ export async function generateMetadata({ params }: { params: Promise<{ fid: stri
 
 export default async function ContatoPage({ params }: { params: Promise<{ fid: string }> }) {
   const { fid } = await params;
-  const admin = createAdminClient();
+  const admin = createSiteClient();
   const [{ data: pagina }, { data: trabalhos }, site, info] = await Promise.all([
     admin.from("site_paginas").select("*").eq("fotografo_id", fid).eq("slug", "contato").maybeSingle(),
     admin.from("site_trabalhos").select("categoria").eq("fotografo_id", fid).eq("publicado", true),
