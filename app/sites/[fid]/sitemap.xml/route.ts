@@ -85,8 +85,14 @@ export async function GET(request: Request, { params }: { params: Promise<{ fid:
   // com as fotos das galerias dela. Landings de proposta (pagina_site=false) continuam fora.
   const { data: landingsSite } = await admin.from("site_landing_pages").select("slug, updated_at, dados")
     .eq("fotografo_id", fid).eq("publicado", true).eq("pagina_site", true).eq("seo_noindex", false);
-  for (const l of (landingsSite ?? []) as { slug: string; updated_at: string | null; dados: { blocos?: { tipo: string; dados?: { fotos?: string[] } }[] } | null }[]) {
-    const fotos = (l.dados?.blocos ?? []).filter((x) => x.tipo === "galeria").flatMap((x) => x.dados?.fotos ?? []);
+  type DadosImg = { fotos?: string[]; imagem_url?: string | null; cards?: { foto_url?: string | null }[] };
+  for (const l of (landingsSite ?? []) as { slug: string; updated_at: string | null; dados: { blocos?: { tipo: string; dados?: DadosImg }[] } | null }[]) {
+    // Todas as fotos dos blocos: galerias, foto de topo/duas colunas e capas dos cards
+    const fotos = (l.dados?.blocos ?? []).flatMap((x) => [
+      ...(x.dados?.fotos ?? []),
+      x.dados?.imagem_url,
+      ...(x.dados?.cards ?? []).map((c) => c.foto_url),
+    ]);
     urls.push({ loc: `${b}/${l.slug}`, lastmod: l.updated_at, imagens: fotos });
   }
 
