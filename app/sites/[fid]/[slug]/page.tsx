@@ -6,7 +6,12 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { cookies } from "next/headers";
 import { createSiteClient } from "@/lib/supabase/admin";
-import { baseLinks, infoCategorias, categoriasParaNav, nomeCategoria, contextoBlocos } from "@/lib/site/publico";
+import Link from "next/link";
+import { baseLinks, baseAbsoluta, infoCategorias, categoriasParaNav, nomeCategoria, contextoBlocos } from "@/lib/site/publico";
+import { JsonLd } from "../_components/JsonLd";
+
+// Link interno respeitando a base do site (prévia /sites/{fid} ou domínio próprio).
+const linkInternoBase = (base: string, href: string) => (href === "/" ? (base || "/") : `${base}${href}`);
 import { dadosParaBlocos, conteudoParaBlocos, type SiteBloco } from "@/lib/site/blocos";
 import { resolverMetaPagina, ogPagina } from "@/lib/site/seo";
 import { RenderBlocos } from "../_components/RenderBlocos";
@@ -124,6 +129,37 @@ export default async function LandingPage({ params }: { params: Promise<{ fid: s
       }}
     />
   );
+
+  // "Página do site": mantém menu/rodapé, breadcrumb visível + BreadcrumbList e o JSON-LD da página.
+  if (lp.pagina_site) {
+    const pai = lp.breadcrumb_pai?.label && lp.breadcrumb_pai?.href ? lp.breadcrumb_pai : null;
+    const abs = await baseAbsoluta(fid);
+    const migalhas = [
+      { label: "Início", href: "/" },
+      ...(pai ? [pai] : []),
+      { label: lp.titulo, href: `/${lp.slug}` },
+    ];
+    return (
+      <>
+        <JsonLd data={{
+          "@context": "https://schema.org",
+          "@type": "BreadcrumbList",
+          itemListElement: migalhas.map((m, i) => ({ "@type": "ListItem", position: i + 1, name: m.label, item: `${abs}${m.href}` })),
+        }} />
+        {lp.json_ld && typeof lp.json_ld === "object" && <JsonLd data={lp.json_ld} />}
+        <nav aria-label="Você está aqui" className="lp-breadcrumb">
+          {migalhas.map((m, i) => (
+            <span key={i}>
+              {i > 0 && <span aria-hidden="true"> › </span>}
+              {i < migalhas.length - 1 ? <Link href={linkInternoBase(b, m.href)}>{m.label}</Link> : <span aria-current="page">{m.label}</span>}
+            </span>
+          ))}
+        </nav>
+        <LandingView landingId={lp.id} />
+        {gatearPagina ? <GateIdentificacao landingId={lp.id} titulo={lp.titulo} /> : conteudo}
+      </>
+    );
+  }
 
   return (
     <>

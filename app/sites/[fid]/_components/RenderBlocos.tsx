@@ -120,7 +120,7 @@ function Bloco({ bloco, ctx }: { bloco: SiteBloco; ctx: ContextoBlocos }) {
     case "texto":
       return d.html ? (
         <section className="lp-secao" style={{ paddingTop: 24, paddingBottom: 24 }}>
-          <ConteudoRico style={{ fontSize: 16, lineHeight: 1.9, maxWidth: 820, margin: "0 auto" }} html={d.html} />
+          <ConteudoRico className={d.colunas === 2 ? "site-conteudo lp-texto-2col" : undefined} style={{ fontSize: 16, lineHeight: 1.9, maxWidth: 820, margin: "0 auto" }} html={d.html} />
         </section>
       ) : null;
 

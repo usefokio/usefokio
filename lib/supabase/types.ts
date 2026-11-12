@@ -664,6 +664,10 @@ export type SiteLandingPage = {
   og_title: string | null;
   og_description: string | null;
   og_image_url: string | null;
+  // "Página do site": mostra menu/rodapé, breadcrumb, JSON-LD próprio e entra no sitemap se indexável
+  pagina_site: boolean;
+  breadcrumb_pai: { label: string; href: string } | null;
+  json_ld: Record<string, unknown> | null;
   created_at: string;
   updated_at: string;
 };
@@ -789,6 +793,7 @@ export type SiteMenuItem = {
   tipo: SiteMenuTipo;
   ordem: number;
   visivel: boolean;
+  no_rodape: boolean; // também aparece como link no rodapé do site
   created_at: string;
 };
 

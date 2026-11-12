@@ -84,6 +84,11 @@ export default function EditorLandingPage({ params }: { params: Promise<{ id: st
   const [ogDesc, setOgDesc] = useState("");
   const [ogImage, setOgImage] = useState<string | null>(null);
   const [configAberto, setConfigAberto] = useState(false);
+  // "Página do site": mostra menu/rodapé, breadcrumb e JSON-LD; entra no sitemap se indexável
+  const [paginaSite, setPaginaSite] = useState(false);
+  const [bcLabel, setBcLabel] = useState("");
+  const [bcHref, setBcHref] = useState("");
+  const [jsonLdTxt, setJsonLdTxt] = useState("");
   const [dominio, setDominio] = useState("seusite.usefokio.com.br");
 
   const [blocos, setBlocos] = useState<SiteBloco[]>([]);
@@ -135,7 +140,7 @@ export default function EditorLandingPage({ params }: { params: Promise<{ id: st
 
     // Landing nova: nada a carregar — abre em branco, com baseline vazio (nada "não salvo").
     if (ehNova) {
-      setBaseline(snapshot("", "", false, snapSeo("", "", "", true, "", "", null), [], "nenhum"));
+      setBaseline(snapshot("", "", false, snapSeo("", "", "", true, "", "", null), [], "nenhum" + snapExtras(false, "", "", "")));
       setCarregando(false);
       return;
     }
@@ -149,13 +154,15 @@ export default function EditorLandingPage({ params }: { params: Promise<{ id: st
       setSeoKw(lp.seo_keywords ?? ""); setSeoNoindex(lp.seo_noindex ?? true);
       setOgTitle(lp.og_title ?? ""); setOgDesc(lp.og_description ?? ""); setOgImage(lp.og_image_url);
       setPdfUrl(lp.pdf_url ?? null); setPdfGeradoEm(lp.pdf_gerado_em ?? null);
+      const jl = lp.json_ld ? JSON.stringify(lp.json_ld, null, 2) : "";
+      setPaginaSite(!!lp.pagina_site); setBcLabel(lp.breadcrumb_pai?.label ?? ""); setBcHref(lp.breadcrumb_pai?.href ?? ""); setJsonLdTxt(jl);
       // O PDF envelhece quando a página é salva depois dele.
       setPdfDesatualizado(!!lp.pdf_gerado_em && new Date(lp.updated_at) > new Date(lp.pdf_gerado_em));
       const d = (lp.dados ?? {}) as SiteLandingDados;
       setDadosOriginais(d);
       const bl = d.blocos && d.blocos.length > 0 ? d.blocos : dadosParaBlocos(d);
       setBlocos(bl);
-      setBaseline(snapshot(lp.titulo, lp.slug, lp.publicado, snapSeo(lp.seo_title ?? "", lp.seo_description ?? "", lp.seo_keywords ?? "", lp.seo_noindex ?? true, lp.og_title ?? "", lp.og_description ?? "", lp.og_image_url), bl, lp.identificacao_modo ?? (lp.identificacao_obrigatoria ? "pagina" : "nenhum")));
+      setBaseline(snapshot(lp.titulo, lp.slug, lp.publicado, snapSeo(lp.seo_title ?? "", lp.seo_description ?? "", lp.seo_keywords ?? "", lp.seo_noindex ?? true, lp.og_title ?? "", lp.og_description ?? "", lp.og_image_url), bl, (lp.identificacao_modo ?? (lp.identificacao_obrigatoria ? "pagina" : "nenhum")) + snapExtras(!!lp.pagina_site, lp.breadcrumb_pai?.label ?? "", lp.breadcrumb_pai?.href ?? "", jl)));
       setCarregando(false);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -165,10 +172,13 @@ export default function EditorLandingPage({ params }: { params: Promise<{ id: st
   function snapSeo(st: string, sd: string, kw: string, ni: boolean, ot: string, od: string, oi: string | null) {
     return { st, sd, kw, ni, ot, od, oi };
   }
+  function snapExtras(ps: boolean, bl: string, bh: string, jl: string) {
+    return "|" + JSON.stringify({ ps, bl, bh, jl });
+  }
   function snapshot(t: string, s: string, pub: boolean, seo: ReturnType<typeof snapSeo>, bl: SiteBloco[], ident: string) {
     return JSON.stringify({ t, s, pub, seo, bl, ident });
   }
-  const estadoAtual = snapshot(titulo, slug, publicado, snapSeo(seoTitle, seoDesc, seoKw, seoNoindex, ogTitle, ogDesc, ogImage), blocos, identificacaoModo);
+  const estadoAtual = snapshot(titulo, slug, publicado, snapSeo(seoTitle, seoDesc, seoKw, seoNoindex, ogTitle, ogDesc, ogImage), blocos, identificacaoModo + snapExtras(paginaSite, bcLabel, bcHref, jsonLdTxt));
   const temAlteracoes = !saiu && !carregando && estadoAtual !== baseline;
   const { modalAberto, setModalAberto, pedirSaida, irParaDestino } = useUnsavedGuard(temAlteracoes);
 
@@ -180,9 +190,16 @@ export default function EditorLandingPage({ params }: { params: Promise<{ id: st
     if (!titulo.trim()) { setMsg("Erro: dê um nome para a página antes de salvar."); return false; }
     const s = slugifyUrl(slug) || slugifyUrl(titulo);
     if (!s) { setMsg("Erro: o nome precisa ter letras ou números (é ele que vira o endereço)."); return false; }
+    let jsonLd: Record<string, unknown> | null = null;
+    if (jsonLdTxt.trim()) {
+      try { jsonLd = JSON.parse(jsonLdTxt); } catch { setMsg("Erro: os dados estruturados (JSON-LD) não são um JSON válido."); return false; }
+    }
     setSalvando(true); setMsg(null);
     const supabase = createClient();
     const campos = {
+      pagina_site: paginaSite,
+      breadcrumb_pai: bcLabel.trim() && bcHref.trim() ? { label: bcLabel.trim(), href: bcHref.trim() } : null,
+      json_ld: jsonLd,
       titulo: titulo.trim(),
       slug: s,
       publicado,
@@ -210,7 +227,7 @@ export default function EditorLandingPage({ params }: { params: Promise<{ id: st
     }
     setSlug(s);
     setTitulo(titulo.trim());
-    setBaseline(snapshot(titulo.trim(), s, publicado, snapSeo(seoTitle, seoDesc, seoKw, seoNoindex, ogTitle, ogDesc, ogImage), blocos, identificacaoModo)); // zera o "não salvo"
+    setBaseline(snapshot(titulo.trim(), s, publicado, snapSeo(seoTitle, seoDesc, seoKw, seoNoindex, ogTitle, ogDesc, ogImage), blocos, identificacaoModo + snapExtras(paginaSite, bcLabel, bcHref, jsonLdTxt))); // zera o "não salvo"
     if (pdfGeradoEm) setPdfDesatualizado(true); // a página mudou depois do PDF
     setMsg("Página salva!");
     return true;
@@ -399,6 +416,30 @@ export default function EditorLandingPage({ params }: { params: Promise<{ id: st
                 : "Ligue a chave e clique em Salvar para colocar a página no ar."}
             </div>
           </div>
+        </div>
+
+        {/* PÁGINA DO SITE — página de SEO (ex.: "Fotógrafo de casamento em X"): com menu e rodapé do site,
+            breadcrumb, JSON-LD próprio e, se indexável, no sitemap. Desligado = landing de proposta. */}
+        <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid var(--color-border-tertiary)" }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, fontWeight: 700, color: "var(--color-text-primary)", cursor: "pointer" }}>
+            <input type="checkbox" checked={paginaSite} onChange={(e) => setPaginaSite(e.target.checked)} style={{ width: 15, height: 15 }} />
+            Exibir como página do site (menu, rodapé e sitemap)
+          </label>
+          {paginaSite && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10 }}>
+              <div style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>Página pai no breadcrumb (Início › <em>pai</em> › esta página)</div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <input value={bcLabel} onChange={(e) => setBcLabel(e.target.value)} placeholder="Rótulo (ex.: Casamentos)"
+                  style={{ flex: "1 1 160px", padding: "8px 10px", borderRadius: 8, border: "1px solid var(--color-border-secondary)", fontSize: 13, background: "var(--color-background-primary)", color: "var(--color-text-primary)" }} />
+                <input value={bcHref} onChange={(e) => setBcHref(e.target.value)} placeholder="Link (ex.: /portfolio/casamentos)"
+                  style={{ flex: "1 1 200px", padding: "8px 10px", borderRadius: 8, border: "1px solid var(--color-border-secondary)", fontSize: 13, background: "var(--color-background-primary)", color: "var(--color-text-primary)" }} />
+              </div>
+              <div style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>Dados estruturados (JSON-LD, avançado — ex.: LocalBusiness)</div>
+              <textarea value={jsonLdTxt} onChange={(e) => setJsonLdTxt(e.target.value)} rows={6} spellCheck={false}
+                style={{ padding: "8px 10px", borderRadius: 8, border: "1px solid var(--color-border-secondary)", fontSize: 12, fontFamily: "monospace", background: "var(--color-background-primary)", color: "var(--color-text-primary)", resize: "vertical" }} />
+              {seoNoindex && <div style={{ fontSize: 12, color: "#B45309" }}>Para entrar no Google e no sitemap, libere a indexação em ⚙ Configurações.</div>}
+            </div>
+          )}
         </div>
 
         {/* IDENTIFICAÇÃO — capta quem abriu a proposta (nome/WhatsApp/e-mail). A lista aparece em

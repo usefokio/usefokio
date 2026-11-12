@@ -81,6 +81,14 @@ export async function GET(request: Request, { params }: { params: Promise<{ fid:
     if (p.seo_noindex || p.slug === "sobre" || p.slug === "contato") continue;
     urls.push({ loc: `${b}/${p.slug}`, lastmod: p.updated_at });
   }
+  // Exceção: landing marcada como "página do site" e indexável (ex.: página de SEO local) entra,
+  // com as fotos das galerias dela. Landings de proposta (pagina_site=false) continuam fora.
+  const { data: landingsSite } = await admin.from("site_landing_pages").select("slug, updated_at, dados")
+    .eq("fotografo_id", fid).eq("publicado", true).eq("pagina_site", true).eq("seo_noindex", false);
+  for (const l of (landingsSite ?? []) as { slug: string; updated_at: string | null; dados: { blocos?: { tipo: string; dados?: { fotos?: string[] } }[] } | null }[]) {
+    const fotos = (l.dados?.blocos ?? []).filter((x) => x.tipo === "galeria").flatMap((x) => x.dados?.fotos ?? []);
+    urls.push({ loc: `${b}/${l.slug}`, lastmod: l.updated_at, imagens: fotos });
+  }
 
   const body =
     `<?xml version="1.0" encoding="UTF-8"?>\n` +

@@ -440,3 +440,13 @@ a {
   .aparencia-grid { grid-template-columns: 1fr; }
   .aparencia-preview-wrap { position: static; order: -1; } /* preview em cima no mobile */
 }
+
+/* Landing como "página do site": breadcrumb discreto acima do conteúdo */
+.lp-breadcrumb { max-width: var(--site-largura, 1100px); margin: 0 auto; padding: 18px 24px 0; font-size: 13px; color: var(--site-suave); }
+.lp-breadcrumb a { color: var(--site-suave); text-decoration: none; }
+.lp-breadcrumb a:hover { text-decoration: underline; }
+/* Bloco de texto em 2 colunas (ex.: listas de cidades); 1 coluna no celular */
+.lp-texto-2col { columns: 2; column-gap: 48px; }
+.lp-texto-2col h2, .lp-texto-2col h3 { break-after: avoid; }
+.lp-texto-2col ul, .lp-texto-2col p { break-inside: avoid; }
+@media (max-width: 640px) { .lp-texto-2col { columns: 1; } }

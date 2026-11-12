@@ -310,7 +310,15 @@ export function EditorBlocos({ blocos, onChange, fotografoId, pasta, acaoBloco }
           </div>
         );
       case "texto":
-        return <SiteRichEditor value={d.html ?? ""} onChange={(html) => mudar(b.id, { html })} minHeight={140} pasta={pasta} />;
+        return (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <SiteRichEditor value={d.html ?? ""} onChange={(html) => mudar(b.id, { html })} minHeight={140} pasta={pasta} />
+            <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--color-text-primary)", cursor: "pointer" }}>
+              <input type="checkbox" checked={d.colunas === 2} onChange={(e) => mudar(b.id, { colunas: e.target.checked ? 2 : undefined })} />
+              Texto em 2 colunas (vira 1 coluna no celular)
+            </label>
+          </div>
+        );
       case "imagem":
         return (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>

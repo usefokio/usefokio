@@ -205,6 +205,15 @@ export default async function SitePublicoLayout({ children, params }: { children
               {fotografo?.telefone && <div>{fotografo.telefone}</div>}
               {fotografo?.email && <div>{fotografo.email}</div>}
             </div>
+            {/* Links de páginas marcadas "no rodapé" em Site → Páginas e Menu */}
+            {menu.some((m) => m.no_rodape) && (
+              <nav aria-label="Links do rodapé" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {menu.filter((m) => m.no_rodape).map((m) => (
+                  <a key={m.id} href={/^https?:\/\//.test(m.href) ? m.href : `${b}${m.href === "/" ? "" : m.href}` || "/"}
+                    style={{ fontSize: 14, color: "var(--site-titulo)", textDecoration: "none" }}>{m.label}</a>
+                ))}
+              </nav>
+            )}
             <div style={{ display: "flex", gap: 18 }}>
               {redes.instagram && <a href={redes.instagram} target="_blank" rel="noopener noreferrer" style={{ fontSize: 13, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--site-titulo)", textDecoration: "none" }}>Instagram</a>}
               {redes.facebook && <a href={redes.facebook} target="_blank" rel="noopener noreferrer" style={{ fontSize: 13, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--site-titulo)", textDecoration: "none" }}>Facebook</a>}

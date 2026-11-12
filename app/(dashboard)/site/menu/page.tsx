@@ -73,6 +73,11 @@ export default function PaginasMenuPage() {
     setItens((prev) => prev.map((i) => i.id === it.id ? { ...i, visivel: novo } : i));
     await salvarCampo(it.id, { visivel: novo });
   }
+  async function alternarRodape(it: SiteMenuItem) {
+    const novo = !it.no_rodape;
+    setItens((prev) => prev.map((i) => i.id === it.id ? { ...i, no_rodape: novo } : i));
+    await salvarCampo(it.id, { no_rodape: novo });
+  }
 
   function iniciarEdicao(it: SiteMenuItem) {
     setEditando(it.id); setEdNome(it.label); setEdUrl(it.tipo === "link" ? it.href : "");
@@ -147,7 +152,7 @@ export default function PaginasMenuPage() {
     <div style={{ maxWidth: 820, margin: "0 auto", padding: "40px 24px" }}>
       <h1 style={{ fontSize: 22, fontWeight: 800, color: "var(--color-text-primary)", margin: "0 0 6px", letterSpacing: "-0.02em" }}>Páginas e Menu</h1>
       <p style={{ fontSize: 13, color: "var(--color-text-secondary)", margin: "0 0 20px", lineHeight: 1.6 }}>
-        Organize as páginas do seu site e o menu do topo no mesmo lugar. <strong>Arraste para reordenar</strong> — a ordem aqui é a ordem no topo. Use o 👁 para mostrar/ocultar um item sem apagá-lo.
+        Organize as páginas do seu site e o menu do topo no mesmo lugar. <strong>Arraste para reordenar</strong> — a ordem aqui é a ordem no topo. Use o 👁 para mostrar/ocultar um item sem apagá-lo e o ⤓ para colocá-lo também no rodapé.
       </p>
 
       {/* + Adicionar */}
@@ -245,6 +250,7 @@ export default function PaginasMenuPage() {
                     <span style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 600, color: "var(--color-text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{it.label}</span>
                     <span style={{ fontSize: 12, color: "var(--color-text-secondary)", fontFamily: "monospace", flex: "0 1 auto", maxWidth: 240, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{it.href}</span>
                     <button onClick={() => alternarVisivel(it)} title={it.visivel ? "Ocultar do menu do topo" : "Mostrar no menu do topo"} style={acao}>{it.visivel ? "👁" : "🚫"}</button>
+                    <button onClick={() => alternarRodape(it)} title={it.no_rodape ? "Tirar do rodapé" : "Mostrar também no rodapé"} style={{ ...acao, opacity: it.no_rodape ? 1 : 0.35 }}>⤓</button>
                     <button onClick={() => iniciarEdicao(it)} title="Editar" style={acao}>✏️</button>
                     <button onClick={() => remover(it)} title={it.tipo === "pagina" ? "Excluir página" : "Remover do menu"} style={{ ...acao, fontSize: 13, color: "#DC2626" }}>🗑</button>
                   </>
