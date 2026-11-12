@@ -23,7 +23,13 @@ export type TipoBloco =
   | "espaco"        // respiro vertical
   | "botao"         // botão de ação (CTA): leva a um link (proposta) ou abre o WhatsApp
   | "whatsapp"      // CTA de WhatsApp
-  | "formulario";   // formulário de contato/lead (grava em site_leads)
+  | "formulario"    // formulário de contato/lead (grava em site_leads)
+  | "topo_lado"     // topo de página de campanha: H1 + texto + botão WhatsApp + linha de apoio, foto ao lado
+  | "colunas_texto" // seções lado a lado, cada uma com título pequeno + texto (ex.: cidades SP | PR)
+  | "citacoes"      // depoimentos escritos no próprio bloco (texto + nome), em grade, fundo suave
+  | "passos"        // passo a passo numerado em grade (01, 02, …)
+  | "perguntas"     // perguntas frequentes (pergunta em H3 + resposta)
+  | "chamada";      // faixa final escura: título + texto + botão WhatsApp
 
 // Slugs reservados: rotas fixas do site público / produto de galeria — uma página custom
 // com esses endereços nunca é servida (a rota estática tem precedência). Usado pelo
@@ -108,7 +114,18 @@ export type SiteBloco = {
     intro_html?: string | null;                          // texto de introdução (rico), opcional
     condicoes?: { rotulo: string; descricao: string }[]; // linhas: rótulo em destaque + explicação
     // cards
-    cards?: { nome: string; foto_url?: string | null; href?: string | null }[];
+    cards?: { nome: string; foto_url?: string | null; href?: string | null; subtitulo?: string | null }[];
+    link_rotulo?: string | null; // cards: texto do link em cada card (ex.: "Ver a galeria"); citacoes: link abaixo
+    link_href?: string | null;   // citacoes: destino do link abaixo dos depoimentos
+    // topo_lado / chamada: texto do botão de WhatsApp e linha de apoio abaixo dele
+    botao_texto?: string | null;
+    apoio?: string | null;
+    // colunas_texto
+    secoes?: { titulo: string; html: string }[];
+    // citacoes
+    citacoes?: { texto: string; nome: string }[];
+    // perguntas
+    perguntas?: { pergunta: string; resposta: string }[];
     // galeria / texto_carrossel
     fotos?: string[];
     fotos_legendas?: string[]; // legenda/alt de cada foto acima, casado por índice
@@ -149,6 +166,12 @@ export const CATALOGO_BLOCOS: { tipo: TipoBloco; label: string; icone: string }[
   { tipo: "botao",        label: "Botão (CTA)",        icone: "🔘" },
   { tipo: "whatsapp",     label: "Botão WhatsApp",     icone: "💬" },
   { tipo: "formulario",   label: "Formulário de contato", icone: "✉" },
+  { tipo: "topo_lado",    label: "Topo com foto ao lado", icone: "◧" },
+  { tipo: "colunas_texto", label: "Colunas de texto",  icone: "▤" },
+  { tipo: "citacoes",     label: "Depoimentos (escritos aqui)", icone: "❝" },
+  { tipo: "passos",       label: "Passo a passo",      icone: "①" },
+  { tipo: "perguntas",    label: "Perguntas frequentes", icone: "?" },
+  { tipo: "chamada",      label: "Chamada final (faixa)", icone: "▬" },
 ];
 
 // Valor do pacote como aparece na página: "R$" automático + prefixo opcional ("10x").
@@ -235,6 +258,12 @@ export function novoBloco(tipo: TipoBloco): SiteBloco {
   if (tipo === "depoimentos") base.dados.titulo = "O que meus clientes dizem";
   if (tipo === "whatsapp") base.dados.texto = "Conversar no WhatsApp";
   if (tipo === "formulario") base.dados.titulo = "Fale comigo";
+  if (tipo === "topo_lado") base.dados = { titulo: "Título da página", texto: "Uma frase sobre o seu trabalho.", botao_texto: "Conversar no WhatsApp", mensagem: "Olá! Vi seu site e quero saber da disponibilidade." };
+  if (tipo === "colunas_texto") base.dados = { secoes: [{ titulo: "Coluna 1", html: "<p>Texto</p>" }, { titulo: "Coluna 2", html: "<p>Texto</p>" }] };
+  if (tipo === "citacoes") base.dados = { titulo: "O que dizem os clientes", citacoes: [{ texto: "", nome: "" }] };
+  if (tipo === "passos") base.dados = { titulo: "Como funciona", itens: ["Primeiro passo", "Segundo passo", "Terceiro passo"] };
+  if (tipo === "perguntas") base.dados = { titulo: "Perguntas frequentes", perguntas: [{ pergunta: "", resposta: "" }] };
+  if (tipo === "chamada") base.dados = { titulo: "Sua data ainda está livre?", texto: "Me manda a data no WhatsApp que eu confirmo na hora.", botao_texto: "Conversar no WhatsApp" };
   return base;
 }
 

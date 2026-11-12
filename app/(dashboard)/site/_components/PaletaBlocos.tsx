@@ -162,6 +162,42 @@ const MINIATURAS: Record<TipoBloco, React.ReactNode> = {
       <div style={{ padding: "7px 20px", borderRadius: 999, background: "#25d366", color: "#fff", fontSize: 9, fontWeight: 700 }}>💬 WhatsApp</div>
     </div>
   ),
+  topo_lado: (
+    <div style={{ display: "flex", gap: 6, height: "100%" }}>
+      <Coluna style={{ flex: 1, justifyContent: "center" }}><div style={{ height: 10, width: "90%", borderRadius: 3, background: TINTA, opacity: 0.7 }} /><div style={{ height: 8, width: "70%", borderRadius: 3, background: TINTA, opacity: 0.45 }} /><div style={{ height: 9, width: "45%", borderRadius: 3, background: TINTA, opacity: 0.9 }} /></Coluna>
+      <div style={{ width: "38%", borderRadius: 3, background: TINTA, opacity: 0.25 }} />
+    </div>
+  ),
+  colunas_texto: (
+    <div style={{ display: "flex", gap: 8, height: "100%", alignItems: "center" }}>
+      <Coluna style={{ flex: 1 }}><div style={{ height: 8, width: "50%", borderRadius: 3, background: TINTA, opacity: 0.7 }} /><div style={{ height: 8, width: "90%", borderRadius: 3, background: TINTA, opacity: 0.45 }} /><div style={{ height: 8, width: "80%", borderRadius: 3, background: TINTA, opacity: 0.45 }} /></Coluna>
+      <Coluna style={{ flex: 1 }}><div style={{ height: 8, width: "50%", borderRadius: 3, background: TINTA, opacity: 0.7 }} /><div style={{ height: 8, width: "90%", borderRadius: 3, background: TINTA, opacity: 0.45 }} /><div style={{ height: 8, width: "70%", borderRadius: 3, background: TINTA, opacity: 0.45 }} /></Coluna>
+    </div>
+  ),
+  citacoes: (
+    <div style={{ display: "flex", gap: 6, height: "100%", alignItems: "center" }}>
+      <Coluna style={{ flex: 1 }}><div style={{ height: 8, width: "90%", borderRadius: 3, background: TINTA, opacity: 0.45 }} /><div style={{ height: 8, width: "80%", borderRadius: 3, background: TINTA, opacity: 0.45 }} /><div style={{ height: 8, width: "40%", borderRadius: 3, background: TINTA, opacity: 0.7 }} /></Coluna>
+      <Coluna style={{ flex: 1 }}><div style={{ height: 8, width: "90%", borderRadius: 3, background: TINTA, opacity: 0.45 }} /><div style={{ height: 8, width: "70%", borderRadius: 3, background: TINTA, opacity: 0.45 }} /><div style={{ height: 8, width: "40%", borderRadius: 3, background: TINTA, opacity: 0.7 }} /></Coluna>
+      <Coluna style={{ flex: 1 }}><div style={{ height: 8, width: "85%", borderRadius: 3, background: TINTA, opacity: 0.45 }} /><div style={{ height: 8, width: "80%", borderRadius: 3, background: TINTA, opacity: 0.45 }} /><div style={{ height: 8, width: "40%", borderRadius: 3, background: TINTA, opacity: 0.7 }} /></Coluna>
+    </div>
+  ),
+  passos: (
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6, height: "100%", alignContent: "center" }}>
+      <div style={{ height: 3, width: "100%", borderRadius: 3, background: TINTA, opacity: 0.8 }} /><div style={{ height: 3, width: "100%", borderRadius: 3, background: TINTA, opacity: 0.8 }} /><div style={{ height: 3, width: "100%", borderRadius: 3, background: TINTA, opacity: 0.8 }} />
+      <div style={{ height: 8, width: "80%", borderRadius: 3, background: TINTA, opacity: 0.45 }} /><div style={{ height: 8, width: "70%", borderRadius: 3, background: TINTA, opacity: 0.45 }} /><div style={{ height: 8, width: "85%", borderRadius: 3, background: TINTA, opacity: 0.45 }} />
+    </div>
+  ),
+  perguntas: (
+    <Coluna style={{ height: "100%", justifyContent: "center" }}>
+      <div style={{ height: 8, width: "55%", borderRadius: 3, background: TINTA, opacity: 0.8 }} /><div style={{ height: 8, width: "90%", borderRadius: 3, background: TINTA, opacity: 0.45 }} /><div style={{ height: 8, width: "50%", borderRadius: 3, background: TINTA, opacity: 0.8 }} /><div style={{ height: 8, width: "85%", borderRadius: 3, background: TINTA, opacity: 0.45 }} />
+    </Coluna>
+  ),
+  chamada: (
+    <div style={{ height: "100%", borderRadius: 3, background: TINTA, opacity: 0.85, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 5 }}>
+      <div style={{ height: 8, width: "55%", borderRadius: 3, background: "#fff", opacity: 0.8 }} />
+      <div style={{ height: 9, width: "30%", borderRadius: 3, background: "#fff" }} />
+    </div>
+  ),
   formulario: (
     <Coluna gap={5} style={{ justifyContent: "center", height: "100%" }}>
       {[0, 1, 2].map((i) => (
@@ -192,6 +228,12 @@ const DESCRICOES: Record<TipoBloco, string> = {
   botao: "Botão de ação (CTA) em destaque — “Reservar minha data”, “Pedir orçamento”. Leva a um link (sua proposta/página) ou abre o WhatsApp com a mensagem já escrita. Registra a conversão no clique.",
   whatsapp: "Botão verde que abre a conversa no seu WhatsApp. Dá para deixar uma mensagem já escrita. Sem número preenchido, usa o do seu cadastro.",
   formulario: "Formulário de contato com os campos que você escolher. Os envios chegam em Site → Inbox.",
+  topo_lado: "Topo de página de campanha: título principal (H1), texto, botão de WhatsApp visível sem rolar e uma linha de apoio (ex.: avaliações), com uma foto ao lado.",
+  colunas_texto: "Duas ou mais colunas lado a lado, cada uma com um título pequeno e um texto (ex.: cidades atendidas em SP e no PR).",
+  citacoes: "Depoimentos escritos aqui mesmo (texto + nome), em grade sobre fundo suave, com um link opcional abaixo (ex.: avaliações no Google).",
+  passos: "Passo a passo numerado (01, 02, 03…) em grade — ótimo para “Como funciona”.",
+  perguntas: "Perguntas frequentes: cada pergunta em destaque com a resposta abaixo.",
+  chamada: "Faixa escura de fechamento com título, texto e botão de WhatsApp — o último convite da página.",
 };
 
 export function PaletaBlocos({ onEscolher, onFechar }: { onEscolher: (tipo: TipoBloco) => void; onFechar: () => void }) {

@@ -603,6 +603,7 @@ export function EditorBlocos({ blocos, onChange, fotografoId, pasta, acaoBloco }
                 <div key={i} style={{ border: "1px solid var(--color-border-secondary)", borderRadius: 8, padding: 10, background: "var(--color-background-primary)" }}>
                   {c.foto_url && <img src={c.foto_url} alt="" style={{ width: "100%", aspectRatio: "3/2", objectFit: "cover", borderRadius: 6, marginBottom: 6 }} />}
                   <input value={c.nome} onChange={(e) => { const cards = [...(d.cards ?? [])]; cards[i] = { ...cards[i], nome: e.target.value }; mudar(b.id, { cards }); }} style={{ ...inputStyle, marginBottom: 6 }} placeholder="Nome" />
+                  <input value={c.subtitulo ?? ""} onChange={(e) => { const cards = [...(d.cards ?? [])]; cards[i] = { ...cards[i], subtitulo: e.target.value }; mudar(b.id, { cards }); }} style={{ ...inputStyle, fontSize: 12, marginBottom: 6 }} placeholder="Subtítulo (ex.: local · cidade)" />
                   <input value={c.href ?? ""} onChange={(e) => { const cards = [...(d.cards ?? [])]; cards[i] = { ...cards[i], href: e.target.value }; mudar(b.id, { cards }); }} style={{ ...inputStyle, fontFamily: "monospace", fontSize: 11, marginBottom: 6 }} placeholder="Link (ex.: /portfolio/…)" />
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                     <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
@@ -616,6 +617,7 @@ export function EditorBlocos({ blocos, onChange, fotografoId, pasta, acaoBloco }
               ))}
             </div>
             <button style={btnPeq} onClick={() => mudar(b.id, { cards: [...(d.cards ?? []), { nome: "Novo card" }] })}>+ Card</button>
+            <div><label style={labelStyle}>Texto do link em cada card (opcional)</label><input value={d.link_rotulo ?? ""} onChange={(e) => mudar(b.id, { link_rotulo: e.target.value })} style={inputStyle} placeholder="Ex.: Ver a galeria" /></div>
             {campo("Colunas", <Range label="Colunas" value={d.colunas ?? 3} min={1} max={6}
               onChange={(v) => mudar(b.id, { colunas: v })} />)}
             {opcoesImagem(b, { semAjuste: true })}
@@ -730,6 +732,117 @@ export function EditorBlocos({ blocos, onChange, fotografoId, pasta, acaoBloco }
             {campo("Alinhamento", <Seg value={d.alinhamento ?? "centro"}
               options={[{ v: "esquerda", l: "Esquerda" }, { v: "centro", l: "Centro" }, { v: "direita", l: "Direita" }] as const}
               onChange={(v) => mudar(b.id, { alinhamento: v })} />)}
+          </div>
+        );
+      case "topo_lado":
+        return (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <div><label style={labelStyle}>Título principal (é o H1 da página)</label><input value={d.titulo ?? ""} onChange={(e) => mudar(b.id, { titulo: e.target.value })} style={inputStyle} /></div>
+            {opcaoTitulo(b)}
+            <div><label style={labelStyle}>Texto</label><textarea value={d.texto ?? ""} onChange={(e) => mudar(b.id, { texto: e.target.value })} rows={3} style={{ ...inputStyle, resize: "vertical" }} /></div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              <div><label style={labelStyle}>Texto do botão</label><input value={d.botao_texto ?? ""} onChange={(e) => mudar(b.id, { botao_texto: e.target.value })} style={inputStyle} placeholder="Conversar no WhatsApp" /></div>
+              <div><label style={labelStyle}>Número (vazio = o do cadastro)</label><input value={d.numero ?? ""} onChange={(e) => mudar(b.id, { numero: e.target.value.replace(/\D/g, "") })} style={inputStyle} placeholder="5514999990000" /></div>
+            </div>
+            <div><label style={labelStyle}>Mensagem pronta do WhatsApp</label><textarea value={d.mensagem ?? ""} onChange={(e) => mudar(b.id, { mensagem: e.target.value })} rows={2} style={{ ...inputStyle, resize: "vertical" }} /></div>
+            <div><label style={labelStyle}>Linha de apoio abaixo do botão</label><input value={d.apoio ?? ""} onChange={(e) => mudar(b.id, { apoio: e.target.value })} style={inputStyle} placeholder="Ex.: 67 avaliações no Google, nota 5,0" /></div>
+            {btnImagem({ blocoId: b.id, campo: "imagem_url", urlAtual: d.imagem_url, rotulo: "foto ao lado" })}
+            {d.imagem_url && <div><label style={labelStyle}>Legenda / texto alternativo da foto (SEO)</label><input value={d.imagem_alt ?? ""} onChange={(e) => mudar(b.id, { imagem_alt: e.target.value })} style={inputStyle} /></div>}
+          </div>
+        );
+      case "colunas_texto": {
+        const secoes = d.secoes ?? [];
+        const mudarSec = (i: number, patch: Partial<{ titulo: string; html: string }>) => { const n = [...secoes]; n[i] = { ...n[i], ...patch }; mudar(b.id, { secoes: n }); };
+        return (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <div><label style={labelStyle}>Título da seção (opcional)</label><input value={d.titulo ?? ""} onChange={(e) => mudar(b.id, { titulo: e.target.value })} style={inputStyle} /></div>
+            {secoes.map((c, i) => (
+              <div key={i} style={{ border: "1px solid var(--color-border-secondary)", borderRadius: 8, padding: 10, display: "flex", flexDirection: "column", gap: 8, background: "var(--color-background-secondary)" }}>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <input value={c.titulo} onChange={(e) => mudarSec(i, { titulo: e.target.value })} style={{ ...inputStyle, fontWeight: 600 }} placeholder="Título da coluna" />
+                  <button style={{ ...btnPeq, color: "#DC2626", borderColor: "#DC2626" }} title="Remover" onClick={() => mudar(b.id, { secoes: secoes.filter((_, j) => j !== i) })}>🗑</button>
+                </div>
+                <SiteRichEditor value={c.html} onChange={(html) => mudarSec(i, { html })} minHeight={80} pasta={pasta} />
+              </div>
+            ))}
+            <button style={btnPeq} onClick={() => mudar(b.id, { secoes: [...secoes, { titulo: "", html: "" }] })}>+ Coluna</button>
+          </div>
+        );
+      }
+      case "citacoes": {
+        const itens = d.citacoes ?? [];
+        const mudarIt = (i: number, patch: Partial<{ texto: string; nome: string }>) => { const n = [...itens]; n[i] = { ...n[i], ...patch }; mudar(b.id, { citacoes: n }); };
+        return (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <div><label style={labelStyle}>Título da seção</label><input value={d.titulo ?? ""} onChange={(e) => mudar(b.id, { titulo: e.target.value })} style={inputStyle} /></div>
+            {opcaoTitulo(b)}
+            {itens.map((c, i) => (
+              <div key={i} style={{ border: "1px solid var(--color-border-secondary)", borderRadius: 8, padding: 10, display: "flex", flexDirection: "column", gap: 8, background: "var(--color-background-secondary)" }}>
+                <textarea value={c.texto} onChange={(e) => mudarIt(i, { texto: e.target.value })} rows={3} style={{ ...inputStyle, resize: "vertical" }} placeholder="Depoimento" />
+                <div style={{ display: "flex", gap: 8 }}>
+                  <input value={c.nome} onChange={(e) => mudarIt(i, { nome: e.target.value })} style={inputStyle} placeholder="Nome" />
+                  <button style={{ ...btnPeq, color: "#DC2626", borderColor: "#DC2626" }} title="Remover" onClick={() => mudar(b.id, { citacoes: itens.filter((_, j) => j !== i) })}>🗑</button>
+                </div>
+              </div>
+            ))}
+            <button style={btnPeq} onClick={() => mudar(b.id, { citacoes: [...itens, { texto: "", nome: "" }] })}>+ Depoimento</button>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              <div><label style={labelStyle}>Link abaixo (texto, opcional)</label><input value={d.link_rotulo ?? ""} onChange={(e) => mudar(b.id, { link_rotulo: e.target.value })} style={inputStyle} placeholder="Veja as avaliações no Google" /></div>
+              <div><label style={labelStyle}>Link abaixo (endereço)</label><input value={d.link_href ?? ""} onChange={(e) => mudar(b.id, { link_href: e.target.value })} style={{ ...inputStyle, fontFamily: "monospace", fontSize: 11 }} placeholder="https://…" /></div>
+            </div>
+          </div>
+        );
+      }
+      case "passos": {
+        const itens = d.itens ?? [];
+        return (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <div><label style={labelStyle}>Título da seção</label><input value={d.titulo ?? ""} onChange={(e) => mudar(b.id, { titulo: e.target.value })} style={inputStyle} /></div>
+            {opcaoTitulo(b)}
+            {itens.map((x, i) => (
+              <div key={i} style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <span style={{ ...mini, width: 22 }}>{String(i + 1).padStart(2, "0")}</span>
+                <input value={x} onChange={(e) => { const n = [...itens]; n[i] = e.target.value; mudar(b.id, { itens: n }); }} style={inputStyle} />
+                <button style={btnPeq} disabled={i === 0} title="Subir" onClick={() => { const n = [...itens]; [n[i - 1], n[i]] = [n[i], n[i - 1]]; mudar(b.id, { itens: n }); }}>↑</button>
+                <button style={{ ...btnPeq, color: "#DC2626", borderColor: "#DC2626" }} title="Remover" onClick={() => mudar(b.id, { itens: itens.filter((_, j) => j !== i) })}>🗑</button>
+              </div>
+            ))}
+            <button style={btnPeq} onClick={() => mudar(b.id, { itens: [...itens, ""] })}>+ Passo</button>
+          </div>
+        );
+      }
+      case "perguntas": {
+        const itens = d.perguntas ?? [];
+        const mudarIt = (i: number, patch: Partial<{ pergunta: string; resposta: string }>) => { const n = [...itens]; n[i] = { ...n[i], ...patch }; mudar(b.id, { perguntas: n }); };
+        return (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <div><label style={labelStyle}>Título da seção</label><input value={d.titulo ?? ""} onChange={(e) => mudar(b.id, { titulo: e.target.value })} style={inputStyle} /></div>
+            {opcaoTitulo(b)}
+            {itens.map((x, i) => (
+              <div key={i} style={{ border: "1px solid var(--color-border-secondary)", borderRadius: 8, padding: 10, display: "flex", flexDirection: "column", gap: 8, background: "var(--color-background-secondary)" }}>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <input value={x.pergunta} onChange={(e) => mudarIt(i, { pergunta: e.target.value })} style={{ ...inputStyle, fontWeight: 600 }} placeholder="Pergunta" />
+                  <button style={btnPeq} disabled={i === 0} title="Subir" onClick={() => { const n = [...itens]; [n[i - 1], n[i]] = [n[i], n[i - 1]]; mudar(b.id, { perguntas: n }); }}>↑</button>
+                  <button style={{ ...btnPeq, color: "#DC2626", borderColor: "#DC2626" }} title="Remover" onClick={() => mudar(b.id, { perguntas: itens.filter((_, j) => j !== i) })}>🗑</button>
+                </div>
+                <textarea value={x.resposta} onChange={(e) => mudarIt(i, { resposta: e.target.value })} rows={2} style={{ ...inputStyle, resize: "vertical" }} placeholder="Resposta" />
+              </div>
+            ))}
+            <button style={btnPeq} onClick={() => mudar(b.id, { perguntas: [...itens, { pergunta: "", resposta: "" }] })}>+ Pergunta</button>
+          </div>
+        );
+      }
+      case "chamada":
+        return (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <div><label style={labelStyle}>Título</label><input value={d.titulo ?? ""} onChange={(e) => mudar(b.id, { titulo: e.target.value })} style={inputStyle} /></div>
+            {opcaoTitulo(b)}
+            <div><label style={labelStyle}>Texto</label><input value={d.texto ?? ""} onChange={(e) => mudar(b.id, { texto: e.target.value })} style={inputStyle} /></div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              <div><label style={labelStyle}>Texto do botão</label><input value={d.botao_texto ?? ""} onChange={(e) => mudar(b.id, { botao_texto: e.target.value })} style={inputStyle} placeholder="Conversar no WhatsApp" /></div>
+              <div><label style={labelStyle}>Número (vazio = o do cadastro)</label><input value={d.numero ?? ""} onChange={(e) => mudar(b.id, { numero: e.target.value.replace(/\D/g, "") })} style={inputStyle} /></div>
+            </div>
+            <div><label style={labelStyle}>Mensagem pronta do WhatsApp</label><textarea value={d.mensagem ?? ""} onChange={(e) => mudar(b.id, { mensagem: e.target.value })} rows={2} style={{ ...inputStyle, resize: "vertical" }} /></div>
           </div>
         );
       case "formulario":

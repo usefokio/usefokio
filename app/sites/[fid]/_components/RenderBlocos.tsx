@@ -257,6 +257,8 @@ function Bloco({ bloco, ctx }: { bloco: SiteBloco; ctx: ContextoBlocos }) {
                 <>
                   {c.foto_url && <img src={c.foto_url} alt={c.nome} loading="lazy" style={estiloImagem(d)} />}
                   <div className="lp-casal-nome">{c.nome}</div>
+                  {c.subtitulo && <div className="lp-casal-sub">{c.subtitulo}</div>}
+                  {d.link_rotulo && c.href && <span className="lp-casal-link">{d.link_rotulo}</span>}
                 </>
               );
               return c.href
@@ -307,6 +309,112 @@ function Bloco({ bloco, ctx }: { bloco: SiteBloco; ctx: ContextoBlocos }) {
           )}
         </section>
       ) : null;
+
+    case "topo_lado": {
+      // Topo de página de campanha: o H1 da página, texto, botão de WhatsApp visível sem rolar e
+      // linha de apoio; foto ao lado (carrega com prioridade — é o maior elemento da 1ª tela).
+      const href = linkWhatsApp(d.numero || ctx.whatsappFallback, d.mensagem);
+      return (
+        <section className="lp-secao lp-topo-lado">
+          <div className="lp-topo-lado-texto">
+            {d.titulo && <h1 style={estTit}>{d.titulo}</h1>}
+            {d.texto && <p className="lp-topo-lado-p">{d.texto}</p>}
+            {href && <LinkConversao href={href} tipo="contato" className="lp-btn-escuro">{(d.botao_texto ?? "").trim() || "Conversar no WhatsApp"}</LinkConversao>}
+            {d.apoio && <p className="lp-topo-lado-apoio">{d.apoio}</p>}
+          </div>
+          {d.imagem_url && (
+            <div className="lp-topo-lado-foto">
+              <img src={d.imagem_url} alt={d.imagem_alt || d.titulo || ""} fetchPriority="high" loading="eager"
+                style={{ objectPosition: objectPositionDe(d) }} />
+            </div>
+          )}
+        </section>
+      );
+    }
+
+    case "colunas_texto":
+      return (d.secoes?.length ?? 0) > 0 ? (
+        <section className="lp-secao">
+          {d.titulo && <h2 className="lp-titulo" style={estTit}>{d.titulo}</h2>}
+          <div className="lp-colunas-texto">
+            {d.secoes!.map((c, i) => (
+              <div key={i}>
+                {c.titulo && <h3 className="lp-rotulo">{c.titulo}</h3>}
+                <ConteudoRico style={{ fontSize: 16, lineHeight: 1.9 }} html={c.html} />
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null;
+
+    case "citacoes": {
+      const itens = (d.citacoes ?? []).filter((c) => c.texto.trim());
+      return itens.length > 0 ? (
+        <section className="lp-faixa-suave">
+          <div className="lp-secao">
+            {d.titulo && <h2 className="lp-titulo" style={estTit}>{d.titulo}</h2>}
+            <div className="lp-citacoes">
+              {itens.map((c, i) => (
+                <blockquote key={i}>
+                  <p>“{c.texto.trim().replace(/^[“"]|[”"]$/g, "")}”</p>
+                  {c.nome && <footer>{c.nome}</footer>}
+                </blockquote>
+              ))}
+            </div>
+            {d.link_rotulo && d.link_href && (
+              <p className="lp-citacoes-link">
+                <a href={d.link_href.startsWith("/") ? linkInterno(ctx.base, d.link_href) : d.link_href}
+                  target={d.link_href.startsWith("/") ? undefined : "_blank"} rel="noopener noreferrer">{d.link_rotulo}</a>
+              </p>
+            )}
+          </div>
+        </section>
+      ) : null;
+    }
+
+    case "passos": {
+      const itens = (d.itens ?? []).filter((x) => x.trim());
+      return itens.length > 0 ? (
+        <section className="lp-secao">
+          {d.titulo && <h2 className="lp-titulo" style={estTit}>{d.titulo}</h2>}
+          <ol className="lp-passos">
+            {itens.map((x, i) => (
+              <li key={i}><span>{String(i + 1).padStart(2, "0")}</span>{x}</li>
+            ))}
+          </ol>
+        </section>
+      ) : null;
+    }
+
+    case "perguntas": {
+      const itens = (d.perguntas ?? []).filter((x) => x.pergunta.trim());
+      return itens.length > 0 ? (
+        <section className="lp-secao">
+          {d.titulo && <h2 className="lp-titulo" style={estTit}>{d.titulo}</h2>}
+          <div className="lp-perguntas">
+            {itens.map((x, i) => (
+              <div key={i}>
+                <h3>{x.pergunta}</h3>
+                {x.resposta && <p>{x.resposta}</p>}
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null;
+    }
+
+    case "chamada": {
+      const href = linkWhatsApp(d.numero || ctx.whatsappFallback, d.mensagem);
+      return (
+        <section className="lp-chamada">
+          <div className="lp-secao">
+            {d.titulo && <h2 style={estTit}>{d.titulo}</h2>}
+            {d.texto && <p>{d.texto}</p>}
+            {href && <LinkConversao href={href} tipo="contato" className="lp-btn-claro">{(d.botao_texto ?? "").trim() || "Conversar no WhatsApp"}</LinkConversao>}
+          </div>
+        </section>
+      );
+    }
 
     case "divisor":
       return <hr className="lp-divisor" />;

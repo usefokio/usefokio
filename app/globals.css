@@ -450,3 +450,41 @@ a {
 .lp-texto-2col h2, .lp-texto-2col h3 { break-after: avoid; }
 .lp-texto-2col ul, .lp-texto-2col p { break-inside: avoid; }
 @media (max-width: 640px) { .lp-texto-2col { columns: 1; } }
+
+/* ── Blocos de página de campanha (topo com foto ao lado, colunas, depoimentos, passos, FAQ, chamada) ── */
+.lp-topo-lado { display: flex; flex-wrap: wrap; gap: 56px; align-items: center; }
+.lp-topo-lado-texto { flex: 999 1 420px; min-width: 0; }
+.lp-topo-lado-texto h1 { font-family: var(--site-fonte-titulo), Georgia, serif; font-weight: 400; font-size: calc(56px * var(--lp-esc-tit, 1)); line-height: 1.08; color: var(--site-titulo); margin: 0 0 24px; }
+.lp-topo-lado-p { font-size: 18px; line-height: 1.65; color: var(--site-texto); margin: 0 0 32px; max-width: 48ch; }
+.lp-topo-lado-apoio { font-size: 14px; color: var(--site-suave); margin: 18px 0 0; }
+.lp-topo-lado-foto { flex: 1 1 320px; min-width: 0; }
+.lp-topo-lado-foto img { width: 100%; aspect-ratio: 3 / 4; object-fit: cover; display: block; }
+.lp-btn-escuro, .lp-btn-claro { display: inline-block; text-decoration: none; font-size: 16px; font-weight: 600; padding: 16px 30px; border-radius: 3px; min-height: 44px; box-sizing: border-box; }
+.lp-btn-escuro { background: var(--site-titulo); color: var(--site-fundo); }
+.lp-btn-claro { background: var(--site-fundo); color: var(--site-titulo); }
+.lp-rotulo { font-size: 13px; font-weight: 600; letter-spacing: 0.09em; text-transform: uppercase; color: var(--site-suave); margin: 0 0 14px; }
+.lp-colunas-texto { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 40px; }
+.lp-casal-sub { font-size: 14px; color: var(--site-suave); margin-top: 4px; }
+.lp-casal-link { display: inline-block; font-size: 14px; margin-top: 8px; color: var(--site-titulo); text-decoration: underline; text-underline-offset: 3px; }
+.lp-faixa-suave { background: var(--site-superficie); }
+.lp-citacoes { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 32px; }
+.lp-citacoes blockquote { margin: 0; font-size: 16px; line-height: 1.7; color: var(--site-texto); }
+.lp-citacoes blockquote p { margin: 0 0 16px; }
+.lp-citacoes blockquote footer { font-size: 14px; color: var(--site-suave); }
+.lp-citacoes-link { font-size: 16px; margin: 32px 0 0; }
+.lp-citacoes-link a, .lp-colunas-texto a { color: var(--site-titulo); }
+.lp-passos { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 28px; }
+.lp-passos li { font-size: 16px; line-height: 1.6; color: var(--site-texto); border-top: 2px solid var(--site-titulo); padding-top: 14px; }
+.lp-passos li span { display: block; font-size: 13px; color: var(--site-suave); margin-bottom: 6px; }
+.lp-perguntas { display: flex; flex-direction: column; gap: 26px; max-width: 72ch; }
+.lp-perguntas h3 { font-size: 18px; font-weight: 600; color: var(--site-titulo); margin: 0 0 8px; }
+.lp-perguntas p { font-size: 16px; line-height: 1.7; color: var(--site-texto); margin: 0; }
+.lp-chamada { background: var(--site-titulo); color: var(--site-fundo); text-align: center; }
+.lp-chamada h2 { font-family: var(--site-fonte-titulo), Georgia, serif; font-weight: 400; font-size: calc(42px * var(--lp-esc-tit, 1)); margin: 0 0 14px; color: var(--site-fundo); }
+.lp-chamada p { font-size: 17px; opacity: 0.85; margin: 0 0 30px; }
+@media (max-width: 640px) {
+  .lp-topo-lado { gap: 32px; }
+  .lp-topo-lado-texto h1 { font-size: calc(38px * var(--lp-esc-tit, 1)); }
+  .lp-topo-lado-foto img { aspect-ratio: 4 / 5; }
+  .lp-chamada h2 { font-size: calc(32px * var(--lp-esc-tit, 1)); }
+}
