@@ -29,6 +29,16 @@ function linkInterno(base: string, href: string) {
 
 // Estilo de imagem a partir das opções do bloco (mesmo vocabulário da Aparência).
 // Sem `proporcao` escolhida, devolve {} — a imagem sai exatamente como saía antes.
+// Imagem responsiva pelo otimizador do Next (/_next/image): versões em várias larguras (o celular
+// não baixa a de desktop) e WebP para quem aceita, JPEG para os demais. Só fotos do nosso storage;
+// qualquer outra URL segue como está.
+const HOSTS_OTIMIZAVEIS = /^https:\/\/(sites|arquivos)\.usefokio\.com\.br\//;
+function imgResponsiva(url: string, larguras: number[], sizes: string) {
+  if (!HOSTS_OTIMIZAVEIS.test(url)) return { src: url };
+  const v = (w: number) => `/_next/image?url=${encodeURIComponent(url)}&w=${w}&q=78`;
+  return { src: v(larguras[larguras.length - 1]), srcSet: larguras.map((w) => `${v(w)} ${w}w`).join(", "), sizes };
+}
+
 function estiloImagem(d: SiteBloco["dados"], foco?: { foco_x?: number | null; foco_y?: number | null }): CSSProperties {
   if (!d.proporcao) return {};
   return {
@@ -145,7 +155,7 @@ function Bloco({ bloco, ctx }: { bloco: SiteBloco; ctx: ContextoBlocos }) {
             {d.titulo && <h2 className="lp-pacote-nome" style={estTit}>{d.titulo}</h2>}
             {d.html && <ConteudoRico style={{ fontSize: 16, lineHeight: 1.8 }} html={d.html} />}
           </div>
-          {d.imagem_url && <img className="lp-duas-img" src={d.imagem_url} alt={d.imagem_alt || d.titulo || ""} loading="lazy" style={estiloImagem(d)} />}
+          {d.imagem_url && <img className="lp-duas-img" {...imgResponsiva(d.imagem_url, [480, 800, 1600], "(max-width: 760px) 100vw, 50vw")} alt={d.imagem_alt || d.titulo || ""} loading="lazy" decoding="async" width={1600} height={1067} style={estiloImagem(d)} />}
         </div>
       );
 
@@ -255,7 +265,7 @@ function Bloco({ bloco, ctx }: { bloco: SiteBloco; ctx: ContextoBlocos }) {
             {d.cards!.map((c, i) => {
               const conteudo = (
                 <>
-                  {c.foto_url && <img src={c.foto_url} alt={c.nome} loading="lazy" style={estiloImagem(d)} />}
+                  {c.foto_url && <img {...imgResponsiva(c.foto_url, [480, 800], "(max-width: 640px) 100vw, 33vw")} alt={c.nome} loading="lazy" decoding="async" width={800} height={533} style={estiloImagem(d)} />}
                   <div className="lp-casal-nome">{c.nome}</div>
                   {c.subtitulo && <div className="lp-casal-sub">{c.subtitulo}</div>}
                   {d.link_rotulo && c.href && <span className="lp-casal-link">{d.link_rotulo}</span>}
@@ -324,7 +334,8 @@ function Bloco({ bloco, ctx }: { bloco: SiteBloco; ctx: ContextoBlocos }) {
           </div>
           {d.imagem_url && (
             <div className="lp-topo-lado-foto">
-              <img src={d.imagem_url} alt={d.imagem_alt || d.titulo || ""} fetchPriority="high" loading="eager"
+              <img {...imgResponsiva(d.imagem_url, [480, 800, 1600], "(max-width: 760px) 100vw, 45vw")} alt={d.imagem_alt || d.titulo || ""}
+                fetchPriority="high" loading="eager" decoding="async" width={1200} height={1600}
                 style={{ objectPosition: objectPositionDe(d) }} />
             </div>
           )}
