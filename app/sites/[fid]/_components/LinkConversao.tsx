@@ -17,7 +17,7 @@ function origemCampanha(): string | null {
   return null;
 }
 
-function comOrigem(href: string): string {
+export function comOrigem(href: string): string {
   if (!/^https:\/\/wa\.me\//.test(href)) return href;
   const origem = origemCampanha();
   if (!origem) return href;

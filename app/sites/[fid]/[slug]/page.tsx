@@ -101,6 +101,11 @@ export default async function LandingPage({ params }: { params: Promise<{ fid: s
 
   // Motor de blocos: usa a lista salva; landings do formato antigo são convertidas na hora.
   const blocos = d.blocos && d.blocos.length > 0 ? d.blocos : dadosParaBlocos(d);
+  // Mensagem pronta da página: o botão flutuante de WhatsApp usa a mesma dos botões da landing.
+  const msgWhats = blocos.find((x) => !!x.dados.mensagem?.trim() && (
+    ["whatsapp", "topo_lado", "chamada"].includes(x.tipo) || (x.tipo === "botao" && (x.dados.acao ?? "whatsapp") === "whatsapp")
+  ))?.dados.mensagem?.trim() || null;
+  const marcaMsg = msgWhats ? <span hidden data-whats-mensagem={msgWhats} /> : null;
 
   // Identificação (via cookie de acesso, gate no servidor):
   //  • 'pagina'  → sem o cookie, renderiza só o formulário (o conteúdo nem entra no HTML);
@@ -155,6 +160,7 @@ export default async function LandingPage({ params }: { params: Promise<{ fid: s
             </span>
           ))}
         </nav>
+        {marcaMsg}
         <LandingView landingId={lp.id} />
         {gatearPagina ? <GateIdentificacao landingId={lp.id} titulo={lp.titulo} /> : conteudo}
       </>
@@ -166,6 +172,7 @@ export default async function LandingPage({ params }: { params: Promise<{ fid: s
       {/* Landing não leva o header/menu do site (tem hero/logo próprios). <style> inline (fora do
           pipeline do Tailwind/Lightning CSS) garante o efeito em dev e prod, sem refatorar rotas. */}
       <style>{`.site-header{display:none!important}`}</style>
+      {marcaMsg}
       <LandingView landingId={lp.id} />
       {gatearPagina ? <GateIdentificacao landingId={lp.id} titulo={lp.titulo} /> : conteudo}
     </>
