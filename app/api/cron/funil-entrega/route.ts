@@ -4,11 +4,13 @@
 //     galerias que entraram no funil depois de ligar a opção.
 // Não envia se o cliente já respondeu, se há pagamento pendente, se a régua está pausada ou se não há e-mail.
 // WhatsApps e exclusão são manuais (bloco Tarefas). O sistema nunca apaga fotos nem mexe em links.
+// Ao final, cada fotógrafo com ANDAMENTO no dia (entrada no funil, e-mail enviado, falha ou tarefa que venceu
+// hoje) recebe um resumo por e-mail, com as tarefas manuais pendentes.
 import { createAdminClient } from "@/lib/supabase/admin";
 import { fetchAllRows } from "@/lib/supabase/fetchAll";
-import { getResend, APP_URL } from "@/lib/email/resend";
+import { getResend, APP_URL, FROM_DEFAULT } from "@/lib/email/resend";
 import { htmlEmailCliente, remetenteCliente } from "@/lib/email/clienteHtml";
-import { REGRAS_FUNIL_PADRAO, baseDaRegua, proximaEtapa, type RegrasFunil } from "@/lib/campanha/regua";
+import { REGRAS_FUNIL_PADRAO, baseDaRegua, proximaEtapa, diasDeAtraso, type RegrasFunil } from "@/lib/campanha/regua";
 import { substituirVars, assinaturaTexto, CAMPANHA_EMAIL1_DEFAULT, CAMPANHA_EMAIL2_DEFAULT, ASSUNTO_EMAIL1, ASSUNTO_EMAIL2 } from "@/lib/campanha/textos";
 import { registrarContato } from "@/lib/campanha/servidor";
 import { enderecoRespostas } from "@/lib/campanha/respostasEmail";
@@ -64,6 +66,12 @@ export async function GET(req: Request) {
   const registroDe = (g: GaleriaCron): Registro | null =>
     Array.isArray(g.respostas_campanha) ? (g.respostas_campanha[0] ?? null) : g.respostas_campanha;
 
+  // Andamento do dia, por fotógrafo (vira o resumo enviado no fim)
+  type Andamento = { inscritas: string[]; enviados: string[]; falhas: string[] };
+  const andamento = new Map<string, Andamento>();
+  const and = (fid: string) => { let a = andamento.get(fid); if (!a) { a = { inscritas: [], enviados: [], falhas: [] }; andamento.set(fid, a); } return a; };
+  const nomeGaleria = (g: GaleriaCron) => `${g.titulo}${g.clientes?.nome ? ` (${g.clientes.nome})` : ""}`;
+
   // 1. Entrada automática no funil
   const paraInscrever = galerias.filter((g) => !registroDe(g) && regrasDe(g.fotografo_id).funil_entrar_auto);
   let inscritas = 0;
@@ -74,7 +82,7 @@ export async function GET(req: Request) {
     if (error) console.error("[cron/funil-entrega] inscrição:", error.message);
     for (const n of (novos ?? []) as (Registro & { galeria_id: string })[]) {
       const g = galerias.find((x) => x.id === n.galeria_id);
-      if (g) { g.respostas_campanha = n; inscritas++; }
+      if (g) { g.respostas_campanha = n; inscritas++; and(g.fotografo_id).inscritas.push(nomeGaleria(g)); }
     }
   }
 
@@ -144,6 +152,7 @@ export async function GET(req: Request) {
       });
       if (error) throw new Error(error.message);
       enviados++;
+      and(g.fotografo_id).enviados.push(`${prox.etapa === "email_1" ? "1º" : "2º"} e-mail → ${nomeGaleria(g)}`);
       await registrarContato(admin, {
         fotografo_id: g.fotografo_id, galeria_id: g.id, etapa: prox.etapa, canal: "email", modo: "auto", resend_id: data?.id ?? null,
       });
@@ -151,10 +160,62 @@ export async function GET(req: Request) {
       // Devolve a etapa para tentar de novo no próximo dia
       await admin.from("respostas_campanha").update({ estagio: reg.estagio, [campo]: null }).eq("id", reg.id);
       erros.push(`${g.id}: ${e instanceof Error ? e.message : String(e)}`);
+      and(g.fotografo_id).falhas.push(`${nomeGaleria(g)}: ${e instanceof Error ? e.message : String(e)} (tenta de novo amanhã)`);
     }
     await esperar(600);
   }
 
   if (erros.length) console.error("[cron/funil-entrega] falhas de envio:", erros);
-  return Response.json({ ok: true, inscritas, enviados, erros: erros.length });
+
+  // 3. Resumo do dia para o fotógrafo (só quando houve andamento)
+  const ROTULO: Record<string, string> = { whatsapp_1: "1º WhatsApp", whatsapp_2: "2º WhatsApp (aviso de exclusão)", exclusao: "Excluir as fotos" };
+  const UM_DIA = 24 * 60 * 60 * 1000;
+  let resumos = 0;
+  for (const fid of fids) {
+    const f = fotoPor.get(fid);
+    if (!f?.email) continue;
+    const regras = regrasDe(fid);
+    const tarefas: { texto: string; atraso: number; novaHoje: boolean }[] = [];
+    const respondidas: string[] = [];
+    for (const g of galerias.filter((x) => x.fotografo_id === fid)) {
+      const reg = registroDe(g);
+      if (!reg || reg.ignorar_funil || reg.estagio === "encerrado" || reg.estagio === "excluido") continue;
+      if (reg.pausado_em) { respondidas.push(nomeGaleria(g)); continue; }
+      if (reg.resposta) continue;
+      const prox = proximaEtapa(reg, baseDaRegua(g.expires_at, reg.created_at), !!g.clientes?.email, regras);
+      if (!prox || !ROTULO[prox.etapa] || prox.venceEm.getTime() > agora.getTime()) continue;
+      const atraso = diasDeAtraso(prox.venceEm, agora);
+      tarefas.push({ texto: `${ROTULO[prox.etapa]} — ${nomeGaleria(g)}`, atraso, novaHoje: agora.getTime() - prox.venceEm.getTime() < UM_DIA });
+    }
+    const a = andamento.get(fid);
+    const houveAndamento = !!a && (a.inscritas.length + a.enviados.length + a.falhas.length > 0);
+    if (!houveAndamento && !tarefas.some((t) => t.novaHoje)) continue;
+
+    const esc = (x: string) => x.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const secao = (titulo: string, itens: string[]) => itens.length
+      ? `<h3 style="font-size:15px;margin:22px 0 8px;color:#222">${titulo} (${itens.length})</h3><ul style="margin:0;padding-left:20px;color:#333;font-size:14px;line-height:1.7">${itens.map((i) => `<li>${esc(i)}</li>`).join("")}</ul>`
+      : "";
+    const html = `<div style="font-family:sans-serif;max-width:620px">
+      <p style="font-size:15px;color:#222;margin:0 0 6px">Resumo de hoje do funil das galerias expiradas.</p>
+      ${secao("E-mails enviados aos clientes", a?.enviados ?? [])}
+      ${secao("Entraram no funil", a?.inscritas ?? [])}
+      ${secao("Falhas de envio", a?.falhas ?? [])}
+      ${secao("Tarefas para você fazer", tarefas.sort((x, y) => y.atraso - x.atraso).map((t) => `${t.texto}${t.atraso > 0 ? ` — atrasada há ${t.atraso} dia${t.atraso > 1 ? "s" : ""}` : " — hoje"}`))}
+      ${secao("Clientes que responderam (régua pausada, aguardando você)", respondidas)}
+      <p style="margin:26px 0 0"><a href="${APP_URL}/entrega/campanha" style="color:#2563EB;font-size:14px">Abrir o funil</a></p>
+    </div>`;
+    try {
+      const { error } = await getResend().emails.send({
+        from: FROM_DEFAULT, to: f.email,
+        subject: `Funil das galerias — ${a?.enviados.length ?? 0} e-mail(s) enviado(s)${tarefas.length ? `, ${tarefas.length} tarefa(s)` : ""}`,
+        html,
+      });
+      if (error) throw new Error(error.message);
+      resumos++;
+    } catch (e) {
+      console.error("[cron/funil-entrega] resumo:", fid, e instanceof Error ? e.message : e);
+    }
+  }
+
+  return Response.json({ ok: true, inscritas, enviados, erros: erros.length, resumos });
 }
