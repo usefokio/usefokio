@@ -4,14 +4,23 @@
 // normalizado com DDI 55 (linkWhatsApp). Registra conversão "Contact" no clique. Escondido na impressão.
 // Se a página declara uma mensagem pronta (<span data-whats-mensagem> — ex.: landing com botões de
 // WhatsApp), o flutuante usa a MESMA mensagem; e leva a marca de origem da campanha (gclid/utm).
-import type { MouseEvent } from "react";
+import { useEffect, useState, type MouseEvent } from "react";
+import { usePathname } from "next/navigation";
 import { linkWhatsApp } from "@/lib/site/whatsapp";
 import { rastrearConversao } from "@/lib/site/tracking";
 import { comOrigem } from "./LinkConversao";
 
 export function BotaoWhatsAppFlutuante({ numero }: { numero: string }) {
-  const href = linkWhatsApp(numero);
-  if (!href) return null;
+  const padrao = linkWhatsApp(numero);
+  const pathname = usePathname();
+  // O link já nasce com a mensagem da página (lida ao abrir e a cada troca de página) — não depende
+  // de trocar o endereço no clique, o que falhava em alguns celulares.
+  const [href, setHref] = useState(padrao);
+  useEffect(() => {
+    const msg = document.querySelector<HTMLElement>("[data-whats-mensagem]")?.dataset.whatsMensagem;
+    setHref(comOrigem(linkWhatsApp(numero, msg) || padrao));
+  }, [numero, padrao, pathname]);
+  if (!padrao) return null;
   return (
     <a
       href={href}
@@ -23,7 +32,7 @@ export function BotaoWhatsAppFlutuante({ numero }: { numero: string }) {
       onClick={(e: MouseEvent<HTMLAnchorElement>) => {
         rastrearConversao("contato");
         const msg = document.querySelector<HTMLElement>("[data-whats-mensagem]")?.dataset.whatsMensagem;
-        e.currentTarget.href = comOrigem(linkWhatsApp(numero, msg) || href);
+        e.currentTarget.href = comOrigem(linkWhatsApp(numero, msg) || padrao);
       }}
     >
       <svg viewBox="0 0 24 24" width="30" height="30" fill="currentColor" aria-hidden>
