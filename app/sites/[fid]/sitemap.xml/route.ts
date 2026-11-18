@@ -38,7 +38,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ fid:
     for (let i = 0; i < ids.length; i += 100) {
       const lote = ids.slice(i, i + 100);
       const rows = await fetchAllRows<Record<string, string>>(
-        (sb, from, to) => sb.from(tabela).select(`${coluna}, url_publica`).in(coluna, lote).order("ordem").range(from, to), admin);
+        (sb, from, to) => sb.from(tabela).select(`id, ${coluna}, url_publica`).in(coluna, lote).order("ordem").order("id").range(from, to), admin);
       for (const r of rows ?? []) if (r.url_publica) mapa.set(r[coluna], [...(mapa.get(r[coluna]) ?? []), r.url_publica]);
     }
     return mapa;
