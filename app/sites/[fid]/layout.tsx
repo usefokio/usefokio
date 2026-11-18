@@ -12,6 +12,7 @@ import { classesFontes, FONTE_VAR } from "./_fontes";
 import { SiteHeader } from "./_components/SiteHeader";
 import { ProtecaoImagem } from "./_components/ProtecaoImagem";
 import { BotaoWhatsAppFlutuante } from "./_components/BotaoWhatsAppFlutuante";
+import { RastreioNavegacao } from "./_components/RastreioNavegacao";
 
 // Fundo de uma barra (header/rodapé): cor própria (ou a do tema) + opacidade (transparência).
 function fundoBarra(b: BarraConfig, corTema: string): string {
@@ -174,6 +175,7 @@ export default async function SitePublicoLayout({ children, params }: { children
     >
       <ProtecaoImagem />
       <ScriptsRastreamento analytics={config?.analytics_head ?? null} pixel={config?.facebook_pixel ?? null} adsId={config?.google_ads_id ?? null} adsLabel={config?.google_ads_label ?? null} />
+      <RastreioNavegacao />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       {/* Corpo: em orientação lateral vira linha (menu à esquerda); no mobile o CSS

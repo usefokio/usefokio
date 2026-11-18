@@ -27,6 +27,7 @@ export function BotaoWhatsAppFlutuante({ numero }: { numero: string }) {
       target="_blank"
       rel="noopener noreferrer"
       className="site-whats-flutuante"
+      data-conversao="1"
       aria-label="Conversar no WhatsApp"
       title="Conversar no WhatsApp"
       onClick={(e: MouseEvent<HTMLAnchorElement>) => {

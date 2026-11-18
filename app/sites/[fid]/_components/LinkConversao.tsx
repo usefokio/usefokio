@@ -46,6 +46,7 @@ export function LinkConversao({ href, tipo, className, style, children, target =
       className={className}
       style={style}
       aria-label={ariaLabel}
+      data-conversao="1"
       onClick={(e: MouseEvent<HTMLAnchorElement>) => {
         rastrearConversao(tipo);
         e.currentTarget.href = comOrigem(href);
