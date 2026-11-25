@@ -21,6 +21,7 @@ import { normalizarVideoUrl } from "@/lib/utils/youtube";
 import { nomeCategoria, resolverCategoria } from "@/lib/site/categorias";
 import { CategoriaCombobox } from "@/app/(dashboard)/site/_components/CategoriaCombobox";
 import type { SiteTrabalho, SiteTrabalhoFoto, SiteCategoria } from "@/lib/supabase/types";
+import { ModalConfirmacao } from "@/app/(dashboard)/_components/ModalConfirmacao";
 
 function slugify(texto: string): string {
   // NFD separa a letra da marca de acento; o filtro ASCII descarta as marcas.
@@ -327,10 +328,14 @@ export function TrabalhoForm({ trabalhoId }: { trabalhoId?: string }) {
     await Promise.all(reordenadas.map((f, i) => f.ordem === i ? null : supabase.from("site_trabalho_fotos").update({ ordem: i }).eq("id", f.id)));
   }
 
+  // Confirmações na janela do sistema (a caixa do navegador pode ter sido bloqueada pelo usuário)
+  const [confirmar, setConfirmar] = useState<null | "todas" | "trabalho">(null);
+  const [excluindoTodas, setExcluindoTodas] = useState(false);
+
   async function removerFoto(foto: SiteTrabalhoFoto) {
-    if (!confirm("Remover esta foto?")) return;
     const supabase = createClient();
-    await supabase.from("site_trabalho_fotos").delete().eq("id", foto.id);
+    const { error } = await supabase.from("site_trabalho_fotos").delete().eq("id", foto.id);
+    if (error) { setMsg({ tipo: "erro", texto: "Não foi possível remover a foto: " + error.message }); return; }
     if (foto.storage_path) await deleteFilesClient([{ storage_path: foto.storage_path, url_publica: foto.url_publica }]);
     setFotos((prev) => prev.filter((f) => f.id !== foto.id));
     if (capaUrl === foto.url_publica) {
@@ -340,14 +345,30 @@ export function TrabalhoForm({ trabalhoId }: { trabalhoId?: string }) {
   }
 
   // Exclui o trabalho inteiro: arquivos (R2/Supabase) + fotos + registro. Permanente.
+  // Exclui TODAS as fotos do trabalho (o trabalho continua). Uma confirmação só.
+  async function removerTodas() {
+    if (!idAtual) return;
+    setExcluindoTodas(true); setMsg(null);
+    const supabase = createClient();
+    const { error } = await supabase.from("site_trabalho_fotos").delete().eq("trabalho_id", idAtual);
+    if (error) {
+      setExcluindoTodas(false); setConfirmar(null);
+      setMsg({ tipo: "erro", texto: "Não foi possível excluir as fotos: " + error.message });
+      return;
+    }
+    const arquivos = fotos
+      .filter((f): f is SiteTrabalhoFoto & { storage_path: string } => !!f.storage_path)
+      .map((f) => ({ storage_path: f.storage_path, url_publica: f.url_publica }));
+    if (arquivos.length > 0) await deleteFilesClient(arquivos);
+    setFotos([]);
+    if (capaUrl) { setCapaUrl(null); await supabase.from("site_trabalhos").update({ capa_url: null }).eq("id", idAtual); }
+    setExcluindoTodas(false); setConfirmar(null);
+    setMsg({ tipo: "ok", texto: "Fotos excluídas." });
+  }
+
   async function excluirTrabalho() {
     if (!idAtual) return;
-    const n = fotos.length;
-    const ok = confirm(
-      `Excluir o trabalho "${titulo || "sem título"}" e ${n} foto${n !== 1 ? "s" : ""}?\n\n` +
-      "Esta ação é PERMANENTE: a página sai do ar e as fotos são apagadas.",
-    );
-    if (!ok) return;
+    setConfirmar(null);
     setSalvando(true); setMsg(null);
     const supabase = createClient();
     try {
@@ -409,7 +430,7 @@ export function TrabalhoForm({ trabalhoId }: { trabalhoId?: string }) {
           ← Voltar para Galerias
         </button>
         {existe && (
-          <button onClick={excluirTrabalho} disabled={salvando} title="Excluir este trabalho e todas as fotos"
+          <button onClick={() => setConfirmar("trabalho")} disabled={salvando} title="Excluir este trabalho e todas as fotos"
             style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: 8, border: "1px solid rgba(220,38,38,0.4)", background: "transparent", fontSize: 12, fontWeight: 600, color: "#DC2626", cursor: salvando ? "default" : "pointer" }}>
             🗑 Excluir trabalho
           </button>
@@ -501,7 +522,15 @@ export function TrabalhoForm({ trabalhoId }: { trabalhoId?: string }) {
             </div>
           )}
 
-          {fotos.length > 1 && <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: "0 0 8px" }}>Arraste as fotos para reordenar.</p>}
+          {fotos.length > 0 && (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, margin: "0 0 8px", flexWrap: "wrap" }}>
+              <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: 0 }}>{fotos.length > 1 ? "Arraste as fotos para reordenar. " : ""}A 🗑 de cada foto apaga na hora.</p>
+              <button onClick={() => setConfirmar("todas")} disabled={excluindoTodas}
+                style={{ padding: "6px 12px", borderRadius: 7, border: "1px solid #DC2626", background: "transparent", color: "#DC2626", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+                🗑 Excluir todas as fotos ({fotos.length})
+              </button>
+            </div>
+          )}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 10 }}>
             {fotos.map((f, i) => {
               const ehCapa = capaUrl === f.url_publica;
@@ -558,6 +587,26 @@ export function TrabalhoForm({ trabalhoId }: { trabalhoId?: string }) {
         />
       )}
 
+      <ModalConfirmacao
+        aberto={confirmar === "todas"}
+        titulo="Excluir todas as fotos?"
+        mensagem={<>As <strong>{fotos.length} fotos</strong> deste trabalho serão apagadas de vez. O trabalho continua, sem fotos.</>}
+        textoConfirmar="Excluir todas"
+        perigo
+        ocupado={excluindoTodas}
+        onConfirmar={removerTodas}
+        onCancelar={() => setConfirmar(null)}
+      />
+      <ModalConfirmacao
+        aberto={confirmar === "trabalho"}
+        titulo="Excluir este trabalho?"
+        mensagem={<>O trabalho <strong>“{titulo || "sem título"}”</strong> e suas {fotos.length} foto{fotos.length !== 1 ? "s" : ""} serão apagados. A página sai do ar. Esta ação é permanente.</>}
+        textoConfirmar="Excluir trabalho"
+        perigo
+        ocupado={salvando}
+        onConfirmar={excluirTrabalho}
+        onCancelar={() => setConfirmar(null)}
+      />
       <ModalNaoSalvo
         aberto={estado.modalAberto}
         salvando={salvando}
